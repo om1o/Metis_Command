@@ -1,0 +1,17 @@
+ollama
+fastapi
+uvicorn
+streamlit
+streamlit-lottie
+requests
+pyautogui
+mss
+Pillow
+pyinstaller
+SpeechRecognition
+TTS
+chromadb
+playwright
+peft
+psutil
+supabase
