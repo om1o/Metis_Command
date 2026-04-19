@@ -1,0 +1,30 @@
+# Ollama Modelfile for GLM 5.1 (a.k.a. ChatGLM 5.1)
+#
+# GLM 5.1 is not on Ollama's public registry yet. When Zhipu or the
+# community publishes a gguf conversion on Hugging Face, download it
+# and import with:
+#
+#     ollama create glm5.1 -f modelfiles/Glm51.Modelfile
+#
+# Update the FROM line to point at the .gguf file you downloaded.
+# Recommended quantizations: Q4_K_M for Lite tier, Q5_K_M for Pro,
+# Q8_0 or F16 for Sovereign.
+
+FROM ./glm-5.1-instruct.Q5_K_M.gguf
+
+# ChatML-style template; adjust if the official GLM 5.1 chat format differs.
+TEMPLATE """<|system|>
+{{ .System }}
+<|user|>
+{{ .Prompt }}
+<|assistant|>
+{{ .Response }}"""
+
+SYSTEM """You are GLM 5.1 running as the Scholar agent inside Metis. Your specialty is reading long documents and extracting precise, cited answers. When the user provides text, return structured summaries with verbatim quotes. Never fabricate sources."""
+
+PARAMETER temperature 0.4
+PARAMETER num_ctx 32768
+PARAMETER top_p 0.9
+PARAMETER repeat_penalty 1.08
+PARAMETER stop "<|user|>"
+PARAMETER stop "<|system|>"

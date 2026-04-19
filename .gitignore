@@ -1,0 +1,58 @@
+# ── Secrets & environment ────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Virtual environments ─────────────────────────────────────────────────────
+metis-env/
+venv/
+.venv/
+env/
+
+# ── Python bytecode & caches ─────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+
+# ── Metis runtime state (user data, not source) ──────────────────────────────
+logs/
+metis_db/
+artifacts/
+identity/brains/
+identity/projects/
+identity/backups/
+identity/user_matrix.json
+identity/roster.json
+identity/schedules.json
+identity/wallet.json
+identity/persistent_agents.json
+identity/*.mts
+identity/personas.json
+identity/.active
+
+# ── Build & distribution ─────────────────────────────────────────────────────
+build/
+dist/
+*.egg-info/
+*.spec.tmp
+
+# ── IDE / OS noise ───────────────────────────────────────────────────────────
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# ── ML / model weights (belong on HF/Ollama, not git) ────────────────────────
+*.bin
+*.safetensors
+*.gguf
+*.onnx
