@@ -36,6 +36,16 @@ identity/persistent_agents.json
 identity/*.mts
 identity/personas.json
 identity/.active
+identity/local_auth.token
+identity/brains/*/compact_trash.jsonl
+logs/locks/
+
+# ── Website + build artifacts ────────────────────────────────────────────────
+site/node_modules/
+site/.next/
+site/out/
+site/.vercel/
+.metis_setup_done
 
 # ── Build & distribution ─────────────────────────────────────────────────────
 build/

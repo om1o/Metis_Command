@@ -27,9 +27,105 @@ from pathlib import Path
 from typing import Any, Callable, Iterable
 
 
-LOGS_DIR = Path("logs")
+# ── Path roots + cross-process file lock + structured log ───────────────────
+#
+# Every module that reads or writes state should use PATHS.* so Metis behaves
+# the same whether launched from the repo root, a desktop shortcut, or a tray
+# icon.  `file_lock` is a cross-process advisory lock (msvcrt on Windows,
+# fcntl elsewhere) used to protect JSON state files from torn writes when
+# the UI and API bridge run as separate processes.
+
+from types import SimpleNamespace as _NS  # noqa: E402
+from contextlib import contextmanager     # noqa: E402
+
+_ROOT = Path(__file__).resolve().parent
+PATHS = _NS(
+    root=_ROOT,
+    logs=_ROOT / "logs",
+    identity=_ROOT / "identity",
+    artifacts=_ROOT / "artifacts",
+    metis_db=_ROOT / "metis_db",
+)
+for _p in (PATHS.logs, PATHS.identity, PATHS.artifacts, PATHS.metis_db):
+    try:
+        _p.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
+
+LOGS_DIR = PATHS.logs
 AUDIT_LOG = LOGS_DIR / "audit.jsonl"
 CONFIRM_TOKEN_FILE = LOGS_DIR / "confirmed.jsonl"
+
+_LOCK_DIR = PATHS.logs / "locks"
+_LOCK_DIR.mkdir(parents=True, exist_ok=True)
+
+
+@contextmanager
+def file_lock(key: str, *, timeout: float = 10.0):
+    """
+    Acquire a cross-process advisory lock keyed by `key`.
+
+    Usage:
+        with file_lock("wallet"):
+            data = read()
+            data["x"] += 1
+            write(data)
+    """
+    import time as _t
+    lock_path = _LOCK_DIR / f"{key}.lock"
+    fh = open(lock_path, "a+")
+    try:
+        deadline = _t.time() + timeout
+        acquired = False
+        if os.name == "nt":
+            import msvcrt
+            while not acquired:
+                try:
+                    msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
+                    acquired = True
+                except OSError:
+                    if _t.time() > deadline:
+                        _file_lock_audit("file_lock_timeout", key)
+                        raise TimeoutError(f"file_lock({key}) timed out")
+                    _t.sleep(0.05)
+        else:
+            import fcntl
+            while not acquired:
+                try:
+                    fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    acquired = True
+                except OSError:
+                    if _t.time() > deadline:
+                        _file_lock_audit("file_lock_timeout", key)
+                        raise TimeoutError(f"file_lock({key}) timed out")
+                    _t.sleep(0.05)
+        yield
+    finally:
+        try:
+            if os.name == "nt":
+                import msvcrt
+                try:
+                    msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
+                except OSError:
+                    pass
+            else:
+                import fcntl
+                try:
+                    fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+                except OSError:
+                    pass
+        finally:
+            fh.close()
+
+
+def _file_lock_audit(event: str, key: str) -> None:
+    """Deferred helper so file_lock can audit without referring to `audit`
+    before it's defined in the import order."""
+    try:
+        audit({"event": event, "key": key})
+    except Exception:
+        pass
+
 
 # ── Secret detection ─────────────────────────────────────────────────────────
 
@@ -192,6 +288,17 @@ def audit(event: dict[str, Any]) -> None:
             f.write(line + "\n")
     except Exception:
         pass
+
+
+def log(event: str, **fields: Any) -> None:
+    """Structured audit + optional stdout echo when METIS_VERBOSE=1.
+
+    Preferred over bare `print(...)` calls in hot paths.  Silent by default,
+    so existing UX doesn't change; opt-in visibility via env var.
+    """
+    audit({"event": event, **fields})
+    if os.getenv("METIS_VERBOSE"):
+        print(f"[{event}] " + " ".join(f"{k}={v!r}" for k, v in fields.items()))
 
 
 def tail_audit(n: int = 50) -> list[dict[str, Any]]:

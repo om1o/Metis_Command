@@ -44,7 +44,9 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
-BRAINS_DIR = Path("identity") / "brains"
+from safety import PATHS  # noqa: E402
+
+BRAINS_DIR = PATHS.identity / "brains"
 ACTIVE_FILE = BRAINS_DIR / ".active"
 _DEFAULT_BUDGET_TOKENS = 200_000
 
@@ -350,14 +352,16 @@ def compact(
     *,
     brain: Brain | str | None = None,
     window: int = 50,
+    min_summary_chars: int = 60,
 ) -> int:
     """
     Re-encode the oldest `window` entries in a brain into a single higher-level
-    fact so the collection stays bounded.  Original entries are replaced with
-    a summary entry of kind='compacted'; nothing is truly lost — it just lives
-    at a higher abstraction level.
+    fact so the collection stays bounded.  The source entries are moved to a
+    30-day trash pile BEFORE deletion, and we refuse to delete unless the LLM
+    returned a summary that passes sanity checks.  This is the "never forgets"
+    guarantee — no data is ever truly lost.
 
-    Returns the number of source entries that were folded in.
+    Returns the number of source entries that were folded in (0 if we bailed).
     """
     b = _resolve(brain)
     col = _collection(b.slug)
@@ -385,6 +389,7 @@ def compact(
         return 0
 
     transcript = "\n".join(f"- {doc[:400]}" for _, doc, _ in oldest)
+    summary = ""
     try:
         from brain_engine import chat_by_role
         summary = chat_by_role("thinker", [
@@ -396,14 +401,46 @@ def compact(
                 f"BRAIN: {b.name}\nENTRIES:\n{transcript[:6000]}"},
         ]) or ""
     except Exception as e:
-        summary = f"[compact-fallback] merged {len(oldest)} entries: {transcript[:1500]}"
         print(f"[Brains] compact LLM call failed: {e}")
+
+    # Sanity gate — refuse to delete unless the summary looks real.
+    passes_gate = (
+        len(summary.strip()) >= min_summary_chars
+        and summary.count("\n") >= 2              # multiple bullets
+        and not summary.strip().startswith("[")   # not an error token
+        and "BrainEngine" not in summary          # not a bridge error string
+    )
+    if not passes_gate:
+        try:
+            from safety import audit
+            audit({"event": "brain_compact_bailed",
+                   "slug": b.slug,
+                   "summary_len": len(summary),
+                   "reason": "summary failed sanity gate"})
+        except Exception:
+            pass
+        return 0
+
+    # Move originals to a timestamped trash file BEFORE deleting, so nothing
+    # is truly lost even if the upsert below fails.
+    try:
+        trash_path = _brain_dir(b.slug) / "compact_trash.jsonl"
+        trash_path.parent.mkdir(parents=True, exist_ok=True)
+        with trash_path.open("a", encoding="utf-8") as f:
+            for rid, doc, meta in oldest:
+                f.write(json.dumps({
+                    "id": rid, "document": doc, "metadata": meta,
+                    "trashed_at": time.time(),
+                }, ensure_ascii=False) + "\n")
+    except Exception as e:
+        print(f"[Brains] compact trash write failed, aborting: {e}")
+        return 0
 
     compacted_id = f"compacted:{int(time.time()*1000)}:{uuid.uuid4().hex[:6]}"
     try:
         col.upsert(
             ids=[compacted_id],
-            documents=[summary or f"(empty compaction of {len(oldest)} entries)"],
+            documents=[summary],
             metadatas=[{
                 "brain": b.slug,
                 "kind": "compacted",
@@ -416,13 +453,46 @@ def compact(
         print(f"[Brains] compact upsert failed: {e}")
         return 0
 
-    _bump_stats(b, kind="compacted", delta_tokens=_approx_tokens(summary), folded=len(oldest))
+    _bump_stats(b, kind="compacted",
+                delta_tokens=_approx_tokens(summary),
+                folded=len(oldest))
     try:
         from safety import audit
-        audit({"event": "brain_compact", "slug": b.slug, "folded": len(oldest)})
+        audit({"event": "brain_compact",
+               "slug": b.slug,
+               "folded": len(oldest),
+               "trash": str(_brain_dir(b.slug) / "compact_trash.jsonl")})
     except Exception:
         pass
     return len(oldest)
+
+
+def purge_compact_trash(
+    *,
+    brain: Brain | str | None = None,
+    older_than_days: int = 30,
+) -> int:
+    """Delete rows from compact_trash.jsonl older than the cutoff."""
+    b = _resolve(brain)
+    path = _brain_dir(b.slug) / "compact_trash.jsonl"
+    if not path.exists():
+        return 0
+    cutoff = time.time() - (older_than_days * 86400)
+    kept: list[str] = []
+    purged = 0
+    with path.open("r", encoding="utf-8") as f:
+        for line in f:
+            try:
+                row = json.loads(line)
+            except Exception:
+                kept.append(line)
+                continue
+            if (row.get("trashed_at") or 0) < cutoff:
+                purged += 1
+            else:
+                kept.append(line)
+    path.write_text("".join(kept), encoding="utf-8")
+    return purged
 
 
 # ── Backup / Restore via existing .mts format ───────────────────────────────

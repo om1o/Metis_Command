@@ -1,0 +1,30 @@
+# Metis Command — dev-only dependencies.
+# Compile with:
+#   pip-compile --generate-hashes --output-file=requirements-dev.txt requirements-dev.in
+#
+# Install with:
+#   pip install -r requirements.txt -r requirements-dev.txt
+
+-c requirements.txt
+
+# ── Test runners ────────────────────────────────────────────────────────────
+pytest>=8.2,<9
+pytest-cov>=5.0,<7
+pytest-asyncio>=0.23,<1
+responses>=0.25,<1
+respx>=0.21,<1
+
+# ── Static analysis ─────────────────────────────────────────────────────────
+ruff>=0.5,<1
+mypy>=1.10,<2
+types-requests>=2.31,<3
+
+# ── Dependency management + supply chain ────────────────────────────────────
+pip-tools>=7.4,<8
+pip-audit>=2.7,<3
+
+# ── Build / packaging ───────────────────────────────────────────────────────
+pyinstaller>=6.7,<7
+
+# ── Pre-commit ──────────────────────────────────────────────────────────────
+pre-commit>=3.7,<5

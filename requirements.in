@@ -1,0 +1,59 @@
+# Metis Command — runtime dependencies (source of truth).
+# Compile with:  pip-compile --generate-hashes --output-file=requirements.txt requirements.in
+# Upgrade with:  pip-compile --upgrade --generate-hashes --output-file=requirements.txt requirements.in
+#
+# Version bounds below are deliberately loose to let pip-compile pick the
+# highest compatible release each time we refresh.  The resulting
+# `requirements.txt` pins every transitive dep with hashes.
+
+# ── Core runtime ─────────────────────────────────────────────────────────────
+python-dotenv>=1.0,<2
+requests>=2.31,<3
+psutil>=5.9,<7
+rich>=13.7,<14
+pyperclip>=1.8,<2
+watchdog>=4.0,<7
+cryptography>=42.0,<47           # bumped past 46.0.7 to close CVE-2026-26007 / 34073 / 39892
+
+# ── LLM / agents / memory ────────────────────────────────────────────────────
+ollama>=0.3,<1
+openai>=1.40,<2
+crewai>=0.80,<2
+chromadb>=0.5,<2
+peft>=0.11,<1
+
+# ── Security-forced transitive pins ─────────────────────────────────────────
+# These are transitive deps we lift to safe floors to close known CVEs.
+# Re-evaluate on every `pip-compile --upgrade`.
+transformers>=4.53.0              # closes CVE-2024-12720 / 2025-1194 / 3263 / 3264 / 3777 / 3933 / 5197 / 6638 / 6051 / 6921 / PYSEC-2024-227..229 / PYSEC-2025-40
+
+# Accepted-risk transitives (no safe upgrade path available today — re-check on each compile):
+#   uv 0.9.x            GHSA-pjjw-68hj-v9mw — crewai pins uv~=0.9.13, fix needs crewai upstream bump.
+#   diskcache 5.6.3     CVE-2025-69872      — no upstream fix yet; local-only cache used by chromadb.
+
+# ── Web / API surface ────────────────────────────────────────────────────────
+fastapi>=0.110,<1
+uvicorn[standard]>=0.27,<1
+streamlit>=1.32,<2
+streamlit-lottie>=0.0.5,<1
+supabase>=2.5,<3
+stripe>=9.0,<13
+duckduckgo-search>=6.0,<9
+
+# ── Voice / vision / desktop ─────────────────────────────────────────────────
+Pillow>=10.0,<13                 # bumped past 12.2.0 to close CVE-2026-25990 / 40192
+mss>=9.0,<11
+pyautogui>=0.9.54,<1
+SpeechRecognition>=3.10,<4
+pyttsx3>=2.90,<3
+pynput>=1.7,<2
+
+# ── Browser automation ──────────────────────────────────────────────────────
+playwright>=1.44,<2
+
+# ── Windows desktop shell (keep optional extras tight; skip on non-Windows) ─
+pystray>=0.19,<1; sys_platform == "win32"
+pywebview>=5.0,<6; sys_platform == "win32"
+
+# ── Sandbox (optional at runtime) ───────────────────────────────────────────
+docker>=7.0,<8

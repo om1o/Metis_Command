@@ -17,7 +17,14 @@ from pathlib import Path
 
 import streamlit as st
 
-from ui_theme import inject as inject_theme
+from ui_theme import (
+    inject as inject_theme,
+    hero as render_hero,
+    thinking_flag,
+    thinking_orb,
+    agent_card,
+    statusbar,
+)
 from hardware_scanner import get_hardware_report, get_hardware_tier
 from brain_engine import ROLE_MODELS, stream_chat, CancelToken
 from memory import save_message, load_session
@@ -36,6 +43,7 @@ st.set_page_config(
 
 theme = st.session_state.get("theme", "obsidian")
 inject_theme(theme=theme)
+thinking_flag(st.session_state.get("thinking", False))
 
 
 # ── Session state bootstrap ──────────────────────────────────────────────────
@@ -286,28 +294,60 @@ def _sidebar() -> None:
                 st.caption(f"{len(specs)} agents · {len(live)} persistent")
                 for spec in specs:
                     is_live = spec.slug in live
-                    cols = st.columns([3, 1])
+                    body = (spec.system or "").strip()
+                    if len(body) > 140:
+                        body = body[:140].rstrip() + "…"
+                    agent_card(
+                        name=spec.name,
+                        role=spec.role,
+                        text=body,
+                        status="live" if is_live else "idle",
+                        avatar_letter=spec.slug[:1],
+                    )
+                    cols = st.columns(2)
                     with cols[0]:
-                        status = "🟢" if is_live else "⚪"
-                        st.markdown(
-                            f"{status} **{spec.name}** "
-                            f"<span style='color:var(--metis-muted);font-size:11px;'>"
-                            f"{spec.role}</span>",
-                            unsafe_allow_html=True,
-                        )
+                        if is_live and st.button(
+                            "Stop", key=f"agent_stop_{spec.slug}",
+                            use_container_width=True,
+                        ):
+                            _roster.stop_persistent(spec.slug)
+                            st.rerun()
                     with cols[1]:
-                        if is_live:
-                            if st.button("Stop", key=f"agent_stop_{spec.slug}",
-                                         use_container_width=True):
-                                _roster.stop_persistent(spec.slug)
-                                st.rerun()
-                        else:
-                            if st.button("Start", key=f"agent_start_{spec.slug}",
-                                         use_container_width=True):
-                                _roster.spawn_persistent(spec.slug)
-                                st.rerun()
+                        if not is_live and st.button(
+                            "Start", key=f"agent_start_{spec.slug}",
+                            use_container_width=True,
+                        ):
+                            _roster.spawn_persistent(spec.slug)
+                            st.rerun()
             except Exception as e:
                 st.caption(f"Roster unavailable: {e}")
+
+        # ── Developer (local API token) ──────────────────────────────────
+        with st.expander("Developer", expanded=False):
+            try:
+                import auth_local
+                token = auth_local.get_or_create()
+                st.caption("Local API token — required for every /wallet, "
+                           "/brains, /agents call.")
+                st.code(f"Authorization: Bearer {token}", language="text")
+                col_t1, col_t2 = st.columns(2)
+                with col_t1:
+                    if st.button("Copy", key="token_copy",
+                                 use_container_width=True):
+                        try:
+                            import pyperclip
+                            pyperclip.copy(token)
+                            st.toast("Token copied.")
+                        except Exception:
+                            st.toast("Clipboard unavailable.", icon="⚠️")
+                with col_t2:
+                    if st.button("Rotate", key="token_rotate",
+                                 use_container_width=True):
+                        auth_local.rotate()
+                        st.toast("Token rotated.")
+                        st.rerun()
+            except Exception as e:
+                st.caption(f"Developer panel unavailable: {e}")
 
         with st.expander("Brain backup", expanded=False):
             try:
@@ -529,6 +569,31 @@ def _artifacts_pane(container) -> None:
 
 # ── Main thread rendering ────────────────────────────────────────────────────
 def _render_thread() -> None:
+    # Gemini-style hero when the conversation is empty.
+    if not st.session_state["messages"]:
+        try:
+            persona = get_active_persona() or {}
+        except Exception:
+            persona = {}
+        display_name = (persona.get("name") or "").strip() or "Director"
+        chosen_prompt = render_hero(
+            f"Hello, {display_name}",
+            subtitle="What should Metis work on today?",
+            chips=[
+                ("Plan my day",      "Plan my day. Ask me 2 quick questions first."),
+                ("Summarise inbox",  "Summarise my unread messages and pick the 3 to reply today."),
+                ("Research topic",   "Research and give me a 6-bullet brief on: "),
+                ("Write code",       "Write Python to: "),
+                ("Brainstorm",       "Brainstorm 5 wild ideas for: "),
+            ],
+        )
+        if chosen_prompt:
+            st.session_state["messages"].append(
+                {"role": "user", "content": chosen_prompt}
+            )
+            st.rerun()
+        return
+
     for i, msg in enumerate(st.session_state["messages"]):
         with st.chat_message(msg["role"]):
             if msg["role"] == "assistant":
@@ -617,6 +682,8 @@ def _send_prompt(user_text: str) -> None:
     cancel = CancelToken()
     st.session_state["cancel_token"] = cancel
     st.session_state["thinking"] = True
+    with assistant_container:
+        thinking_orb(True, label="Metis is thinking")
 
     persona_prompt = build_system_prompt(get_active_persona())
     context_msgs = inject_context(st.session_state["session_id"], user_text)
@@ -698,23 +765,15 @@ def _status_bar() -> None:
     thinking = st.session_state.get("thinking", False)
     tier = get_hardware_tier()
     metrics = st.session_state.get("last_metrics", {})
-    dot = "dot thinking" if thinking else "dot"
-    label = "thinking…" if thinking else "ready"
-    st.markdown(
-        f"<div class='metis-statusbar'>"
-        f"<span class='{dot}'></span>"
-        f"<span>{label}</span>"
-        f"<span>·</span>"
-        f"<span>role: <b>{st.session_state.get('active_role','manager')}</b></span>"
-        f"<span>·</span>"
-        f"<span>tier: <b>{tier}</b></span>"
-        f"<span>·</span>"
-        f"<span>{metrics.get('tok_s',0)} tok/s</span>"
-        f"<span style='margin-left:auto;color:var(--metis-muted);'>"
-        f"session {st.session_state['session_id']}</span>"
-        f"</div>",
-        unsafe_allow_html=True,
-    )
+    sid = st.session_state.get("session_id", "")
+    statusbar([
+        ("status", "thinking…" if thinking else "ready"),
+        ("role",   st.session_state.get("active_role", "manager")),
+        ("tier",   tier),
+        ("tok/s",  f"{float(metrics.get('tok_s', 0)):.1f}"),
+        ("tokens", str(metrics.get("tokens", 0))),
+        ("session", sid[-8:] if sid else "—"),
+    ])
 
 
 # ── Aura header ──────────────────────────────────────────────────────────────

@@ -184,6 +184,79 @@ def main() -> int:
         assert any(m.kind == "ping" for m in msgs)
     failed += 0 if _step("agent_bus round-trip", t_bus) else 1
 
+    # 15a — auth_local + API auth enforcement
+    def t_auth() -> None:
+        import auth_local
+        t = auth_local.get_or_create()
+        assert t and len(t) >= 32
+        assert auth_local.verify(t)
+        assert not auth_local.verify("not-the-token")
+        assert not auth_local.verify("")
+        from fastapi.testclient import TestClient
+        import api_bridge
+        c = TestClient(api_bridge.app)
+        assert c.get("/health").status_code == 200
+        assert c.get("/wallet").status_code == 401
+        ok = c.get("/wallet", headers=auth_local.bearer_header())
+        assert ok.status_code == 200
+        assert "balance_cents" in ok.json()
+    failed += 0 if _step("auth_local + api bridge", t_auth) else 1
+
+    # 15b — file_lock acquires / times out on contention
+    def t_file_lock() -> None:
+        import time as _t
+        import threading
+        from safety import file_lock
+        with file_lock("smoke_test"):
+            pass
+        held = threading.Event()
+        released = threading.Event()
+
+        def hold():
+            with file_lock("smoke_contend"):
+                held.set()
+                released.wait(timeout=3)
+
+        th = threading.Thread(target=hold, daemon=True)
+        th.start()
+        assert held.wait(timeout=2)
+        try:
+            t0 = _t.time()
+            try:
+                with file_lock("smoke_contend", timeout=0.3):
+                    raise AssertionError("should have timed out")
+            except TimeoutError:
+                elapsed = _t.time() - t0
+                assert 0.2 < elapsed < 1.5, f"unexpected lock wait: {elapsed}"
+        finally:
+            released.set()
+            th.join(timeout=2)
+    failed += 0 if _step("file_lock contention", t_file_lock) else 1
+
+    # 15c — brains.compact refuses to delete when summary fails sanity gate
+    def t_compact_safety() -> None:
+        import brains
+        import brain_engine
+        b = brains.create("SmokeCompact")
+        original = brain_engine.chat_by_role
+        try:
+            for i in range(60):
+                brains.remember(f"durable fact #{i}: user prefers Python.",
+                                kind="semantic", brain=b)
+            # Force the Thinker to return garbage so the sanity gate trips.
+            brain_engine.chat_by_role = lambda role, msgs, **kw: ""
+            folded = brains.compact(brain=b, window=40)
+            assert folded == 0, "compact deleted despite empty summary"
+
+            # And a too-short single-line reply should also be rejected.
+            brain_engine.chat_by_role = lambda role, msgs, **kw: "ok"
+            folded = brains.compact(brain=b, window=40)
+            assert folded == 0, "compact deleted despite tiny summary"
+        finally:
+            brain_engine.chat_by_role = original
+            brains.delete(b.slug)
+    failed += 0 if _step("brains.compact data-loss guard", t_compact_safety) else 1
+
     # 15 — Scheduler seeding (idempotent)
     def t_scheduler() -> None:
         import scheduler

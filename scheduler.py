@@ -27,7 +27,9 @@ from typing import Any, Callable
 from safety import audit, audited
 
 
-SCHEDULES_FILE = Path("identity") / "schedules.json"
+from safety import PATHS, file_lock  # noqa: E402
+
+SCHEDULES_FILE = PATHS.identity / "schedules.json"
 _CHECK_INTERVAL = 30.0
 
 
@@ -92,7 +94,7 @@ def add(
         auto_approve=auto_approve,
     )
     sched.next_run = _compute_next(sched, reference=time.time())
-    with _lock:
+    with file_lock("scheduler"), _lock:
         schedules = _load()
         schedules.append(sched)
         _save(schedules)
@@ -140,7 +142,7 @@ def seed_default_schedules() -> list[Schedule]:
 
 @audited("schedule.remove")
 def remove(schedule_id: str) -> bool:
-    with _lock:
+    with file_lock("scheduler"), _lock:
         schedules = _load()
         before = len(schedules)
         schedules = [s for s in schedules if s.id != schedule_id]
@@ -150,7 +152,7 @@ def remove(schedule_id: str) -> bool:
 
 @audited("schedule.toggle")
 def toggle(schedule_id: str) -> bool:
-    with _lock:
+    with file_lock("scheduler"), _lock:
         schedules = _load()
         for s in schedules:
             if s.id == schedule_id:
@@ -326,7 +328,7 @@ def stop_scheduler() -> None:
 
 def _tick(runner: Callable[[Schedule], None]) -> None:
     now = time.time()
-    with _lock:
+    with file_lock("scheduler"), _lock:
         schedules = _load()
         dirty = False
         for s in schedules:

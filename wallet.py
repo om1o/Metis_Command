@@ -41,8 +41,10 @@ from pathlib import Path
 from typing import Any
 
 
-WALLET_FILE = Path("identity") / "wallet.json"
-LEDGER_LOG = Path("logs") / "wallet.jsonl"
+from safety import PATHS, file_lock  # noqa: E402
+
+WALLET_FILE = PATHS.identity / "wallet.json"
+LEDGER_LOG = PATHS.logs / "wallet.jsonl"
 
 # Categories the Orchestrator is allowed to charge against.
 CATEGORIES = ("cloud_api", "plugin", "subagent", "compute", "data", "other")
@@ -176,7 +178,7 @@ def balance_cents() -> int:
 
 
 def set_cap(monthly_cap_cents: int) -> Wallet:
-    with _lock:
+    with file_lock("wallet"), _lock:
         w = _load()
         w.monthly_cap_cents = max(0, int(monthly_cap_cents))
         _save(w)
@@ -187,7 +189,7 @@ def set_cap(monthly_cap_cents: int) -> Wallet:
 def set_mode(mode: str) -> Wallet:
     if mode not in ("simulated", "stripe_issuing"):
         raise ValueError(f"Unknown wallet mode: {mode}")
-    with _lock:
+    with file_lock("wallet"), _lock:
         w = _load()
         w.mode = mode
         _save(w)
@@ -199,7 +201,7 @@ def top_up(cents: int, source: str = "manual") -> int:
     cents = int(cents)
     if cents <= 0:
         return get_wallet().balance_cents
-    with _lock:
+    with file_lock("wallet"), _lock:
         w = _load()
         _roll_period(w)
         w.balance_cents += cents
@@ -221,7 +223,7 @@ def top_up(cents: int, source: str = "manual") -> int:
 def add_policy(policy: Policy) -> Policy:
     if policy.category not in CATEGORIES and policy.category != "*":
         raise ValueError(f"Unknown category: {policy.category}")
-    with _lock:
+    with file_lock("wallet"), _lock:
         w = _load()
         w.policies.append(policy)
         _save(w)
@@ -230,7 +232,7 @@ def add_policy(policy: Policy) -> Policy:
 
 
 def remove_policy(policy_id: str) -> bool:
-    with _lock:
+    with file_lock("wallet"), _lock:
         w = _load()
         before = len(w.policies)
         w.policies = [p for p in w.policies if p.id != policy_id]
@@ -316,7 +318,7 @@ def charge(
                 )
 
     # Optional Stripe Issuing path.
-    with _lock:
+    with file_lock("wallet"), _lock:
         w = _load()
         _roll_period(w)
         if cents > 0 and w.mode == "stripe_issuing":
@@ -374,7 +376,7 @@ def refund(category: str, cents: int, memo: str = "") -> LedgerEntry:
     cents = int(cents)
     if cents <= 0:
         return LedgerEntry(kind="refund", cents=0, category=category, memo=memo)
-    with _lock:
+    with file_lock("wallet"), _lock:
         w = _load()
         _roll_period(w)
         w.balance_cents += cents

@@ -24,12 +24,41 @@ from brain_engine import ROLE_MODELS, list_local_models, stream_chat
 from artifacts import list_artifacts, get_artifact
 
 
+import auth_local
+
 app = FastAPI(title="Metis API Bridge", version="16.4.0")
+
+PUBLIC_PATHS = {"/", "/health", "/docs", "/openapi.json", "/redoc"}
+
+
+@app.middleware("http")
+async def _auth_middleware(request, call_next):
+    """Require Authorization: Bearer <token> on every protected route."""
+    if request.url.path in PUBLIC_PATHS or request.method == "OPTIONS":
+        return await call_next(request)
+    authz = request.headers.get("authorization", "")
+    token = (
+        authz.split(" ", 1)[1].strip()
+        if authz.lower().startswith("bearer ")
+        else None
+    )
+    if not auth_local.verify(token):
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
+            {"error": {"code": "unauthorized",
+                       "message": "missing or invalid Metis local token"}},
+            status_code=401,
+        )
+    return await call_next(request)
 
 
 @app.on_event("startup")
 def _boot_services() -> None:
     """Install seeded schedules and resume any persistent subagents on boot."""
+    try:
+        auth_local.get_or_create()
+    except Exception as e:
+        print(f"[api_bridge] token init skipped: {e}")
     try:
         from scheduler import seed_default_schedules, start_scheduler
         seed_default_schedules()
@@ -49,9 +78,13 @@ def _boot_services() -> None:
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=[
+        "http://127.0.0.1", "http://127.0.0.1:8501",
+        "http://localhost",  "http://localhost:8501",
+    ],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
+    max_age=600,
 )
 
 
