@@ -7,7 +7,15 @@ import chromadb
 
 
 class MemoryBank:
-    def __init__(self, path: str = "./metis_db"):
+    def __init__(self, path: str | None = None):
+        # Default to PATHS.metis_db so the sandbox fixture can redirect this
+        # per-test; callers can still pass an explicit path if they want.
+        if path is None:
+            try:
+                from safety import PATHS
+                path = str(PATHS.metis_db)
+            except Exception:
+                path = "./metis_db"
         try:
             self.client = chromadb.PersistentClient(path=path)
             self.collection = self.client.get_or_create_collection("metis_memory")
