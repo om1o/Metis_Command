@@ -1,0 +1,44 @@
+[tool.pytest.ini_options]
+testpaths = ["tests/unit"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--tb=short",
+    "--durations=5",
+]
+markers = [
+    "slow: mark a test as slow (skipped by default locally)",
+    "integration: hits Ollama or the network",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = [
+    "metis-env",
+    "site/node_modules",
+    "site/.next",
+    "dist",
+    "build",
+    ".pytest_cache",
+]
+
+[tool.ruff.lint]
+# Conservative set - quality gate without bikeshed.
+select = ["E", "F", "W", "I", "B", "UP", "PL"]
+ignore = [
+    "E501",     # line length - leave to the formatter / human judgement
+    "PLR2004",  # magic numbers in tests
+    "PLR0913",  # "too many arguments" - data-driven APIs legitimately have many
+    "PLR0912",  # too many branches
+    "PLR0915",  # too many statements
+    "B008",     # default call in argument - Streamlit session-state pattern
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*" = ["PLR", "E402", "B"]
+"scripts/**/*" = ["PLR"]
+"apply_reliability.py" = ["PLR", "E402"]
