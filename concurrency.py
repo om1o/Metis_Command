@@ -10,18 +10,18 @@ Each submission is tracked in-memory by id; persistent history lives in
 from __future__ import annotations
 
 import json
+import os
 import threading
 import time
 import uuid
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
-from pathlib import Path
 from typing import Any, Callable
 
-from safety import audit
+from safety import PATHS, audit
 
 
-MISSIONS_LOG = Path("logs") / "missions.jsonl"
+MISSIONS_LOG = PATHS.logs / "missions.jsonl"
 
 
 @dataclass
@@ -42,12 +42,37 @@ class MissionRecord:
         return asdict(self)
 
 
-class MissionPool:
-    """ThreadPoolExecutor that knows how to run an autonomous_loop mission."""
+class PoolFull(Exception):
+    """Raised when the mission queue is at capacity."""
 
-    def __init__(self, max_workers: int = 3) -> None:
-        self._executor = ThreadPoolExecutor(max_workers=max_workers,
-                                            thread_name_prefix="MetisMission")
+
+class MissionPool:
+    """
+    Thread-pool runner for autonomous-loop missions.
+
+    Bounded on two axes so runaway callers can't DoS the local brain:
+      * `max_workers`        - concurrent missions actually running
+      * `max_queue_depth`    - queued + running mission cap; beyond this
+                                `submit()` raises `PoolFull`
+
+    Both defaults come from env so ops can tune without editing code.
+    """
+
+    def __init__(
+        self,
+        max_workers: int | None = None,
+        *,
+        max_queue_depth: int | None = None,
+    ) -> None:
+        mw = max_workers or int(os.getenv("METIS_MAX_WORKERS", "3") or "3")
+        qd = max_queue_depth or int(os.getenv("METIS_MAX_QUEUE", "24") or "24")
+        self._max_workers = max(1, mw)
+        self._max_queue_depth = max(self._max_workers, qd)
+        self._executor = ThreadPoolExecutor(
+            max_workers=self._max_workers,
+            thread_name_prefix="MetisMission",
+        )
+        self._semaphore = threading.BoundedSemaphore(self._max_workers)
         self._records: dict[str, MissionRecord] = {}
         self._futures: dict[str, Future] = {}
         self._lock = threading.Lock()
@@ -61,6 +86,22 @@ class MissionPool:
         auto_approve: bool = False,
         project_slug: str | None = None,
     ) -> MissionRecord:
+        with self._lock:
+            inflight = sum(
+                1 for r in self._records.values()
+                if r.status in ("queued", "running")
+            )
+        if inflight >= self._max_queue_depth:
+            audit({
+                "event": "mission_rejected_full",
+                "inflight": inflight,
+                "max_queue": self._max_queue_depth,
+                "goal": goal[:120],
+            })
+            raise PoolFull(
+                f"mission queue full ({inflight}/{self._max_queue_depth}); "
+                "retry later or bump METIS_MAX_QUEUE."
+            )
         record = MissionRecord(
             goal=goal,
             tag=tag,
@@ -71,35 +112,55 @@ class MissionPool:
             self._records[record.id] = record
 
         def run() -> None:
-            from autonomous_loop import run_mission
-            with self._lock:
-                record.status = "running"
-                record.started_at = time.time()
-            try:
-                on_event = record.events.append
-                mission = run_mission(
-                    goal=goal,
-                    auto_approve=auto_approve,
-                    on_event=on_event,
-                )
+            # Semaphore gate - serialises beyond max_workers even when tasks
+            # spawn other tasks internally.
+            with self._semaphore:
+                from autonomous_loop import run_mission
                 with self._lock:
-                    record.status = mission.status
-                    record.final_answer = mission.final_answer
-            except Exception as e:
-                with self._lock:
-                    record.status = "failed"
-                    record.final_answer = f"{type(e).__name__}: {e}"
-                audit({"event": "mission_worker_error", "id": record.id, "error": str(e)})
-            finally:
-                with self._lock:
-                    record.ended_at = time.time()
-                self._persist(record)
+                    record.status = "running"
+                    record.started_at = time.time()
+                try:
+                    on_event = record.events.append
+                    mission = run_mission(
+                        goal=goal,
+                        auto_approve=auto_approve,
+                        on_event=on_event,
+                    )
+                    with self._lock:
+                        record.status = mission.status
+                        record.final_answer = mission.final_answer
+                except Exception as e:
+                    with self._lock:
+                        record.status = "failed"
+                        record.final_answer = f"{type(e).__name__}: {e}"
+                    audit({"event": "mission_worker_error",
+                           "id": record.id, "error": str(e)})
+                finally:
+                    with self._lock:
+                        record.ended_at = time.time()
+                    self._persist(record)
 
         future = self._executor.submit(run)
         with self._lock:
             self._futures[record.id] = future
-        audit({"event": "mission_submitted", "id": record.id, "goal": goal[:120], "tag": tag})
+        audit({"event": "mission_submitted",
+               "id": record.id, "goal": goal[:120], "tag": tag,
+               "inflight": inflight + 1,
+               "max_queue": self._max_queue_depth})
         return record
+
+    # ── bookkeeping helpers ────────────────────────────────────────────────
+    def stats(self) -> dict:
+        with self._lock:
+            by_status: dict[str, int] = {}
+            for r in self._records.values():
+                by_status[r.status] = by_status.get(r.status, 0) + 1
+        return {
+            "max_workers":      self._max_workers,
+            "max_queue_depth":  self._max_queue_depth,
+            "by_status":        by_status,
+            "total_records":    len(self._records),
+        }
 
     def get(self, mission_id: str) -> MissionRecord | None:
         with self._lock:

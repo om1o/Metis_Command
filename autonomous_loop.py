@@ -169,10 +169,20 @@ def run_mission(
     max_steps: int = 12,
     auto_approve: bool = False,
     on_event: Callable[[dict], None] | None = None,
+    cancel=None,
 ) -> Mission:
+    """
+    Execute a goal as a plan -> execute -> reflect loop.
+
+    If `cancel` is a CancelToken (or anything with `.cancelled`), the loop
+    checks before each step and exits cleanly with status='stopped'.
+    """
     mission = Mission(goal=goal, status="running")
     audit({"event": "mission_start", "goal": goal, "max_steps": max_steps})
     _emit(on_event, {"type": "mission_start", "goal": goal})
+
+    def _is_cancelled() -> bool:
+        return bool(cancel is not None and getattr(cancel, "cancelled", False))
 
     # 1. PLAN
     plan = _plan(goal)
@@ -182,6 +192,11 @@ def run_mission(
 
     i = 0
     while i < len(mission.steps) and i < max_steps:
+        if _is_cancelled():
+            mission.status = "stopped"
+            _emit(on_event, {"type": "cancelled", "step": i})
+            break
+
         step = mission.steps[i]
         i += 1
         _emit(on_event, {"type": "step_start", "step": step.index,
@@ -204,7 +219,9 @@ def run_mission(
                              "tool": "none", "observation": step.observation})
         else:
             step.observation, step.ok, step.duration_ms = _run_tool(
-                step.tool, step.args, auto_approve=auto_approve, on_event=on_event
+                step.tool, step.args,
+                auto_approve=auto_approve, on_event=on_event,
+                cancel=cancel,
             )
             _emit(on_event, {"type": "step_end", "step": step.index,
                              "ok": step.ok, "tool": step.tool,
@@ -281,30 +298,69 @@ def _run_tool(
     *,
     auto_approve: bool,
     on_event: Callable[[dict], None] | None,
+    cancel=None,
 ) -> tuple[Any, bool, int]:
+    """
+    Invoke one tool with per-call budget.
+
+    - Bails immediately if the CancelToken is set.
+    - Enforces a hard wall-clock budget via a background thread.  The tool
+      itself runs synchronously; if it hasn't returned within
+      METIS_TOOL_TIMEOUT_S (default 120s) we surface a timeout observation
+      so the executor can re-plan.
+    """
+    import os as _os
+    import threading
+
     reg = tool_registry()
     if name not in reg:
         return f"unknown tool: {name}", False, 0
+
+    if cancel is not None and getattr(cancel, "cancelled", False):
+        return "cancelled before tool started", False, 0
+
+    timeout_s = float(_os.getenv("METIS_TOOL_TIMEOUT_S", "120"))
     started = time.time()
-    try:
-        # Safety-sensitive tools rerun with a synthesized confirm token when
-        # auto_approve is on. Otherwise the ConfirmRequired exception bubbles
-        # up and the UI renders a "requires approval" card.
+    result_box: dict[str, Any] = {}
+
+    def _call() -> None:
         try:
-            result = reg[name](**args)
+            try:
+                result_box["value"] = reg[name](**args)
+            except ConfirmRequired as cr:
+                if not auto_approve:
+                    result_box["confirm_required"] = str(cr)
+                    return
+                token = str(cr)
+                result_box["value"] = reg[name](**{**args, "confirm_token": token})
         except ConfirmRequired as cr:
-            if not auto_approve:
-                raise
-            token = str(cr)
-            args_with_token = {**args, "confirm_token": token}
-            result = reg[name](**args_with_token)
-    except ConfirmRequired as cr:
+            result_box["confirm_required"] = str(cr)
+        except Exception as e:
+            result_box["error"] = f"{type(e).__name__}: {e}"
+
+    t = threading.Thread(target=_call, daemon=True, name=f"tool:{name}")
+    t.start()
+    # Cooperative cancel: check every 200ms.
+    while t.is_alive():
+        t.join(0.2)
+        if cancel is not None and getattr(cancel, "cancelled", False):
+            # The tool thread is daemonic and will be abandoned on shutdown;
+            # we can't hard-kill it from Python, but we stop waiting.
+            elapsed = int((time.time() - started) * 1000)
+            return "cancelled by user", False, elapsed
+        if time.time() - started > timeout_s:
+            elapsed = int((time.time() - started) * 1000)
+            return f"tool {name} timed out after {timeout_s:.0f}s", False, elapsed
+
+    elapsed = int((time.time() - started) * 1000)
+    if "confirm_required" in result_box:
+        tok = result_box["confirm_required"]
         _emit(on_event, {"type": "confirm_required", "tool": name,
-                         "token": str(cr), "args": args})
-        return {"confirm_required": True, "token": str(cr)}, False, int((time.time() - started) * 1000)
-    except Exception as e:
-        return f"{type(e).__name__}: {e}", False, int((time.time() - started) * 1000)
-    return result, True, int((time.time() - started) * 1000)
+                         "token": tok, "args": args})
+        return {"confirm_required": True, "token": tok}, False, elapsed
+    if "error" in result_box:
+        return result_box["error"], False, elapsed
+    return result_box.get("value"), True, elapsed
 
 
 def _reflect(mission: Mission) -> dict[str, Any]:

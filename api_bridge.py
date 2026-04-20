@@ -28,7 +28,10 @@ import auth_local
 
 app = FastAPI(title="Metis API Bridge", version="16.4.0")
 
-PUBLIC_PATHS = {"/", "/health", "/docs", "/openapi.json", "/redoc"}
+PUBLIC_PATHS = {"/", "/health", "/version", "/status",
+                "/docs", "/openapi.json", "/redoc"}
+
+METIS_VERSION = "0.16.4"
 
 
 @app.middleware("http")
@@ -113,6 +116,67 @@ def root() -> dict:
 @app.get("/health")
 def health() -> dict:
     return {"ok": True}
+
+
+@app.get("/version")
+def version() -> dict:
+    """Stable endpoint the launcher + auto-update polls can read."""
+    return {"version": METIS_VERSION}
+
+
+@app.get("/status")
+def status() -> dict:
+    """
+    Live health snapshot.  Every field is best-effort — missing
+    dependencies degrade this to False rather than raising, so the UI
+    status bar can always render.
+    """
+    from time import time as _now
+    t0 = _now()
+
+    def _safe(fn, default=None):
+        try:
+            return fn()
+        except Exception as e:
+            return {"error": str(e)[:120]} if default is None else default
+
+    ollama_models = _safe(list_local_models, default=[])
+    wallet_summary = None
+    try:
+        from wallet import summary as _wallet_summary
+        wallet_summary = _wallet_summary()
+    except Exception:
+        wallet_summary = None
+
+    brain_stats = None
+    try:
+        import brains as _brains
+        active = _brains.active()
+        if active is not None:
+            brain_stats = _brains.stats(active)
+    except Exception:
+        brain_stats = None
+
+    pool_stats = None
+    try:
+        from concurrency import pool as _pool
+        pool_stats = _pool.stats()
+    except Exception:
+        pool_stats = None
+
+    return {
+        "ok": True,
+        "version": METIS_VERSION,
+        "generated_at_ms": int(_now() * 1000),
+        "latency_ms": int((_now() - t0) * 1000),
+        "ollama": {
+            "reachable": bool(ollama_models),
+            "model_count": len(ollama_models or []),
+        },
+        "wallet":  wallet_summary,
+        "brain":   brain_stats,
+        "mission_pool": pool_stats,
+    }
 
 
 # ── Streaming chat ───────────────────────────────────────────────────────────

@@ -257,6 +257,86 @@ def main() -> int:
             brains.delete(b.slug)
     failed += 0 if _step("brains.compact data-loss guard", t_compact_safety) else 1
 
+    # 15d — /version and /status public routes
+    def t_version_status() -> None:
+        from fastapi.testclient import TestClient
+        import api_bridge
+        c = TestClient(api_bridge.app)
+        v = c.get("/version")
+        assert v.status_code == 200
+        assert "version" in v.json()
+        s = c.get("/status")
+        assert s.status_code == 200
+        body = s.json()
+        assert body["ok"] is True
+        assert "ollama" in body
+        assert "mission_pool" in body
+    failed += 0 if _step("api bridge /version + /status", t_version_status) else 1
+
+    # 15e — Mission pool: bounded + queue-full rejection
+    def t_pool_bounded() -> None:
+        import os as _os
+        # Force a tiny pool for the duration of this test.
+        saved_w = _os.environ.get("METIS_MAX_WORKERS")
+        saved_q = _os.environ.get("METIS_MAX_QUEUE")
+        _os.environ["METIS_MAX_WORKERS"] = "1"
+        _os.environ["METIS_MAX_QUEUE"]   = "2"
+        try:
+            from concurrency import MissionPool, PoolFull
+            pool = MissionPool()
+            # Monkey-patch run_mission so we don't actually invoke an LLM.
+            import autonomous_loop
+            original = autonomous_loop.run_mission
+            class _M:
+                status = "success"
+                final_answer = "ok"
+            import time as _t
+            def fake(**_kw):
+                _t.sleep(0.05)
+                return _M()
+            autonomous_loop.run_mission = fake
+            try:
+                r1 = pool.submit("a")
+                r2 = pool.submit("b")
+                try:
+                    pool.submit("c")
+                except PoolFull:
+                    pass
+                else:
+                    raise AssertionError("expected PoolFull on 3rd submit")
+                assert r1.id and r2.id
+                stats = pool.stats()
+                assert stats["max_workers"] == 1
+                assert stats["max_queue_depth"] == 2
+            finally:
+                autonomous_loop.run_mission = original
+        finally:
+            if saved_w is None: _os.environ.pop("METIS_MAX_WORKERS", None)
+            else: _os.environ["METIS_MAX_WORKERS"] = saved_w
+            if saved_q is None: _os.environ.pop("METIS_MAX_QUEUE", None)
+            else: _os.environ["METIS_MAX_QUEUE"] = saved_q
+    failed += 0 if _step("mission pool bounded + PoolFull", t_pool_bounded) else 1
+
+    # 15f — Autonomous loop honours CancelToken
+    def t_cancel() -> None:
+        from brain_engine import CancelToken
+        import autonomous_loop
+        ct = CancelToken()
+        ct.cancel()
+        # Patch planner so it doesn't hit the LLM
+        autonomous_loop._plan = lambda goal: ["step 1", "step 2"]
+        m = autonomous_loop.run_mission("noop goal", max_steps=2, cancel=ct)
+        assert m.status == "stopped"
+    failed += 0 if _step("autonomous_loop cancel", t_cancel) else 1
+
+    # 15g — Launcher bootstrap module is importable without side effects
+    def t_bootstrap() -> None:
+        from scripts import bootstrap
+        assert bootstrap.venv_python().name.startswith("python")
+        # MODELS_BY_TIER has the expected tiers
+        assert set(bootstrap.MODELS_BY_TIER) == {"Lite", "Pro", "Sovereign"}
+    failed += 0 if _step("launch bootstrap importable", t_bootstrap) else 1
+
     # 15 — Scheduler seeding (idempotent)
     def t_scheduler() -> None:
         import scheduler

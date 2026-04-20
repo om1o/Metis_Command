@@ -247,11 +247,26 @@ def _save_persistent(slugs: list[str]) -> None:
 
 
 def _run_agent_loop(spec: AgentSpec, stop_event: threading.Event) -> None:
-    """Pull messages off the agent's inbox and reply via the bus."""
+    """
+    Pull messages off the agent's inbox, consult the active Brain for long-
+    term context, call the agent's LLM, publish the reply, and (episodic)
+    remember the exchange so the next caller sees continuity.
+    """
     import agent_bus as _bus
     from brain_engine import chat_by_role
 
+    try:
+        from memory_loop import inject_context as _inject_context
+    except Exception:
+        _inject_context = None  # type: ignore[assignment]
+    try:
+        import brains as _brains
+    except Exception:
+        _brains = None  # type: ignore[assignment]
+
     inbox = _bus.inbox(spec.slug)
+    session_id = f"agent:{spec.slug}"
+
     while not stop_event.is_set():
         try:
             msg = inbox.get(timeout=1.0)
@@ -259,15 +274,50 @@ def _run_agent_loop(spec: AgentSpec, stop_event: threading.Event) -> None:
             continue
         try:
             system = spec.system or "You are a Metis specialist agent."
+            # Ground every reply in the active Brain + recent session history.
+            active_slug = None
+            context: list[dict] = []
+            if _brains is not None:
+                try:
+                    b = _brains.active()
+                    active_slug = b.slug if b else None
+                except Exception:
+                    active_slug = None
+            if _inject_context is not None:
+                try:
+                    probe = json.dumps(msg.payload, ensure_ascii=False)[:800]
+                    context = _inject_context(
+                        session_id=session_id,
+                        user_prompt=probe,
+                        brain=active_slug,
+                    ) or []
+                except Exception:
+                    context = []
+
             user = (
                 f"From: {msg.from_slug}\n"
                 f"Kind: {msg.kind}\n"
                 f"Payload: {json.dumps(msg.payload, ensure_ascii=False)[:4000]}"
             )
-            reply = chat_by_role(spec.role, [
+            messages = [
                 {"role": "system", "content": system},
+                *context,
                 {"role": "user", "content": user},
-            ]) or ""
+            ]
+            reply = chat_by_role(spec.role, messages) or ""
+
+            # Remember the exchange so future messages have continuity.
+            if _brains is not None and active_slug:
+                try:
+                    _brains.remember(
+                        f"[{spec.slug}] answered {msg.from_slug}: {reply[:400]}",
+                        kind="episodic",
+                        brain=active_slug,
+                        tags=("agent", spec.slug),
+                    )
+                except Exception:
+                    pass
+
             _bus.publish(_bus.AgentMessage(
                 from_slug=spec.slug,
                 to_slug=msg.from_slug,
@@ -279,7 +329,8 @@ def _run_agent_loop(spec: AgentSpec, stop_event: threading.Event) -> None:
         except Exception as e:
             try:
                 import safety
-                safety.audit({"event": "agent_worker_error", "slug": spec.slug, "error": str(e)})
+                safety.audit({"event": "agent_worker_error",
+                              "slug": spec.slug, "error": str(e)})
             except Exception:
                 pass
 

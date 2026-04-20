@@ -761,19 +761,51 @@ def _send_prompt(user_text: str) -> None:
 
 
 # ── Status bar ───────────────────────────────────────────────────────────────
+def _health_snapshot() -> dict:
+    """Cheap snapshot of Ollama + Wallet + Brain for the status bar."""
+    snap = {"ollama": False, "wallet_usd": None, "brain": None}
+    try:
+        from brain_engine import list_local_models
+        snap["ollama"] = bool(list_local_models())
+    except Exception:
+        pass
+    try:
+        from wallet import summary as _ws
+        s = _ws()
+        snap["wallet_usd"] = s["balance_cents"] / 100.0
+    except Exception:
+        pass
+    try:
+        import brains as _brains
+        active = _brains.active()
+        if active is not None:
+            snap["brain"] = active.name
+    except Exception:
+        pass
+    return snap
+
+
 def _status_bar() -> None:
     thinking = st.session_state.get("thinking", False)
     tier = get_hardware_tier()
     metrics = st.session_state.get("last_metrics", {})
     sid = st.session_state.get("session_id", "")
-    statusbar([
+    snap = _health_snapshot()
+    items = [
         ("status", "thinking…" if thinking else "ready"),
         ("role",   st.session_state.get("active_role", "manager")),
         ("tier",   tier),
+        ("ollama", "up" if snap["ollama"] else "down"),
+    ]
+    if snap["brain"]:
+        items.append(("brain", snap["brain"]))
+    if snap["wallet_usd"] is not None:
+        items.append(("wallet", f"${snap['wallet_usd']:.2f}"))
+    items.extend([
         ("tok/s",  f"{float(metrics.get('tok_s', 0)):.1f}"),
-        ("tokens", str(metrics.get("tokens", 0))),
         ("session", sid[-8:] if sid else "—"),
     ])
+    statusbar(items)
 
 
 # ── Aura header ──────────────────────────────────────────────────────────────

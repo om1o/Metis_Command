@@ -274,12 +274,17 @@ def stream_chat(
     inside_think = False
     buffer = ""
 
+    # Read timeout covers "stream wedged mid-response" cases; connect
+    # timeout covers Ollama being down.  Either fires -> we raise out.
+    stream_connect_timeout = float(os.getenv("METIS_CONNECT_TIMEOUT", "10"))
+    stream_read_timeout = float(os.getenv("METIS_STREAM_READ_TIMEOUT", "60"))
+
     try:
         with requests.post(
             f"{OLLAMA_BASE}/api/chat",
             json=payload,
             stream=True,
-            timeout=None,
+            timeout=(stream_connect_timeout, stream_read_timeout),
         ) as r:
             r.raise_for_status()
             for line in r.iter_lines():
