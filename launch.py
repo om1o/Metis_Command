@@ -152,6 +152,17 @@ def _run_services(args: argparse.Namespace) -> int:
         _terminate(procs)
         return 1
 
+    # Non-blocking update probe - result is cached for the UI to read.
+    try:
+        import threading
+        from scripts import updater
+        threading.Thread(
+            target=updater.cached_check, kwargs={"max_age_s": 3600},
+            daemon=True, name="MetisUpdateCheck",
+        ).start()
+    except Exception as e:
+        print(f"[launch] update probe skipped: {e}")
+
     if args.no_window:
         print(f"[launch] headless mode - UI at {UI_URL}")
         try:

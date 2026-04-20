@@ -761,6 +761,35 @@ def _send_prompt(user_text: str) -> None:
 
 
 # ── Status bar ───────────────────────────────────────────────────────────────
+def _update_banner() -> None:
+    """Show a dismissable banner when a newer Metis release is available."""
+    if st.session_state.get("update_banner_dismissed"):
+        return
+    try:
+        from scripts import updater
+        row = updater.cached_check(max_age_s=3600)
+    except Exception:
+        return
+    if not row.get("update_available"):
+        return
+    latest = row.get("latest", "?")
+    url = row.get("url") or "https://github.com/om1o/Metis_Command/releases"
+    with st.container(border=True):
+        col_msg, col_action, col_dismiss = st.columns([5, 1, 1])
+        with col_msg:
+            st.markdown(
+                f"**Update available** — Metis v{latest} is out. "
+                f"You're running v{row.get('current','?')}."
+            )
+        with col_action:
+            st.link_button("Release notes", url, use_container_width=True)
+        with col_dismiss:
+            if st.button("Dismiss", key="update_dismiss",
+                         use_container_width=True):
+                st.session_state["update_banner_dismissed"] = True
+                st.rerun()
+
+
 def _health_snapshot() -> dict:
     """Cheap snapshot of Ollama + Wallet + Brain for the status bar."""
     snap = {"ollama": False, "wallet_usd": None, "brain": None}
@@ -841,6 +870,7 @@ def _marketplace_tab() -> None:
 # ── Main ─────────────────────────────────────────────────────────────────────
 def main() -> None:
     _sidebar()
+    _update_banner()
 
     main_col, side_col = (st.columns([2.0, 1.0]) if st.session_state["show_artifacts"]
                           else (st.container(), None))
