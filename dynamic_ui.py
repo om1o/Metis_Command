@@ -909,7 +909,7 @@ def main() -> None:
                             st.session_state["pending_voice_text"] = heard
                             if heard:
                                 st.toast(f"Heard: {heard}", icon="🎙️")
-else:
+                            else:
                                 st.toast("No speech detected.", icon="🤔")
                         except Exception as e:
                             st.toast(f"Mic failed: {e}", icon="⚠️")

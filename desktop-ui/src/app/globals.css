@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+:root {
+  --background: #09090b; /* slate-950 */
+  --foreground: #fafafa;
+}
+
+body {
+  background-color: var(--background);
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(30, 27, 75, 0.5) 0, transparent 50%), 
+    radial-gradient(at 50% 0%, rgba(17, 24, 39, 0.8) 0, transparent 50%), 
+    radial-gradient(at 100% 0%, rgba(88, 28, 135, 0.2) 0, transparent 50%);
+  background-attachment: fixed;
+  color: var(--foreground);
+  height: 100vh;
+  margin: 0;
+  overflow: hidden;
+}
+
+/* Glassmorphism utilities */
+.glass-panel {
+  @apply bg-white/5 backdrop-blur-xl border border-white/10 shadow-2xl;
+}
+
+/* Custom scrollbar for chat */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
