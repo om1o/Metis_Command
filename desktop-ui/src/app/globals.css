@@ -332,6 +332,37 @@ form.metis-composer:focus-within {
   border-radius: 0.5rem;
 }
 
+/* Unified premium surface (Preview/Chat panels) */
+.metis-surface {
+  background: var(--metis-elevated);
+  border: 1px solid var(--metis-border);
+  border-radius: 1.5rem;
+  box-shadow: 0 18px 70px rgba(0, 0, 0, 0.18);
+}
+[data-theme="light"] .metis-surface {
+  box-shadow: 0 14px 50px rgba(0, 0, 0, 0.08);
+}
+
+.metis-surface-header {
+  border-bottom: 1px solid var(--metis-border);
+  background: color-mix(in srgb, var(--metis-elevated) 72%, transparent);
+  backdrop-filter: blur(10px);
+}
+
+.metis-chip {
+  border: 1px solid var(--metis-border);
+  background: var(--metis-elevated-2);
+  color: var(--metis-fg-muted);
+  transition: background-color 150ms ease, color 150ms ease, transform 150ms ease, border-color 150ms ease;
+}
+.metis-chip:hover {
+  background: var(--metis-hover-surface);
+  color: var(--metis-fg);
+}
+.metis-chip:active {
+  transform: scale(0.99);
+}
+
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;

@@ -12,7 +12,6 @@ import {
   ChevronDown,
   Sun,
   Moon,
-  Loader2,
   PanelLeft,
   Copy,
   Check,
@@ -22,7 +21,7 @@ import {
   Info,
   Square,
 } from 'lucide-react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { createLocalClient } from '@/lib/metis-client';
 
 const SUGGESTIONS: { t: string; s: string }[] = [
@@ -33,6 +32,21 @@ const SUGGESTIONS: { t: string; s: string }[] = [
 ];
 
 type MetisTheme = 'dark' | 'light';
+
+function CanvasStatus({ thinking, hasMessages }: { thinking: boolean; hasMessages: boolean }) {
+  if (thinking) {
+    return (
+      <div className="inline-flex items-center gap-2 text-xs text-[var(--metis-fg-dim)]" aria-live="polite">
+        <span className="inline-flex h-1.5 w-1.5 animate-pulse rounded-full bg-violet-500" aria-hidden />
+        Generating
+      </div>
+    );
+  }
+  if (!hasMessages) {
+    return <div className="text-xs text-[var(--metis-fg-dim)]">Ready</div>;
+  }
+  return <div className="text-xs text-[var(--metis-fg-dim)]">Live</div>;
+}
 
 export default function App() {
   const [theme, setTheme] = useState<MetisTheme>('dark');
@@ -51,6 +65,7 @@ export default function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(true);
+  const [chatPanelOpen, setChatPanelOpen] = useState(true);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
 
   useEffect(() => {
@@ -209,8 +224,21 @@ export default function App() {
     transition: { duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] as const },
   };
 
+  const panelMotion = {
+    initial: reduceMotion ? false : { opacity: 0, x: 10, scale: 0.995 },
+    animate: { opacity: 1, x: 0, scale: 1 },
+    exit: reduceMotion ? { opacity: 0 } : { opacity: 0, x: 10, scale: 0.995 },
+    transition: { duration: 0.18, ease: [0.25, 0.46, 0.45, 0.94] as const },
+  };
+
   const sidebarWidth = useMemo(() => (sidebarCollapsed ? 'w-[72px]' : 'w-72'), [sidebarCollapsed]);
   const inspectorWidth = 'w-[320px]';
+
+  const hasMessages = messages.length > 0;
+  const centerGridClass = useMemo(() => {
+    if (!chatPanelOpen) return 'grid-cols-1';
+    return 'lg:grid-cols-[1fr_380px]';
+  }, [chatPanelOpen]);
 
   if (!client) {
     return (
@@ -510,141 +538,255 @@ export default function App() {
         </header>
 
         <div
-          className="min-h-0 flex-1 overflow-y-auto"
-          role="log"
-          aria-relevant="additions"
-          aria-label="Conversation"
+          className="min-h-0 flex-1 p-3 sm:p-4"
         >
-          <div className="mx-auto w-full max-w-[48rem] px-4 py-6 sm:px-6">
-            {messages.length === 0 && (
-              <div className="relative overflow-hidden rounded-3xl pt-2 text-center sm:pt-8">
-                <div
-                  className="pointer-events-none absolute left-1/2 top-0 h-64 w-[min(100%,40rem)] -translate-x-1/2 sm:h-72"
-                  style={{ background: 'var(--metis-orb-hero)' }}
-                  aria-hidden
-                />
-                <h2 className="relative text-balance text-3xl font-light tracking-[-0.02em] text-[var(--metis-hero-title)] sm:text-5xl sm:leading-[1.08]">
-                  What can Metis do for you?
-                </h2>
-                <p className="relative mx-auto mt-4 max-w-md text-balance text-sm text-[var(--metis-hero-sub)] sm:text-lg sm:leading-relaxed">
-                  Local control plane — ask the manager, or start from a prompt below
-                </p>
-                <div className="relative mx-auto mt-10 grid max-w-2xl gap-2.5 sm:grid-cols-2 sm:gap-3">
-                  {SUGGESTIONS.map(({ t, s }) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => {
-                        setInput(s);
-                        areaRef.current?.focus();
-                      }}
-                      className="group rounded-2xl border border-[var(--metis-sugg-border)] bg-[var(--metis-sugg-bg)] px-4 py-3.5 text-left text-sm text-[var(--metis-sugg-text)] transition duration-200 shadow-[var(--metis-sugg-shadow)] hover:scale-[1.01] hover:border-violet-500/25"
-                    >
-                      <span className="mb-1.5 block text-xs font-medium text-[var(--metis-sugg-title)] group-hover:text-[var(--metis-sugg-title-hover)]">
-                        {t}
-                      </span>
-                      <span className="line-clamp-2 text-[13px] leading-relaxed text-[var(--metis-sugg-muted)] group-hover:opacity-90">
-                        {s}
-                      </span>
-                    </button>
-                  ))}
-                </div>
+          <section
+            className="metis-glow-border flex h-full min-h-0 flex-col overflow-hidden rounded-[28px] border border-[var(--metis-border)] bg-[var(--metis-elevated-2)] shadow-2xl backdrop-blur-md"
+            aria-label="Canvas"
+          >
+            <div className="flex items-center gap-2 border-b border-[var(--metis-border)] px-4 py-3">
+              <div className="text-xs font-medium text-[var(--metis-fg-dim)]">Canvas</div>
+              <div className="ml-2">
+                <CanvasStatus thinking={thinking} hasMessages={hasMessages} />
               </div>
-            )}
-
-            <div className="flex flex-col gap-5 pb-4 pt-2">
-              {messages.map((msg, idx) => {
-                const isUser = msg.role === 'user';
-                const isLast = idx === messages.length - 1;
-                const streaming = thinking && isLast && !isUser;
-                if (isUser) {
-                  return (
-                    <motion.div
-                      key={idx}
-                      className="flex flex-row justify-end pl-4 sm:pl-12"
-                      {...msgMotion}
-                    >
-                      <div
-                        className="max-w-[min(100%,36rem)] rounded-3xl border border-[var(--metis-bubble-user-border)] bg-[var(--metis-bubble-user)] px-4 py-2.5 text-[15px] leading-7 text-[var(--metis-bubble-fg)]"
-                        style={{ wordBreak: 'break-word' }}
-                      >
-                        <p className="whitespace-pre-wrap">{msg.content}</p>
-                      </div>
-                    </motion.div>
-                  );
-                }
-                return (
-                  <motion.div key={idx} className="group flex gap-2 sm:gap-3" {...msgMotion}>
-                    <div className="shrink-0 select-none">
-                      <Image
-                        src="/metis-mark.png"
-                        width={32}
-                        height={32}
-                        className="mt-0.5 h-8 w-8 rounded-md object-contain"
-                        alt="Metis"
-                        unoptimized
-                      />
-                    </div>
-                    <div className="min-w-0 flex-1 pl-0.5 text-[15px] leading-7 text-[var(--metis-bubble-fg)]">
-                      <div className="mb-1.5 flex items-center gap-2">
-                        <div className="text-xs font-medium text-[var(--metis-name-label)]">Metis</div>
-                        <div className="ml-auto flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                          <button
-                            type="button"
-                            onClick={() => copyText(idx, msg.content)}
-                            disabled={!canCopy}
-                            className="metis-icon-btn"
-                            title={canCopy ? 'Copy' : 'Copy unavailable'}
-                            aria-label="Copy message"
-                          >
-                            {copiedIdx === idx ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                          </button>
-                        </div>
-                      </div>
-                      {msg.reasoning && (
-                        <div
-                          className="metis-glow-border mb-3 rounded-xl border border-[var(--metis-border)] px-3 py-2"
-                          style={{ background: 'var(--metis-reasoning-bg)' }}
-                        >
-                          <div className="mb-1 text-xs font-medium text-[var(--metis-fg-dim)]">Reasoning</div>
-                          <pre className="whitespace-pre-wrap font-mono text-[12px] leading-relaxed text-[var(--metis-reasoning-code)]">
-                            {msg.reasoning}
-                          </pre>
-                        </div>
-                      )}
-                      {msg.content ? (
-                        <p className="whitespace-pre-wrap">{msg.content}</p>
-                      ) : (
-                        streaming && (
-                          <div className="flex gap-1 pt-1" aria-label="Loading">
-                            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400" style={{ animationDelay: '0ms' }} />
-                            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400" style={{ animationDelay: '150ms' }} />
-                            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400" style={{ animationDelay: '300ms' }} />
-                          </div>
-                        )
-                      )}
-                    </div>
-                  </motion.div>
-                );
-              })}
+              <div className="ml-auto flex items-center gap-1">
+                <div className="hidden items-center gap-2 text-xs text-[var(--metis-fg-dim)] sm:flex">
+                  <span>Ctrl/⌘ + K</span>
+                  <span className="text-[var(--metis-fg-faint)]">focus</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setChatPanelOpen((v) => !v)}
+                  className="metis-icon-btn"
+                  title={chatPanelOpen ? 'Hide chat panel' : 'Show chat panel'}
+                  aria-label={chatPanelOpen ? 'Hide chat panel' : 'Show chat panel'}
+                >
+                  {chatPanelOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
-            <div ref={bottomRef} className="h-2" />
-          </div>
+
+            <div className={`grid min-h-0 flex-1 grid-cols-1 gap-3 p-3 sm:gap-4 sm:p-4 ${centerGridClass}`}>
+              {/* Preview hero */}
+              <section
+                className="metis-glow-border metis-surface relative flex min-h-0 flex-col overflow-hidden"
+                aria-label="Preview"
+              >
+                <div className="metis-surface-header flex items-center gap-2 px-4 py-3">
+                  <div className="text-xs font-medium text-[var(--metis-fg-dim)]">Preview</div>
+                  <div className="ml-auto flex items-center gap-1.5">
+                    <div className="hidden text-xs text-[var(--metis-fg-dim)] sm:block">Coming next: renderables</div>
+                    <button
+                      type="button"
+                      onClick={handleNewChat}
+                      className="metis-icon-btn"
+                      title="Clear chat"
+                      aria-label="Clear chat"
+                    >
+                      <SquarePen className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+                <div className="min-h-0 flex-1 p-5 sm:p-6">
+                  {!hasMessages ? (
+                    <div className="relative h-full overflow-hidden rounded-[22px] border border-[var(--metis-border)] bg-[var(--metis-bg)] p-6 sm:p-8">
+                      <div
+                        className="pointer-events-none absolute inset-x-0 top-[-25%] mx-auto h-80 w-[min(100%,52rem)]"
+                        style={{ background: 'var(--metis-orb-hero)' }}
+                        aria-hidden
+                      />
+                      <div className="relative max-w-2xl">
+                        <div className="text-xs font-medium tracking-wide text-[var(--metis-fg-dim)]">Metis Make</div>
+                        <h2 className="mt-3 text-balance text-3xl font-light tracking-[-0.02em] text-[var(--metis-hero-title)] sm:text-5xl sm:leading-[1.08]">
+                          Your preview appears here
+                        </h2>
+                        <p className="mt-4 text-balance text-sm text-[var(--metis-hero-sub)] sm:text-base sm:leading-relaxed">
+                          Start from a prompt below. Metis will generate a plan, then run it locally on your machine.
+                        </p>
+                        <div className="mt-7 grid gap-2.5 sm:grid-cols-2 sm:gap-3">
+                          {SUGGESTIONS.map(({ t, s }) => (
+                            <button
+                              key={s}
+                              type="button"
+                              onClick={() => {
+                                setInput(s);
+                                areaRef.current?.focus();
+                              }}
+                              className="group rounded-2xl border border-[var(--metis-sugg-border)] bg-[var(--metis-sugg-bg)] px-4 py-3.5 text-left text-sm text-[var(--metis-sugg-text)] transition duration-200 shadow-[var(--metis-sugg-shadow)] hover:scale-[1.01] hover:border-violet-500/25"
+                            >
+                              <span className="mb-1.5 block text-xs font-medium text-[var(--metis-sugg-title)] group-hover:text-[var(--metis-sugg-title-hover)]">
+                                {t}
+                              </span>
+                              <span className="line-clamp-2 text-[13px] leading-relaxed text-[var(--metis-sugg-muted)] group-hover:opacity-90">
+                                {s}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ) : thinking ? (
+                    <div className="h-full overflow-hidden rounded-[22px] border border-[var(--metis-border)] bg-[var(--metis-bg)] p-6 sm:p-8">
+                      <div className="text-sm font-medium text-[var(--metis-fg)]">Generating layout…</div>
+                      <div className="mt-4 grid max-w-xl gap-2">
+                        <div className="h-3 w-[42%] animate-pulse rounded-full bg-[var(--metis-hover-surface)]" />
+                        <div className="h-3 w-[68%] animate-pulse rounded-full bg-[var(--metis-hover-surface)]" />
+                        <div className="h-3 w-[54%] animate-pulse rounded-full bg-[var(--metis-hover-surface)]" />
+                        <div className="mt-3 h-3 w-[62%] animate-pulse rounded-full bg-[var(--metis-hover-surface)]" />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="h-full overflow-hidden rounded-[22px] border border-[var(--metis-border)] bg-[var(--metis-bg)] p-6 sm:p-8">
+                      <div className="text-sm font-medium text-[var(--metis-fg)]">Preview</div>
+                      <p className="mt-2 max-w-xl text-sm text-[var(--metis-fg-muted)]">
+                        Next step: wire the manager stream to produce structured “renderables” we can display here (cards, plans, UI diffs).
+                      </p>
+                      <div className="mt-6 grid gap-2">
+                        <div className="h-14 w-full rounded-2xl border border-[var(--metis-border)] bg-[var(--metis-elevated)]" />
+                        <div className="h-14 w-[86%] rounded-2xl border border-[var(--metis-border)] bg-[var(--metis-elevated)]" />
+                        <div className="h-14 w-[72%] rounded-2xl border border-[var(--metis-border)] bg-[var(--metis-elevated)]" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </section>
+
+              {/* Chat panel (secondary) */}
+              <AnimatePresence initial={false}>
+                {chatPanelOpen && (
+                  <motion.section
+                    {...panelMotion}
+                    className="metis-glow-border metis-surface flex min-h-0 flex-col overflow-hidden"
+                    aria-label="Chat"
+                  >
+                    <div className="metis-surface-header flex items-center gap-2 px-4 py-3">
+                      <div className="text-xs font-medium text-[var(--metis-fg-dim)]">Chat</div>
+                      <div className="ml-auto text-xs text-[var(--metis-fg-dim)]">Manager</div>
+                    </div>
+
+                    <div className="min-h-0 flex-1 overflow-y-auto">
+                      <div className="px-4 py-5">
+                        <div className="flex flex-col gap-4">
+                          {messages.map((msg, idx) => {
+                            const isUser = msg.role === 'user';
+                            const isLast = idx === messages.length - 1;
+                            const streaming = thinking && isLast && !isUser;
+
+                            if (isUser) {
+                              return (
+                                <motion.div
+                                  key={idx}
+                                  className="flex justify-end"
+                                  {...msgMotion}
+                                >
+                                  <div
+                                    className="max-w-[min(100%,18rem)] rounded-2xl border border-[var(--metis-bubble-user-border)] bg-[var(--metis-bubble-user)] px-3 py-2 text-[13px] leading-6 text-[var(--metis-bubble-fg)]"
+                                    style={{ wordBreak: 'break-word' }}
+                                  >
+                                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                                  </div>
+                                </motion.div>
+                              );
+                            }
+
+                            return (
+                              <motion.div key={idx} className="group flex gap-2" {...msgMotion}>
+                                <div className="shrink-0 select-none">
+                                  <Image
+                                    src="/metis-mark.png"
+                                    width={24}
+                                    height={24}
+                                    className="mt-0.5 h-6 w-6 rounded-md object-contain"
+                                    alt="Metis"
+                                    unoptimized
+                                  />
+                                </div>
+                                <div className="min-w-0 flex-1 text-[13px] leading-6 text-[var(--metis-bubble-fg)]">
+                                  <div className="mb-1 flex items-center gap-2">
+                                    <div className="text-[11px] font-medium text-[var(--metis-name-label)]">Metis</div>
+                                    <div className="ml-auto flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                                      <button
+                                        type="button"
+                                        onClick={() => copyText(idx, msg.content)}
+                                        disabled={!canCopy}
+                                        className="metis-icon-btn"
+                                        title={canCopy ? 'Copy' : 'Copy unavailable'}
+                                        aria-label="Copy message"
+                                      >
+                                        {copiedIdx === idx ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                                      </button>
+                                    </div>
+                                  </div>
+                                  {msg.content ? (
+                                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                                  ) : (
+                                    streaming && (
+                                      <div className="flex gap-1 pt-1" aria-label="Loading">
+                                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400" style={{ animationDelay: '0ms' }} />
+                                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400" style={{ animationDelay: '150ms' }} />
+                                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400" style={{ animationDelay: '300ms' }} />
+                                      </div>
+                                    )
+                                  )}
+                                </div>
+                              </motion.div>
+                            );
+                          })}
+                        </div>
+                        <div ref={bottomRef} className="h-2" />
+                      </div>
+                    </div>
+                  </motion.section>
+                )}
+              </AnimatePresence>
+            </div>
+          </section>
         </div>
 
         {/* Rounded composer bar (common AI chat pattern) */}
         <div
-          className="shrink-0 border-t border-[var(--metis-border)] bg-[var(--metis-bg)] p-3 sm:p-4"
+          className="shrink-0 bg-transparent p-3 sm:p-4"
           style={{
             paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))',
           }}
         >
+          <div
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-36"
+            style={{
+              background:
+                'linear-gradient(to top, color-mix(in srgb, var(--metis-bg) 85%, transparent), transparent)',
+            }}
+            aria-hidden
+          />
+          <div className="mx-auto mb-2 w-full max-w-[56rem] px-1">
+            <div className="flex items-center gap-2">
+              <div className="-mx-1 flex min-w-0 flex-1 gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {SUGGESTIONS.map(({ t, s }) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => {
+                      setInput(s);
+                      areaRef.current?.focus();
+                    }}
+                    className="metis-chip shrink-0 rounded-full px-3 py-1.5 text-xs"
+                    title={s}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+              <div className="ml-auto hidden text-xs text-[var(--metis-fg-dim)] sm:block">
+                Enter to send · Shift+Enter new line
+              </div>
+            </div>
+          </div>
           <form
             id="metis-composer"
             onSubmit={handleSubmit}
             aria-busy={thinking}
             aria-label="Message composer"
-            className="metis-composer metis-glow-border mx-auto w-full max-w-3xl rounded-3xl border border-[var(--metis-composer-border)] p-1.5 pl-2 transition-[box-shadow,border-color] duration-200 sm:pl-3"
+            className="metis-composer metis-glow-border mx-auto w-full max-w-[56rem] rounded-[28px] border border-[var(--metis-composer-border)] p-1.5 pl-2 transition-[box-shadow,border-color] duration-200 sm:pl-3"
             style={{
               background: 'var(--metis-composer-bg)',
               boxShadow: 'var(--metis-composer-shadow)',
