@@ -8,9 +8,11 @@
   --metis-elevated: #2f2f2f;
   --metis-elevated-2: rgba(42, 42, 42, 0.92);
   --metis-border: rgba(255, 255, 255, 0.1);
+  --metis-border-strong: rgba(255, 255, 255, 0.16);
   --metis-fg: #ececec;
   --metis-fg-muted: #a0a0a0;
   --metis-fg-dim: #6e6e6e;
+  --metis-fg-faint: #4f4f4f;
   --metis-hero-title: #f2f2f2;
   --metis-hero-sub: #9b9b9b;
   --metis-sugg-border: #3e3e3e;
@@ -46,6 +48,7 @@
   --metis-continue-hover: rgba(255, 255, 255, 0.9);
   --metis-accent: #7c3aed;
   --metis-accent-hover: #6d28d9;
+  --metis-accent-2: #22d3ee;
   --metis-focus: rgba(124, 58, 237, 0.4);
   --metis-focus-ring: rgba(124, 58, 237, 0.45);
   --metis-session-line: #a78bfa;
@@ -56,6 +59,7 @@
   );
   --metis-sugg-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
   --metis-dot: rgba(255, 255, 255, 0.1);
+  --metis-noise: rgba(255, 255, 255, 0.04);
 }
 
 [data-theme="light"] {
@@ -65,9 +69,11 @@
   --metis-elevated: #ffffff;
   --metis-elevated-2: #ffffff;
   --metis-border: rgba(0, 0, 0, 0.09);
+  --metis-border-strong: rgba(0, 0, 0, 0.14);
   --metis-fg: #202123;
   --metis-fg-muted: #565869;
   --metis-fg-dim: #8e8ea0;
+  --metis-fg-faint: #b7b7c5;
   --metis-hero-title: #0d0d0d;
   --metis-hero-sub: #565869;
   --metis-sugg-border: #e1e1e5;
@@ -103,6 +109,7 @@
   --metis-continue-hover: rgba(13, 13, 13, 0.9);
   --metis-accent: #7c3aed;
   --metis-accent-hover: #6d28d9;
+  --metis-accent-2: #0891b2;
   --metis-focus: rgba(124, 58, 237, 0.2);
   --metis-focus-ring: rgba(124, 58, 237, 0.35);
   --metis-session-line: #5b21b6;
@@ -113,6 +120,7 @@
   );
   --metis-sugg-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
   --metis-dot: rgba(0, 0, 0, 0.06);
+  --metis-noise: rgba(0, 0, 0, 0.04);
 }
 
 body {
@@ -187,6 +195,51 @@ form.metis-composer:focus-within {
   border-color: color-mix(in srgb, var(--metis-accent) 25%, var(--metis-composer-border));
 }
 
+/* “Insane” polish utilities */
+.metis-hairline {
+  border: 1px solid var(--metis-border);
+}
+.metis-hairline-strong {
+  border: 1px solid var(--metis-border-strong);
+}
+.metis-glow-border {
+  position: relative;
+}
+.metis-glow-border::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--metis-accent) 55%, transparent),
+    color-mix(in srgb, var(--metis-accent-2) 35%, transparent),
+    transparent 70%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0.8;
+}
+.metis-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.75rem;
+  padding: 0.5rem;
+  color: var(--metis-fg-muted);
+  transition: background-color 150ms ease, color 150ms ease, transform 150ms ease;
+}
+.metis-icon-btn:hover {
+  background: var(--metis-hover-surface);
+  color: var(--metis-fg);
+}
+.metis-icon-btn:active {
+  transform: scale(0.98);
+}
+
 /* Canvas: soft glow + hairline dot grid (depth, not a copy of any one product) */
 .metis-app-bg {
   position: relative;
@@ -207,6 +260,20 @@ form.metis-composer:focus-within {
   background-size: 22px 22px;
   pointer-events: none;
   opacity: 0.45;
+}
+.metis-app-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.22;
+  background-image:
+    radial-gradient(1200px 800px at 20% 0%, color-mix(in srgb, var(--metis-accent) 18%, transparent) 0%, transparent 55%),
+    radial-gradient(900px 700px at 100% 20%, color-mix(in srgb, var(--metis-accent-2) 14%, transparent) 0%, transparent 55%),
+    radial-gradient(var(--metis-noise) 0.6px, transparent 0.6px);
+  background-size: auto, auto, 18px 18px;
+  mix-blend-mode: overlay;
 }
 .metis-app-bg > * {
   position: relative;

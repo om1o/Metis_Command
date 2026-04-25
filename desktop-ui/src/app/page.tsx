@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, FormEvent, KeyboardEvent } from 'react';
+import { useMemo, useState, useEffect, useRef, FormEvent, KeyboardEvent } from 'react';
 import Image from 'next/image';
 import {
   Send,
@@ -13,6 +13,10 @@ import {
   Sun,
   Moon,
   Loader2,
+  PanelLeft,
+  Copy,
+  Check,
+  X,
 } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { createLocalClient } from '@/lib/metis-client';
@@ -40,6 +44,9 @@ export default function App() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const areaRef = useRef<HTMLTextAreaElement>(null);
   const reduceMotion = useReducedMotion();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem('metis-theme') as MetisTheme | null;
@@ -79,6 +86,30 @@ export default function App() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [client]);
+
+  useEffect(() => {
+    if (!client) return;
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key !== ',' || (!e.metaKey && !e.ctrlKey)) return;
+      e.preventDefault();
+      setSettingsOpen(true);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [client]);
+
+  const canCopy = typeof navigator !== 'undefined' && !!navigator.clipboard;
+
+  const copyText = async (idx: number, text: string) => {
+    if (!canCopy) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedIdx(idx);
+      window.setTimeout(() => setCopiedIdx((v) => (v === idx ? null : v)), 1200);
+    } catch {
+      // ignore
+    }
+  };
 
   const handleConnect = () => {
     if (tokenInput.trim()) {
@@ -167,6 +198,8 @@ export default function App() {
     transition: { duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] as const },
   };
 
+  const sidebarWidth = useMemo(() => (sidebarCollapsed ? 'w-[72px]' : 'w-72'), [sidebarCollapsed]);
+
   if (!client) {
     return (
       <div className="metis-app-bg metis-hero-ambient flex min-h-full flex-col items-center justify-center px-4 py-12 text-[var(--metis-fg)]">
@@ -238,11 +271,11 @@ export default function App() {
       </a>
       {/* Metis: navigation rail (not a clone of any third-party UI) */}
       <aside
-        className="flex w-64 shrink-0 flex-col border-r border-[var(--metis-border)] bg-[var(--metis-bg-sidebar)]"
+        className={`flex shrink-0 flex-col border-r border-[var(--metis-border)] bg-[var(--metis-bg-sidebar)] ${sidebarWidth}`}
         aria-label="Metis Command"
       >
         <div className="p-2">
-          <div className="flex items-center gap-2 rounded-lg px-2 py-1.5">
+          <div className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5">
             <Image
               src="/metis-mark.png"
               width={28}
@@ -251,42 +284,59 @@ export default function App() {
               className="h-7 w-7 rounded-md object-contain"
               unoptimized
             />
-            <span className="truncate text-sm font-semibold tracking-tight">Metis Command</span>
-          </div>
+            {!sidebarCollapsed && (
+              <span className="truncate text-sm font-semibold tracking-tight">Metis Command</span>
+            )}
             <button
               type="button"
+              onClick={() => setSidebarCollapsed((v) => !v)}
+              className="metis-icon-btn"
+              title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              <PanelLeft className="h-4 w-4" />
+            </button>
+          </div>
+          <button
+              type="button"
               onClick={handleNewChat}
-            className="mt-2 flex w-full items-center gap-2 rounded-xl border border-[var(--metis-border)] bg-transparent px-3 py-2.5 text-left text-sm text-[var(--metis-fg)] transition hover:bg-[var(--metis-hover-surface)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--metis-focus-ring)]"
+              className={`mt-2 flex w-full items-center gap-2 rounded-xl border border-[var(--metis-border)] bg-transparent px-3 py-2.5 text-left text-sm text-[var(--metis-fg)] transition hover:bg-[var(--metis-hover-surface)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--metis-focus-ring)] ${sidebarCollapsed ? 'justify-center px-2' : ''}`}
             >
             <SquarePen className="h-4 w-4 shrink-0" />
-            New chat
+            {!sidebarCollapsed && 'New chat'}
           </button>
         </div>
         <div className="px-2 pt-3">
-          <p className="mb-1.5 px-2 text-[10px] font-medium uppercase tracking-widest text-[var(--metis-chats-label)]">
-            Chats
-          </p>
-          <div className="flex cursor-default items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-[var(--metis-chats-item)]">
+          {!sidebarCollapsed && (
+            <p className="mb-1.5 px-2 text-[10px] font-medium uppercase tracking-widest text-[var(--metis-chats-label)]">
+              Chats
+            </p>
+          )}
+          <div
+            className={`flex cursor-default items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-[var(--metis-chats-item)] ${sidebarCollapsed ? 'justify-center' : ''}`}
+          >
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
-            <span className="truncate">This session</span>
+            {!sidebarCollapsed && <span className="truncate">This session</span>}
           </div>
         </div>
         <div className="min-h-0 flex-1" />
         <div className="border-t border-[var(--metis-border)] p-2">
-          <div className="mb-1 rounded-md px-2 py-1 text-xs text-[var(--metis-fg-dim)]">Session</div>
+          {!sidebarCollapsed && (
+            <div className="mb-1 rounded-md px-2 py-1 text-xs text-[var(--metis-fg-dim)]">Session</div>
+          )}
           <div className="text-xs" style={{ color: 'var(--metis-session-line)' }}>
-            Manager · local swarm
+            {sidebarCollapsed ? 'Manager' : 'Manager · local swarm'}
           </div>
         </div>
         <div className="flex gap-1 border-t border-[var(--metis-border)] p-2">
           <button
             type="button"
             onClick={handleDisconnect}
-            className="flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-sm text-[var(--metis-fg-muted)] hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]"
+            className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-sm text-[var(--metis-fg-muted)] hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)] ${sidebarCollapsed ? 'px-0' : ''}`}
             title="Disconnect"
           >
             <LogOut className="h-4 w-4" />
-            Log out
+            {!sidebarCollapsed && 'Log out'}
           </button>
           <button
             type="button"
@@ -299,6 +349,7 @@ export default function App() {
           </button>
           <button
             type="button"
+            onClick={() => setSettingsOpen(true)}
             className="rounded-lg p-2 text-[var(--metis-fg-muted)] transition hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]"
             title="Settings"
             aria-label="Settings"
@@ -313,6 +364,89 @@ export default function App() {
         id="metis-main"
         aria-label="Chat with Metis"
       >
+        {settingsOpen && (
+          <div
+            className="fixed inset-0 z-[120] flex items-center justify-center p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Settings"
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) setSettingsOpen(false);
+            }}
+            style={{ background: 'rgba(0,0,0,0.45)' }}
+          >
+            <motion.div
+              initial={reduceMotion ? false : { opacity: 0, y: 10, scale: 0.99 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.18 }}
+              className="metis-glow-border w-full max-w-lg rounded-2xl border border-[var(--metis-border)] bg-[var(--metis-elevated-2)] p-4 shadow-2xl backdrop-blur"
+            >
+              <div className="flex items-center gap-2">
+                <div className="text-sm font-semibold text-[var(--metis-foreground)]">Settings</div>
+                <div className="ml-auto flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setSettingsOpen(false)}
+                    className="metis-icon-btn"
+                    aria-label="Close"
+                    title="Close"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-3 grid gap-3">
+                <div className="rounded-xl border border-[var(--metis-border)] bg-[var(--metis-elevated)] p-3">
+                  <div className="text-xs font-medium text-[var(--metis-fg-dim)]">Theme</div>
+                  <div className="mt-2 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setTheme('dark')}
+                      className={`rounded-lg px-3 py-2 text-sm transition ${
+                        theme === 'dark'
+                          ? 'bg-[var(--metis-hover-surface)] text-[var(--metis-foreground)]'
+                          : 'text-[var(--metis-fg-muted)] hover:bg-[var(--metis-hover-surface)]'
+                      }`}
+                    >
+                      Dark
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTheme('light')}
+                      className={`rounded-lg px-3 py-2 text-sm transition ${
+                        theme === 'light'
+                          ? 'bg-[var(--metis-hover-surface)] text-[var(--metis-foreground)]'
+                          : 'text-[var(--metis-fg-muted)] hover:bg-[var(--metis-hover-surface)]'
+                      }`}
+                    >
+                      Light
+                    </button>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-[var(--metis-border)] bg-[var(--metis-elevated)] p-3">
+                  <div className="text-xs font-medium text-[var(--metis-fg-dim)]">Shortcuts</div>
+                  <div className="mt-2 space-y-1 text-sm text-[var(--metis-fg-muted)]">
+                    <div className="flex items-center justify-between gap-4">
+                      <span>Focus composer</span>
+                      <kbd className="rounded border border-[var(--metis-border)] bg-[var(--metis-code-bg)] px-2 py-0.5 text-xs text-[var(--metis-code-fg)]">
+                        Ctrl/⌘ + K
+                      </kbd>
+                    </div>
+                    <div className="flex items-center justify-between gap-4">
+                      <span>Open settings</span>
+                      <kbd className="rounded border border-[var(--metis-border)] bg-[var(--metis-code-bg)] px-2 py-0.5 text-xs text-[var(--metis-code-fg)]">
+                        Ctrl/⌘ + ,
+                      </kbd>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
         <header
           className="flex h-12 shrink-0 items-center border-b border-[var(--metis-border)] bg-[var(--metis-header-bg)] px-4 backdrop-blur-md sm:h-14 sm:px-5"
           style={{ paddingTop: 'max(0px, env(safe-area-inset-top, 0px))' }}
@@ -336,6 +470,17 @@ export default function App() {
                 Generating
               </span>
             )}
+          </div>
+          <div className="ml-auto flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setSettingsOpen(true)}
+              className="metis-icon-btn"
+              title="Settings (Ctrl/⌘+,)"
+              aria-label="Open settings"
+            >
+              <Settings className="h-4 w-4" />
+            </button>
           </div>
         </header>
 
@@ -416,10 +561,24 @@ export default function App() {
                       />
                     </div>
                     <div className="min-w-0 flex-1 pl-0.5 text-[15px] leading-7 text-[var(--metis-bubble-fg)]">
-                      <div className="mb-1.5 text-xs font-medium text-[var(--metis-name-label)]">Metis</div>
+                      <div className="mb-1.5 flex items-center gap-2">
+                        <div className="text-xs font-medium text-[var(--metis-name-label)]">Metis</div>
+                        <div className="ml-auto flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                          <button
+                            type="button"
+                            onClick={() => copyText(idx, msg.content)}
+                            disabled={!canCopy}
+                            className="metis-icon-btn"
+                            title={canCopy ? 'Copy' : 'Copy unavailable'}
+                            aria-label="Copy message"
+                          >
+                            {copiedIdx === idx ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                          </button>
+                        </div>
+                      </div>
                       {msg.reasoning && (
                         <div
-                          className="mb-3 rounded-lg border border-[var(--metis-border)] px-3 py-2"
+                          className="metis-glow-border mb-3 rounded-xl border border-[var(--metis-border)] px-3 py-2"
                           style={{ background: 'var(--metis-reasoning-bg)' }}
                         >
                           <div className="mb-1 text-xs font-medium text-[var(--metis-fg-dim)]">Reasoning</div>
@@ -460,7 +619,7 @@ export default function App() {
             onSubmit={handleSubmit}
             aria-busy={thinking}
             aria-label="Message composer"
-            className="metis-composer mx-auto w-full max-w-3xl rounded-3xl border border-[var(--metis-composer-border)] p-1.5 pl-2 transition-[box-shadow,border-color] duration-200 sm:pl-3"
+            className="metis-composer metis-glow-border mx-auto w-full max-w-3xl rounded-3xl border border-[var(--metis-composer-border)] p-1.5 pl-2 transition-[box-shadow,border-color] duration-200 sm:pl-3"
             style={{
               background: 'var(--metis-composer-bg)',
               boxShadow: 'var(--metis-composer-shadow)',
@@ -530,7 +689,7 @@ export default function App() {
             <p className="px-2 pb-1 text-center text-[10px] leading-relaxed text-[var(--metis-hint)] sm:text-left">
               <span className="block sm:inline">Metis can make mistakes. Verify important actions on your device.</span>
               <span className="mt-0.5 block text-[var(--metis-fg-dim)] sm:mt-0 sm:ml-2 sm:inline">
-                Enter to send · Shift+Enter for a new line · Ctrl/⌘+K focus message
+                Enter to send · Shift+Enter for a new line · Ctrl/⌘+K focus · Ctrl/⌘+, settings
               </span>
             </p>
           </form>
