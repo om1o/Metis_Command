@@ -5,8 +5,8 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Metis Command OS',
-  description: 'Native desktop agent interface.',
+  title: 'Metis Command',
+  description: 'Local-first agent control plane.',
 };
 
 export default function RootLayout({

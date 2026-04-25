@@ -1,26 +1,53 @@
 @import "tailwindcss";
 
 :root {
-  --background: #09090b; /* slate-950 */
+  --background: #09090b;
   --foreground: #fafafa;
+  --surface: rgba(255, 255, 255, 0.04);
+  --border: rgba(255, 255, 255, 0.09);
+  --accent: #8b5cf6;
+  --accent-muted: rgba(139, 92, 246, 0.15);
+  --ring-focus: rgba(139, 92, 246, 0.45);
 }
 
 body {
   background-color: var(--background);
-  background-image: 
-    radial-gradient(at 0% 0%, rgba(30, 27, 75, 0.5) 0, transparent 50%), 
-    radial-gradient(at 50% 0%, rgba(17, 24, 39, 0.8) 0, transparent 50%), 
-    radial-gradient(at 100% 0%, rgba(88, 28, 135, 0.2) 0, transparent 50%);
+  background-image:
+    radial-gradient(1000px 480px at 8% 0%, rgba(49, 46, 129, 0.35) 0, transparent 55%),
+    radial-gradient(800px 400px at 92% 8%, rgba(88, 28, 135, 0.18) 0, transparent 50%),
+    radial-gradient(600px 300px at 50% 100%, rgba(15, 23, 42, 0.5) 0, transparent 45%);
   background-attachment: fixed;
   color: var(--foreground);
   height: 100vh;
   margin: 0;
   overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-/* Glassmorphism utilities */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Glass: single elevation system */
 .glass-panel {
-  @apply bg-white/5 backdrop-blur-xl border border-white/10 shadow-2xl;
+  @apply border shadow-2xl;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.06) 0%,
+    rgba(255, 255, 255, 0.02) 100%
+  );
+  border-color: var(--border);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset,
+    0 25px 50px -12px rgba(0, 0, 0, 0.45);
+  @apply backdrop-blur-xl;
+}
+
+.glass-tight {
+  @apply bg-white/[0.03] backdrop-blur-md border border-white/[0.08] shadow-lg;
 }
 
 /* Custom scrollbar for chat */
@@ -36,4 +63,26 @@ body {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
+}
+
+/* Subtle “live” sheen for streaming — respect reduced motion */
+@keyframes sheen {
+  0%,
+  100% {
+    opacity: 0.15;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.shimmer-sheen {
+  animation: sheen 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer-sheen {
+    animation: none;
+    opacity: 0.25;
+  }
 }
