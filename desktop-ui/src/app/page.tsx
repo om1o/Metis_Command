@@ -13,6 +13,7 @@ import {
   Sun,
   Moon,
 } from 'lucide-react';
+import { motion, useReducedMotion } from 'framer-motion';
 import { createLocalClient } from '@/lib/metis-client';
 
 const SUGGESTIONS: { t: string; s: string }[] = [
@@ -37,6 +38,7 @@ export default function App() {
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const areaRef = useRef<HTMLTextAreaElement>(null);
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     const stored = localStorage.getItem('metis-theme') as MetisTheme | null;
@@ -73,6 +75,9 @@ export default function App() {
 
   const handleNewChat = () => {
     setMessages([]);
+    if (areaRef.current) {
+      areaRef.current.style.height = 'auto';
+    }
   };
 
   const handleDisconnect = () => {
@@ -89,6 +94,9 @@ export default function App() {
     if (!input.trim() || !client || thinking) return;
     const userText = input.trim();
     setInput('');
+    if (areaRef.current) {
+      areaRef.current.style.height = 'auto';
+    }
     setMessages((prev) => [...prev, { role: 'user', content: userText }]);
     setThinking(true);
     setMessages((prev) => [...prev, { role: 'assistant', content: '', reasoning: '' }]);
@@ -138,6 +146,12 @@ export default function App() {
       e.preventDefault();
       runSend();
     }
+  };
+
+  const msgMotion = {
+    initial: reduceMotion ? false : { opacity: 0, y: 6 },
+    animate: { opacity: 1, y: 0 },
+    transition: { duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] as const },
   };
 
   if (!client) {
@@ -211,11 +225,11 @@ export default function App() {
             />
             <span className="truncate text-sm font-semibold tracking-tight">Metis Command</span>
           </div>
-          <button
-            type="button"
-            onClick={handleNewChat}
-            className="mt-2 flex w-full items-center gap-2 rounded-xl border border-[var(--metis-border)] bg-transparent px-3 py-2.5 text-left text-sm text-[var(--metis-fg)] transition hover:bg-[var(--metis-hover-surface)]"
-          >
+            <button
+              type="button"
+              onClick={handleNewChat}
+            className="mt-2 flex w-full items-center gap-2 rounded-xl border border-[var(--metis-border)] bg-transparent px-3 py-2.5 text-left text-sm text-[var(--metis-fg)] transition hover:bg-[var(--metis-hover-surface)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--metis-focus-ring)]"
+            >
             <SquarePen className="h-4 w-4 shrink-0" />
             New chat
           </button>
@@ -232,7 +246,9 @@ export default function App() {
         <div className="min-h-0 flex-1" />
         <div className="border-t border-[var(--metis-border)] p-2">
           <div className="mb-1 rounded-md px-2 py-1 text-xs text-[var(--metis-fg-dim)]">Session</div>
-          <div className="text-xs text-violet-300/90">Manager · local swarm</div>
+          <div className="text-xs" style={{ color: 'var(--metis-session-line)' }}>
+            Manager · local swarm
+          </div>
         </div>
         <div className="flex gap-1 border-t border-[var(--metis-border)] p-2">
           <button
@@ -271,7 +287,7 @@ export default function App() {
             <h2 className="sr-only">Current model</h2>
             <button
               type="button"
-              className="group inline-flex h-8 max-w-full items-center gap-0.5 rounded-2xl border border-transparent pl-0 pr-1.5 text-sm text-[var(--metis-header-button-fg)] transition hover:bg-[var(--metis-hover-surface)]"
+              className="group inline-flex h-8 max-w-full items-center gap-0.5 rounded-2xl border border-transparent pl-0 pr-1.5 text-sm text-[var(--metis-header-button-fg)] transition hover:bg-[var(--metis-hover-surface)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--metis-focus-ring)]"
               title="Manager · local (single endpoint for now)"
             >
               <span className="truncate pl-0.5 font-medium">Manager</span>
@@ -334,18 +350,22 @@ export default function App() {
                 const streaming = thinking && isLast && !isUser;
                 if (isUser) {
                   return (
-                    <div key={idx} className="flex flex-row justify-end pl-4 sm:pl-12">
+                    <motion.div
+                      key={idx}
+                      className="flex flex-row justify-end pl-4 sm:pl-12"
+                      {...msgMotion}
+                    >
                       <div
                         className="max-w-[min(100%,36rem)] rounded-3xl border border-[var(--metis-bubble-user-border)] bg-[var(--metis-bubble-user)] px-4 py-2.5 text-[15px] leading-7 text-[var(--metis-bubble-fg)]"
                         style={{ wordBreak: 'break-word' }}
                       >
                         <p className="whitespace-pre-wrap">{msg.content}</p>
                       </div>
-                    </div>
+                    </motion.div>
                   );
                 }
                 return (
-                  <div key={idx} className="group flex gap-2 sm:gap-3">
+                  <motion.div key={idx} className="group flex gap-2 sm:gap-3" {...msgMotion}>
                     <div className="shrink-0 select-none">
                       <Image
                         src="/metis-mark.png"
@@ -381,7 +401,7 @@ export default function App() {
                         )
                       )}
                     </div>
-                  </div>
+                  </motion.div>
                 );
               })}
             </div>
@@ -435,7 +455,7 @@ export default function App() {
                 onKeyDown={onComposerKeyDown}
                 placeholder="Message Metis…"
                 disabled={thinking}
-                className="max-h-[200px] min-h-12 flex-1 resize-none bg-transparent py-3 text-sm text-[var(--metis-foreground)] placeholder:text-[var(--metis-fg-dim)] outline-none"
+                className="max-h-[200px] min-h-12 flex-1 resize-none bg-transparent py-3 text-sm text-[var(--metis-foreground)] placeholder:text-[var(--metis-fg-dim)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--metis-focus-ring)]"
                 aria-label="Message"
                 autoComplete="off"
               />
@@ -443,7 +463,7 @@ export default function App() {
                 <button
                   type="submit"
                   disabled={!input.trim() || thinking}
-                  className="flex h-8 w-8 items-center justify-center rounded-full text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-35 sm:h-9 sm:w-9"
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-white transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--metis-focus-ring)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--metis-composer-bg)] disabled:cursor-not-allowed disabled:opacity-35 sm:h-9 sm:w-9"
                   style={{ background: 'var(--metis-accent)' }}
                   title="Send"
                 >

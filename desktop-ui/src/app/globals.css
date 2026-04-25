@@ -47,6 +47,8 @@
   --metis-accent: #7c3aed;
   --metis-accent-hover: #6d28d9;
   --metis-focus: rgba(124, 58, 237, 0.4);
+  --metis-focus-ring: rgba(124, 58, 237, 0.45);
+  --metis-session-line: #a78bfa;
   --metis-orb-hero: radial-gradient(
     closest-side at 50% 0%,
     rgba(124, 58, 237, 0.2) 0%,
@@ -102,6 +104,8 @@
   --metis-accent: #7c3aed;
   --metis-accent-hover: #6d28d9;
   --metis-focus: rgba(124, 58, 237, 0.2);
+  --metis-focus-ring: rgba(124, 58, 237, 0.35);
+  --metis-session-line: #5b21b6;
   --metis-orb-hero: radial-gradient(
     closest-side at 50% 0%,
     rgba(99, 102, 241, 0.15) 0%,
