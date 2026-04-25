@@ -17,6 +17,10 @@ import {
   Copy,
   Check,
   X,
+  PanelRightOpen,
+  PanelRightClose,
+  Info,
+  Square,
 } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { createLocalClient } from '@/lib/metis-client';
@@ -46,6 +50,7 @@ export default function App() {
   const reduceMotion = useReducedMotion();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(true);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
 
   useEffect(() => {
@@ -180,6 +185,12 @@ export default function App() {
     })();
   };
 
+  // Best-effort stop: closes the client and forces reconnect (simple + reliable).
+  const handleStop = () => {
+    setThinking(false);
+    setClient(null);
+  };
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     runSend();
@@ -199,6 +210,7 @@ export default function App() {
   };
 
   const sidebarWidth = useMemo(() => (sidebarCollapsed ? 'w-[72px]' : 'w-72'), [sidebarCollapsed]);
+  const inspectorWidth = 'w-[320px]';
 
   if (!client) {
     return (
@@ -474,6 +486,19 @@ export default function App() {
           <div className="ml-auto flex items-center gap-1">
             <button
               type="button"
+              onClick={() => setInspectorOpen((v) => !v)}
+              className="metis-icon-btn hidden md:inline-flex"
+              title={inspectorOpen ? 'Hide info panel' : 'Show info panel'}
+              aria-label={inspectorOpen ? 'Hide info panel' : 'Show info panel'}
+            >
+              {inspectorOpen ? (
+                <PanelRightClose className="h-4 w-4" />
+              ) : (
+                <PanelRightOpen className="h-4 w-4" />
+              )}
+            </button>
+            <button
+              type="button"
               onClick={() => setSettingsOpen(true)}
               className="metis-icon-btn"
               title="Settings (Ctrl/⌘+,)"
@@ -630,7 +655,7 @@ export default function App() {
                 <button
                   type="button"
                   disabled
-                  className="rounded-lg p-2 opacity-60"
+                  className="metis-icon-btn opacity-60"
                   style={{ color: 'var(--metis-composer-icon)' }}
                   title="Attach (coming soon)"
                   tabIndex={-1}
@@ -640,7 +665,7 @@ export default function App() {
                 <button
                   type="button"
                   disabled
-                  className="rounded-lg p-2 opacity-60"
+                  className="metis-icon-btn opacity-60"
                   style={{ color: 'var(--metis-composer-icon)' }}
                   title="Voice (coming soon)"
                   tabIndex={-1}
@@ -661,29 +686,34 @@ export default function App() {
                 onKeyDown={onComposerKeyDown}
                 placeholder="Message Metis…"
                 disabled={thinking}
-                className="max-h-[200px] min-h-12 flex-1 resize-none bg-transparent py-3 text-sm text-[var(--metis-foreground)] placeholder:text-[var(--metis-fg-dim)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--metis-focus-ring)]"
+                className="max-h-[220px] min-h-12 flex-1 resize-none bg-transparent py-3 text-sm text-[var(--metis-foreground)] placeholder:text-[var(--metis-fg-dim)] outline-none"
                 aria-label="Message"
                 autoComplete="off"
               />
               <div className="shrink-0 p-0.5 pb-0.5">
-                <button
-                  type="submit"
-                  disabled={!input.trim() || thinking}
-                  className={`flex h-8 w-8 items-center justify-center rounded-full text-white transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--metis-focus-ring)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--metis-composer-bg)] sm:h-9 sm:w-9 ${
-                    thinking
-                      ? 'cursor-wait disabled:cursor-wait'
-                      : 'hover:enabled:brightness-110 disabled:cursor-not-allowed disabled:opacity-35'
-                  }`}
-                  style={{ background: 'var(--metis-accent)' }}
-                  title={thinking ? 'Sending…' : 'Send'}
-                  aria-label={thinking ? 'Sending' : 'Send message'}
-                >
-                  {thinking ? (
-                    <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />
-                  ) : (
+                {thinking ? (
+                  <button
+                    type="button"
+                    onClick={handleStop}
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-white transition hover:brightness-110 sm:h-9 sm:w-9"
+                    style={{ background: 'var(--metis-accent)' }}
+                    title="Stop"
+                    aria-label="Stop generating"
+                  >
+                    <Square className="h-3.5 w-3.5" />
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={!input.trim()}
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-35 sm:h-9 sm:w-9"
+                    style={{ background: 'var(--metis-accent)' }}
+                    title="Send"
+                    aria-label="Send message"
+                  >
                     <Send className="h-3.5 w-3.5" />
-                  )}
-                </button>
+                  </button>
+                )}
               </div>
             </div>
             <p className="px-2 pb-1 text-center text-[10px] leading-relaxed text-[var(--metis-hint)] sm:text-left">
@@ -695,6 +725,47 @@ export default function App() {
           </form>
         </div>
       </main>
+
+      {/* Right inspector — premium “control panel” feel */}
+      <aside
+        className={`hidden shrink-0 border-l border-[var(--metis-border)] bg-[var(--metis-bg-sidebar)] md:flex ${inspectorOpen ? inspectorWidth : 'w-0'} transition-[width] duration-200`}
+        aria-label="Info panel"
+      >
+        {inspectorOpen && (
+          <div className="flex min-w-0 flex-1 flex-col p-3">
+            <div className="flex items-center gap-2 px-1 py-1">
+              <Info className="h-4 w-4 text-[var(--metis-fg-dim)]" />
+              <div className="text-sm font-semibold text-[var(--metis-foreground)]">Session</div>
+            </div>
+            <div className="mt-2 rounded-2xl border border-[var(--metis-border)] bg-[var(--metis-elevated)] p-3">
+              <div className="text-xs text-[var(--metis-fg-dim)]">Agent</div>
+              <div className="mt-1 text-sm text-[var(--metis-foreground)]">Manager</div>
+              <div className="mt-3 text-xs text-[var(--metis-fg-dim)]">Shortcuts</div>
+              <div className="mt-1 space-y-1 text-xs text-[var(--metis-fg-muted)]">
+                <div className="flex items-center justify-between gap-3">
+                  <span>Focus composer</span>
+                  <span className="text-[var(--metis-code-fg)]">Ctrl/⌘ K</span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span>Settings</span>
+                  <span className="text-[var(--metis-code-fg)]">Ctrl/⌘ ,</span>
+                </div>
+              </div>
+            </div>
+            <div className="mt-3 rounded-2xl border border-[var(--metis-border)] bg-[var(--metis-elevated)] p-3">
+              <div className="text-xs text-[var(--metis-fg-dim)]">Status</div>
+              <div className="mt-2 flex items-center justify-between">
+                <span className="text-xs text-[var(--metis-fg-muted)]">Bridge</span>
+                <span className="text-xs text-emerald-400">Connected</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between">
+                <span className="text-xs text-[var(--metis-fg-muted)]">Streaming</span>
+                <span className="text-xs text-[var(--metis-fg)]">{thinking ? 'Yes' : 'Idle'}</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </aside>
     </div>
   );
 }
