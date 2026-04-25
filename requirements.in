@@ -19,6 +19,7 @@ cryptography>=42.0,<47           # bumped past 46.0.7 to close CVE-2026-26007 / 
 ollama>=0.3,<1
 openai>=1.40,<2
 crewai>=0.80,<2
+litellm>=1.0,<2
 chromadb>=0.5,<2
 peft>=0.11,<1
 

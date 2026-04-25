@@ -22,6 +22,7 @@ from pydantic import BaseModel
 
 from brain_engine import ROLE_MODELS, list_local_models, stream_chat
 from artifacts import list_artifacts, get_artifact
+from metis_version import METIS_VERSION
 
 
 import auth_local
@@ -31,7 +32,7 @@ app = FastAPI(title="Metis API Bridge", version="16.4.0")
 PUBLIC_PATHS = {"/", "/health", "/version", "/status",
                 "/docs", "/openapi.json", "/redoc"}
 
-METIS_VERSION = "0.16.4"
+app.version = METIS_VERSION
 
 
 @app.middleware("http")
@@ -109,7 +110,7 @@ class ForgeRequest(BaseModel):
 def root() -> dict:
     return {
         "name": "Metis API Bridge",
-        "version": "16.3.0",
+        "version": METIS_VERSION,
         "roles": list(ROLE_MODELS.keys()),
         "models_local": list_local_models(),
     }

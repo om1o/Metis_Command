@@ -31,6 +31,13 @@ from memory import save_message, load_session
 from memory_loop import inject_context, persist_turn, load_reasoning
 from identity_matrix import get_active_persona, build_system_prompt, list_personas
 from artifacts import list_artifacts, get_artifact, Artifact
+from metis_version import (
+    METIS_MARKETING_SITE,
+    METIS_PRODUCT_NAME,
+    METIS_RELEASES_URL,
+    METIS_SUPPORT_URL,
+    METIS_VERSION,
+)
 
 
 # ── Page config ──────────────────────────────────────────────────────────────
@@ -84,8 +91,8 @@ def _sidebar() -> None:
         st.markdown(
             "<div style='display:flex;align-items:center;gap:10px;margin-bottom:6px;'>"
             "<span style='font-family:Fira Code;font-size:22px;color:var(--metis-cyan);'>◆</span>"
-            "<span style='font-weight:600;font-size:17px;letter-spacing:0.02em;'>METIS</span>"
-            "<span class='metis-pill muted'>Command</span>"
+            "<span style='font-weight:600;font-size:17px;letter-spacing:0.02em;'>"
+            "Metis Command</span>"
             "</div>",
             unsafe_allow_html=True,
         )
@@ -323,6 +330,25 @@ def _sidebar() -> None:
                 st.caption(f"Roster unavailable: {e}")
 
         # ── Developer (local API token) ──────────────────────────────────
+        with st.expander("About", expanded=False):
+            _site = ""
+            if METIS_MARKETING_SITE:
+                _ms = METIS_MARKETING_SITE
+                _site = (
+                    f"<br/>Site: <a href='{_ms}' target='_blank' rel='noopener'>{_ms}</a>"
+                )
+            st.markdown(
+                f"<div style='font-size:13px;line-height:1.5;color:var(--metis-muted);'>"
+                f"<b style='color:var(--metis-text);'>{METIS_PRODUCT_NAME}</b><br/>"
+                f"Version <code>{METIS_VERSION}</code><br/><br/>"
+                f"Support: <a href='{METIS_SUPPORT_URL}' target='_blank' rel='noopener'>"
+                f"GitHub Discussions</a><br/>"
+                f"Releases &amp; checksums: "
+                f"<a href='{METIS_RELEASES_URL}' target='_blank' rel='noopener'>GitHub</a>"
+                f"{_site}</div>",
+                unsafe_allow_html=True,
+            )
+
         with st.expander("Developer", expanded=False):
             try:
                 import auth_local
