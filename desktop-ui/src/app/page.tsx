@@ -170,7 +170,14 @@ export default function App() {
   if (!client) {
     return (
       <div className="metis-app-bg metis-hero-ambient flex min-h-full flex-col items-center justify-center px-4 py-12 text-[var(--metis-fg)]">
-        <div className="w-full max-w-[400px] rounded-2xl border border-[var(--metis-border)] bg-[var(--metis-elevated-2)] p-8 shadow-2xl backdrop-blur-sm">
+        <form
+          className="w-full max-w-[400px] rounded-2xl border border-[var(--metis-border)] bg-[var(--metis-elevated-2)] p-8 shadow-2xl backdrop-blur-sm"
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleConnect();
+          }}
+          aria-label="Connect to Metis"
+        >
           <div className="mb-2 flex justify-end">
             <button
               type="button"
@@ -209,23 +216,31 @@ export default function App() {
             onKeyDown={onConnectKeyDown}
           />
           <button
-            type="button"
-            onClick={handleConnect}
+            type="submit"
             className="w-full rounded-xl py-2.5 text-sm font-medium transition hover:opacity-90"
             style={{ background: 'var(--metis-continue-bg)', color: 'var(--metis-continue-fg)' }}
           >
             Continue
           </button>
           <p className="mt-4 text-center text-xs text-[var(--metis-fg-dim)]">Runs on your device · local-first</p>
-        </div>
+        </form>
       </div>
     );
   }
 
   return (
     <div className="metis-app-bg flex h-full w-full min-h-0 text-[var(--metis-fg)]">
-      {/* Slim sidebar — chat-product pattern */}
-      <aside className="flex w-64 shrink-0 flex-col border-r border-[var(--metis-border)] bg-[var(--metis-bg-sidebar)]">
+      <a
+        className="metis-skip-link"
+        href="#metis-composer"
+      >
+        Skip to message
+      </a>
+      {/* Metis: navigation rail (not a clone of any third-party UI) */}
+      <aside
+        className="flex w-64 shrink-0 flex-col border-r border-[var(--metis-border)] bg-[var(--metis-bg-sidebar)]"
+        aria-label="Metis Command"
+      >
         <div className="p-2">
           <div className="flex items-center gap-2 rounded-lg px-2 py-1.5">
             <Image
@@ -293,8 +308,11 @@ export default function App() {
         </div>
       </aside>
 
-      {/* Main chat column */}
-      <div className="flex min-w-0 flex-1 flex-col">
+      <main
+        className="flex min-w-0 flex-1 flex-col"
+        id="metis-main"
+        aria-label="Chat with Metis"
+      >
         <header className="flex h-12 shrink-0 items-center border-b border-[var(--metis-border)] bg-[var(--metis-header-bg)] px-4 backdrop-blur-md sm:h-14 sm:px-5">
           <div className="inline-flex min-w-0 max-w-full items-center gap-2 sm:max-w-md">
             <h2 className="sr-only">Current model</h2>
@@ -318,7 +336,12 @@ export default function App() {
           </div>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div
+          className="min-h-0 flex-1 overflow-y-auto"
+          role="log"
+          aria-relevant="additions"
+          aria-label="Conversation"
+        >
           <div className="mx-auto w-full max-w-[48rem] px-4 py-6 sm:px-6">
             {messages.length === 0 && (
               <div className="relative overflow-hidden rounded-3xl pt-2 text-center sm:pt-8">
@@ -425,8 +448,10 @@ export default function App() {
         {/* Rounded composer bar (common AI chat pattern) */}
         <div className="shrink-0 border-t border-[var(--metis-border)] bg-[var(--metis-bg)] p-3 sm:p-4">
           <form
+            id="metis-composer"
             onSubmit={handleSubmit}
             aria-busy={thinking}
+            aria-label="Message composer"
             className="metis-composer mx-auto w-full max-w-3xl rounded-3xl border border-[var(--metis-composer-border)] p-1.5 pl-2 transition-[box-shadow,border-color] duration-200 sm:pl-3"
             style={{
               background: 'var(--metis-composer-bg)',
@@ -502,7 +527,7 @@ export default function App() {
             </p>
           </form>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
