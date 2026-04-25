@@ -313,7 +313,10 @@ export default function App() {
         id="metis-main"
         aria-label="Chat with Metis"
       >
-        <header className="flex h-12 shrink-0 items-center border-b border-[var(--metis-border)] bg-[var(--metis-header-bg)] px-4 backdrop-blur-md sm:h-14 sm:px-5">
+        <header
+          className="flex h-12 shrink-0 items-center border-b border-[var(--metis-border)] bg-[var(--metis-header-bg)] px-4 backdrop-blur-md sm:h-14 sm:px-5"
+          style={{ paddingTop: 'max(0px, env(safe-area-inset-top, 0px))' }}
+        >
           <div className="inline-flex min-w-0 max-w-full items-center gap-2 sm:max-w-md">
             <h2 className="sr-only">Current model</h2>
             <button
@@ -446,7 +449,12 @@ export default function App() {
         </div>
 
         {/* Rounded composer bar (common AI chat pattern) */}
-        <div className="shrink-0 border-t border-[var(--metis-border)] bg-[var(--metis-bg)] p-3 sm:p-4">
+        <div
+          className="shrink-0 border-t border-[var(--metis-border)] bg-[var(--metis-bg)] p-3 sm:p-4"
+          style={{
+            paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))',
+          }}
+        >
           <form
             id="metis-composer"
             onSubmit={handleSubmit}
