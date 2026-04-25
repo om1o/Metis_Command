@@ -12,6 +12,7 @@ import {
   ChevronDown,
   Sun,
   Moon,
+  Loader2,
 } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { createLocalClient } from '@/lib/metis-client';
@@ -413,6 +414,7 @@ export default function App() {
         <div className="shrink-0 border-t border-[var(--metis-border)] bg-[var(--metis-bg)] p-3 sm:p-4">
           <form
             onSubmit={handleSubmit}
+            aria-busy={thinking}
             className="metis-composer mx-auto w-full max-w-3xl rounded-3xl border border-[var(--metis-composer-border)] p-1.5 pl-2 transition-[box-shadow,border-color] duration-200 sm:pl-3"
             style={{
               background: 'var(--metis-composer-bg)',
@@ -463,16 +465,28 @@ export default function App() {
                 <button
                   type="submit"
                   disabled={!input.trim() || thinking}
-                  className="flex h-8 w-8 items-center justify-center rounded-full text-white transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--metis-focus-ring)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--metis-composer-bg)] disabled:cursor-not-allowed disabled:opacity-35 sm:h-9 sm:w-9"
+                  className={`flex h-8 w-8 items-center justify-center rounded-full text-white transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--metis-focus-ring)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--metis-composer-bg)] sm:h-9 sm:w-9 ${
+                    thinking
+                      ? 'cursor-wait disabled:cursor-wait'
+                      : 'hover:enabled:brightness-110 disabled:cursor-not-allowed disabled:opacity-35'
+                  }`}
                   style={{ background: 'var(--metis-accent)' }}
-                  title="Send"
+                  title={thinking ? 'Sending…' : 'Send'}
+                  aria-label={thinking ? 'Sending' : 'Send message'}
                 >
-                  <Send className="h-3.5 w-3.5" />
+                  {thinking ? (
+                    <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />
+                  ) : (
+                    <Send className="h-3.5 w-3.5" />
+                  )}
                 </button>
               </div>
             </div>
-            <p className="px-2 pb-1 text-center text-[10px] text-[var(--metis-hint)] sm:text-left">
-              Metis can make mistakes. Verify important actions on your device.
+            <p className="px-2 pb-1 text-center text-[10px] leading-relaxed text-[var(--metis-hint)] sm:text-left">
+              <span className="block sm:inline">Metis can make mistakes. Verify important actions on your device.</span>
+              <span className="mt-0.5 block text-[var(--metis-fg-dim)] sm:mt-0 sm:ml-2 sm:inline">
+                Enter to send · Shift+Enter for a new line
+              </span>
             </p>
           </form>
         </div>
