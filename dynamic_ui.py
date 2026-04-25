@@ -14,6 +14,7 @@ import time
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
+import re
 
 import streamlit as st
 
@@ -30,7 +31,7 @@ from brain_engine import ROLE_MODELS, stream_chat, CancelToken
 from memory import save_message, load_session
 from memory_loop import inject_context, persist_turn, load_reasoning
 from identity_matrix import get_active_persona, build_system_prompt, list_personas
-from artifacts import list_artifacts, get_artifact, Artifact
+from artifacts import list_artifacts, get_artifact, save_artifact, Artifact
 from metis_version import (
     METIS_MARKETING_SITE,
     METIS_PRODUCT_NAME,
@@ -59,6 +60,7 @@ def _init_state() -> None:
     st.session_state.setdefault("messages", [])             # [{role, content, reasoning?, tool_events?}]
     st.session_state.setdefault("planning_mode", False)
     st.session_state.setdefault("local_mode", True)
+    st.session_state.setdefault("auto_write_files", True)
     st.session_state.setdefault("active_role", "manager")
     st.session_state.setdefault("active_artifact_id", None)
     st.session_state.setdefault("show_palette", False)
@@ -150,6 +152,11 @@ def _sidebar() -> None:
             "Local (offline) brain",
             value=st.session_state["local_mode"],
             help="Off → use OpenAI cloud fallback when available.",
+        )
+        st.session_state["auto_write_files"] = st.toggle(
+            "Auto-write files",
+            value=st.session_state["auto_write_files"],
+            help="When Metis outputs code + a filename, write it into generated/ and add an artifact.",
         )
 
         st.markdown("<div class='metis-side-heading'>Persona</div>", unsafe_allow_html=True)
@@ -655,6 +662,58 @@ def _render_thread() -> None:
                 st.markdown(msg.get("content", ""))
 
 
+# ── Auto-write files from assistant output ────────────────────────────────────
+_FILENAME_RE = re.compile(r"(?<![\\w/\\\\])([A-Za-z0-9_.-]+\\.(?:py|js|ts|tsx|json|md|txt|html|css))\\b")
+_FENCE_RE = re.compile(r"```(?:[a-zA-Z0-9_+-]+)?\\n([\\s\\S]*?)```", re.MULTILINE)
+
+
+def _safe_filename(name: str) -> str:
+    base = Path(name).name  # drop any path components
+    # allowlist characters
+    base = re.sub(r"[^A-Za-z0-9_.-]", "_", base)
+    if not base or base.startswith(".") or ".." in base:
+        return ""
+    return base
+
+
+def _auto_write_generated_file(final_text: str, user_text: str) -> None:
+    if not st.session_state.get("auto_write_files", True):
+        return
+
+    # Look for an explicit filename mention in either user prompt or assistant reply.
+    candidates = _FILENAME_RE.findall(final_text) + _FILENAME_RE.findall(user_text)
+    if not candidates:
+        return
+
+    filename = _safe_filename(candidates[0])
+    if not filename:
+        return
+
+    m = _FENCE_RE.search(final_text or "")
+    if not m:
+        return
+
+    code = (m.group(1) or "").rstrip() + "\n"
+    if not code.strip():
+        return
+
+    out_dir = Path("generated")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / filename
+    out_path.write_text(code, encoding="utf-8")
+
+    art = Artifact(
+        type="code",
+        title=f"generated/{filename}",
+        language=out_path.suffix.lstrip(".") or "text",
+        path=str(out_path),
+        metadata={"source": "auto_write", "filename": filename},
+    )
+    save_artifact(art)
+    st.session_state["active_artifact_id"] = art.id
+    st.toast(f"Wrote {out_path}", icon="✅")
+
+
 # ── Send + stream pipeline ───────────────────────────────────────────────────
 def _send_prompt(user_text: str) -> None:
     slash, payload = _parse_slash(user_text)
@@ -773,6 +832,12 @@ def _send_prompt(user_text: str) -> None:
         "reasoning": reasoning_text,
         "tool_events": tool_events,
     })
+
+    # Auto-write any generated code file (best-effort).
+    try:
+        _auto_write_generated_file(final_text=final_text, user_text=user_text)
+    except Exception as e:
+        st.toast(f"Auto-write failed: {e}", icon="⚠️")
 
     # Persist the turn (best-effort).
     try:

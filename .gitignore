@@ -54,6 +54,7 @@ dist/
 *.spec.tmp
 
 # ── IDE / OS noise ───────────────────────────────────────────────────────────
+.cursor/
 .vscode/
 .idea/
 .DS_Store
