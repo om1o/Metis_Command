@@ -68,6 +68,18 @@ export default function App() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, thinking]);
 
+  useEffect(() => {
+    if (!client) return;
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key.toLowerCase() !== 'k') return;
+      if (!e.metaKey && !e.ctrlKey) return;
+      e.preventDefault();
+      areaRef.current?.focus();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [client]);
+
   const handleConnect = () => {
     if (tokenInput.trim()) {
       setClient(createLocalClient(tokenInput.trim()));
@@ -485,7 +497,7 @@ export default function App() {
             <p className="px-2 pb-1 text-center text-[10px] leading-relaxed text-[var(--metis-hint)] sm:text-left">
               <span className="block sm:inline">Metis can make mistakes. Verify important actions on your device.</span>
               <span className="mt-0.5 block text-[var(--metis-fg-dim)] sm:mt-0 sm:ml-2 sm:inline">
-                Enter to send · Shift+Enter for a new line
+                Enter to send · Shift+Enter for a new line · Ctrl/⌘+K focus message
               </span>
             </p>
           </form>
