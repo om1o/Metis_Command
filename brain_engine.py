@@ -332,8 +332,9 @@ def stream_chat(
 
     # Read timeout covers "stream wedged mid-response" cases; connect
     # timeout covers Ollama being down.  Either fires -> we raise out.
-    stream_connect_timeout = float(os.getenv("METIS_CONNECT_TIMEOUT", "10"))
-    stream_read_timeout = float(os.getenv("METIS_STREAM_READ_TIMEOUT", "300"))
+    # Defaults are tuned for UI responsiveness. Override via env vars if needed.
+    stream_connect_timeout = float(os.getenv("METIS_CONNECT_TIMEOUT", "5"))
+    stream_read_timeout = float(os.getenv("METIS_STREAM_READ_TIMEOUT", "60"))
 
     try:
         with requests.post(

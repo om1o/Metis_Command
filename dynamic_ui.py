@@ -61,6 +61,8 @@ def _init_state() -> None:
     st.session_state.setdefault("planning_mode", False)
     st.session_state.setdefault("local_mode", True)
     st.session_state.setdefault("auto_write_files", True)
+    st.session_state.setdefault("auto_write_debug", [])     # list[dict]
+    st.session_state.setdefault("pending_filename", "")    # filename requested by the Director
     st.session_state.setdefault("active_role", "manager")
     st.session_state.setdefault("active_artifact_id", None)
     st.session_state.setdefault("show_palette", False)
@@ -158,6 +160,17 @@ def _sidebar() -> None:
             value=st.session_state["auto_write_files"],
             help="When Metis outputs code + a filename, write it into generated/ and add an artifact.",
         )
+        with st.expander("Auto-write debug", expanded=False):
+            rows = st.session_state.get("auto_write_debug") or []
+            if not rows:
+                st.caption("No auto-write attempts yet.")
+            else:
+                st.caption("Newest first.")
+                for r in rows[:5]:
+                    st.code(
+                        json.dumps(r, indent=2),
+                        language="json",
+                    )
 
         st.markdown("<div class='metis-side-heading'>Persona</div>", unsafe_allow_html=True)
         try:
@@ -658,6 +671,16 @@ def _render_thread() -> None:
                             speak(msg.get("content", ""))
                         except Exception:
                             st.toast("TTS unavailable", icon="⚠️")
+                with c3:
+                    # Manual fallback if auto-write fails or the model didn't use fences.
+                    if st.button("Write file", key=f"writefile_{i}", help="Attempt to write a file from this message"):
+                        try:
+                            _auto_write_generated_file(
+                                final_text=msg.get("content", ""),
+                                user_text="",
+                            )
+                        except Exception as e:
+                            st.toast(f"Write failed: {e}", icon="⚠️")
             else:
                 st.markdown(msg.get("content", ""))
 
@@ -665,6 +688,45 @@ def _render_thread() -> None:
 # ── Auto-write files from assistant output ────────────────────────────────────
 _FILENAME_RE = re.compile(r"(?<![\\w/\\\\])([A-Za-z0-9_.-]+\\.(?:py|js|ts|tsx|json|md|txt|html|css))\\b")
 _FENCE_RE = re.compile(r"```(?:[a-zA-Z0-9_+-]+)?\\n([\\s\\S]*?)```", re.MULTILINE)
+_CODELIKE_RE = re.compile(r"^(?:\\s{0,4})(?:import\\s+|from\\s+|def\\s+|class\\s+|if\\s+__name__\\s*==|#|\\w+\\s*=)", re.MULTILINE)
+
+
+def _minimal_template_for(filename: str, original_text: str = "") -> str:
+    ext = Path(filename).suffix.lower()
+    if ext == ".py":
+        return (
+            "from __future__ import annotations\n\n"
+            "def main() -> None:\n"
+            "    print(\"TODO: implement\")\n\n\n"
+            "if __name__ == \"__main__\":\n"
+            "    main()\n"
+        )
+    if ext in (".js",):
+        return "console.log(\"TODO: implement\");\n"
+    if ext in (".ts",):
+        return "export function main(): void {\n  console.log(\"TODO: implement\");\n}\n\nmain();\n"
+    if ext in (".tsx",):
+        return (
+            "import React from \"react\";\n\n"
+            "export default function App() {\n"
+            "  return <div>TODO: implement</div>;\n"
+            "}\n"
+        )
+    if ext == ".json":
+        return "{\n  \"todo\": \"implement\"\n}\n"
+    if ext == ".html":
+        return (
+            "<!doctype html>\n<html lang=\"en\">\n<head>\n"
+            "  <meta charset=\"utf-8\" />\n  <meta name=\"viewport\" content=\"width=device-width,initial-scale=1\" />\n"
+            "  <title>Metis Generated</title>\n</head>\n<body>\n  <h1>TODO: implement</h1>\n</body>\n</html>\n"
+        )
+    if ext == ".css":
+        return "/* TODO: implement */\n"
+    if ext == ".md":
+        return "# TODO\n\n- implement\n"
+    if ext == ".txt":
+        return (original_text or "TODO: implement\n").rstrip() + "\n"
+    return (original_text or "TODO: implement\n").rstrip() + "\n"
 
 
 def _safe_filename(name: str) -> str:
@@ -680,27 +742,82 @@ def _auto_write_generated_file(final_text: str, user_text: str) -> None:
     if not st.session_state.get("auto_write_files", True):
         return
 
-    # Look for an explicit filename mention in either user prompt or assistant reply.
+    dbg = {
+        "ts": datetime.now().isoformat(timespec="seconds"),
+        "enabled": True,
+        "filename_candidates": [],
+        "filename": "",
+        "extracted_chars": 0,
+        "out_dir": "",
+        "out_path": "",
+        "status": "started",
+        "error": "",
+    }
+
+    # Look for an explicit filename mention in either user prompt or assistant reply,
+    # falling back to a filename explicitly requested by the Director.
     candidates = _FILENAME_RE.findall(final_text) + _FILENAME_RE.findall(user_text)
+    pending = (st.session_state.get("pending_filename") or "").strip()
+    if pending:
+        candidates.append(pending)
+    dbg["filename_candidates"] = candidates[:5]
     if not candidates:
+        dbg["status"] = "skipped_no_filename"
+        st.session_state["auto_write_debug"] = [dbg] + (st.session_state.get("auto_write_debug") or [])
         return
 
     filename = _safe_filename(candidates[0])
     if not filename:
+        dbg["status"] = "skipped_unsafe_filename"
+        st.session_state["auto_write_debug"] = [dbg] + (st.session_state.get("auto_write_debug") or [])
         return
+    dbg["filename"] = filename
 
-    m = _FENCE_RE.search(final_text or "")
-    if not m:
-        return
+    text = final_text or ""
 
-    code = (m.group(1) or "").rstrip() + "\n"
+    # Prefer fenced code blocks.
+    m = _FENCE_RE.search(text)
+    code = ""
+    if m:
+        code = (m.group(1) or "").rstrip() + "\n"
+    else:
+        # Fallback: extract the longest contiguous "code-like" block.
+        lines = text.splitlines()
+        best: list[str] = []
+        cur: list[str] = []
+        for ln in lines:
+            if _CODELIKE_RE.match(ln) or (cur and (ln.startswith(" ") or ln.startswith("\t"))):
+                cur.append(ln.rstrip("\n"))
+            else:
+                if len(cur) > len(best):
+                    best = cur
+                cur = []
+        if len(cur) > len(best):
+            best = cur
+        if best:
+            code = "\n".join(best).rstrip() + "\n"
+
     if not code.strip():
-        return
+        # Stricter deterministic fallback: write a minimal valid starter template
+        # for the requested file type.
+        code = _minimal_template_for(filename, original_text=text)
+        dbg["status"] = "fallback_wrote_min_template"
+    dbg["extracted_chars"] = len(code)
 
-    out_dir = Path("generated")
-    out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / filename
-    out_path.write_text(code, encoding="utf-8")
+    try:
+        base_dir = Path(__file__).resolve().parent
+        out_dir = base_dir / "generated"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        out_path = out_dir / filename
+        out_path.write_text(code, encoding="utf-8")
+        dbg["out_dir"] = str(out_dir)
+        dbg["out_path"] = str(out_path)
+        dbg["status"] = "wrote_file"
+    except Exception as e:
+        dbg["status"] = "error"
+        dbg["error"] = str(e)
+        st.session_state["auto_write_debug"] = [dbg] + (st.session_state.get("auto_write_debug") or [])
+        raise
 
     art = Artifact(
         type="code",
@@ -713,12 +830,24 @@ def _auto_write_generated_file(final_text: str, user_text: str) -> None:
     st.session_state["active_artifact_id"] = art.id
     st.toast(f"Wrote {out_path}", icon="✅")
 
+    st.session_state["auto_write_debug"] = [dbg] + (st.session_state.get("auto_write_debug") or [])
+    # Clear pending filename once we successfully wrote something.
+    st.session_state["pending_filename"] = ""
+
 
 # ── Send + stream pipeline ───────────────────────────────────────────────────
 def _send_prompt(user_text: str) -> None:
     slash, payload = _parse_slash(user_text)
     mode = "chat"
     routed_role = "manager"
+
+    # Capture a requested filename early so auto-write can be deterministic.
+    try:
+        fname_hits = _FILENAME_RE.findall(user_text or "")
+        if fname_hits:
+            st.session_state["pending_filename"] = _safe_filename(fname_hits[0]) or ""
+    except Exception:
+        pass
 
     if slash in SLASH_MODES:
         mapped, _desc = SLASH_MODES[slash]
@@ -781,6 +910,27 @@ def _send_prompt(user_text: str) -> None:
     started = time.time()
 
     try:
+        # Reliability guard: if the user requested local mode but Ollama is down,
+        # return a deterministic error message (and still allow auto-write).
+        if st.session_state.get("local_mode", True):
+            try:
+                from brain_engine import list_local_models
+                if not list_local_models():
+                    msg = (
+                        "Local brain is selected but Ollama appears to be down.\n\n"
+                        "Start it with:\n"
+                        "`ollama serve`\n\n"
+                        "Or toggle **Local (offline) brain** OFF to use a cloud provider if configured."
+                    )
+                    token_buf.append(msg)
+                    token_container.markdown(msg)
+                    raise StopIteration()
+            except StopIteration:
+                raise
+            except Exception:
+                # If health check fails, we still try streaming.
+                pass
+
         # Simple modes go straight to the role model for speed.
         if mode in ("code", "research", "plan", "chat"):
             tool_events.append({
@@ -818,6 +968,9 @@ def _send_prompt(user_text: str) -> None:
             )
             token_buf.append(reply)
             token_container.markdown(reply)
+    except StopIteration:
+        # Used for deterministic early-exit paths above.
+        pass
     finally:
         st.session_state["thinking"] = False
         st.session_state["cancel_token"] = None

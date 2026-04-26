@@ -25,6 +25,7 @@ htmlcov/
 logs/
 metis_db/
 artifacts/
+generated/
 identity/brains/
 identity/projects/
 identity/backups/
