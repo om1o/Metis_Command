@@ -255,3 +255,55 @@ def system_status() -> dict:
 def web_search(query: str) -> str:
     from custom_tools import internet_search
     return internet_search.run(query) if hasattr(internet_search, "run") else str(internet_search(query))
+
+
+@register("send_sms", description="Send an SMS via Twilio when enabled in Tools & outreach.")
+def send_sms(phone_number: str, message: str) -> str:
+    try:
+        from comms_policy import is_allowed, policy_enforced, twilio_configured
+        if policy_enforced() and not is_allowed("sms"):
+            return "SMS is disabled: turn on **Text messages (SMS)** in the sidebar (Tools & outreach)."
+        if not twilio_configured():
+            return (
+                "Twilio is not configured. Set TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM in `.env`, "
+                "install `twilio`, and enable SMS in the sidebar."
+            )
+    except Exception:
+        pass
+    from comms_link import CommsLink
+    ok = CommsLink().send_text_message(phone_number, message)
+    return "SMS sent." if ok else "SMS failed (check Twilio credentials and policy)."
+
+
+@register("send_email", description="Send email via SMTP when enabled in Tools & outreach.")
+def send_email(to_email: str, subject: str, body: str) -> str:
+    try:
+        from comms_policy import is_allowed, policy_enforced, smtp_configured
+        if policy_enforced() and not is_allowed("email"):
+            return "Email is disabled: turn on **Email (SMTP)** in the sidebar (Tools & outreach)."
+        if not smtp_configured():
+            return "SMTP not configured. Set EMAIL_USER and EMAIL_PASS in `.env`."
+    except Exception:
+        pass
+    from comms_link import CommsLink
+    ok = CommsLink().send_human_email(to_email, subject, body)
+    return "Email sent." if ok else "Email failed (check SMTP credentials)."
+
+
+@register(
+    "place_outbound_call",
+    description="Start an outbound phone call via Twilio (needs TWILIO_CALL_TWIML_URL or twiml_url).",
+)
+def place_outbound_call(to_number: str, twiml_url: str = "") -> str:
+    try:
+        from comms_policy import is_allowed, policy_enforced, twilio_configured
+        if policy_enforced() and not is_allowed("phone"):
+            return "Outbound calls are disabled: turn on **Phone calls (outbound)** in the sidebar."
+        if not twilio_configured():
+            return "Twilio not fully configured. Set TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM, and TWILIO_CALL_TWIML_URL."
+    except Exception:
+        pass
+    from comms_link import CommsLink
+    url = twiml_url.strip() or None
+    ok = CommsLink().place_outbound_call(to_number, twiml_url=url)
+    return "Call started." if ok else "Call not started (check Twilio + TwiML URL)."

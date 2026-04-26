@@ -41,6 +41,9 @@ supabase>=2.5,<3
 stripe>=9.0,<13
 duckduckgo-search>=6.0,<9
 
+# ── Outbound comms (SMS / voice via Twilio) ────────────────────────────────
+twilio>=9.0,<10
+
 # ── Voice / vision / desktop ─────────────────────────────────────────────────
 Pillow>=10.0,<13                 # bumped past 12.2.0 to close CVE-2026-25990 / 40192
 mss>=9.0,<11

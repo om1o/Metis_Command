@@ -72,6 +72,11 @@ def _init_state() -> None:
     st.session_state.setdefault("pending_voice_text", "")
     st.session_state.setdefault("last_metrics", {"tok_s": 0, "tokens": 0})
     st.session_state.setdefault("cancel_token", None)
+    # Director-chosen outbound tools (enforced in comms_policy + CommsLink; see sidebar).
+    st.session_state.setdefault("tool_sms", False)
+    st.session_state.setdefault("tool_phone_calls", False)
+    st.session_state.setdefault("tool_email", False)
+    st.session_state.setdefault("tool_calendar", False)
 
 
 _init_state()
@@ -171,6 +176,40 @@ def _sidebar() -> None:
                         json.dumps(r, indent=2),
                         language="json",
                     )
+
+        st.markdown("<div class='metis-side-heading'>Tools &amp; outreach</div>", unsafe_allow_html=True)
+        st.caption(
+            "Enable what you want the AI to be allowed to use. "
+            "Credentials still go in `.env` (Twilio, SMTP, etc.)."
+        )
+        st.session_state["tool_sms"] = st.toggle(
+            "Text messages (SMS)",
+            value=st.session_state["tool_sms"],
+            help="Allows the send_sms skill and SMS via Twilio (TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM).",
+        )
+        st.session_state["tool_phone_calls"] = st.toggle(
+            "Phone calls (outbound)",
+            value=st.session_state["tool_phone_calls"],
+            help="Allows place_outbound_call. Needs Twilio + a TwiML URL (TWILIO_CALL_TWIML_URL or pass URL in skill).",
+        )
+        st.session_state["tool_email"] = st.toggle(
+            "Email (SMTP)",
+            value=st.session_state["tool_email"],
+            help="Allows the send_email skill. Set EMAIL_USER, EMAIL_PASS (and optional SMTP_HOST/PORT).",
+        )
+        st.session_state["tool_calendar"] = st.toggle(
+            "Calendar / booking (beta)",
+            value=st.session_state["tool_calendar"],
+            help="When integrations exist, allows booking-related skills. Off = drafts only.",
+        )
+        try:
+            from comms_policy import smtp_configured, twilio_configured
+            st.caption(
+                f"SMTP: {'ready' if smtp_configured() else 'not configured'} · "
+                f"Twilio: {'ready' if twilio_configured() else 'not configured'}"
+            )
+        except Exception:
+            pass
 
         st.markdown("<div class='metis-side-heading'>Persona</div>", unsafe_allow_html=True)
         try:
@@ -411,6 +450,13 @@ def _sidebar() -> None:
                     st.success("Brain restored.")
             except Exception as e:
                 st.caption(f"Backup tools unavailable: {e}")
+
+        # Keep comms / outbound policy aligned with sidebar toggles for this run.
+        try:
+            from comms_policy import set_from_session
+            set_from_session(dict(st.session_state))
+        except Exception:
+            pass
 
 
 # ── Command palette + shortcut cheat sheet ──────────────────────────────────
@@ -900,8 +946,17 @@ def _send_prompt(user_text: str) -> None:
         thinking_orb(True, label="Metis is thinking")
 
     persona_prompt = build_system_prompt(get_active_persona())
+    try:
+        from comms_policy import build_comms_system_block, set_from_session
+        set_from_session(dict(st.session_state))
+        comms_block = build_comms_system_block(st.session_state)
+    except Exception:
+        comms_block = ""
     context_msgs = inject_context(st.session_state["session_id"], user_text)
-    system_msg = {"role": "system", "content": persona_prompt}
+    system_msg = {
+        "role": "system",
+        "content": (persona_prompt + "\n\n" + comms_block).strip() if comms_block else persona_prompt,
+    }
     user_msg = {"role": "user", "content": payload if slash in SLASH_MODES else user_text}
     conversation = [system_msg] + context_msgs + [user_msg]
 
