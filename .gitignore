@@ -26,6 +26,10 @@ logs/
 metis_db/
 artifacts/
 generated/
+docs/design-system/
+Metis AI Design System*.zip
+colors_and_type.css
+SKILL - Copy.md
 identity/brains/
 identity/projects/
 identity/backups/

@@ -32,6 +32,7 @@ from memory import save_message, load_session
 from memory_loop import inject_context, persist_turn, load_reasoning
 from identity_matrix import get_active_persona, build_system_prompt, list_personas
 from artifacts import list_artifacts, get_artifact, save_artifact, Artifact
+from supabase_client import get_client
 from metis_version import (
     METIS_MARKETING_SITE,
     METIS_PRODUCT_NAME,
@@ -81,6 +82,208 @@ def _init_state() -> None:
 
 _init_state()
 
+_PROFILE_PATH = Path("identity") / "profile.json"
+
+
+def _load_profile() -> dict:
+    try:
+        if _PROFILE_PATH.exists():
+            return json.loads(_PROFILE_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    return {}
+
+
+def _save_profile(profile: dict) -> None:
+    _PROFILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    _PROFILE_PATH.write_text(json.dumps(profile, indent=2), encoding="utf-8")
+    save_artifact(
+        Artifact(
+            type="config",
+            title="profile.json",
+            language="json",
+            path=str(_PROFILE_PATH),
+            content=json.dumps(profile, indent=2),
+            metadata={"source": "setup_wizard"},
+        )
+    )
+
+
+def _setup_wizard() -> None:
+    """First-run setup gate. Writes identity/profile.json + artifact."""
+    st.session_state.setdefault("setup_step", 1)
+    st.session_state.setdefault("setup_name", "")
+    st.session_state.setdefault("setup_use_case", "")
+    st.session_state.setdefault("setup_model_pref", "")
+    st.session_state.setdefault("setup_theme", st.session_state.get("theme", "obsidian"))
+
+    total = 4
+    step = int(st.session_state.get("setup_step", 1) or 1)
+    step = max(1, min(total, step))
+    st.session_state["setup_step"] = step
+
+    st.markdown("<div class='metis-eyebrow'>SETUP</div>", unsafe_allow_html=True)
+    st.markdown("<h2 style='margin:6px 0 0 0;'>Set up Metis</h2>", unsafe_allow_html=True)
+    st.caption("One-time setup — you can change everything later in Settings.")
+    st.progress(step / total)
+
+    with st.container(border=True):
+        if step == 1:
+            st.markdown("**What should we call you?**")
+            st.session_state["setup_name"] = st.text_input(
+                "Display name",
+                value=st.session_state.get("setup_name", ""),
+                placeholder="e.g. Alex Chen",
+                label_visibility="collapsed",
+            )
+            if st.session_state["setup_name"].strip():
+                st.caption(f"Nice to meet you, **{st.session_state['setup_name'].strip()}**.")
+
+        elif step == 2:
+            st.markdown("**What brings you here?**")
+            st.session_state["setup_use_case"] = st.radio(
+                "Use case",
+                options=["Work", "Personal", "Build / Dev", "Research", "Sales / Outreach", "Ops / Automation"],
+                index=0,
+                horizontal=True,
+                label_visibility="collapsed",
+            )
+            st.caption("This tailors defaults and starter templates.")
+
+        elif step == 3:
+            st.markdown("**Default brain preference**")
+            st.session_state["setup_model_pref"] = st.radio(
+                "Model preference",
+                options=["Smart (recommended)", "Fast", "Local-first"],
+                index=0,
+                horizontal=True,
+                label_visibility="collapsed",
+            )
+            st.caption("You can override per chat and per agent.")
+
+        elif step == 4:
+            st.markdown("**Theme**")
+            st.session_state["setup_theme"] = st.radio(
+                "Theme",
+                options=["obsidian", "light"],
+                index=0 if st.session_state.get("theme") != "light" else 1,
+                horizontal=True,
+                label_visibility="collapsed",
+            )
+            st.caption("You can change this anytime.")
+
+        col_l, col_r = st.columns([1, 1])
+        with col_l:
+            if st.button("Back", use_container_width=True, disabled=(step == 1)):
+                st.session_state["setup_step"] = step - 1
+                st.rerun()
+        with col_r:
+            if step < total:
+                if st.button("Continue", type="primary", use_container_width=True):
+                    st.session_state["setup_step"] = step + 1
+                    st.rerun()
+            else:
+                if st.button("Finish setup", type="primary", use_container_width=True):
+                    profile = {
+                        "display_name": (st.session_state.get("setup_name") or "").strip(),
+                        "use_case": st.session_state.get("setup_use_case") or "",
+                        "model_preference": st.session_state.get("setup_model_pref") or "",
+                        "theme": st.session_state.get("setup_theme") or "obsidian",
+                        "completed_at": datetime.now().isoformat(timespec="seconds"),
+                    }
+                    _save_profile(profile)
+                    st.session_state["theme"] = profile["theme"]
+                    st.success("Setup saved.")
+                    st.rerun()
+
+    st.stop()
+
+
+def _auth_gate() -> bool:
+    """Return True if the user is authenticated, else render login/setup UI."""
+    st.session_state.setdefault("auth_mode", "login")  # login | signup
+
+    client = get_client()
+
+    # Streamlit reruns wipe in-memory auth state. Persist Supabase session tokens
+    # in session_state and restore them on each run.
+    sb_sess = st.session_state.get("supabase_session") or {}
+    access_token = sb_sess.get("access_token")
+    refresh_token = sb_sess.get("refresh_token")
+    if access_token and refresh_token:
+        try:
+            # supabase-py v2 style
+            client.auth.set_session(access_token, refresh_token)
+        except Exception:
+            try:
+                # fallback: some versions accept dict payload
+                client.auth.set_session(
+                    {"access_token": access_token, "refresh_token": refresh_token}
+                )
+            except Exception:
+                pass
+
+    authed = False
+    try:
+        u = client.auth.get_user()
+        authed = bool(getattr(u, "user", None))
+    except Exception:
+        authed = False
+    if authed:
+        profile = _load_profile()
+        if not profile.get("completed_at"):
+            _setup_wizard()
+        return True
+
+    st.markdown("<div class='metis-eyebrow'>WELCOME</div>", unsafe_allow_html=True)
+    st.markdown("<h2 style='margin:6px 0 0 0;'>Sign in to Metis</h2>", unsafe_allow_html=True)
+    st.caption("Secure sign-in powered by Supabase. Your data stays tied to your account.")
+
+    with st.container(border=True):
+        col_a, col_b = st.columns(2)
+        with col_a:
+            if st.button("Sign in", use_container_width=True):
+                st.session_state["auth_mode"] = "login"
+        with col_b:
+            if st.button("Create account", use_container_width=True):
+                st.session_state["auth_mode"] = "signup"
+
+        email = st.text_input("Email", key="auth_email")
+        pw = st.text_input("Password", type="password", key="auth_pw")
+
+        if st.session_state["auth_mode"] == "signup":
+            st.caption("You may need to verify your email depending on Supabase settings.")
+            if st.button("Create account", type="primary", use_container_width=True):
+                try:
+                    from auth_engine import sign_up
+                    out = sign_up(email=email.strip(), password=pw)
+                    sess = out.get("session") if isinstance(out, dict) else None
+                    if sess and getattr(sess, "access_token", None) and getattr(sess, "refresh_token", None):
+                        st.session_state["supabase_session"] = {
+                            "access_token": sess.access_token,
+                            "refresh_token": sess.refresh_token,
+                        }
+                    st.success("Account created. Check email for verification if prompted, then sign in.")
+                except Exception as e:
+                    st.error(str(e))
+        else:
+            if st.button("Sign in", type="primary", use_container_width=True):
+                try:
+                    from auth_engine import sign_in
+                    out = sign_in(email=email.strip(), password=pw)
+                    sess = out.get("session") if isinstance(out, dict) else None
+                    if sess and getattr(sess, "access_token", None) and getattr(sess, "refresh_token", None):
+                        st.session_state["supabase_session"] = {
+                            "access_token": sess.access_token,
+                            "refresh_token": sess.refresh_token,
+                        }
+                    st.success("Signed in.")
+                    st.rerun()
+                except Exception as e:
+                    st.error(str(e))
+
+    st.stop()
+    return False
 
 # ── Layout helpers ───────────────────────────────────────────────────────────
 def _group_sessions(session_ids: list[str]) -> dict[str, list[str]]:
@@ -97,12 +300,41 @@ def _group_sessions(session_ids: list[str]) -> dict[str, list[str]]:
 
 def _sidebar() -> None:
     with st.sidebar:
+        # Sidebar chrome copied from your UI kit (Metis AI Design System (4)).
+        # We inline the actual SVG mark/wordmark from your assets folder.
+        try:
+            mark_svg = (
+                Path("docs")
+                / "design-system"
+                / "Metis AI Design System (1) - Copy"
+                / "assets"
+                / "metis-mark-starburst.svg"
+            ).read_text(encoding="utf-8")
+        except Exception:
+            mark_svg = "<span>◆</span>"
+        try:
+            wordmark_svg = (
+                Path("docs")
+                / "design-system"
+                / "Metis AI Design System (1) - Copy"
+                / "assets"
+                / "metis-wordmark.svg"
+            ).read_text(encoding="utf-8")
+        except Exception:
+            wordmark_svg = "<div class='name'>Metis</div>"
+
         st.markdown(
-            "<div style='display:flex;align-items:center;gap:10px;margin-bottom:6px;'>"
-            "<span style='font-family:Fira Code;font-size:22px;color:var(--metis-cyan);'>◆</span>"
-            "<span style='font-weight:600;font-size:17px;letter-spacing:0.02em;'>"
-            "Metis Command</span>"
-            "</div>",
+            f"""
+            <div class="sb-head">
+              <div class="mark">{mark_svg}</div>
+              <div class="name" style="display:flex;align-items:center;gap:8px;">
+                {wordmark_svg}
+              </div>
+              <div style="margin-left:auto">
+                <span class="chip chip-synced"><span class="chip-dot"></span>Synced</span>
+              </div>
+            </div>
+            """,
             unsafe_allow_html=True,
         )
 
@@ -1168,6 +1400,7 @@ def _marketplace_tab() -> None:
 
 # ── Main ─────────────────────────────────────────────────────────────────────
 def main() -> None:
+    _auth_gate()
     _sidebar()
     _update_banner()
 
