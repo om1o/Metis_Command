@@ -43,6 +43,10 @@ class ToolSpec:
     input_model: type[BaseModel] | None = None
     allow_when: set[str] = field(default_factory=set)
     retryable: bool = False
+    # Per-tool timeout override. If unset, ToolRunner falls back to
+    # METIS_TOOL_TIMEOUT_S env var, then to 120s. Browser/search tools
+    # typically need 60-180s; quick file/search ops can stay short.
+    default_timeout_s: float | None = None
 
 
 @dataclass(frozen=True)
@@ -257,7 +261,15 @@ class ToolRunner:
         if _is_cancelled(cancel_token):
             return ToolResult(ok=False, error="cancelled before tool started", retryable=False, duration_ms=0)
 
-        timeout_s = float(timeout_s if timeout_s is not None else os.getenv("METIS_TOOL_TIMEOUT_S", "120"))
+        # Resolve timeout: explicit arg > spec default > env var > 120s.
+        if timeout_s is None:
+            spec_for_timeout = self.specs.get(tool_name)
+            if spec_for_timeout and spec_for_timeout.default_timeout_s is not None:
+                timeout_s = float(spec_for_timeout.default_timeout_s)
+            else:
+                timeout_s = float(os.getenv("METIS_TOOL_TIMEOUT_S", "120"))
+        else:
+            timeout_s = float(timeout_s)
 
         fn = self.registry[tool_name]
         spec = self.specs.get(tool_name)

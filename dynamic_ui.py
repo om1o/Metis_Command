@@ -75,6 +75,7 @@ def _init_state() -> None:
     st.session_state.setdefault("show_shortcuts", False)
     st.session_state.setdefault("show_artifacts", True)
     st.session_state.setdefault("thinking", False)
+    st.session_state.setdefault("auto_show_thinking", True)
     st.session_state.setdefault("pending_voice_text", "")
     st.session_state.setdefault("last_metrics", {"tok_s": 0, "tokens": 0})
     st.session_state.setdefault("cancel_token", None)
@@ -1383,6 +1384,10 @@ def _send_prompt(user_text: str) -> None:
     st.session_state["thinking"] = True
     with assistant_container:
         thinking_orb(True, label="Metis is thinking")
+        # Live thinking expander — auto-expands as <think> tokens arrive,
+        # so the user can watch the reasoning unfold instead of waiting.
+        thinking_expander = st.expander("Show thinking", expanded=st.session_state.get("auto_show_thinking", True))
+        thinking_slot = thinking_expander.empty()
 
     persona_prompt = build_system_prompt(get_active_persona())
     try:
@@ -1438,6 +1443,14 @@ def _send_prompt(user_text: str) -> None:
                     token_container.markdown("".join(token_buf) + "▌")
                 elif ev["type"] == "reasoning":
                     reasoning_buf.append(ev["delta"])
+                    # Update the live thinking pane every few hundred chars.
+                    _r_text = "".join(reasoning_buf)
+                    if len(_r_text) % 24 < 2 or len(_r_text) < 24:
+                        thinking_slot.markdown(
+                            f"<div style='font-family:var(--font-mono);font-size:11.5px;"
+                            f"color:var(--text-muted);white-space:pre-wrap;'>{_r_text[-2000:]}</div>",
+                            unsafe_allow_html=True,
+                        )
                 elif ev["type"] == "done":
                     tok = ev.get("tokens", 0)
                     dur = ev.get("duration_ms", 1) or 1
