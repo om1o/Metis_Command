@@ -279,10 +279,23 @@ _audit_lock = threading.Lock()
 
 
 def audit(event: dict[str, Any]) -> None:
-    """Append a structured event to logs/audit.jsonl. Never raises."""
+    """Append a structured event to logs/audit.jsonl. Never raises.
+
+    If a trace is active (see tracing.start_trace), the trace_id is stamped
+    on the record so events can be correlated across tool calls, agent
+    handoffs, and bus messages.
+    """
     try:
         LOGS_DIR.mkdir(parents=True, exist_ok=True)
         record = {"ts": int(time.time() * 1000), **event}
+        # Best-effort trace stamping — never fails the audit.
+        try:
+            from tracing import current_trace_id
+            tid = current_trace_id()
+            if tid and "trace_id" not in record:
+                record["trace_id"] = tid
+        except Exception:
+            pass
         line = json.dumps(record, ensure_ascii=False, default=str)
         with _audit_lock, AUDIT_LOG.open("a", encoding="utf-8") as f:
             f.write(line + "\n")

@@ -68,6 +68,7 @@ class ToolEvent:
     result_summary: str | None = None
     message: str | None = None
     attempt: int | None = None
+    trace_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -85,6 +86,8 @@ class ToolEvent:
             payload["message"] = self.message
         if self.attempt is not None:
             payload["attempt"] = self.attempt
+        if self.trace_id is not None:
+            payload["trace_id"] = self.trace_id
         return payload
 
 
@@ -217,6 +220,20 @@ class ToolRunner:
     def _emit(self, ev: ToolEvent) -> None:
         if not self.on_event:
             return
+        # Auto-stamp the active trace_id if the caller didn't supply one.
+        if ev.trace_id is None:
+            try:
+                from tracing import current_trace_id
+                tid = current_trace_id()
+                if tid:
+                    ev = ToolEvent(
+                        type=ev.type, agent=ev.agent, tool=ev.tool, ts_ms=ev.ts_ms,
+                        duration_ms=ev.duration_ms, args_summary=ev.args_summary,
+                        result_summary=ev.result_summary, message=ev.message,
+                        attempt=ev.attempt, trace_id=tid,
+                    )
+            except Exception:
+                pass
         try:
             self.on_event(ev.to_dict())
         except Exception:
