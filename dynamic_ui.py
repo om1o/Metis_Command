@@ -431,9 +431,9 @@ def _auth_gate() -> bool:
         # ── Divider ─────────────────────────────────────────────────────
         st.html('<div style="display:flex;align-items:center;gap:12px;margin:8px 0 12px;font-family:var(--font-mono);font-size:11px;color:var(--text-subtle);letter-spacing:0.08em;text-transform:uppercase;"><span style="flex:1;height:1px;background:var(--border);"></span>or with email<span style="flex:1;height:1px;background:var(--border);"></span></div>')
 
-        # ── Email / password form ───────────────────────────────────────
+        # ── Email / passcode form ───────────────────────────────────────
         email = st.text_input("Email", key="auth_email", placeholder="you@work.com")
-        pw = st.text_input("Password", type="password", key="auth_pw", placeholder="••••••••")
+        pw = st.text_input("Passcode", type="password", key="auth_pw", placeholder="••••••••")
 
         if is_signup:
             if st.button("Create account  →", type="primary", use_container_width=True, key="auth_submit"):
@@ -472,7 +472,7 @@ def _auth_gate() -> bool:
             # ── Forgot password flow (toggleable inline) ────────────────
             if st.session_state.get("show_forgot"):
                 with st.container(border=True):
-                    st.caption("Enter your email and we’ll send you a reset link.")
+                    st.caption("Enter your email and we’ll send a passcode reset link.")
                     reset_email = st.text_input(
                         "Reset email",
                         value=email.strip(),
@@ -497,7 +497,7 @@ def _auth_gate() -> bool:
                             st.session_state["show_forgot"] = False
                             st.rerun()
             else:
-                if st.button("Forgot password?", key="auth_forgot", use_container_width=True):
+                if st.button("Forgot passcode?", key="auth_forgot", use_container_width=True):
                     st.session_state["show_forgot"] = True
                     st.rerun()
 
@@ -891,6 +891,91 @@ def _sidebar() -> None:
             except Exception as e:
                 st.caption(f"Backup tools unavailable: {e}")
 
+        # ── Marketplace ─────────────────────────────────────────────────
+        with st.expander("🧩  Marketplace", expanded=False):
+            try:
+                from marketplace import render_storefront
+                render_storefront()
+            except Exception as e:
+                st.caption(f"Marketplace unavailable: {e}")
+
+        # ── Agent health dashboard ──────────────────────────────────────
+        with st.expander("🛰  Agent health", expanded=False):
+            try:
+                from agent_roster import get_agent_health, list_persistent
+                health = get_agent_health()
+                if not health:
+                    st.caption("No persistent agents running. Start one with `/agent <slug>`.")
+                else:
+                    for h in health:
+                        cols = st.columns([0.12, 0.5, 0.38])
+                        cols[0].markdown(h["status_color"])
+                        cols[1].markdown(f"**{h['slug']}**")
+                        cols[2].caption(
+                            f"{h['label']} · {h['messages_handled']} msgs"
+                            + (f" · err: {h['last_error'][:40]}" if h.get("last_error") else "")
+                        )
+                if list_persistent():
+                    if st.button("Refresh", key="agent_health_refresh", use_container_width=True):
+                        st.rerun()
+            except Exception as e:
+                st.caption(f"Health dashboard unavailable: {e}")
+
+        # ── 2FA / MFA ───────────────────────────────────────────────────
+        with st.expander("🔐  Security · 2FA", expanded=False):
+            try:
+                from auth_engine import enroll_totp, verify_totp, list_mfa_factors, unenroll_totp
+                factors = []
+                try:
+                    factors = list_mfa_factors() or []
+                except Exception as e:
+                    st.caption(f"Could not list factors: {e}")
+                verified = [f for f in factors if (f.get("status") == "verified")]
+                pending = [f for f in factors if (f.get("status") != "verified")]
+
+                if verified:
+                    st.success(f"2FA enabled · {len(verified)} factor(s)")
+                    for f in verified:
+                        cols = st.columns([0.7, 0.3])
+                        cols[0].caption(f.get("friendly_name") or f.get("id", "unknown"))
+                        if cols[1].button("Remove", key=f"mfa_rm_{f.get('id')}", use_container_width=True):
+                            unenroll_totp(factor_id=str(f.get("id")))
+                            st.rerun()
+                else:
+                    st.caption("Add an authenticator app (Authy, 1Password, Google Authenticator).")
+                    if st.button("Set up 2FA", use_container_width=True, key="mfa_enroll_start"):
+                        try:
+                            enrollment = enroll_totp()
+                            st.session_state["mfa_enrollment"] = enrollment
+                        except Exception as e:
+                            st.error(f"Enrollment failed: {e}")
+                    enrollment = st.session_state.get("mfa_enrollment") or {}
+                    if enrollment.get("factor_id"):
+                        if enrollment.get("qr_code"):
+                            st.image(enrollment["qr_code"], caption="Scan in your authenticator")
+                        if enrollment.get("secret"):
+                            st.code(enrollment["secret"], language="text")
+                        code = st.text_input("Enter the 6-digit code", key="mfa_verify_code", max_chars=10)
+                        if st.button("Verify and enable", use_container_width=True, key="mfa_verify_btn"):
+                            try:
+                                verify_totp(factor_id=str(enrollment["factor_id"]), code=code or "")
+                                st.success("2FA enabled.")
+                                st.session_state.pop("mfa_enrollment", None)
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Verify failed: {e}")
+                if pending:
+                    st.caption(f"{len(pending)} pending factor(s) — finish enrollment or remove.")
+                    for f in pending:
+                        if st.button(f"Cancel pending: {f.get('friendly_name','factor')}",
+                                     key=f"mfa_cancel_{f.get('id')}", use_container_width=True):
+                            unenroll_totp(factor_id=str(f.get("id")))
+                            st.rerun()
+            except ImportError:
+                st.caption("auth_engine MFA not available.")
+            except Exception as e:
+                st.caption(f"2FA panel unavailable: {e}")
+
         # Keep comms / outbound policy aligned with sidebar toggles for this run.
         try:
             from comms_policy import set_from_session
@@ -998,6 +1083,147 @@ def _parse_slash(text: str) -> tuple[str | None, str]:
         return None, stripped
     head, _, rest = stripped.partition(" ")
     return head.lower(), rest.strip() or stripped
+
+
+# Standalone command-palette slashes that DON'T trigger a chat turn.
+# Returns True if the command was handled (caller should skip normal flow).
+_COMMAND_HELP_TEXT = """**Slash commands**
+
+| Command | What it does |
+| --- | --- |
+| `/help` | Show this help |
+| `/clear` | Clear the current chat history |
+| `/agent <slug>` | Start a persistent agent (e.g. `/agent news_digest`) |
+| `/agents` | List all available agent slugs |
+| `/role <name>` | Switch active role (manager/coder/thinker/scholar/researcher) |
+| `/forge <goal>` | Ask the Coder to forge a new skill in the sandbox |
+| `/install <slug>` | Install a marketplace plugin by slug |
+| `/sessions` | List recent session ids |
+| `/brain <slug>` | Switch the active brain |
+| `/code <goal>` | Coder writes and sandbox-tests code |
+| `/plan <goal>` | Thinker plans before executing |
+| `/research <q>` | Researcher hits the live web |
+| `/remember <fact>` | Store a durable fact in memory |
+| `/screenshot` | Capture a screenshot |
+| `/speak <text>` | Speak text aloud |"""
+
+
+def _try_command_palette(text: str) -> bool:
+    """
+    Run command-palette slashes that don't go through the chat pipeline.
+    Returns True iff the command was recognized and handled.
+    """
+    head, rest = _parse_slash(text)
+    if head is None:
+        return False
+    rest = rest.strip()
+
+    if head == "/help":
+        st.session_state.setdefault("messages", []).append({
+            "role": "assistant",
+            "content": _COMMAND_HELP_TEXT,
+        })
+        return True
+
+    if head == "/clear":
+        st.session_state["messages"] = []
+        st.toast("Chat cleared.", icon="🧹")
+        return True
+
+    if head == "/role":
+        valid = {"manager", "coder", "thinker", "scholar", "researcher", "genius", "vision"}
+        if rest in valid:
+            st.session_state["active_role"] = rest
+            st.toast(f"Role set to {rest}.", icon="🎭")
+        else:
+            st.toast(f"Unknown role. Try: {', '.join(sorted(valid))}", icon="⚠️")
+        return True
+
+    if head == "/agents":
+        try:
+            import agent_roster
+            slugs = ", ".join(s.slug for s in agent_roster.list_roster())
+            st.session_state.setdefault("messages", []).append({
+                "role": "assistant",
+                "content": f"**Available agents:** {slugs}",
+            })
+        except Exception as e:
+            st.toast(f"Roster unavailable: {e}", icon="⚠️")
+        return True
+
+    if head == "/agent":
+        try:
+            import agent_roster
+            if not rest:
+                st.toast("Usage: /agent <slug>", icon="ℹ️")
+                return True
+            ok = agent_roster.spawn_persistent(rest)
+            st.toast(f"Started {rest}." if ok else f"Unknown agent: {rest}",
+                     icon="🤖" if ok else "⚠️")
+        except Exception as e:
+            st.toast(f"Failed: {e}", icon="⚠️")
+        return True
+
+    if head == "/forge":
+        if not rest:
+            st.toast("Usage: /forge <goal>", icon="ℹ️")
+            return True
+        try:
+            from skill_forge import forge_skill
+            with st.spinner("Forging skill (sandboxing)…"):
+                art = forge_skill(rest)
+            st.toast(f"Forged: {art.title}", icon="✨")
+            st.session_state.setdefault("messages", []).append({
+                "role": "assistant",
+                "content": f"**New skill forged**\n\n{art.title}\n\nSaved to `{art.path}`.",
+            })
+        except Exception as e:
+            st.toast(f"Forge failed: {e}", icon="⚠️")
+        return True
+
+    if head == "/install":
+        if not rest:
+            st.toast("Usage: /install <plugin-slug>", icon="ℹ️")
+            return True
+        try:
+            from marketplace import list_plugins, install_plugin
+            target = next((p for p in list_plugins() if p.get("slug") == rest), None)
+            if not target:
+                st.toast(f"Plugin '{rest}' not in catalog.", icon="⚠️")
+                return True
+            ok = install_plugin(target)
+            st.toast(f"Installed {rest}." if ok else f"Install failed for {rest}.",
+                     icon="📦" if ok else "⚠️")
+        except Exception as e:
+            st.toast(f"Install failed: {e}", icon="⚠️")
+        return True
+
+    if head == "/sessions":
+        try:
+            from memory import list_sessions
+            sids = list(list_sessions(limit=20) or [])
+            body = "\n".join(f"- `{s}`" for s in sids) or "_(none)_"
+            st.session_state.setdefault("messages", []).append({
+                "role": "assistant",
+                "content": f"**Recent sessions**\n\n{body}",
+            })
+        except Exception as e:
+            st.toast(f"Sessions unavailable: {e}", icon="⚠️")
+        return True
+
+    if head == "/brain":
+        if not rest:
+            st.toast("Usage: /brain <slug>", icon="ℹ️")
+            return True
+        try:
+            import brains
+            brains.switch(rest)
+            st.toast(f"Active brain → {rest}.", icon="🧠")
+        except Exception as e:
+            st.toast(f"Brain switch failed: {e}", icon="⚠️")
+        return True
+
+    return False
 
 
 # ── Tool-call card renderer ──────────────────────────────────────────────────
@@ -1323,6 +1549,10 @@ def _auto_write_generated_file(final_text: str, user_text: str) -> None:
 
 # ── Send + stream pipeline ───────────────────────────────────────────────────
 def _send_prompt(user_text: str) -> None:
+    # Standalone slash commands (don't go through chat pipeline).
+    if _try_command_palette(user_text):
+        return
+
     slash, payload = _parse_slash(user_text)
     mode = "chat"
     routed_role = "manager"
@@ -1650,11 +1880,15 @@ def main() -> None:
 
             # Voice prefill (Phase 5D).
             with st.expander("🎙  Voice input", expanded=False):
-                colv1, colv2 = st.columns([3, 1])
+                colv1, colv2, colv3 = st.columns([3, 1, 1])
                 with colv1:
-                    st.caption("Click 'Listen' to record one phrase (≈5s).")
+                    st.caption(
+                        "Click **Browser mic** to dictate via the Web Speech API "
+                        "(no server-side deps). Use **Listen** for the local mic."
+                    )
                 with colv2:
-                    if st.button("Listen", key="voice_listen", use_container_width=True):
+                    if st.button("Listen", key="voice_listen", use_container_width=True,
+                                 help="Server-side microphone (requires PyAudio + voice_io)"):
                         try:
                             from tools.voice_io import listen_once
                             heard = listen_once()
@@ -1665,6 +1899,85 @@ def main() -> None:
                                 st.toast("No speech detected.", icon="🤔")
                         except Exception as e:
                             st.toast(f"Mic failed: {e}", icon="⚠️")
+                with colv3:
+                    voice_in = st.text_input(
+                        "Browser mic transcript",
+                        key="browser_voice_text",
+                        label_visibility="collapsed",
+                        placeholder="(transcript)",
+                    )
+                    if voice_in and not st.session_state.get("pending_voice_text"):
+                        st.session_state["pending_voice_text"] = voice_in
+                        st.session_state["browser_voice_text"] = ""
+
+                # Browser-side dictation: writes the transcript into the
+                # text_input above by simulating typing + an input event so
+                # Streamlit's React runtime picks it up on the next rerun.
+                st.html("""
+<button id="metis-mic-btn" type="button"
+        style="width:100%;height:38px;border-radius:10px;border:1px solid #E2E8F0;
+               background:#fff;cursor:pointer;font-family:Inter,system-ui;font-size:14px;
+               font-weight:550;color:#0F172A;transition:all .15s;">
+  🎤 Browser mic
+</button>
+<script>
+(function() {
+  const btn = document.getElementById('metis-mic-btn');
+  if (!btn) return;
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    btn.disabled = true;
+    btn.textContent = 'Browser mic (unsupported)';
+    btn.style.opacity = '.5';
+    return;
+  }
+  const rec = new SR();
+  rec.continuous = false;
+  rec.interimResults = false;
+  rec.lang = navigator.language || 'en-US';
+  let active = false;
+
+  function findStreamlitInput() {
+    // Look across the parent document since st.html runs in an iframe.
+    const docs = [document];
+    try { if (window.parent && window.parent.document) docs.push(window.parent.document); } catch(e) {}
+    for (const d of docs) {
+      const el = d.querySelector('input[aria-label="Browser mic transcript"]');
+      if (el) return el;
+    }
+    return null;
+  }
+  function setNativeValue(el, value) {
+    const setter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype, 'value'
+    ).set;
+    setter.call(el, value);
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  rec.onresult = (e) => {
+    const text = (e.results[0] && e.results[0][0] && e.results[0][0].transcript) || '';
+    const el = findStreamlitInput();
+    if (el && text) setNativeValue(el, text);
+    btn.textContent = '🎤 Browser mic';
+    active = false;
+  };
+  rec.onerror = (e) => {
+    btn.textContent = '🎤 Browser mic';
+    active = false;
+  };
+  rec.onend = () => {
+    btn.textContent = '🎤 Browser mic';
+    active = false;
+  };
+  btn.addEventListener('click', () => {
+    if (active) { rec.stop(); active = false; return; }
+    try { rec.start(); active = true; btn.textContent = '🔴 Listening…'; }
+    catch (e) { active = false; }
+  });
+})();
+</script>
+                """)
 
             prefill = st.session_state.pop("pending_voice_text", "") or ""
             placeholder = (

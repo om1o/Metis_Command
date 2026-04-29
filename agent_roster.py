@@ -25,6 +25,12 @@ from typing import Any
 
 ROSTER_FILE = Path("identity") / "roster.json"
 PERSISTENT_FILE = Path("identity") / "persistent_agents.json"
+HEALTH_FILE = Path("identity") / "agent_health.json"
+
+# Heartbeat windows (seconds) used by get_agent_health() to colorize status.
+HEARTBEAT_FRESH_S = 60     # 🟢 healthy
+HEARTBEAT_STALE_S = 300    # 🟡 lagging beyond this; 🔴 if older still
+HEARTBEAT_WRITE_INTERVAL_S = 15  # min seconds between heartbeat writes per agent
 
 
 # ── Default roster ──────────────────────────────────────────────────────────
@@ -246,6 +252,89 @@ def _save_persistent(slugs: list[str]) -> None:
     )
 
 
+# ── Heartbeat tracking ─────────────────────────────────────────────────────
+_health_lock = threading.Lock()
+
+
+def _read_health() -> dict[str, dict[str, Any]]:
+    if not HEALTH_FILE.exists():
+        return {}
+    try:
+        data = json.loads(HEALTH_FILE.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _write_health(data: dict[str, dict[str, Any]]) -> None:
+    HEALTH_FILE.parent.mkdir(parents=True, exist_ok=True)
+    HEALTH_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+
+def heartbeat(slug: str, *, status: str = "alive", error: str | None = None) -> None:
+    """Record a heartbeat for `slug` (called from the agent loop)."""
+    now = time.time()
+    with _health_lock:
+        data = _read_health()
+        prev = data.get(slug, {})
+        # Throttle writes — agents tick fast, but disk doesn't need to.
+        last_write = float(prev.get("last_heartbeat_at", 0) or 0)
+        if status == "alive" and now - last_write < HEARTBEAT_WRITE_INTERVAL_S:
+            return
+        entry: dict[str, Any] = {
+            "slug": slug,
+            "last_heartbeat_at": now,
+            "status": status,
+            "messages_handled": int(prev.get("messages_handled", 0) or 0),
+        }
+        if error:
+            entry["last_error"] = error[:240]
+            entry["last_error_at"] = now
+        if status == "handled":
+            entry["messages_handled"] = int(prev.get("messages_handled", 0) or 0) + 1
+        data[slug] = {**prev, **entry}
+        _write_health(data)
+
+
+def get_agent_health() -> list[dict[str, Any]]:
+    """Return a list of {slug, status_color, last_heartbeat_at, age_s, ...}.
+
+    status_color is one of 🟢 (healthy), 🟡 (lagging), 🔴 (stale or dead).
+    Only agents that the user has marked persistent are surfaced.
+    """
+    now = time.time()
+    persistent_set = set(list_persistent())
+    data = _read_health()
+    out: list[dict[str, Any]] = []
+    for slug in sorted(persistent_set):
+        entry = data.get(slug, {})
+        last = float(entry.get("last_heartbeat_at", 0) or 0)
+        age = now - last if last else None
+        if age is None:
+            color = "🔴"
+            label = "never"
+        elif age < HEARTBEAT_FRESH_S:
+            color = "🟢"
+            label = f"{int(age)}s ago"
+        elif age < HEARTBEAT_STALE_S:
+            color = "🟡"
+            label = f"{int(age)}s ago"
+        else:
+            color = "🔴"
+            label = f"{int(age)}s ago"
+        out.append({
+            "slug": slug,
+            "status_color": color,
+            "label": label,
+            "last_heartbeat_at": last or None,
+            "age_s": age,
+            "messages_handled": entry.get("messages_handled", 0),
+            "last_error": entry.get("last_error"),
+            "alive_thread": slug in _WORKERS and _WORKERS[slug].thread.is_alive(),
+        })
+    return out
+
+
 def _run_agent_loop(spec: AgentSpec, stop_event: threading.Event) -> None:
     """
     Pull messages off the agent's inbox, consult the active Brain for long-
@@ -267,10 +356,22 @@ def _run_agent_loop(spec: AgentSpec, stop_event: threading.Event) -> None:
     inbox = _bus.inbox(spec.slug)
     session_id = f"agent:{spec.slug}"
 
+    # Initial heartbeat so the dashboard immediately sees the agent alive.
+    try:
+        heartbeat(spec.slug, status="started")
+    except Exception:
+        pass
+
     while not stop_event.is_set():
         try:
             msg = inbox.get(timeout=1.0)
         except Exception:
+            # Idle tick — refresh heartbeat so the dashboard knows we're alive
+            # even if no messages have arrived.
+            try:
+                heartbeat(spec.slug, status="alive")
+            except Exception:
+                pass
             continue
         try:
             system = spec.system or "You are a Metis specialist agent."
@@ -326,11 +427,19 @@ def _run_agent_loop(spec: AgentSpec, stop_event: threading.Event) -> None:
                 payload={"text": reply, "re": msg.kind},
                 correlation_id=msg.correlation_id,
             ))
+            try:
+                heartbeat(spec.slug, status="handled")
+            except Exception:
+                pass
         except Exception as e:
             try:
                 import safety
                 safety.audit({"event": "agent_worker_error",
                               "slug": spec.slug, "error": str(e)})
+            except Exception:
+                pass
+            try:
+                heartbeat(spec.slug, status="error", error=str(e))
             except Exception:
                 pass
 
