@@ -59,6 +59,113 @@ theme = st.session_state.get("theme", "solar")
 inject_theme(theme=theme)
 thinking_flag(st.session_state.get("thinking", False))
 
+# ── Cached helpers (built once per process; avoids repeated disk/network I/O) ─
+_LOGO_B64_CACHE: dict[str, str] = {}  # path → base64 string
+
+
+def _read_b64(path: Path) -> str:
+    """Read a file as base64, cached in a module-level dict."""
+    key = str(path)
+    if key not in _LOGO_B64_CACHE:
+        try:
+            _LOGO_B64_CACHE[key] = base64.b64encode(path.read_bytes()).decode("ascii") if path.exists() else ""
+        except Exception:
+            _LOGO_B64_CACHE[key] = ""
+    return _LOGO_B64_CACHE[key]
+
+
+@st.cache_data(ttl=120, show_spinner=False)
+def _cached_hardware_report() -> dict:
+    """Hardware report — cached 2 min, runs system calls once."""
+    return get_hardware_report()
+
+
+@st.cache_data(ttl=120, show_spinner=False)
+def _cached_hardware_tier() -> str:
+    return get_hardware_tier()
+
+
+@st.cache_data(ttl=20, show_spinner=False)
+def _cached_health_snapshot() -> dict:
+    """Ping Ollama + wallet + active brain — cached 20 s."""
+    snap: dict = {"ollama": False, "wallet_usd": None, "brain": None}
+    try:
+        from brain_engine import list_local_models
+        snap["ollama"] = bool(list_local_models())
+    except Exception:
+        pass
+    try:
+        from wallet import summary as _ws
+        s = _ws()
+        snap["wallet_usd"] = s["balance_cents"] / 100.0
+    except Exception:
+        pass
+    try:
+        import brains as _brains
+        active = _brains.active()
+        if active is not None:
+            snap["brain"] = active.name
+    except Exception:
+        pass
+    return snap
+
+
+@st.cache_data(ttl=30, show_spinner=False)
+def _cached_list_sessions(user_id: str = "") -> list:
+    try:
+        from memory import list_sessions
+        return list_sessions(user_id=user_id) or []
+    except Exception:
+        return []
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def _cached_list_personas() -> list:
+    try:
+        from identity_matrix import list_personas
+        return list_personas() or []
+    except Exception:
+        return []
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def _cached_comms_status() -> tuple[bool, bool]:
+    """Returns (smtp_configured, twilio_configured)."""
+    try:
+        from comms_policy import smtp_configured, twilio_configured
+        return smtp_configured(), twilio_configured()
+    except Exception:
+        return False, False
+
+
+@st.cache_data(ttl=15, show_spinner=False)
+def _cached_list_artifacts(limit: int = 50) -> list:
+    try:
+        from artifacts import list_artifacts
+        return list_artifacts(limit=limit)
+    except Exception:
+        return []
+
+
+# Auth result cache — avoids a Supabase network round-trip on every rerun.
+_AUTH_CACHE_TTL_S = 90  # seconds
+
+
+def _auth_cached_ok() -> bool:
+    """Return True if auth was verified within the last N seconds."""
+    last = st.session_state.get("_auth_last_check_ts", 0.0)
+    return (time.time() - last) < _AUTH_CACHE_TTL_S and st.session_state.get("_auth_ok", False)
+
+
+def _auth_mark_ok() -> None:
+    st.session_state["_auth_ok"] = True
+    st.session_state["_auth_last_check_ts"] = time.time()
+
+
+def _auth_mark_fail() -> None:
+    st.session_state["_auth_ok"] = False
+    st.session_state["_auth_last_check_ts"] = 0.0
+
 
 # ── Session state bootstrap ──────────────────────────────────────────────────
 def _init_state() -> None:
@@ -212,6 +319,15 @@ def _auth_gate() -> bool:
     """Return True if the user is authenticated, else render login/setup UI."""
     st.session_state.setdefault("auth_mode", "login")  # login | signup
 
+    # ── Fast path: skip the Supabase network call if recently validated ────
+    # get_user() is a round-trip to Supabase — do it at most every 90 s so
+    # every button click isn't blocked by a network request.
+    if _auth_cached_ok():
+        profile = _load_profile()
+        if not profile.get("completed_at"):
+            _setup_wizard()
+        return True
+
     client = get_client()
 
     # Streamlit reruns wipe in-memory auth state. Persist Supabase session tokens
@@ -253,19 +369,18 @@ def _auth_gate() -> bool:
             authed = False
 
     if authed:
+        _auth_mark_ok()
         profile = _load_profile()
         if not profile.get("completed_at"):
             _setup_wizard()
         return True
+    else:
+        _auth_mark_fail()
 
-    # ── Build logo data URI once ────────────────────────────────────────
-    logo_b64 = ""
-    starburst_b64 = ""
+    # ── Build logo data URI once (module-level cache, no repeated disk reads) ─
     _starburst_svg = _REPO_ROOT / "assets" / "design-system" / "assets" / "metis-mark-starburst.svg"
-    if _LOGOMARK_PNG.exists():
-        logo_b64 = base64.b64encode(_LOGOMARK_PNG.read_bytes()).decode("ascii")
-    if _starburst_svg.exists():
-        starburst_b64 = base64.b64encode(_starburst_svg.read_bytes()).decode("ascii")
+    logo_b64 = _read_b64(_LOGOMARK_PNG)
+    starburst_b64 = _read_b64(_starburst_svg)
 
     is_signup = st.session_state["auth_mode"] == "signup"
     title_label = "metis · sign up" if is_signup else "Metis — Sign in"
@@ -376,7 +491,16 @@ def _auth_gate() -> bool:
     # ── Auto-redirect for pending OAuth ─────────────────────────────────
     oauth_url = st.session_state.get("oauth_url")
     if isinstance(oauth_url, str) and oauth_url.startswith("http"):
-        st.html(f"<script>window.location.href = {json.dumps(oauth_url)};</script>")
+        # Streamlit renders st.html inside an iframe, so we must target
+        # the parent frame to redirect the whole tab, not just the iframe.
+        st.html(f"""<script>
+(function(){{
+  var u={json.dumps(oauth_url)};
+  try{{ window.parent.location.href=u; }}catch(e){{
+    try{{ window.top.location.href=u; }}catch(e2){{ window.location.href=u; }}
+  }}
+}})();
+</script>""")
         st.link_button("Continue sign-in →", oauth_url, use_container_width=True)
         st.caption("If nothing happens automatically, click the button above.")
         st.stop()
@@ -411,7 +535,7 @@ def _auth_gate() -> bool:
         ui_port = os.getenv("METIS_UI_PORT", "8501")
         redirect_to = f"http://127.0.0.1:{ui_port}"
 
-        if st.button(f"  Continue with Google", use_container_width=True, key="oauth_google", icon=":material/public:"):
+        if st.button("  Continue with Google", use_container_width=True, key="oauth_google", icon=":material/public:"):
             try:
                 from auth_engine import start_oauth
                 url = start_oauth(provider="google", redirect_to=redirect_to)
@@ -419,7 +543,7 @@ def _auth_gate() -> bool:
                 st.rerun()
             except Exception as e:
                 st.error(str(e))
-        if st.button(f"  Continue with GitHub", use_container_width=True, key="oauth_github", icon=":material/code:"):
+        if st.button("  Continue with GitHub", use_container_width=True, key="oauth_github", icon=":material/code:"):
             try:
                 from auth_engine import start_oauth
                 url = start_oauth(provider="github", redirect_to=redirect_to)
@@ -455,19 +579,32 @@ def _auth_gate() -> bool:
                 st.rerun()
         else:
             if st.button("Sign in  →", type="primary", use_container_width=True, key="auth_submit"):
-                try:
-                    from auth_engine import sign_in
-                    out = sign_in(email=email.strip(), password=pw)
-                    sess = out.get("session") if isinstance(out, dict) else None
-                    if sess and getattr(sess, "access_token", None) and getattr(sess, "refresh_token", None):
-                        st.session_state["supabase_session"] = {
-                            "access_token": sess.access_token,
-                            "refresh_token": sess.refresh_token,
-                        }
-                    st.success("Signed in.")
-                    st.rerun()
-                except Exception as e:
-                    st.error(str(e))
+                if not email.strip():
+                    st.error("Enter your email first.")
+                elif not pw:
+                    st.error("Enter your passcode.")
+                else:
+                    try:
+                        from auth_engine import sign_in
+                        out = sign_in(email=email.strip(), password=pw)
+                        sess = out.get("session") if isinstance(out, dict) else None
+                        if sess and getattr(sess, "access_token", None) and getattr(sess, "refresh_token", None):
+                            st.session_state["supabase_session"] = {
+                                "access_token": sess.access_token,
+                                "refresh_token": sess.refresh_token,
+                            }
+                            st.success("Signed in.")
+                            st.rerun()
+                        else:
+                            st.warning("Signed in but no session returned — check your email for a verification link.")
+                    except Exception as e:
+                        err = str(e)
+                        if "email" in err.lower() and "confirm" in err.lower():
+                            st.warning("Please verify your email address first, then try again.")
+                        elif "invalid" in err.lower() or "credentials" in err.lower():
+                            st.error("Incorrect email or passcode.")
+                        else:
+                            st.error(err)
 
             # ── Forgot password flow (toggleable inline) ────────────────
             if st.session_state.get("show_forgot"):

@@ -233,16 +233,17 @@ html, body, [data-testid="stAppViewContainer"] {
 
 # ── Public API ──────────────────────────────────────────────────────────────
 
-def inject(theme: str = "obsidian") -> None:
-    """Inject the user's design system CSS into Streamlit."""
+# Module-level CSS payload cache — built once per process, never re-reads disk.
+_CSS_PAYLOAD_CACHE: dict[str, str] = {}
+
+
+def _build_css_payload(theme: str) -> str:  # noqa: ARG001  (theme reserved for future per-theme tokens)
+    """Read all design-system CSS files and return the full <style> payload."""
     design_css = ""
     try:
         root = Path(__file__).resolve().parent
-        # Design system lives in-repo so the Streamlit app can load it at runtime.
-        # (This path is created by extracting the provided zip into assets/design-system.)
         ds_root = root / "assets" / "design-system"
 
-        # 1) Always load your primary tokens first (root copy preferred).
         token_css_parts: list[str] = []
         token_root = root / "colors_and_type.css"
         token_ds = ds_root / "colors_and_type.css"
@@ -251,21 +252,15 @@ def inject(theme: str = "obsidian") -> None:
         if token_ds.exists() and token_ds.resolve() != token_root.resolve():
             token_css_parts.append(token_ds.read_text(encoding="utf-8"))
 
-        # 2) Load *all* design-system CSS across the five folders (auth chrome,
-        # onboarding, previews, UI kits). This is what brings in your UI,
-        # logo treatments, and animations.
         css_files = sorted(
             [p for p in ds_root.rglob("*.css") if p.is_file()],
             key=lambda p: str(p).lower(),
         )
         other_css_parts: list[str] = []
         for p in css_files:
-            # Avoid duplicating token files; we already loaded them first.
             if p.name.lower() == "colors_and_type.css":
                 continue
             css = p.read_text(encoding="utf-8")
-            # We're concatenating many CSS files into one <style> tag; relative
-            # @import paths would break, and tokens are already loaded first.
             css = "\n".join(
                 ln for ln in css.splitlines()
                 if not ln.lstrip().lower().startswith("@import ")
@@ -275,9 +270,19 @@ def inject(theme: str = "obsidian") -> None:
         design_css = "\n\n".join([*token_css_parts, *other_css_parts]).strip()
     except Exception:
         design_css = ""
-    # Streamlit sanitizes/strips <style> (and often SVG) from st.markdown HTML.
-    # st.html() injects style into the document head via the event container (see streamlit elements/html.py).
-    payload = _CSS.replace("__DESIGN_SYSTEM_CSS__", design_css)
+    return _CSS.replace("__DESIGN_SYSTEM_CSS__", design_css)
+
+
+def inject(theme: str = "obsidian") -> None:
+    """Inject the user's design system CSS into Streamlit.
+
+    The CSS payload is built once per server process and cached in
+    ``_CSS_PAYLOAD_CACHE`` so that Streamlit reruns don't re-read
+    every design-system file from disk each time.
+    """
+    if theme not in _CSS_PAYLOAD_CACHE:
+        _CSS_PAYLOAD_CACHE[theme] = _build_css_payload(theme)
+    payload = _CSS_PAYLOAD_CACHE[theme]
     if hasattr(st, "html"):
         st.html(payload)
     else:
@@ -354,7 +359,6 @@ def agent_card(
     avatar_letter: str | None = None,
 ) -> None:
     letter = (avatar_letter or name[:1] or "·").upper()
-    status_class = "live" if status.lower() in ("live", "running", "active") else ""
     st.markdown(
         f"""
         <div class="card">

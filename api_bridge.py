@@ -15,17 +15,19 @@ from typing import Any
 from dotenv import load_dotenv
 load_dotenv()
 
-from fastapi import FastAPI, HTTPException, Query
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+# noqa-block: imports below intentionally come AFTER load_dotenv() so any
+# settings read at module load time pick up values from .env.
+from fastapi import FastAPI, HTTPException, Query  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from fastapi.responses import StreamingResponse  # noqa: E402
+from pydantic import BaseModel  # noqa: E402
 
-from brain_engine import ROLE_MODELS, list_local_models, stream_chat
-from artifacts import list_artifacts, get_artifact
-from metis_version import METIS_VERSION
+from brain_engine import ROLE_MODELS, list_local_models, stream_chat  # noqa: E402
+from artifacts import list_artifacts, get_artifact  # noqa: E402
+from metis_version import METIS_VERSION  # noqa: E402
 
 
-import auth_local
+import auth_local  # noqa: E402
 
 app = FastAPI(title="Metis API Bridge", version="16.4.0")
 
