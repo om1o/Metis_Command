@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>Errors · Metis</title>
+<link rel="icon" href="../assets/favicon.svg">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+*{box-sizing:border-box}html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--font-body);min-height:100vh}
+.titlebar{position:sticky;top:0;height:32px;background:rgba(247,250,252,.85);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 14px;gap:8px;z-index:100}
+.traffic{display:flex;gap:7px}.traffic span{width:12px;height:12px;border-radius:50%}.traffic .r{background:#FF5F57}.traffic .y{background:#FEBC2E}.traffic .g{background:#28C840}
+.title{flex:1;text-align:center;font-size:12px;color:var(--text-muted);font-family:var(--font-mono);font-weight:500}
+.head{padding:32px 48px 16px;max-width:1280px;margin:0 auto}
+.head h1{font-family:var(--font-display);font-size:28px;font-weight:750;margin:0;letter-spacing:-.02em}
+.head p{color:var(--text-muted);margin:6px 0 0;font-size:14px}
+.tabs{display:flex;gap:8px;padding:16px 48px;max-width:1280px;margin:0 auto;border-bottom:1px solid var(--border)}
+.tab{padding:8px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;color:var(--text-muted);border:1px solid transparent;background:transparent}
+.tab.active{background:var(--surface);color:var(--text);border-color:var(--border);box-shadow:var(--shadow-xs)}
+.scene{display:none;padding:60px 24px;min-height:calc(100vh - 200px);align-items:center;justify-content:center}
+.scene.show{display:flex}
+.card{max-width:540px;text-align:center}
+.code{font-family:var(--font-display);font-size:140px;font-weight:800;letter-spacing:-.04em;line-height:1;background:var(--heritage-grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;margin:0 0 18px}
+.h{font-family:var(--font-display);font-size:32px;font-weight:750;margin:0 0 12px;letter-spacing:-.02em}
+.h em{font-family:ui-serif,"Iowan Old Style",Georgia,serif;font-style:italic;font-weight:500}
+.p{color:var(--text-muted);font-size:15.5px;line-height:1.6;margin:0 0 28px}
+.actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.btn{font-family:var(--font-body);font-weight:600;font-size:14px;padding:0 18px;height:44px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;display:inline-flex;align-items:center;gap:8px;transition:all .18s;text-decoration:none}
+.btn:hover{border-color:var(--text);transform:translateY(-1px);box-shadow:var(--shadow-md)}
+.btn.primary{background:var(--text);color:#fff;border-color:var(--text)}
+.btn svg{width:14px;height:14px;stroke:currentColor;stroke-width:2.4;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.glyph{width:80px;height:80px;margin:0 auto 24px;border-radius:20px;display:flex;align-items:center;justify-content:center;position:relative}
+.glyph.warn{background:linear-gradient(135deg,#FEF3C7,#FED7AA)}
+.glyph.warn svg{stroke:#D97706;width:36px;height:36px;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.glyph.off{background:var(--surface-alt);border:1px solid var(--border)}
+.glyph.off svg{stroke:var(--text-muted);width:36px;height:36px;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.glyph.off::after{content:"";position:absolute;width:80%;height:2px;background:var(--text-muted);transform:rotate(-45deg);border-radius:2px}
+.code.red{background:linear-gradient(135deg,#EF4444,#F59E0B);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.float{animation:bob 4s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.diag{margin-top:32px;padding:14px 18px;background:var(--surface);border:1px solid var(--border);border-radius:12px;font-family:var(--font-mono);font-size:12px;color:var(--text-muted);text-align:left}
+.diag .row{display:flex;justify-content:space-between;padding:3px 0}
+.diag .row .k{color:var(--text-subtle);text-transform:uppercase;letter-spacing:.06em;font-size:10.5px}
+.diag .row .v{color:var(--text)}
+.tips{margin-top:24px;padding:0;list-style:none;text-align:left;font-size:13.5px;color:var(--text-muted)}
+.tips li{padding:8px 0;display:flex;gap:10px;align-items:start}
+.tips li::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--heritage-violet);margin-top:8px;flex-shrink:0}
+</style></head><body>
+<div class="titlebar"><div class="traffic"><span class="r"></span><span class="y"></span><span class="g"></span></div><div class="title">errors · metis</div><div style="width:56px"></div></div>
+
+<div class="head"><h1>Error pages</h1><p>404, 500, offline. Toggle below.</p></div>
+<div class="tabs">
+<button class="tab active" data-scene="404">404</button>
+<button class="tab" data-scene="500">500</button>
+<button class="tab" data-scene="offline">Offline</button>
+</div>
+
+<section class="scene show" data-id="404"><div class="card">
+<div class="float"><img src="../assets/metis-logomark.png" alt="" style="width:90px;opacity:.85;margin-bottom:8px"></div>
+<div class="code">404</div>
+<h2 class="h">This page <em>wandered off</em>.</h2>
+<p class="p">We couldn't find what you were looking for. It may have moved, been renamed, or never existed at all.</p>
+<div class="actions"><a class="btn primary" href="../onboarding/index.html"><svg viewBox="0 0 24 24"><path d="M3 12l9-9 9 9"/><path d="M5 10v10h14V10"/></svg>Back home</a><a class="btn" href="#" onclick="history.back();return false"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>Go back</a></div>
+</div></section>
+
+<section class="scene" data-id="500"><div class="card">
+<div class="glyph warn"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+<div class="code red">500</div>
+<h2 class="h">Something <em>broke on our end</em>.</h2>
+<p class="p">Metis hit an unexpected error. We've logged it and our team is on it. Try again in a moment.</p>
+<div class="actions"><button class="btn primary" onclick="location.reload()"><svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Retry</button><a class="btn" href="../onboarding/index.html">Home</a></div>
+<div class="diag"><div class="row"><span class="k">Request ID</span><span class="v">req_8c4f2e91…</span></div><div class="row"><span class="k">Timestamp</span><span class="v">2026-04-27 14:32:08 UTC</span></div><div class="row"><span class="k">Trace</span><span class="v">ai/chat/stream → resolve_tool</span></div></div>
+</div></section>
+
+<section class="scene" data-id="offline"><div class="card">
+<div class="glyph off"><svg viewBox="0 0 24 24"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg></div>
+<h2 class="h">You're <em>offline</em>.</h2>
+<p class="p">Metis needs the internet to think. Check your connection — we'll pick up where you left off.</p>
+<ul class="tips"><li>Cached chats are still available below.</li><li>Drafts you typed are saved locally.</li><li>Missions resume automatically when you reconnect.</li></ul>
+<div class="actions" style="margin-top:24px"><button class="btn primary" onclick="location.reload()"><svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Try again</button></div>
+</div></section>
+
+<script>
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));t.classList.add('active');
+  document.querySelectorAll('.scene').forEach(s=>s.classList.toggle('show',s.dataset.id===t.dataset.scene));
+}));
+</script>
+</body></html>

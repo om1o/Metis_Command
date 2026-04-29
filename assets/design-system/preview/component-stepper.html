@@ -1,0 +1,120 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css"><style>
+body { padding: 16px 20px; background: var(--bg); width: 420px; }
+
+/* ── Box ───────────────────────────────── */
+.mission { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-sm); overflow: hidden; font-family: var(--font-body); }
+.mission .head { display: flex; align-items: center; gap: 9px; padding: 9px 11px 8px; border-bottom: 1px solid var(--border); }
+.mission .head .icon { width: 22px; height: 16px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; position: relative; }
+.mission .head .icon img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 1px 2px rgba(109, 40, 217, .2)); }
+.mission .head .title { font-size: 12px; font-weight: 650; color: var(--text); letter-spacing: -0.005em; line-height: 1.25; }
+.mission .head .sub   { font-size: 10px; color: var(--text-muted); font-family: var(--font-mono); margin-top: 1px; line-height: 1.2; }
+.mission .head .stat { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; font-size: 9.5px; color: var(--energy); font-family: var(--font-mono); padding: 2px 6px; border-radius: 999px; background: color-mix(in oklch, var(--energy) 12%, transparent); border: 1px solid color-mix(in oklch, var(--energy) 25%, transparent); flex-shrink: 0; }
+.mission .head .stat .ldot { width: 5px; height: 5px; border-radius: 50%; background: var(--energy); animation: live 1.4s ease-in-out infinite; box-shadow: 0 0 0 0 color-mix(in oklch, var(--energy) 50%, transparent); }
+@keyframes live { 0%, 100% { opacity: 1; box-shadow: 0 0 0 0 color-mix(in oklch, var(--energy) 50%, transparent); } 50% { opacity: .55; box-shadow: 0 0 0 5px transparent; } }
+
+/* progress bar */
+.progress { height: 3px; background: var(--surface-alt); position: relative; overflow: hidden; }
+.progress .fill { position: absolute; inset: 0 50% 0 0; background: linear-gradient(90deg, #3B82F6, #22C55E); border-radius: 0 2px 2px 0; transition: right 0.6s ease; }
+.progress .sweep { position: absolute; top: 0; left: 0; right: 50%; bottom: 0; background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,.6) 50%, transparent 100%); animation: sweep 1.8s ease-in-out infinite; }
+@keyframes sweep { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+
+/* ── Steps ─────────────────────────────── */
+.steps { padding: 3px 11px 8px; }
+.step { display: grid; grid-template-columns: 18px 1fr auto; gap: 9px; align-items: flex-start; padding: 5px 0; position: relative; }
+.dotcol { display: flex; flex-direction: column; align-items: center; }
+.bullet { width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 9px; font-weight: 700; font-family: var(--font-mono); position: relative; }
+.b-done { background: var(--energy); color: #fff; box-shadow: 0 1px 2px color-mix(in oklch, var(--energy) 35%, transparent); }
+.b-run  { background: var(--primary); color: #fff; box-shadow: 0 0 0 0 color-mix(in oklch, var(--primary) 50%, transparent); animation: ringPulse 1.6s ease-out infinite; }
+.b-run::before { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid var(--primary); opacity: 0; animation: ringExpand 1.6s ease-out infinite; }
+@keyframes ringPulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklch, var(--primary) 50%, transparent); } 50% { box-shadow: 0 0 0 4px color-mix(in oklch, var(--primary) 15%, transparent); } }
+@keyframes ringExpand { 0% { opacity: 0.6; transform: scale(0.9); } 100% { opacity: 0; transform: scale(1.5); } }
+.b-todo { background: var(--surface); border: 1.5px dashed var(--border-strong); color: var(--text-subtle); }
+.line { width: 1.5px; flex: 1; background: var(--border); margin-top: 3px; min-height: 9px; border-radius: 1px; }
+.line.done { background: var(--energy); }
+.line.next { background: linear-gradient(180deg, var(--primary), var(--border) 80%); }
+
+.body .title { font-size: 12px; font-weight: 600; color: var(--text); letter-spacing: -0.003em; line-height: 1.3; }
+.step.running .title { color: var(--text); }
+.body .meta  { font-size: 10px; color: var(--text-muted); margin-top: 2px; font-family: var(--font-mono); line-height: 1.3; }
+.step.todo .title { color: var(--text-muted); font-weight: 500; }
+.step.todo .meta  { color: var(--text-subtle); }
+
+/* Active loading row — shimmer track under the meta */
+.shimmer { margin-top: 6px; height: 3px; border-radius: 2px; background: var(--surface-alt); position: relative; overflow: hidden; }
+.shimmer::before { content: ""; position: absolute; inset: 0; width: 40%; background: linear-gradient(90deg, transparent, var(--primary), transparent); animation: shim 1.3s ease-in-out infinite; border-radius: 2px; }
+@keyframes shim { 0% { transform: translateX(-110%); } 100% { transform: translateX(360%); } }
+
+/* mini sub-task ticker */
+.ticker { display: inline-flex; align-items: center; gap: 5px; margin-top: 5px; font-family: var(--font-mono); font-size: 10.5px; color: var(--primary); }
+.ticker .dotc { width: 4px; height: 4px; border-radius: 50%; background: var(--primary); animation: b 1.1s ease-in-out infinite; }
+.ticker .dotc:nth-child(2) { animation-delay: .15s; } .ticker .dotc:nth-child(3) { animation-delay: .3s; }
+@keyframes b { 0%, 80%, 100% { opacity: .25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-2px); } }
+
+.dur { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); white-space: nowrap; padding-top: 2px; }
+.step.running .dur { color: var(--primary); }
+</style></head><body>
+
+<div class="mission">
+
+  <div class="head">
+    <div class="icon"><img src="../assets/metis-logomark.png" alt=""></div>
+    <div>
+      <div class="title">Outbound — Fintech Series A</div>
+      <div class="sub">mission · 4 steps · started 41s ago</div>
+    </div>
+    <span class="stat"><span class="ldot"></span>running</span>
+  </div>
+
+  <div class="progress"><div class="fill" style="right: 38%;"></div><div class="sweep"></div></div>
+
+  <div class="steps">
+
+    <div class="step done">
+      <div class="dotcol"><div class="bullet b-done">✓</div><div class="line done"></div></div>
+      <div class="body"><div class="title">Plan the mission</div><div class="meta">routed to planner · 4 sub-tasks</div></div>
+      <div class="dur">2s</div>
+    </div>
+
+    <div class="step done">
+      <div class="dotcol"><div class="bullet b-done">✓</div><div class="line next"></div></div>
+      <div class="body"><div class="title">Search Crunchbase for fintech Series A 2024</div><div class="meta">42 candidates · narrowed to 30</div></div>
+      <div class="dur">38s</div>
+    </div>
+
+    <div class="step running">
+      <div class="dotcol"><div class="bullet b-run">3</div><div class="line"></div></div>
+      <div class="body">
+        <div class="title">Draft first-touch emails</div>
+        <div class="meta">14 / 30 written</div>
+        <div class="shimmer"></div>
+        <div class="ticker"><span id="tk">composing email for Atomic Capital</span><span class="dotc"></span><span class="dotc"></span><span class="dotc"></span></div>
+      </div>
+      <div class="dur">running</div>
+    </div>
+
+    <div class="step todo">
+      <div class="dotcol"><div class="bullet b-todo">4</div></div>
+      <div class="body"><div class="title">Save artifacts</div><div class="meta">leads_q2.csv · drafts/*.eml</div></div>
+      <div class="dur">—</div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const samples = [
+  'composing email for Atomic Capital',
+  'composing email for Lumen Pay',
+  'composing email for Northwind FX',
+  'composing email for Brella Banking',
+  'composing email for Pier Finance',
+  'composing email for Tally Treasury'
+];
+const tk = document.getElementById('tk');
+let i = 0;
+setInterval(() => { i = (i + 1) % samples.length; tk.style.opacity = '0'; setTimeout(() => { tk.textContent = samples[i]; tk.style.opacity = '1'; }, 180); }, 1600);
+tk.style.transition = 'opacity .18s ease';
+</script>
+
+</body></html>

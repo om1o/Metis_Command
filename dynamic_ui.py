@@ -9,12 +9,14 @@ status bar, keyboard shortcuts, voice I/O).
 
 from __future__ import annotations
 
+import base64
 import json
+import os
+import re
 import time
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
-import re
 
 import streamlit as st
 
@@ -41,16 +43,19 @@ from metis_version import (
     METIS_VERSION,
 )
 
+_REPO_ROOT = Path(__file__).resolve().parent
+_LOGOMARK_PNG = _REPO_ROOT / "assets" / "design-system" / "assets" / "metis-logomark.png"
+
 
 # ── Page config ──────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Metis Command",
-    page_icon="◆",
+    page_icon=str(_LOGOMARK_PNG) if _LOGOMARK_PNG.exists() else "◆",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-theme = st.session_state.get("theme", "obsidian")
+theme = st.session_state.get("theme", "solar")
 inject_theme(theme=theme)
 thinking_flag(st.session_state.get("thinking", False))
 
@@ -212,11 +217,9 @@ def _auth_gate() -> bool:
     refresh_token = sb_sess.get("refresh_token")
     if access_token and refresh_token:
         try:
-            # supabase-py v2 style
             client.auth.set_session(access_token, refresh_token)
         except Exception:
             try:
-                # fallback: some versions accept dict payload
                 client.auth.set_session(
                     {"access_token": access_token, "refresh_token": refresh_token}
                 )
@@ -235,25 +238,185 @@ def _auth_gate() -> bool:
             _setup_wizard()
         return True
 
-    st.markdown("<div class='metis-eyebrow'>WELCOME</div>", unsafe_allow_html=True)
-    st.markdown("<h2 style='margin:6px 0 0 0;'>Sign in to Metis</h2>", unsafe_allow_html=True)
-    st.caption("Secure sign-in powered by Supabase. Your data stays tied to your account.")
+    # ── Build logo data URI once ────────────────────────────────────────
+    logo_b64 = ""
+    starburst_b64 = ""
+    _starburst_svg = _REPO_ROOT / "assets" / "design-system" / "assets" / "metis-mark-starburst.svg"
+    if _LOGOMARK_PNG.exists():
+        logo_b64 = base64.b64encode(_LOGOMARK_PNG.read_bytes()).decode("ascii")
+    if _starburst_svg.exists():
+        starburst_b64 = base64.b64encode(_starburst_svg.read_bytes()).decode("ascii")
 
-    with st.container(border=True):
-        col_a, col_b = st.columns(2)
-        with col_a:
-            if st.button("Sign in", use_container_width=True):
-                st.session_state["auth_mode"] = "login"
-        with col_b:
-            if st.button("Create account", use_container_width=True):
-                st.session_state["auth_mode"] = "signup"
+    is_signup = st.session_state["auth_mode"] == "signup"
+    title_label = "metis · sign up" if is_signup else "Metis — Sign in"
 
-        email = st.text_input("Email", key="auth_email")
-        pw = st.text_input("Password", type="password", key="auth_pw")
+    # ── Inject auth-page CSS + titlebar + watermark ─────────────────────
+    starburst_img = ""
+    if starburst_b64:
+        starburst_img = f'<img src="data:image/svg+xml;base64,{starburst_b64}" alt="">'
 
-        if st.session_state["auth_mode"] == "signup":
-            st.caption("You may need to verify your email depending on Supabase settings.")
-            if st.button("Create account", type="primary", use_container_width=True):
+    _GOOGLE_SVG = '<svg viewBox="0 0 24 24" width="18" height="18"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>'
+    _GITHUB_SVG = '<svg viewBox="0 0 24 24" width="18" height="18" fill="#0F172A"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.203 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.847-2.339 4.695-4.566 4.943.359.31.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>'
+
+    auth_css = f"""
+    <style id="metis-auth-page">
+    /* ── Auth page overrides for Streamlit ── */
+    .titlebar {{ position: fixed; top: 0; left: 0; right: 0; height: 32px;
+      background: rgba(247,250,252,0.85); backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border); display: flex; align-items: center;
+      padding: 0 14px; gap: 8px; z-index: 100; }}
+    .titlebar .traffic {{ display: flex; gap: 7px; }}
+    .traffic span {{ width: 12px; height: 12px; border-radius: 50%; }}
+    .traffic .r {{ background: #FF5F57; }} .traffic .y {{ background: #FEBC2E; }} .traffic .g {{ background: #28C840; }}
+    .titlebar .title {{ flex: 1; text-align: center; font-size: 12px;
+      color: var(--text-muted); font-family: var(--font-mono); font-weight: 500; }}
+
+    .auth-watermark {{ position: fixed; top: 50px; left: 40px; display: flex;
+      align-items: center; gap: 10px; z-index: 5; }}
+    .auth-watermark img {{ height: 26px; animation: spinSlow 22s linear infinite; }}
+    .auth-watermark .wm {{ font-family: ui-serif, "Iowan Old Style", Georgia, serif;
+      font-size: 19px; font-weight: 500; letter-spacing: -0.01em; color: var(--text); }}
+    .auth-watermark .wm em {{ font-style: italic; }}
+    @keyframes spinSlow {{ to {{ transform: rotate(360deg); }} }}
+
+    .auth-card h1 {{ font-family: var(--font-display); font-size: 32px;
+      font-weight: 750; letter-spacing: -0.02em; line-height: 1.15; margin: 0 0 10px; }}
+    .auth-card h1 em {{ font-family: ui-serif, "Iowan Old Style", Georgia, serif;
+      font-style: italic; font-weight: 500;
+      background: var(--heritage-grad); -webkit-background-clip: text;
+      background-clip: text; -webkit-text-fill-color: transparent; }}
+    .auth-card .sub {{ font-size: 14.5px; color: var(--text-muted);
+      margin: 0 0 28px; line-height: 1.55; }}
+    .auth-card .lockup {{ display: flex; align-items: center; gap: 12px; margin-bottom: 36px; }}
+    .auth-card .lockup img {{ height: 42px; animation: spinSlow 22s linear infinite; }}
+
+    .auth-security {{ display: flex; gap: 18px; margin-top: 32px;
+      font-family: var(--font-mono); font-size: 10.5px; color: var(--text-subtle);
+      justify-content: center; }}
+    .auth-security span {{ display: inline-flex; align-items: center; gap: 5px; }}
+    .auth-security svg {{ width: 11px; height: 11px; stroke: var(--text-subtle);
+      stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }}
+
+    .auth-toggle {{ margin-top: 22px; text-align: center; font-size: 13px; color: var(--text-muted); }}
+
+    /* Override Streamlit padding for auth page */
+    [data-testid="stAppViewContainer"] > .main .block-container {{
+      padding-top: 56px !important;
+    }}
+    </style>
+
+    <div class="titlebar">
+      <div class="traffic"><span class="r"></span><span class="y"></span><span class="g"></span></div>
+      <div class="title">{title_label}</div>
+    </div>
+    <div class="auth-watermark">{starburst_img}<span class="wm">Met<em>i</em>s</span></div>
+    """
+    st.html(auth_css)
+
+    # ── OAuth callback handling (runs before form renders) ──────────────
+    try:
+        qp = dict(st.query_params)
+    except Exception:
+        qp = {}
+    if qp.get("error") or qp.get("error_description"):
+        msg = (qp.get("error_description") or qp.get("error") or "Sign-in failed.").strip()
+        st.error(msg)
+        try:
+            st.query_params.clear()
+        except Exception:
+            pass
+        st.session_state.pop("oauth_url", None)
+    code = qp.get("code")
+    if isinstance(code, str) and code.strip():
+        try:
+            from auth_engine import complete_oauth
+
+            out = complete_oauth(code=code.strip())
+            sess = out.get("session") if isinstance(out, dict) else None
+            if sess and getattr(sess, "access_token", None) and getattr(sess, "refresh_token", None):
+                st.session_state["supabase_session"] = {
+                    "access_token": sess.access_token,
+                    "refresh_token": sess.refresh_token,
+                }
+            try:
+                st.query_params.clear()
+            except Exception:
+                pass
+            st.session_state.pop("oauth_url", None)
+            st.success("Signed in.")
+            st.rerun()
+        except Exception as e:
+            st.error(str(e))
+            try:
+                st.query_params.clear()
+            except Exception:
+                pass
+            st.session_state.pop("oauth_url", None)
+
+    # ── Auto-redirect for pending OAuth ─────────────────────────────────
+    oauth_url = st.session_state.get("oauth_url")
+    if isinstance(oauth_url, str) and oauth_url.startswith("http"):
+        st.html(f"<script>window.location.href = {json.dumps(oauth_url)};</script>")
+        st.link_button("Continue sign-in →", oauth_url, use_container_width=True)
+        st.caption("If nothing happens automatically, click the button above.")
+        st.stop()
+        return False
+
+    # ── Centered auth card ──────────────────────────────────────────────
+    _, auth_col, _ = st.columns([1, 1.6, 1])
+    with auth_col:
+        # Brand lockup + heading
+        logo_img_tag = ""
+        if logo_b64:
+            logo_img_tag = f'<img src="data:image/png;base64,{logo_b64}" alt="Metis">'
+
+        if is_signup:
+            heading = "Create your <em>account</em>"
+            subtitle = "Free to start. No credit card required. Be running missions in under a minute."
+        else:
+            heading = "Welcome <em>back</em>"
+            subtitle = "Sign in to keep your missions, automations, and library in sync."
+
+        st.html(
+            f"""
+            <div class="auth-card">
+              <div class="lockup">{logo_img_tag}</div>
+              <h1>{heading}</h1>
+              <p class="sub">{subtitle}</p>
+            </div>
+            """,
+        )
+
+        # ── OAuth buttons ───────────────────────────────────────────────
+        ui_port = os.getenv("METIS_UI_PORT", "8501")
+        redirect_to = f"http://127.0.0.1:{ui_port}"
+
+        if st.button(f"  Continue with Google", use_container_width=True, key="oauth_google", icon=":material/public:"):
+            try:
+                from auth_engine import start_oauth
+                url = start_oauth(provider="google", redirect_to=redirect_to)
+                st.session_state["oauth_url"] = url
+                st.rerun()
+            except Exception as e:
+                st.error(str(e))
+        if st.button(f"  Continue with GitHub", use_container_width=True, key="oauth_github", icon=":material/code:"):
+            try:
+                from auth_engine import start_oauth
+                url = start_oauth(provider="github", redirect_to=redirect_to)
+                st.session_state["oauth_url"] = url
+                st.rerun()
+            except Exception as e:
+                st.error(str(e))
+
+        # ── Divider ─────────────────────────────────────────────────────
+        st.html('<div style="display:flex;align-items:center;gap:12px;margin:8px 0 12px;font-family:var(--font-mono);font-size:11px;color:var(--text-subtle);letter-spacing:0.08em;text-transform:uppercase;"><span style="flex:1;height:1px;background:var(--border);"></span>or with email<span style="flex:1;height:1px;background:var(--border);"></span></div>')
+
+        # ── Email / password form ───────────────────────────────────────
+        email = st.text_input("Email", key="auth_email", placeholder="you@work.com")
+        pw = st.text_input("Password", type="password", key="auth_pw", placeholder="••••••••")
+
+        if is_signup:
+            if st.button("Create account  →", type="primary", use_container_width=True, key="auth_submit"):
                 try:
                     from auth_engine import sign_up
                     out = sign_up(email=email.strip(), password=pw)
@@ -266,8 +429,12 @@ def _auth_gate() -> bool:
                     st.success("Account created. Check email for verification if prompted, then sign in.")
                 except Exception as e:
                     st.error(str(e))
+
+            if st.button("Already have an account? Sign in", key="auth_toggle", use_container_width=True):
+                st.session_state["auth_mode"] = "login"
+                st.rerun()
         else:
-            if st.button("Sign in", type="primary", use_container_width=True):
+            if st.button("Sign in  →", type="primary", use_container_width=True, key="auth_submit"):
                 try:
                     from auth_engine import sign_in
                     out = sign_in(email=email.strip(), password=pw)
@@ -281,6 +448,18 @@ def _auth_gate() -> bool:
                     st.rerun()
                 except Exception as e:
                     st.error(str(e))
+
+            if st.button("No account yet? Create one — it’s free", key="auth_toggle", use_container_width=True):
+                st.session_state["auth_mode"] = "signup"
+                st.rerun()
+
+        # ── Security badges ─────────────────────────────────────────────
+        st.html("""
+        <div class="auth-security">
+          <span><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>End-to-end encrypted</span>
+          <span><svg viewBox="0 0 24 24"><path d="M12 2L3 7v6c0 5 4 9 9 11 5-2 9-6 9-11V7l-9-5z"/></svg>SOC 2 in progress</span>
+        </div>
+        """)
 
     st.stop()
     return False
@@ -300,43 +479,20 @@ def _group_sessions(session_ids: list[str]) -> dict[str, list[str]]:
 
 def _sidebar() -> None:
     with st.sidebar:
-        # Sidebar chrome copied from your UI kit (Metis AI Design System (4)).
-        # We inline the actual SVG mark/wordmark from your assets folder.
-        try:
-            mark_svg = (
-                Path("docs")
-                / "design-system"
-                / "Metis AI Design System (1) - Copy"
-                / "assets"
-                / "metis-mark-starburst.svg"
-            ).read_text(encoding="utf-8")
-        except Exception:
-            mark_svg = "<span>◆</span>"
-        try:
-            wordmark_svg = (
-                Path("docs")
-                / "design-system"
-                / "Metis AI Design System (1) - Copy"
-                / "assets"
-                / "metis-wordmark.svg"
-            ).read_text(encoding="utf-8")
-        except Exception:
-            wordmark_svg = "<div class='name'>Metis</div>"
-
-        st.markdown(
-            f"""
-            <div class="sb-head">
-              <div class="mark">{mark_svg}</div>
-              <div class="name" style="display:flex;align-items:center;gap:8px;">
-                {wordmark_svg}
-              </div>
-              <div style="margin-left:auto">
-                <span class="chip chip-synced"><span class="chip-dot"></span>Synced</span>
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        # Streamlit strips most raw SVG from markdown; use PNG + st.image for a reliable logo.
+        c_logo, c_word, c_chip = st.columns([0.22, 0.5, 0.28])
+        with c_logo:
+            if _LOGOMARK_PNG.exists():
+                st.image(str(_LOGOMARK_PNG), use_container_width=True)
+            else:
+                st.caption("◆")
+        with c_word:
+            st.markdown("##### Metis")
+        with c_chip:
+            st.markdown(
+                '<span class="chip chip-synced"><span class="chip-dot"></span>Synced</span>',
+                unsafe_allow_html=True,
+            )
 
         if st.button("＋  New chat", key="new_chat_btn", use_container_width=True,
                      help="Ctrl+Shift+N"):

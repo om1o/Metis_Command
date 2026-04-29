@@ -1,0 +1,17 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css"><style>
+body { padding: 22px 24px; background: var(--bg); }
+.alert { display: flex; gap: 12px; padding: 12px 14px; border-radius: 12px; border: 1px solid; align-items: flex-start; }
+.alert + .alert { margin-top: 10px; }
+.icon { flex-shrink: 0; width: 18px; height: 18px; }
+.body-a { font-size: 13px; line-height: 1.45; }
+.body-a b { display: block; font-weight: 650; margin-bottom: 2px; }
+.a-success { background: #ECFDF5; border-color: #BBF7D0; color: #14532D; }
+.a-warn    { background: #FFFBEB; border-color: #FDE68A; color: #78350F; }
+.a-error   { background: #FEF2F2; border-color: #FECACA; color: #7F1D1D; }
+.a-info    { background: #EFF6FF; border-color: #BFDBFE; color: #1E3A8A; }
+</style></head><body>
+<div class="alert a-success"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><div class="body-a"><b>Shipped.</b>4 files written to ~/metis/run_a91f4c/.</div></div>
+<div class="alert a-warn"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><div class="body-a"><b>Run paused at step 3.</b>The web tool returned 429. Retry, or edit the step.</div></div>
+<div class="alert a-error"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg><div class="body-a"><b>Couldn't connect to local brain.</b>Start Ollama or switch off Local mode.</div></div>
+</body></html>

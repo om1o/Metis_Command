@@ -41,6 +41,10 @@ supabase>=2.5,<3
 stripe>=9.0,<13
 duckduckgo-search>=6.0,<9
 
+# ── Dev / quality gate (used by scripts/release_gate.py) ─────────────────────
+ruff>=0.1,<1
+pytest>=8,<10
+
 # ── Outbound comms (SMS / voice via Twilio) ────────────────────────────────
 twilio>=9.0,<10
 

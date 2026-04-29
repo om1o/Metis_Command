@@ -12,6 +12,7 @@ import inspect
 import json
 import os
 import random
+import re
 import threading
 import time
 from dataclasses import dataclass, field
@@ -125,6 +126,17 @@ def _stable_artifact_id_for_session(session_id: str) -> str:
     return f"toolruns_{h}"
 
 
+def _safe_session_filename(session_id: str) -> str:
+    """
+    Session ids are user-controlled in some paths (e.g. subagents) and may contain
+    characters that aren't valid on Windows (like ':').
+    """
+    s = (session_id or "").strip() or "session"
+    s = re.sub(r"[^A-Za-z0-9_.-]+", "_", s)
+    s = s.strip("._-") or "session"
+    return s[:80]
+
+
 class SessionExecutionLog:
     def __init__(self, session_id: str, *, keep_last: int = 200) -> None:
         self.session_id = session_id
@@ -133,16 +145,17 @@ class SessionExecutionLog:
 
         base = Path("artifacts") / "tool_runs"
         base.mkdir(parents=True, exist_ok=True)
-        self.path = base / f"{session_id}.json"
+        safe_id = _safe_session_filename(session_id)
+        self.path = base / f"{safe_id}.json"
 
         self._artifact_id = _stable_artifact_id_for_session(session_id)
         self._artifact = Artifact(
             id=self._artifact_id,
             type="doc",
-            title=f"tool_runs/{session_id}.json",
+            title=f"tool_runs/{safe_id}.json",
             language="json",
             path=str(self.path),
-            metadata={"kind": "tool_runs", "session_id": session_id},
+            metadata={"kind": "tool_runs", "session_id": session_id, "file_id": safe_id},
         )
         save_artifact(self._artifact)
 

@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>Metis — Design System & Product</title>
+<link rel="icon" href="assets/favicon.svg">
+<link rel="stylesheet" href="colors_and_type.css">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--font-body);min-height:100vh;-webkit-font-smoothing:antialiased}
+body{background:
+  radial-gradient(circle at 15% -10%,rgba(124,58,237,.07),transparent 50%),
+  radial-gradient(circle at 90% 10%,rgba(251,113,133,.06),transparent 55%),
+  var(--bg);
+}
+
+/* ---- header ---- */
+.nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(14px);background:rgba(247,250,252,.78);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1280px;margin:0 auto;padding:14px 32px;display:flex;align-items:center;gap:14px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit}
+.brand img{width:32px;height:32px}
+.brand .word{font-family:var(--font-display);font-weight:750;font-size:18px;letter-spacing:-.02em}
+.brand .tag{font-family:var(--font-mono);font-size:10.5px;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.1em;padding:3px 7px;border-radius:5px;background:var(--surface);border:1px solid var(--border)}
+.spacer{flex:1}
+.nav a.link{font-size:13.5px;font-weight:500;color:var(--text-muted);text-decoration:none;padding:8px 12px;border-radius:8px}
+.nav a.link:hover{color:var(--text);background:var(--surface)}
+.nav a.cta{font-size:13.5px;font-weight:600;color:#fff;text-decoration:none;padding:8px 14px;border-radius:9px;background:var(--text)}
+
+/* ---- hero ---- */
+.hero{max-width:1280px;margin:0 auto;padding:72px 32px 48px;display:grid;grid-template-columns:1.2fr 1fr;gap:64px;align-items:center}
+.hero .eyebrow{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--heritage-violet);font-weight:600;margin:0 0 18px;display:flex;align-items:center;gap:10px}
+.hero .eyebrow::before{content:"";width:24px;height:1.5px;background:var(--heritage-violet)}
+.hero h1{font-family:var(--font-display);font-size:72px;line-height:1.02;font-weight:750;letter-spacing:-.035em;margin:0 0 22px}
+.hero h1 em{font-family:ui-serif,"Iowan Old Style",Georgia,serif;font-style:italic;font-weight:500;background:var(--heritage-grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.hero p.lede{font-size:19px;line-height:1.55;color:var(--text-muted);margin:0 0 32px;max-width:54ch}
+.hero .meta{display:flex;gap:32px;font-family:var(--font-mono);font-size:11.5px;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.1em}
+.hero .meta b{display:block;font-family:var(--font-body);font-size:18px;color:var(--text);text-transform:none;letter-spacing:0;font-weight:600;margin-top:4px}
+
+.hero-art{position:relative;height:440px;display:flex;align-items:center;justify-content:center}
+.constell{position:absolute;inset:0}
+.constell .o{position:absolute;border-radius:50%;border:1px solid var(--border)}
+.constell .o.o1{inset:10% 10%;animation:rot 60s linear infinite}
+.constell .o.o2{inset:22% 22%;animation:rot 45s linear infinite reverse}
+.constell .o.o3{inset:34% 34%;animation:rot 30s linear infinite}
+.constell .dot{position:absolute;width:8px;height:8px;border-radius:50%;background:var(--heritage-violet);box-shadow:0 0 16px rgba(124,58,237,.55)}
+.constell .dot.d1{top:10%;left:50%;transform:translateX(-50%)}
+.constell .dot.d2{top:50%;right:10%;background:var(--heritage-coral);box-shadow:0 0 16px rgba(251,113,133,.55)}
+.constell .dot.d3{bottom:20%;left:18%;background:var(--heritage-amber);box-shadow:0 0 16px rgba(245,158,11,.5)}
+@keyframes rot{to{transform:rotate(360deg)}}
+.mark{width:200px;height:200px;position:relative;z-index:2;animation:bob 6s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+.mark img{width:100%;height:100%;filter:drop-shadow(0 24px 40px rgba(124,58,237,.18))}
+
+/* ---- section ---- */
+.sec{max-width:1280px;margin:0 auto;padding:48px 32px}
+.sec-head{display:flex;align-items:end;justify-content:space-between;margin-bottom:24px;border-bottom:1px solid var(--border);padding-bottom:14px}
+.sec-head h2{font-family:var(--font-display);font-size:13px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--text);margin:0;display:flex;align-items:center;gap:12px}
+.sec-head h2::before{counter-increment:sec;content:counter(sec,decimal-leading-zero);font-family:var(--font-mono);font-size:11px;color:var(--text-subtle);font-weight:500;letter-spacing:0}
+.sec-head .desc{font-size:13.5px;color:var(--text-muted);max-width:48ch;text-align:right}
+body{counter-reset:sec}
+
+/* ---- grid ---- */
+.grid{display:grid;gap:14px}
+.g4{grid-template-columns:repeat(4,1fr)}
+.g3{grid-template-columns:repeat(3,1fr)}
+.g2{grid-template-columns:repeat(2,1fr)}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;text-decoration:none;color:inherit;display:flex;flex-direction:column;gap:14px;transition:all .2s var(--ease-out);position:relative;overflow:hidden;min-height:160px}
+.card:hover{transform:translateY(-3px);box-shadow:var(--shadow-md);border-color:var(--text)}
+.card .num{font-family:var(--font-mono);font-size:10.5px;color:var(--text-subtle);letter-spacing:.08em;font-weight:500}
+.card .title{font-family:var(--font-display);font-size:18px;font-weight:700;letter-spacing:-.01em;margin:0;line-height:1.2}
+.card .desc{font-size:13.5px;color:var(--text-muted);line-height:1.5;margin:0;flex:1}
+.card .arr{position:absolute;bottom:18px;right:18px;width:28px;height:28px;border-radius:50%;background:var(--surface-alt);display:flex;align-items:center;justify-content:center;transition:all .2s}
+.card:hover .arr{background:var(--text);color:#fff;transform:translate(2px,-2px)}
+.card .arr svg{width:13px;height:13px;stroke:currentColor;stroke-width:2.5;fill:none}
+
+.card .preview{height:80px;border-radius:10px;border:1px solid var(--border);background:var(--surface-alt);position:relative;overflow:hidden}
+.card .preview svg{position:absolute;inset:0;width:100%;height:100%}
+
+/* highlight cards (featured/large) */
+.feat{grid-column:span 2;min-height:240px;background:linear-gradient(135deg,#fff 0%,var(--surface-alt) 100%)}
+.feat .preview{height:130px}
+
+.tag-pill{font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.08em;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface-alt);color:var(--text-muted);font-weight:600;display:inline-block;width:fit-content}
+.tag-pill.go{background:#ECFDF5;border-color:#A7F3D0;color:#047857}
+.tag-pill.flow{background:#EFF6FF;border-color:#BFDBFE;color:#1D4ED8}
+.tag-pill.sys{background:#FAF5FF;border-color:#E9D5FF;color:#6D28D9}
+.tag-pill.ext{background:#FEF3C7;border-color:#FDE68A;color:#92400E}
+
+/* footer */
+.footer{max-width:1280px;margin:0 auto;padding:64px 32px 48px;border-top:1px solid var(--border);margin-top:48px;display:flex;justify-content:space-between;align-items:center;font-family:var(--font-mono);font-size:11.5px;color:var(--text-subtle);letter-spacing:.04em;text-transform:uppercase}
+.footer img{width:24px;height:24px;opacity:.6}
+
+@media(max-width:900px){.hero{grid-template-columns:1fr;padding:48px 24px}.hero h1{font-size:48px}.hero-art{height:280px}.g4,.g3{grid-template-columns:repeat(2,1fr)}.feat{grid-column:span 2}}
+</style></head><body>
+
+<nav class="nav"><div class="nav-inner">
+<a class="brand" href="#"><img src="assets/metis-logomark.png" alt=""><span class="word">Metis</span><span class="tag">Design System v0.4</span></a>
+<div class="spacer"></div>
+<a class="link" href="README.md">README</a>
+<a class="link" href="onboarding/index.html">Onboarding</a>
+<a class="link" href="ui_kits/metis-app/index.html">UI Kit</a>
+<a class="cta" href="ui_kits/metis-app/index.html">Open app →</a>
+</div></nav>
+
+<header class="hero">
+<div>
+<p class="eyebrow">Goddess of wisdom · Founded 2024 · 47 humans</p>
+<h1>Wisdom, on <em>tap</em>.</h1>
+<p class="lede">Metis is a unified AI workspace — chat, missions, automations, and generation in one place. This project is the complete design system, brand, and Sprint 1 product surface.</p>
+<div class="meta">
+<div>Pages<b>21</b></div>
+<div>Components<b>14</b></div>
+<div>Tokens<b>62</b></div>
+<div>Brand grade<b>A</b></div>
+</div>
+</div>
+<div class="hero-art">
+<div class="constell"><div class="o o1"></div><div class="o o2"></div><div class="o o3"></div><div class="dot d1"></div><div class="dot d2"></div><div class="dot d3"></div></div>
+<div class="mark"><img src="assets/metis-logomark.png" alt="Metis"></div>
+</div>
+</header>
+
+<!-- 01 Brand -->
+<section class="sec"><div class="sec-head"><h2>Brand & foundations</h2><p class="desc">Logo, voice, color, type, spacing — the root tokens everything inherits.</p></div>
+<div class="grid g4">
+
+<a class="card" href="preview/brand-logo.html"><span class="num">01.01</span><h3 class="title">Logo & wordmark</h3><p class="desc">Logomark, lockups, clearspace.</p>
+<div class="preview" style="background:linear-gradient(135deg,#1a1a2e,#0f0f1e);display:flex;align-items:center;justify-content:center"><img src="assets/metis-logomark.png" style="width:48px;height:48px;position:static" alt=""></div>
+<span class="tag-pill sys">Brand</span><div class="arr"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></a>
+
+<a class="card" href="preview/brand-glyph.html"><span class="num">01.02</span><h3 class="title">Glyph system</h3><p class="desc">Iconography & starburst mark.</p>
+<div class="preview" style="display:flex;align-items:center;justify-content:center"><img src="assets/metis-mark-starburst.svg" style="width:60%;height:60%;position:static"></div>
+<span class="tag-pill sys">Brand</span><div class="arr"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></a>
+
+<a class="card" href="preview/color-heritage.html"><span class="num">01.03</span><h3 class="title">Heritage palette</h3><p class="desc">Violet, coral, amber gradient.</p>
+<div class="preview" style="background:linear-gradient(135deg,#7c3aed,#fb7185 50%,#f59e0b)"></div>
+<span class="tag-pill sys">Color</span><div class="arr"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></a>
+
+<a class="card" href="preview/color-primary.html"><span class="num">01.04</span><h3 class="title">Primary scale</h3><p class="desc">9-step ramp, light & dark.</p>
+<div class="preview" style="display:flex"><div style="flex:1;background:#FAF5FF"></div><div style="flex:1;background:#E9D5FF"></div><div style="flex:1;background:#C4B5FD"></div><div style="flex:1;background:#A78BFA"></div><div style="flex:1;background:#8B5CF6"></div><div style="flex:1;background:#7C3AED"></div><div style="flex:1;background:#6D28D9"></div><div style="flex:1;background:#5B21B6"></div><div style="flex:1;background:#4C1D95"></div></div>
+<span class="tag-pill sys">Color</span><div class="arr"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></a>
+
+<a class="card" href="preview/color-neutrals.html"><span class="num">01.05</span><h3 class="title">Neutrals</h3><p class="desc">Slate-warm, 11 steps.</p>
+<div class="preview" style="display:flex"><div style="flex:1;background:#F7FAFC"></div><div style="flex:1;background:#EDF2F7"></div><div style="flex:1;background:#E2E8F0"></div><div style="flex:1;background:#CBD5E0"></div><div style="flex:1;background:#A0AEC0"></div><div style="flex:1;background:#718096"></div><div style="flex:1;background:#4A5568"></div><div style="flex:1;background:#2D3748"></div><div style="flex:1;background:#1A202C"></div></div>
+<span class="tag-pill sys">Color</span><div class="arr"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></a>
+
+<a class="card" href="preview/color-semantic.html"><span class="num">01.06</span><h3 class="title">Semantic</h3><p class="desc">Success, warning, error, info.</p>
+<div class="preview" style="display:grid;grid-template-columns:repeat(4,1fr);gap:0"><div style="background:#10B981"></div><div style="background:#F59E0B"></div><div style="background:#EF4444"></div><div style="background:#3B82F6"></div></div>
+<span class="tag-pill sys">Color</span><div class="arr"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></a>
+
+<a class="card" href="preview/type-display.html"><span class="num">01.07</span><h3 class="title">Display type</h3><p class="desc">Sora, 750. -2% letter-spacing.</p>
+<div class="preview" style="display:flex;align-items:center;justify-content:center"><span style="font-family:var(--font-display);font-size:42px;font-weight:750;letter-spacing:-.04em">Aa</span></div>
+<span class="tag-pill sys">Type</span><div class="arr"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></a>
+
+<a class="card" href="preview/type-body.html"><span class="num">01.08</span><h3 class="title">Body & mono</h3><p class="desc">Inter & JetBrains Mono.</p>
+<div class="preview" style="display:flex;align-items:center;justify-content:center;gap:18px"><span style="font-family:var(--font-body);font-size:24px;font-weight:500">Aa</span><span style="font-family:var(--font-mono);font-size:24px;font-weight:500">{a}</span></div>
+<span class="tag-pill sys">Type</span><div class="arr"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></a>
+
+</div></section>
+
+<!-- 02 Spacing & system -->
+<section class="sec"><div class="sec-head"><h2>Spacing, radii, shadows</h2><p class="desc">8pt grid, 4 radii, 5 elevations — these never bend.</p></div>
+<div class="grid g3">
+<a class="card" href="preview/spacing-scale.html"><span class="num">02.01</span><h3 class="title">Spacing scale</h3><p class="desc">8pt rhythm, 0–96.</p>
+<div class="preview" style="display:flex;align-items:end;justify-content:center;gap:6px;padding:0 16px"><span style="width:4px;height:8px;background:var(--text)"></span><span style="width:4px;height:16px;background:var(--text)"></span><span style="width:4px;height:24px;background:var(--text)"></span><span style="width:4px;height:32px;background:var(--text)"></span><span style="width:4px;height:48px;background:var(--text)"></span><span style="width:4px;height:64px;background:var(--text)"></span></div>
+<span class="tag-pill sys">Spacing</span><div class="arr"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></a>
+
+<a class="card" href="preview/spacing-radius.html"><span class="num">02.02</span><h3 class="title">Radii</h3><p class="desc">6 / 10 / 14 / 18 / full.</p>
+<div class="preview" style="display:flex;align-items:center;justify-content:center;gap:10px"><span style="width:32px;height:32px;background:var(--heritage-violet);border-radius:6px"></span><span style="width:32px;height:32px;background:var(--heritage-violet);border-radius:10px"></span><span style="width:32px;height:32px;background:var(--heritage-violet);border-radius:14px"></span><span style="width:32px;height:32px;background:var(--heritage-violet);border-radius:50%"></span></div>
+<span class="tag-pill sys">Spacing</span><div class="arr"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></a>
+
+<a class="card" href="preview/spacing-shadows.html"><span class="num">02.03</span><h3 class="title">Shadows</h3><p class="desc">xs · sm · md · lg · xl.</p>
+<div class="preview" style="display:flex;align-items:center;justify-content:center;gap:14px;background:#fff"><span style="width:30px;height:30px;background:#fff;border-radius:6px;box-shadow:var(--shadow-xs)"></span><span style="width:30px;height:30px;background:#fff;border-radius:6px;box-shadow:var(--shadow-sm)"></span><span style="width:30px;height:30px;background:#fff;border-radius:6px;box-shadow:var(--shadow-md)"></span><span style="width:30px;height:30px;background:#fff;border-radius:6px;box-shadow:var(--shadow-lg)"></span></div>
+<span class="tag-pill sys">Spacing</span><div class="arr"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></a>
+</div></section>
+
+<!-- 03 Components -->
+<section class="sec"><div class="sec-head"><h2>Components</h2><p class="desc">Buttons, inputs, cards, chats, code, tables, alerts, chips, steppers.</p></div>
+<div class="grid g4">
+
+<a class="card" href="preview/component-buttons.html"><span class="num">03.01</span><h3 class="title">Buttons</h3><p class="desc">Primary, secondary, ghost, sizes.</p>
+<div class="preview" style="display:flex;align-items:center;justify-content:center;gap:8px"><span style="padding:6px 12px;background:var(--text);color:#fff;border-radius:8px;font-size:12px;font-weight:600">Primary</span><span style="padding:6px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:12px;font-weight:600">Ghost</span></div>
+<span class="tag-pill sys">Component</span><div class="arr"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></a>
+
+<a class="card" href="preview/component-inputs.html"><span class="num">03.02</span><h3 class="title">Inputs</h3><p class="desc">Text, search, textarea, validation.</p>
+<div class="preview" style="display:flex;align-items:center;justify-content:center;padding:14px"><span style="width:100%;padding:7px 10px;background:#fff;border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--text-subtle)">Type a message…</span></div>
+<span class="tag-pill sys">Component</span><div class="arr"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></a>
+
+<a class="card" href="preview/component-cards.html"><span class="num">03.03</span><h3 class="title">Cards</h3><p class="desc">Surface, elevated, interactive.</p>
+<div class="preview" style="padding:14px;display:flex;align-items:center;justify-content:center"><div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:8px 10px;box-shadow:var(--shadow-xs);font-size:11px;font-weight:600">Card title</div></div>
+<span class="tag-pill sys">Component</span><div class="arr"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></a>
+
+<a class="card" href="preview/component-chat.html"><span class="num">03.04</span><h3 class="title">Chat bubbles</h3><p class="desc">User, assistant, streaming, tool.</p>
+<div class="preview" style="display:flex;flex-direction:column;justify-content:center;gap:6px;padding:10px"><span style="align-self:flex-end;background:var(--text);color:#fff;padding:5px 9px;border-radius:10px 10px 2px 10px;font-size:11px">Hi Metis</span><span style="background:var(--surface);border:1px solid var(--border);padding:5px 9px;border-radius:10px 10px 10px 2px;font-size:11px">Hey — what's up?</span></div>
+<span class="tag-pill sys">Component</span><div class="arr"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></a>
+
+<a class="card" href="preview/component-code.html"><span class="num">03.05</span><h3 class="title">Code blocks</h3><p class="desc">Syntax, language tag, copy.</p>
+<div class="preview" style="background:#0f0f1e;font-family:var(--font-mono);font-size:10px;color:#a78bfa;padding:10px;line-height:1.5"><span style="color:#fb7185">const</span> x = <span style="color:#10b981">"hello"</span>;</div>
+<span class="tag-pill sys">Component</span><div class="arr"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></a>
+
+<a class="card" href="preview/component-table.html"><span class="num">03.06</span><h3 class="title">Tables</h3><p class="desc">Sortable, dense, sticky header.</p>
+<div class="preview" style="padding:8px;font-size:10px;font-family:var(--font-mono);color:var(--text-muted)"><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;border-bottom:1px solid var(--border);padding-bottom:3px;font-weight:600;color:var(--text)">Name·Status·Date</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;padding-top:4px">Project·●·Apr 26</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;padding-top:2px">Mission·●·Apr 25</div></div>
+<span class="tag-pill sys">Component</span><div class="arr"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></a>
+
+<a class="card" href="preview/component-alerts.html"><span class="num">03.07</span><h3 class="title">Alerts</h3><p class="desc">Info, success, warning, error.</p>
+<div class="preview" style="padding:10px;display:flex;align-items:center;justify-content:center"><div style="background:#ECFDF5;border:1px solid #A7F3D0;color:#047857;padding:5px 10px;border-radius:8px;font-size:11px;font-weight:600">✓ Saved successfully</div></div>
+<span class="tag-pill sys">Component</span><div class="arr"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></a>
+
+<a class="card" href="preview/component-chips.html"><span class="num">03.08</span><h3 class="title">Chips & tags</h3><p class="desc">Filter, status, model badges.</p>
+<div class="preview" style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;padding:10px"><span style="background:var(--primary-soft-2);color:var(--primary);padding:3px 8px;border-radius:99px;font-size:10px;font-weight:600">Active</span><span style="background:var(--surface-alt);border:1px solid var(--border);padding:3px 8px;border-radius:99px;font-size:10px;font-weight:600">v2.1</span><span style="background:#FEF3C7;color:#92400E;padding:3px 8px;border-radius:99px;font-size:10px;font-weight:600">Beta</span></div>
+<span class="tag-pill sys">Component</span><div class="arr"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></a>
+
+</div></section>
+
+<!-- 04 Onboarding -->
+<section class="sec"><div class="sec-head"><h2>Onboarding & auth</h2><p class="desc">First-touch flows: marketing intro, sign up, login, password recovery, account setup.</p></div>
+<div class="grid g4">
+
+<a class="card feat" href="onboarding/index.html"><span class="num">04.01</span><h3 class="title">Marketing intro</h3><p class="desc">The story page: hero, capabilities, CTAs. The first impression.</p>
+<div class="preview" style="background:linear-gradient(135deg,#0f0f1e,#1a1a2e);display:flex;align-items:center;justify-content:center;color:#fff;font-family:var(--font-display);font-weight:750;font-size:32px;letter-spacing:-.03em">Wisdom, on <em style="font-family:ui-serif,Georgia,serif;font-style:italic;font-weight:500;background:linear-gradient(135deg,#a78bfa,#fb7185);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;margin-left:8px">tap</em>.</div>
+<span class="tag-pill flow">Flow · 1 page</span><div class="arr"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></a>
+
+<a class="card feat" href="onboarding/setup.html"><span class="num">04.02</span><h3 class="title">Account setup</h3><p class="desc">8-step guided flow: name, use case, accounts, model, theme, shortcuts, notifications, sample mission.</p>
+<div class="preview" style="display:flex;align-items:center;justify-content:center;background:var(--surface-alt)"><div style="display:flex;gap:6px;align-items:center"><span style="width:18px;height:4px;background:var(--heritage-violet);border-radius:2px"></span><span style="width:18px;height:4px;background:var(--heritage-violet);border-radius:2px"></span><span style="width:18px;height:4px;background:var(--heritage-violet);border-radius:2px"></span><span style="width:18px;height:4px;background:var(--heritage-violet);border-radius:2px"></span><span style="width:18px;height:4px;background:var(--border);border-radius:2px"></span><span style="width:18px;height:4px;background:var(--border);border-radius:2px"></span><span style="width:18px;height:4px;background:var(--border);border-radius:2px"></span><span style="width:18px;height:4px;background:var(--border);border-radius:2px"></span></div></div>
+<span class="tag-pill flow">Flow · 8 steps</span><div class="arr"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></a>
+
+<a class="card" href="onboarding/login.html"><span class="num">04.03</span><h3 class="title">Login</h3><p class="desc">Email + SSO providers.</p>
+<span class="tag-pill flow">Flow</span><div class="arr"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></a>
+
+<a class="card" href="app/signup.html"><span class="num">04.04</span><h3 class="title">Sign up</h3><p class="desc">Account creation w/ password rules.</p>
+<span class="tag-pill flow">Flow</span><div class="arr"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></a>
+
+<a class="card" href="app/forgot-password.html"><span class="num">04.05</span><h3 class="title">Forgot password</h3><p class="desc">Email lookup.</p>
+<span class="tag-pill flow">Flow</span><div class="arr"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></a>
+
+<a class="card" href="app/reset-password.html"><span class="num">04.06</span><h3 class="title">Reset password</h3><p class="desc">Strength meter, confirm.</p>
+<span class="tag-pill flow">Flow</span><div class="arr"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></a>
+
+<a class="card" href="app/verify-email.html"><span class="num">04.07</span><h3 class="title">Verify email</h3><p class="desc">6-digit code, resend.</p>
+<span class="tag-pill flow">Flow</span><div class="arr"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></a>
+
+</div></section>
+
+<!-- 05 Product -->
+<section class="sec"><div class="sec-head"><h2>Product surface</h2><p class="desc">The app itself — main UI plus all utility screens.</p></div>
+<div class="grid g4">
+
+<a class="card feat" href="ui_kits/metis-app/index.html"><span class="num">05.01</span><h3 class="title">Main app</h3><p class="desc">Chat + artifacts + missions sidebar. Tweakable: model, density, theme, layout.</p>
+<div class="preview" style="display:grid;grid-template-columns:60px 1fr 100px;gap:0;background:#fff"><div style="background:var(--surface-alt);border-right:1px solid var(--border)"></div><div style="padding:14px;display:flex;flex-direction:column;gap:5px"><span style="background:var(--surface-alt);height:6px;width:50%;border-radius:3px"></span><span style="background:var(--surface-alt);height:6px;width:80%;border-radius:3px"></span><span style="background:var(--text);height:6px;width:30%;border-radius:3px;margin-left:auto"></span></div><div style="background:var(--surface-alt);border-left:1px solid var(--border)"></div></div>
+<span class="tag-pill go">Live · React</span><div class="arr"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></a>
+
+<a class="card feat" href="app/library.html"><span class="num">05.02</span><h3 class="title">Library</h3><p class="desc">Searchable archive: all chats, missions, generations. Filter, sort, group.</p>
+<div class="preview" style="padding:12px;display:flex;flex-direction:column;gap:5px"><span style="background:var(--surface);border:1px solid var(--border);height:8px;border-radius:4px"></span><span style="background:var(--surface);border:1px solid var(--border);height:8px;border-radius:4px;width:90%"></span><span style="background:var(--surface);border:1px solid var(--border);height:8px;border-radius:4px;width:75%"></span><span style="background:var(--surface);border:1px solid var(--border);height:8px;border-radius:4px;width:85%"></span></div>
+<span class="tag-pill go">Live</span><div class="arr"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></a>
+
+<a class="card" href="app/settings.html"><span class="num">05.03</span><h3 class="title">Settings</h3><p class="desc">Profile, accounts, models, prefs, billing.</p>
+<span class="tag-pill go">Live</span><div class="arr"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></a>
+
+<a class="card" href="app/command-palette.html"><span class="num">05.04</span><h3 class="title">⌘K palette</h3><p class="desc">Universal search & actions.</p>
+<span class="tag-pill go">Live</span><div class="arr"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></a>
+
+<a class="card" href="app/empty-states.html"><span class="num">05.05</span><h3 class="title">Empty states</h3><p class="desc">6 zero-state screens, suggestive.</p>
+<span class="tag-pill go">Gallery</span><div class="arr"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></a>
+
+<a class="card" href="app/errors.html"><span class="num">05.06</span><h3 class="title">Error pages</h3><p class="desc">404, 500, offline.</p>
+<span class="tag-pill go">Gallery</span><div class="arr"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></a>
+
+</div></section>
+
+<!-- 06 Docs -->
+<section class="sec"><div class="sec-head"><h2>Documentation</h2><p class="desc">Reference material & contributor guide.</p></div>
+<div class="grid g3">
+<a class="card" href="README.md"><span class="num">06.01</span><h3 class="title">README</h3><p class="desc">Brand context, voice, design principles, file index.</p>
+<span class="tag-pill ext">Markdown</span><div class="arr"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></a>
+<a class="card" href="SKILL.md"><span class="num">06.02</span><h3 class="title">Skill guide</h3><p class="desc">How to extend the system without breaking it.</p>
+<span class="tag-pill ext">Markdown</span><div class="arr"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></a>
+<a class="card" href="colors_and_type.css"><span class="num">06.03</span><h3 class="title">Tokens (CSS)</h3><p class="desc">All variables in one file. Import & go.</p>
+<span class="tag-pill ext">CSS</span><div class="arr"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></a>
+</div></section>
+
+<footer class="footer">
+<div style="display:flex;align-items:center;gap:10px"><img src="assets/metis-logomark.png" alt=""><span>Metis · Design System v0.4 · Sprint 1 complete</span></div>
+<div>Built April 2026 · 21 surfaces · 14 components · One source of truth</div>
+</footer>
+
+</body></html>

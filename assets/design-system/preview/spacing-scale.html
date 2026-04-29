@@ -1,0 +1,59 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css"><style>
+body { padding: 22px 24px; width: 700px; }
+.head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; }
+.head .ttl { font-family: var(--font-display); font-size: 14px; font-weight: 700; color: var(--text); }
+.head .meta { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
+
+.group { margin-top: 6px; }
+.group + .group { margin-top: 18px; }
+.glabel { font-size: 10.5px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-subtle); margin-bottom: 10px; display: flex; align-items: baseline; gap: 8px; }
+.glabel .hint { text-transform: none; letter-spacing: 0; font-weight: 500; color: var(--text-muted); }
+
+.row { display: grid; grid-template-columns: repeat(8, 1fr); gap: 10px; align-items: end; }
+.cell { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.box { background: var(--primary-soft); border: 1px solid var(--primary); border-radius: 4px; }
+.box.section { background: var(--energy-soft); border-color: var(--energy); }
+.b1 { width: 4px; height: 4px; }   .b2 { width: 8px; height: 8px; }
+.b3 { width: 12px; height: 12px; } .b4 { width: 16px; height: 16px; }
+.b5 { width: 24px; height: 24px; } .b6 { width: 32px; height: 32px; }
+.b7 { width: 40px; height: 40px; } .b8 { width: 56px; height: 56px; }
+.t { font-family: var(--font-mono); font-size: 11px; color: var(--text); font-feature-settings: "tnum" 1; }
+.s { font-size: 10.5px; color: var(--text-subtle); }
+
+.foot { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); display: grid; grid-template-columns: 1fr 1fr; gap: 14px; font-size: 11.5px; color: var(--text-muted); line-height: 1.5; }
+.foot b { color: var(--text); font-weight: 650; }
+.foot code { font-family: var(--font-mono); font-size: 10.5px; background: var(--surface-alt); padding: 1px 5px; border-radius: 4px; color: var(--text); }
+</style></head><body>
+
+<div class="head">
+  <div class="ttl">Spacing scale — 8pt grid</div>
+  <div class="meta">Two tiers · use the right one</div>
+</div>
+
+<div class="group">
+  <div class="glabel">Tweaks <span class="hint">— padding, gaps inside components</span></div>
+  <div class="row">
+    <div class="cell"><div class="box b1"></div><div class="t">4</div><div class="s">space-1</div></div>
+    <div class="cell"><div class="box b2"></div><div class="t">8</div><div class="s">space-2</div></div>
+    <div class="cell"><div class="box b3"></div><div class="t">12</div><div class="s">space-3</div></div>
+    <div class="cell"><div class="box b4"></div><div class="t">16</div><div class="s">space-4</div></div>
+  </div>
+</div>
+
+<div class="group">
+  <div class="glabel">Sections <span class="hint">— between cards, regions, page blocks</span></div>
+  <div class="row">
+    <div class="cell"><div class="box b5 section"></div><div class="t">24</div><div class="s">space-5</div></div>
+    <div class="cell"><div class="box b6 section"></div><div class="t">32</div><div class="s">space-6</div></div>
+    <div class="cell"><div class="box b7 section"></div><div class="t">40</div><div class="s">space-7</div></div>
+    <div class="cell"><div class="box b8 section"></div><div class="t">56</div><div class="s">space-8</div></div>
+  </div>
+</div>
+
+<div class="foot">
+  <div><b>Tweaks (4 / 8 / 12 / 16).</b> Inner padding, icon-to-text gaps, chip insets, button padding, list-row pitch. Keeps components feeling tight and athletic.</div>
+  <div><b>Sections (24 / 32 / 40 / 56).</b> Between cards, between a heading and its body, between page regions, page top-padding. Gives the UI room to breathe.</div>
+</div>
+
+</body></html>

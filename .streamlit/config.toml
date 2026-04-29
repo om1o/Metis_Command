@@ -5,3 +5,6 @@ gatherUsageStats = false
 headless = true
 runOnSave = false
 
+[client]
+toolbarMode = "minimal"
+

@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>Empty states · Metis</title>
+<link rel="icon" href="../assets/favicon.svg">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+*{box-sizing:border-box}html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--font-body);min-height:100vh}
+.titlebar{position:sticky;top:0;height:32px;background:rgba(247,250,252,.85);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 14px;gap:8px;z-index:100}
+.traffic{display:flex;gap:7px}.traffic span{width:12px;height:12px;border-radius:50%}.traffic .r{background:#FF5F57}.traffic .y{background:#FEBC2E}.traffic .g{background:#28C840}
+.title{flex:1;text-align:center;font-size:12px;color:var(--text-muted);font-family:var(--font-mono);font-weight:500}
+.head{padding:48px 48px 24px;max-width:1280px;margin:0 auto}
+.head h1{font-family:var(--font-display);font-size:32px;font-weight:750;letter-spacing:-.02em;margin:0 0 8px}
+.head p{color:var(--text-muted);margin:0;font-size:15px}
+.gallery{padding:24px 48px 80px;max-width:1280px;margin:0 auto;display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+.frame{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:var(--shadow-sm)}
+.frame .label{padding:12px 18px;border-bottom:1px solid var(--border);background:var(--surface-alt);display:flex;justify-content:space-between;align-items:center;font-family:var(--font-mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);font-weight:600}
+.frame .label .key{color:var(--heritage-violet)}
+.empty{min-height:340px;padding:48px 32px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:16px}
+.empty .ill{width:80px;height:80px;border-radius:20px;background:linear-gradient(135deg,#FFF1F2 0%,#FAF5FF 50%,#EFF6FF 100%);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+.empty .ill::before{content:"";position:absolute;inset:-30%;background:conic-gradient(from 0deg,transparent,rgba(124,58,237,.18),transparent 30%);animation:conic 8s linear infinite}
+@keyframes conic{to{transform:rotate(360deg)}}
+.empty .ill svg{width:36px;height:36px;stroke:var(--heritage-violet);stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round;position:relative;z-index:1}
+.empty h2{font-family:var(--font-display);font-size:20px;font-weight:700;margin:0;letter-spacing:-.01em}
+.empty p{color:var(--text-muted);margin:0;font-size:14px;max-width:42ch;line-height:1.55}
+.empty .actions{display:flex;gap:8px;margin-top:6px}
+.btn{font-family:var(--font-body);font-weight:600;font-size:13px;padding:0 14px;height:36px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s}
+.btn:hover{border-color:var(--text);background:var(--surface-alt)}
+.btn.primary{background:var(--text);color:#fff;border-color:var(--text)}
+.btn.primary:hover{transform:translateY(-1px);box-shadow:var(--shadow-md)}
+.btn svg{width:13px;height:13px;stroke:currentColor;stroke-width:2.2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.suggestions{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:8px;width:100%;max-width:520px}
+.sugg{padding:12px 14px;background:var(--surface-alt);border:1px solid var(--border);border-radius:10px;text-align:left;font-size:13px;color:var(--text);cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:8px}
+.sugg:hover{background:var(--primary-soft-2);border-color:var(--primary)}
+.sugg svg{width:14px;height:14px;color:var(--primary);flex-shrink:0}
+.kbd{font-family:var(--font-mono);font-size:11px;padding:2px 6px;border-radius:5px;background:var(--surface-alt);border:1px solid var(--border);color:var(--text-muted)}
+</style></head><body>
+<div class="titlebar"><div class="traffic"><span class="r"></span><span class="y"></span><span class="g"></span></div><div class="title">empty states · metis</div><div style="width:56px"></div></div>
+
+<div class="head"><h1>Empty states</h1><p>All zero-state screens, side-by-side. Friendly, suggestive, never blank.</p></div>
+
+<div class="gallery">
+
+<!-- Chats -->
+<div class="frame"><div class="label"><span>No chats yet</span><span class="key">/chat</span></div><div class="empty">
+<div class="ill"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+<h2>Start your first chat</h2><p>Ask Metis anything — research, code, writing, automations. Try a starter to see what's possible.</p>
+<div class="suggestions">
+<div class="sugg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Research my top 5 competitors</div>
+<div class="sugg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>Refactor this Python file</div>
+<div class="sugg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>Draft a launch email</div>
+<div class="sugg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6v6H9z"/></svg>Generate a hero image</div>
+</div>
+</div></div>
+
+<!-- Missions -->
+<div class="frame"><div class="label"><span>No missions running</span><span class="key">/missions</span></div><div class="empty">
+<div class="ill"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
+<h2>Spin up your first mission</h2><p>Missions are multi-step jobs Metis runs in the background — research, scrapes, drafts. Pick a template or describe one.</p>
+<div class="actions"><button class="btn primary"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>New mission</button><button class="btn">Browse templates</button></div>
+</div></div>
+
+<!-- Automations -->
+<div class="frame"><div class="label"><span>No automations</span><span class="key">/automations</span></div><div class="empty">
+<div class="ill"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+<h2>Automate the boring stuff</h2><p>Trigger Metis on a schedule, on email, or when a file changes. Set it once — it runs forever.</p>
+<div class="actions"><button class="btn primary"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Create automation</button></div>
+</div></div>
+
+<!-- Generate -->
+<div class="frame"><div class="label"><span>Nothing generated yet</span><span class="key">/generate</span></div><div class="empty">
+<div class="ill"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>
+<h2>Make something</h2><p>Images, video, audio, docs — describe it and Metis brings it in. Your generations save here.</p>
+<div class="suggestions">
+<div class="sugg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>An image of a misty mountain at dawn</div>
+<div class="sugg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>A 6-second product loop</div>
+</div>
+</div></div>
+
+<!-- Library -->
+<div class="frame"><div class="label"><span>Library is empty</span><span class="key">/library</span></div><div class="empty">
+<div class="ill"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>
+<h2>Your library will live here</h2><p>Saved chats, mission outputs, generated artifacts — all searchable, all in one place.</p>
+<div class="actions"><button class="btn primary">Start a chat</button></div>
+</div></div>
+
+<!-- Search no results -->
+<div class="frame"><div class="label"><span>No search results</span><span class="key">/search?q=…</span></div><div class="empty">
+<div class="ill"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></div>
+<h2>No matches for "metis pricing"</h2><p>Try a different query, or check your spelling. Press <span class="kbd">⌘K</span> to search again.</p>
+<div class="actions"><button class="btn">Clear filters</button><button class="btn primary">New chat with this prompt</button></div>
+</div></div>
+
+</div></body></html>

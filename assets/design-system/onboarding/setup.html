@@ -1,0 +1,713 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Set up Metis</title>
+<link rel="icon" href="../assets/favicon.svg">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; min-height: 100vh; background: var(--bg); color: var(--text); font-family: var(--font-body); overflow-x: hidden; }
+
+/* ================= Top chrome ================= */
+.titlebar { position: fixed; top: 0; left: 0; right: 0; height: 32px; background: rgba(247, 250, 252, 0.85); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 14px; gap: 8px; z-index: 100; }
+.titlebar .traffic { display: flex; gap: 7px; }
+.traffic span { width: 12px; height: 12px; border-radius: 50%; }
+.traffic .r { background: #FF5F57; } .traffic .y { background: #FEBC2E; } .traffic .g { background: #28C840; }
+.titlebar .title { flex: 1; text-align: center; font-size: 12px; color: var(--text-muted); font-family: var(--font-mono); font-weight: 500; }
+
+/* ================= Header bar ================= */
+.head { position: fixed; top: 32px; left: 0; right: 0; height: 64px; padding: 0 32px; display: flex; align-items: center; justify-content: space-between; background: rgba(247, 250, 252, 0.85); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); z-index: 50; }
+.head .brand { display: flex; align-items: center; gap: 10px; }
+.head .brand img { height: 26px; }
+.head .brand .wm { font-family: ui-serif, "Iowan Old Style", Georgia, serif; font-size: 19px; font-weight: 500; letter-spacing: -0.01em; color: var(--text); }
+.head .brand .wm em { font-style: italic; }
+.head .step-counter { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-subtle); font-weight: 500; }
+.head .step-counter b { color: var(--text); font-weight: 600; }
+.head .quit { font-size: 13px; color: var(--text-muted); text-decoration: none; padding: 6px 12px; border-radius: 8px; transition: all .15s ease; }
+.head .quit:hover { background: var(--surface); color: var(--text); }
+
+/* ================= Progress bar ================= */
+.progress-track { position: fixed; top: 96px; left: 0; right: 0; height: 3px; background: var(--border); z-index: 49; }
+.progress-fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--heritage-grad); width: 0%; transition: width .55s var(--ease-out); border-radius: 0 4px 4px 0; }
+
+/* ================= Stage ================= */
+.stage { padding: 140px 32px 80px; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; position: relative; }
+
+.step { width: 100%; max-width: 720px; opacity: 0; transform: translateY(24px); transition: opacity .5s var(--ease-out), transform .5s var(--ease-out); pointer-events: none; position: absolute; top: 140px; left: 50%; margin-left: -360px; }
+.step.active { opacity: 1; transform: translateY(0); pointer-events: auto; position: relative; top: 0; left: 0; margin-left: 0; }
+
+/* eyebrow + title */
+.eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 600; color: var(--heritage-violet); margin-bottom: 12px; }
+.eyebrow .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--heritage-violet); margin-right: 8px; vertical-align: 2px; animation: pulse 2.4s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .5; transform: scale(.7); } }
+
+.step h1 { font-family: var(--font-display); font-size: 40px; font-weight: 750; letter-spacing: -0.02em; line-height: 1.1; margin: 0 0 12px; color: var(--text); }
+.step h1 em { font-family: ui-serif, "Iowan Old Style", Georgia, serif; font-style: italic; font-weight: 500; background: var(--heritage-grad); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.step .lead { font-size: 16px; color: var(--text-muted); margin: 0 0 36px; line-height: 1.55; max-width: 560px; }
+
+/* ================= Footer (nav buttons) ================= */
+.footer { position: fixed; bottom: 0; left: 0; right: 0; padding: 20px 32px; background: linear-gradient(to top, rgba(247,250,252,1) 0%, rgba(247,250,252,.9) 60%, rgba(247,250,252,0) 100%); display: flex; align-items: center; justify-content: space-between; z-index: 40; pointer-events: none; }
+.footer > * { pointer-events: auto; }
+
+.btn { font-family: var(--font-body); font-weight: 600; font-size: 14.5px; padding: 0 22px; height: 46px; border-radius: 10px; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all .18s ease; }
+.btn-primary { background: var(--text); color: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.1); }
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0,0,0,.18); }
+.btn-primary:active { transform: translateY(0); }
+.btn-primary svg { width: 14px; height: 14px; transition: transform .2s; }
+.btn-primary:hover svg { transform: translateX(3px); }
+.btn-primary:disabled { background: var(--border-strong); color: var(--text-subtle); cursor: not-allowed; transform: none; box-shadow: none; }
+.btn-primary:disabled:hover svg { transform: none; }
+
+.btn-ghost { background: transparent; color: var(--text-muted); padding: 0 14px; }
+.btn-ghost:hover { background: var(--surface); color: var(--text); }
+.btn-ghost svg { width: 14px; height: 14px; }
+
+.skip-link { font-size: 13px; color: var(--text-subtle); text-decoration: none; padding: 8px 14px; border-radius: 8px; font-weight: 500; }
+.skip-link:hover { color: var(--text-muted); background: var(--surface); }
+
+/* ================= Step 1: Name ================= */
+.name-input-wrap { position: relative; max-width: 480px; }
+.name-input { width: 100%; height: 64px; padding: 0 24px; border: 2px solid var(--border); border-radius: 14px; background: var(--surface); font-family: var(--font-display); font-size: 22px; font-weight: 600; color: var(--text); transition: all .2s; letter-spacing: -0.01em; }
+.name-input::placeholder { color: var(--text-subtle); font-weight: 500; }
+.name-input:hover { border-color: var(--border-strong); }
+.name-input:focus { outline: none; border-color: var(--heritage-violet); box-shadow: 0 0 0 4px rgba(124,58,237,.15); }
+.greeting { margin-top: 18px; font-size: 14px; color: var(--text-muted); height: 20px; transition: opacity .3s; opacity: 0; }
+.greeting.show { opacity: 1; }
+.greeting b { color: var(--heritage-violet); font-weight: 600; }
+
+/* ================= Step 2: Use case ================= */
+.use-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; max-width: 720px; }
+.use-card { padding: 22px 20px; background: var(--surface); border: 1.5px solid var(--border); border-radius: 14px; cursor: pointer; transition: all .2s var(--ease-out); position: relative; overflow: hidden; }
+.use-card::before { content: ""; position: absolute; inset: 0; background: var(--heritage-grad); opacity: 0; transition: opacity .25s; z-index: 0; }
+.use-card > * { position: relative; z-index: 1; }
+.use-card:hover { border-color: var(--border-strong); transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.use-card.selected { border-color: var(--heritage-violet); background: linear-gradient(135deg, rgba(251,113,133,.08) 0%, rgba(192,38,211,.08) 50%, rgba(109,40,217,.08) 100%); box-shadow: 0 0 0 1px var(--heritage-violet), var(--shadow-md); }
+.use-card .use-emoji { width: 44px; height: 44px; border-radius: 11px; display: flex; align-items: center; justify-content: center; margin-bottom: 14px; background: var(--surface-alt); transition: all .2s; }
+.use-card.selected .use-emoji { background: var(--heritage-grad); }
+.use-card .use-emoji svg { width: 22px; height: 22px; stroke: var(--text); stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; transition: stroke .2s; }
+.use-card.selected .use-emoji svg { stroke: #fff; }
+.use-card .use-name { font-family: var(--font-display); font-size: 16px; font-weight: 650; color: var(--text); margin-bottom: 4px; }
+.use-card .use-sub { font-size: 13px; color: var(--text-muted); line-height: 1.4; }
+
+/* ================= Step 3: Connect accounts ================= */
+.connect-list { display: flex; flex-direction: column; gap: 10px; max-width: 560px; }
+.connect-row { display: flex; align-items: center; gap: 14px; padding: 16px 18px; background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; transition: all .2s; }
+.connect-row:hover { border-color: var(--border-strong); }
+.connect-row.connected { border-color: var(--energy); background: var(--energy-soft); }
+.connect-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: var(--surface-alt); }
+.connect-icon svg { width: 22px; height: 22px; }
+.connect-info { flex: 1; min-width: 0; }
+.connect-info .name { font-size: 14.5px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+.connect-info .desc { font-size: 12.5px; color: var(--text-muted); }
+.connect-btn { font-family: var(--font-body); font-size: 13px; font-weight: 600; padding: 0 14px; height: 34px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); cursor: pointer; transition: all .15s; flex-shrink: 0; }
+.connect-btn:hover { background: var(--surface-alt); border-color: var(--text); }
+.connect-btn.is-connected { background: var(--energy); color: #fff; border-color: var(--energy); display: inline-flex; align-items: center; gap: 6px; }
+.connect-btn.is-connected svg { width: 12px; height: 12px; stroke: #fff; stroke-width: 3; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ================= Step 4: Model ================= */
+.model-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; max-width: 720px; }
+.model-card { padding: 22px 20px; background: var(--surface); border: 1.5px solid var(--border); border-radius: 14px; cursor: pointer; transition: all .2s; position: relative; }
+.model-card:hover { border-color: var(--border-strong); transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.model-card.selected { border-color: var(--heritage-violet); background: var(--primary-soft-2); box-shadow: 0 0 0 1px var(--heritage-violet); }
+.model-card .model-badge { display: inline-block; font-family: var(--font-mono); font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 999px; background: var(--surface-alt); color: var(--text-muted); margin-bottom: 12px; letter-spacing: 0.04em; text-transform: uppercase; }
+.model-card.selected .model-badge { background: var(--heritage-violet); color: #fff; }
+.model-card .model-name { font-family: var(--font-display); font-size: 18px; font-weight: 650; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+.model-card .model-name .speed { display: inline-flex; gap: 2px; }
+.model-card .model-name .speed i { width: 4px; height: 12px; border-radius: 1px; background: var(--border-strong); }
+.model-card .model-name .speed i.on { background: var(--heritage-violet); }
+.model-card .model-desc { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+
+/* ================= Step 5: Theme ================= */
+.theme-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; max-width: 720px; }
+.theme-card { background: var(--surface); border: 1.5px solid var(--border); border-radius: 16px; cursor: pointer; transition: all .2s; overflow: hidden; }
+.theme-card:hover { border-color: var(--border-strong); transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.theme-card.selected { border-color: var(--heritage-violet); box-shadow: 0 0 0 1px var(--heritage-violet); }
+.theme-preview { height: 130px; padding: 16px; display: flex; flex-direction: column; gap: 8px; position: relative; }
+.theme-preview .pv-bar { height: 10px; border-radius: 4px; }
+.theme-preview .pv-bar.short { width: 40%; }
+.theme-preview .pv-bar.med { width: 70%; }
+.theme-preview .pv-bar.long { width: 90%; }
+.theme-light .theme-preview { background: #FFFFFF; }
+.theme-light .pv-bar { background: #E2E8F0; }
+.theme-light .pv-bar:first-child { background: #2563EB; }
+.theme-dark .theme-preview { background: #0F172A; }
+.theme-dark .pv-bar { background: #334155; }
+.theme-dark .pv-bar:first-child { background: #818CF8; }
+.theme-system .theme-preview { background: linear-gradient(135deg, #FFFFFF 50%, #0F172A 50%); }
+.theme-system .pv-bar { background: linear-gradient(135deg, #E2E8F0 50%, #334155 50%); }
+.theme-system .pv-bar:first-child { background: linear-gradient(135deg, #2563EB 50%, #818CF8 50%); }
+.theme-info { padding: 14px 16px; border-top: 1px solid var(--border); }
+.theme-name { font-family: var(--font-display); font-size: 15px; font-weight: 650; }
+.theme-desc { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
+
+/* ================= Step 6: Keyboard shortcuts ================= */
+.kbd-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; max-width: 640px; }
+.kbd-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; opacity: 0; animation: kbdIn .5s var(--ease-out) forwards; }
+.step.active .kbd-row { animation: kbdIn .5s var(--ease-out) forwards; }
+.kbd-row:nth-child(1) { animation-delay: 0.1s; }
+.kbd-row:nth-child(2) { animation-delay: 0.18s; }
+.kbd-row:nth-child(3) { animation-delay: 0.26s; }
+.kbd-row:nth-child(4) { animation-delay: 0.34s; }
+.kbd-row:nth-child(5) { animation-delay: 0.42s; }
+.kbd-row:nth-child(6) { animation-delay: 0.5s; }
+.kbd-row:nth-child(7) { animation-delay: 0.58s; }
+.kbd-row:nth-child(8) { animation-delay: 0.66s; }
+@keyframes kbdIn { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: translateX(0); } }
+.kbd-label { font-size: 13.5px; color: var(--text); font-weight: 500; }
+.kbd-keys { display: flex; gap: 4px; }
+kbd { font-family: var(--font-mono); font-size: 11px; font-weight: 600; padding: 4px 8px; border-radius: 6px; background: var(--surface-alt); border: 1px solid var(--border); color: var(--text); box-shadow: 0 1px 0 var(--border); min-width: 22px; text-align: center; line-height: 1.3; }
+
+/* ================= Step 7: Notifications ================= */
+.notif-list { display: flex; flex-direction: column; gap: 8px; max-width: 560px; }
+.notif-row { display: flex; align-items: center; gap: 14px; padding: 16px 18px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+.notif-info { flex: 1; }
+.notif-info .name { font-size: 14.5px; font-weight: 600; color: var(--text); }
+.notif-info .desc { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
+
+/* iOS-style toggle */
+.toggle { position: relative; display: inline-block; width: 44px; height: 26px; flex-shrink: 0; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle-slider { position: absolute; cursor: pointer; inset: 0; background: var(--border-strong); border-radius: 999px; transition: all .25s; }
+.toggle-slider::before { content: ""; position: absolute; height: 20px; width: 20px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: all .25s var(--ease-out); box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+.toggle input:checked + .toggle-slider { background: var(--heritage-violet); }
+.toggle input:checked + .toggle-slider::before { transform: translateX(18px); }
+
+/* ================= Step 8: Sample mission ================= */
+.mission-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; max-width: 720px; }
+.mission-card { padding: 22px; background: var(--surface); border: 1.5px solid var(--border); border-radius: 14px; cursor: pointer; transition: all .2s; position: relative; overflow: hidden; }
+.mission-card:hover { border-color: var(--border-strong); transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.mission-card.selected { border-color: var(--heritage-violet); box-shadow: 0 0 0 1px var(--heritage-violet); }
+.mission-card .mtag { display: inline-block; font-family: var(--font-mono); font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 999px; background: var(--primary-soft); color: var(--primary); margin-bottom: 12px; letter-spacing: 0.04em; text-transform: uppercase; }
+.mission-card .mtitle { font-family: var(--font-display); font-size: 17px; font-weight: 650; margin-bottom: 6px; line-height: 1.3; }
+.mission-card .mdesc { font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 14px; }
+.mission-card .mstats { display: flex; gap: 12px; font-family: var(--font-mono); font-size: 11px; color: var(--text-subtle); }
+.mission-card .mstats span { display: inline-flex; align-items: center; gap: 4px; }
+
+/* ================= Final celebration ================= */
+.final-step { text-align: center; max-width: 580px; }
+.final-step .seal { width: 120px; height: 120px; margin: 0 auto 32px; position: relative; }
+.final-step .seal img { width: 100%; height: 100%; object-fit: contain; animation: sealIn 1.2s var(--ease-out) forwards, slowSpin 16s linear infinite 1.2s; transform: scale(0); }
+@keyframes sealIn { 0% { transform: scale(0) rotate(-180deg); } 60% { transform: scale(1.15) rotate(20deg); } 100% { transform: scale(1) rotate(0deg); } }
+@keyframes slowSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.final-step .seal::before, .final-step .seal::after { content: ""; position: absolute; inset: -20px; border-radius: 50%; border: 2px solid var(--heritage-violet); opacity: 0; animation: ringExpand 2.4s var(--ease-out) infinite; }
+.final-step .seal::after { animation-delay: 1.2s; }
+@keyframes ringExpand { 0% { transform: scale(.85); opacity: .6; border-color: var(--heritage-coral); } 100% { transform: scale(1.4); opacity: 0; border-color: var(--heritage-violet); } }
+.final-step h1 { font-size: 48px; }
+.final-step .lead { font-size: 17px; margin: 0 auto 36px; }
+.final-step .summary { display: flex; flex-direction: column; gap: 8px; padding: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; margin-bottom: 32px; text-align: left; }
+.final-step .summary-row { display: flex; align-items: center; justify-content: space-between; font-size: 13.5px; }
+.final-step .summary-row .lbl { color: var(--text-muted); font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 500; }
+.final-step .summary-row .val { color: var(--text); font-weight: 600; }
+.final-step .launch-btn { font-family: var(--font-body); font-weight: 650; font-size: 16px; padding: 0 32px; height: 56px; border-radius: 14px; border: none; cursor: pointer; background: var(--heritage-grad); color: #fff; box-shadow: 0 8px 24px rgba(124,58,237,.3); transition: all .2s; display: inline-flex; align-items: center; gap: 10px; }
+.final-step .launch-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(124,58,237,.4); }
+.final-step .launch-btn svg { width: 16px; height: 16px; transition: transform .25s; }
+.final-step .launch-btn:hover svg { transform: translateX(4px); }
+
+/* Confetti dots — purely decorative */
+.confetti { position: fixed; inset: 0; pointer-events: none; z-index: 1000; }
+.confetti i { position: absolute; width: 10px; height: 10px; border-radius: 2px; opacity: 0; }
+
+/* Reduce motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- Desktop chrome -->
+<div class="titlebar" aria-hidden="true">
+  <div class="traffic"><span class="r"></span><span class="y"></span><span class="g"></span></div>
+  <div class="title">metis · setup</div>
+  <div style="width: 56px;"></div>
+</div>
+
+<header class="head">
+  <div class="brand">
+    <img src="../assets/metis-mark-starburst.svg" alt="">
+    <span class="wm">Met<em>i</em>s</span>
+  </div>
+  <div class="step-counter"><b id="stepNum">1</b> of 8</div>
+  <a class="quit" href="../ui_kits/metis-app/index.html">Quit setup</a>
+</header>
+
+<div class="progress-track" aria-hidden="true">
+  <div class="progress-fill" id="progressFill"></div>
+</div>
+
+<main class="stage">
+
+  <!-- ================= Step 1: Name ================= -->
+  <section class="step active" data-step="1">
+    <div class="eyebrow"><span class="dot"></span>First, the basics</div>
+    <h1>What should we <em>call you</em>?</h1>
+    <p class="lead">Metis will use your name in greetings, summaries, and shared work. You can change it later in Settings.</p>
+    <div class="name-input-wrap">
+      <input type="text" id="nameInput" class="name-input" placeholder="e.g. Alex Chen" autocomplete="given-name" maxlength="40">
+      <div class="greeting" id="greeting"></div>
+    </div>
+  </section>
+
+  <!-- ================= Step 2: Use case ================= -->
+  <section class="step" data-step="2">
+    <div class="eyebrow"><span class="dot"></span>How you'll use Metis</div>
+    <h1>What brings you <em>here</em>?</h1>
+    <p class="lead">Pick the one that fits best. Metis will tailor its tone, defaults, and starting templates to match.</p>
+    <div class="use-grid">
+      <button class="use-card" data-value="work">
+        <div class="use-emoji"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"></rect><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></div>
+        <div class="use-name">Work</div>
+        <div class="use-sub">Reports, decks, ops</div>
+      </button>
+      <button class="use-card" data-value="personal">
+        <div class="use-emoji"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4 4-7 8-7s8 3 8 7"></path></svg></div>
+        <div class="use-name">Personal</div>
+        <div class="use-sub">Plans, life admin</div>
+      </button>
+      <button class="use-card" data-value="coding">
+        <div class="use-emoji"><svg viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg></div>
+        <div class="use-name">Coding</div>
+        <div class="use-sub">Build, debug, review</div>
+      </button>
+      <button class="use-card" data-value="writing">
+        <div class="use-emoji"><svg viewBox="0 0 24 24"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path></svg></div>
+        <div class="use-name">Writing</div>
+        <div class="use-sub">Essays, drafts, edits</div>
+      </button>
+      <button class="use-card" data-value="research">
+        <div class="use-emoji"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg></div>
+        <div class="use-name">Research</div>
+        <div class="use-sub">Sources, synthesis</div>
+      </button>
+      <button class="use-card" data-value="mix">
+        <div class="use-emoji"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"></circle><circle cx="18" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="18" r="3"></circle></svg></div>
+        <div class="use-name">A bit of everything</div>
+        <div class="use-sub">All-rounder defaults</div>
+      </button>
+    </div>
+  </section>
+
+  <!-- ================= Step 3: Connect accounts ================= -->
+  <section class="step" data-step="3">
+    <div class="eyebrow"><span class="dot"></span>Optional · You can skip this</div>
+    <h1>Connect your <em>tools</em></h1>
+    <p class="lead">Metis can read context from your accounts so it doesn't ask you for the same things twice. You stay in control — connect later anytime.</p>
+    <div class="connect-list">
+      <div class="connect-row" data-key="gdrive">
+        <div class="connect-icon">
+          <svg viewBox="0 0 24 24"><path d="M7.71 3.5L1.15 15l3.4 5.5h6.8L7.7 15l-3.4-5.5z" fill="#0066DA"/><path d="M14.5 3.5h-6.8L11.1 9l3.4 5.5h6.8L17.9 9z" fill="#00AC47"/><path d="M11.1 14.5L7.7 20h13.6L17.9 14.5z" fill="#EA4335"/></svg>
+        </div>
+        <div class="connect-info">
+          <div class="name">Google Drive</div>
+          <div class="desc">Find docs, sheets, slides — pull context into chats</div>
+        </div>
+        <button class="connect-btn">Connect</button>
+      </div>
+      <div class="connect-row" data-key="github">
+        <div class="connect-icon">
+          <svg viewBox="0 0 24 24" fill="#0F172A"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.203 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.847-2.339 4.695-4.566 4.943.359.31.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        </div>
+        <div class="connect-info">
+          <div class="name">GitHub</div>
+          <div class="desc">Search repos, review PRs, fetch issues in chat</div>
+        </div>
+        <button class="connect-btn">Connect</button>
+      </div>
+      <div class="connect-row" data-key="calendar">
+        <div class="connect-icon">
+          <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="16" rx="2" stroke="#7C3AED" stroke-width="1.8"/><path d="M3 9h18M8 3v4M16 3v4" stroke="#7C3AED" stroke-width="1.8" stroke-linecap="round"/><circle cx="8" cy="14" r="1.4" fill="#FB7185"/><circle cx="12" cy="14" r="1.4" fill="#FB7185"/></svg>
+        </div>
+        <div class="connect-info">
+          <div class="name">Calendar</div>
+          <div class="desc">See events, schedule meetings, brief you on the day</div>
+        </div>
+        <button class="connect-btn">Connect</button>
+      </div>
+      <div class="connect-row" data-key="email">
+        <div class="connect-icon">
+          <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="2" stroke="#0EA5E9" stroke-width="1.8"/><path d="M3 7l9 7 9-7" stroke="#0EA5E9" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="connect-info">
+          <div class="name">Email</div>
+          <div class="desc">Triage your inbox, draft replies, summarize threads</div>
+        </div>
+        <button class="connect-btn">Connect</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= Step 4: Model ================= -->
+  <section class="step" data-step="4">
+    <div class="eyebrow"><span class="dot"></span>Performance</div>
+    <h1>Pick your <em>default model</em></h1>
+    <p class="lead">Metis can switch models on the fly — pick what feels right by default. You can always override per-chat.</p>
+    <div class="model-grid">
+      <button class="model-card" data-value="fast">
+        <div class="model-badge">Quick</div>
+        <div class="model-name">Fast <span class="speed"><i class="on"></i><i></i><i></i></span></div>
+        <div class="model-desc">Snappy answers for everyday questions. Lowest latency.</div>
+      </button>
+      <button class="model-card selected" data-value="smart">
+        <div class="model-badge">Recommended</div>
+        <div class="model-name">Smart <span class="speed"><i class="on"></i><i class="on"></i><i></i></span></div>
+        <div class="model-desc">Balanced — handles missions, code, and long docs without thinking too long.</div>
+      </button>
+      <button class="model-card" data-value="local">
+        <div class="model-badge">Private</div>
+        <div class="model-name">Local <span class="speed"><i class="on"></i><i class="on"></i><i class="on"></i></span></div>
+        <div class="model-desc">Runs on your machine. Air-gapped, slower, no data leaves your device.</div>
+      </button>
+    </div>
+  </section>
+
+  <!-- ================= Step 5: Theme ================= -->
+  <section class="step" data-step="5">
+    <div class="eyebrow"><span class="dot"></span>Look & feel</div>
+    <h1>Choose a <em>theme</em></h1>
+    <p class="lead">Match your environment. Metis switches automatically with your OS if you pick "System".</p>
+    <div class="theme-grid">
+      <button class="theme-card theme-light selected" data-value="light">
+        <div class="theme-preview"><div class="pv-bar long"></div><div class="pv-bar med"></div><div class="pv-bar short"></div><div class="pv-bar med"></div></div>
+        <div class="theme-info"><div class="theme-name">Light</div><div class="theme-desc">Clean & bright, day-friendly</div></div>
+      </button>
+      <button class="theme-card theme-dark" data-value="dark">
+        <div class="theme-preview"><div class="pv-bar long"></div><div class="pv-bar med"></div><div class="pv-bar short"></div><div class="pv-bar med"></div></div>
+        <div class="theme-info"><div class="theme-name">Dark</div><div class="theme-desc">Easy on the eyes at night</div></div>
+      </button>
+      <button class="theme-card theme-system" data-value="system">
+        <div class="theme-preview"><div class="pv-bar long"></div><div class="pv-bar med"></div><div class="pv-bar short"></div><div class="pv-bar med"></div></div>
+        <div class="theme-info"><div class="theme-name">System</div><div class="theme-desc">Follows your OS setting</div></div>
+      </button>
+    </div>
+  </section>
+
+  <!-- ================= Step 6: Keyboard shortcuts ================= -->
+  <section class="step" data-step="6">
+    <div class="eyebrow"><span class="dot"></span>Skip if you'd rather discover them</div>
+    <h1>A few <em>shortcuts</em> worth knowing</h1>
+    <p class="lead">These will speed you up. You can see all shortcuts later by pressing <kbd>⌘</kbd><kbd>/</kbd> in the app.</p>
+    <div class="kbd-grid">
+      <div class="kbd-row"><span class="kbd-label">New chat</span><span class="kbd-keys"><kbd>⌘</kbd><kbd>N</kbd></span></div>
+      <div class="kbd-row"><span class="kbd-label">Quick search</span><span class="kbd-keys"><kbd>⌘</kbd><kbd>K</kbd></span></div>
+      <div class="kbd-row"><span class="kbd-label">Send message</span><span class="kbd-keys"><kbd>⌘</kbd><kbd>↵</kbd></span></div>
+      <div class="kbd-row"><span class="kbd-label">Switch model</span><span class="kbd-keys"><kbd>⌘</kbd><kbd>M</kbd></span></div>
+      <div class="kbd-row"><span class="kbd-label">Toggle sidebar</span><span class="kbd-keys"><kbd>⌘</kbd><kbd>B</kbd></span></div>
+      <div class="kbd-row"><span class="kbd-label">New mission</span><span class="kbd-keys"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>M</kbd></span></div>
+      <div class="kbd-row"><span class="kbd-label">All shortcuts</span><span class="kbd-keys"><kbd>⌘</kbd><kbd>/</kbd></span></div>
+      <div class="kbd-row"><span class="kbd-label">Command bar</span><span class="kbd-keys"><kbd>⌘</kbd><kbd>P</kbd></span></div>
+    </div>
+  </section>
+
+  <!-- ================= Step 7: Notifications ================= -->
+  <section class="step" data-step="7">
+    <div class="eyebrow"><span class="dot"></span>Optional · You can skip this</div>
+    <h1>How should Metis <em>reach you</em>?</h1>
+    <p class="lead">We'll only notify you about things you ask Metis to track. You stay in charge of what gets through.</p>
+    <div class="notif-list">
+      <div class="notif-row">
+        <div class="notif-info"><div class="name">Mission complete</div><div class="desc">Get notified when a long-running mission finishes</div></div>
+        <label class="toggle"><input type="checkbox" checked data-key="missions"><span class="toggle-slider"></span></label>
+      </div>
+      <div class="notif-row">
+        <div class="notif-info"><div class="name">Daily brief</div><div class="desc">A morning summary of your calendar, tasks, and inbox</div></div>
+        <label class="toggle"><input type="checkbox" checked data-key="brief"><span class="toggle-slider"></span></label>
+      </div>
+      <div class="notif-row">
+        <div class="notif-info"><div class="name">Automation alerts</div><div class="desc">Heads-up when scheduled automations need your attention</div></div>
+        <label class="toggle"><input type="checkbox" data-key="automations"><span class="toggle-slider"></span></label>
+      </div>
+      <div class="notif-row">
+        <div class="notif-info"><div class="name">Product updates</div><div class="desc">Occasional emails about new Metis features</div></div>
+        <label class="toggle"><input type="checkbox" data-key="product"><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= Step 8: Sample mission ================= -->
+  <section class="step" data-step="8">
+    <div class="eyebrow"><span class="dot"></span>Last one — try Metis with a template</div>
+    <h1>Pick a <em>starter mission</em></h1>
+    <p class="lead">A live example to explore on your first day. Skip if you'd rather start from scratch.</p>
+    <div class="mission-grid">
+      <button class="mission-card" data-value="competitor">
+        <div class="mtag">Research</div>
+        <div class="mtitle">Map your top 5 competitors</div>
+        <div class="mdesc">Browses the web, extracts pricing, positioning, and recent moves into a one-pager.</div>
+        <div class="mstats"><span>≈ 8 steps</span><span>· ~6 min</span></div>
+      </button>
+      <button class="mission-card" data-value="brief">
+        <div class="mtag">Daily</div>
+        <div class="mtitle">Build my morning brief</div>
+        <div class="mdesc">Pulls calendar, top emails, and yesterday's tasks into a 90-second read for tomorrow.</div>
+        <div class="mstats"><span>≈ 5 steps</span><span>· ~3 min</span></div>
+      </button>
+      <button class="mission-card" data-value="readme">
+        <div class="mtag">Coding</div>
+        <div class="mtitle">Generate a project README</div>
+        <div class="mdesc">Reads your repo, drafts setup, usage, and contribution sections you can edit live.</div>
+        <div class="mstats"><span>≈ 6 steps</span><span>· ~4 min</span></div>
+      </button>
+      <button class="mission-card" data-value="recap">
+        <div class="mtag">Writing</div>
+        <div class="mtitle">Recap a long meeting</div>
+        <div class="mdesc">Paste a transcript or upload audio. Metis extracts decisions, owners, and next steps.</div>
+        <div class="mstats"><span>≈ 4 steps</span><span>· ~2 min</span></div>
+      </button>
+    </div>
+  </section>
+
+  <!-- ================= Final ================= -->
+  <section class="step final-step" data-step="9">
+    <div class="seal"><img src="../assets/metis-mark-starburst.svg" alt=""></div>
+    <h1>You're <em>set</em>, <span id="finalName">friend</span>.</h1>
+    <p class="lead">Metis is calibrated to your preferences. You can change anything in Settings — let's go build something.</p>
+    <div class="summary" id="finalSummary">
+      <!-- Populated by JS -->
+    </div>
+    <button class="launch-btn" id="launchBtn">
+      Open Metis
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="M13 5l7 7-7 7"></path></svg>
+    </button>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <button class="btn btn-ghost" id="backBtn">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"></path><path d="M11 19l-7-7 7-7"></path></svg>
+    Back
+  </button>
+  <a class="skip-link" id="skipLink" href="#">Skip this step</a>
+  <button class="btn btn-primary" id="nextBtn">
+    Continue
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="M13 5l7 7-7 7"></path></svg>
+  </button>
+</footer>
+
+<div class="confetti" id="confetti" aria-hidden="true"></div>
+
+<script>
+(function(){
+  const TOTAL = 8; // 8 setup steps + 1 final
+  let current = 1;
+  const state = {
+    name: '',
+    use: null,
+    connections: {},
+    model: 'smart',
+    theme: 'light',
+    notifications: { missions: true, brief: true, automations: false, product: false },
+    mission: null,
+  };
+
+  // Some steps are skippable
+  const SKIPPABLE = { 3: true, 6: true, 7: true, 8: true };
+
+  const stepEls = document.querySelectorAll('.step');
+  const stepNumEl = document.getElementById('stepNum');
+  const fillEl = document.getElementById('progressFill');
+  const backBtn = document.getElementById('backBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  const skipLink = document.getElementById('skipLink');
+  const footerEl = document.querySelector('.footer');
+
+  function show(n) {
+    current = n;
+    stepEls.forEach(el => {
+      const s = parseInt(el.dataset.step, 10);
+      el.classList.toggle('active', s === n);
+    });
+    // progress: at step n, we've completed (n-1)/TOTAL
+    const pct = Math.min(100, ((n - 1) / TOTAL) * 100);
+    fillEl.style.width = pct + '%';
+    if (n === 9) fillEl.style.width = '100%';
+
+    stepNumEl.textContent = Math.min(n, TOTAL);
+    document.querySelector('.step-counter').style.display = (n === 9) ? 'none' : '';
+    backBtn.style.visibility = n === 1 ? 'hidden' : 'visible';
+    skipLink.style.display = SKIPPABLE[n] ? 'inline-block' : 'none';
+
+    // Hide nav on final
+    footerEl.style.display = (n === 9) ? 'none' : 'flex';
+
+    updateNextEnabled();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function updateNextEnabled() {
+    let enabled = true;
+    if (current === 1) enabled = state.name.trim().length > 0;
+    if (current === 2) enabled = !!state.use;
+    if (current === 8) enabled = !!state.mission;
+    nextBtn.disabled = !enabled;
+  }
+
+  // ---- Step 1: name ----
+  const nameInput = document.getElementById('nameInput');
+  const greetingEl = document.getElementById('greeting');
+  nameInput.addEventListener('input', () => {
+    state.name = nameInput.value;
+    if (state.name.trim()) {
+      const first = state.name.trim().split(/\s+/)[0];
+      greetingEl.innerHTML = `Nice to meet you, <b>${first}</b>.`;
+      greetingEl.classList.add('show');
+    } else {
+      greetingEl.classList.remove('show');
+    }
+    updateNextEnabled();
+  });
+  nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !nextBtn.disabled) { e.preventDefault(); nextBtn.click(); } });
+
+  // ---- Step 2: use case ----
+  document.querySelectorAll('.use-card').forEach(card => {
+    card.addEventListener('click', () => {
+      document.querySelectorAll('.use-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      state.use = card.dataset.value;
+      updateNextEnabled();
+    });
+  });
+
+  // ---- Step 3: connect ----
+  document.querySelectorAll('.connect-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const row = btn.closest('.connect-row');
+      const key = row.dataset.key;
+      if (state.connections[key]) {
+        delete state.connections[key];
+        row.classList.remove('connected');
+        btn.classList.remove('is-connected');
+        btn.innerHTML = 'Connect';
+      } else {
+        // simulate auth bounce
+        btn.innerHTML = 'Connecting…';
+        btn.disabled = true;
+        setTimeout(() => {
+          state.connections[key] = true;
+          row.classList.add('connected');
+          btn.classList.add('is-connected');
+          btn.disabled = false;
+          btn.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> Connected';
+        }, 700);
+      }
+    });
+  });
+
+  // ---- Step 4: model ----
+  document.querySelectorAll('.model-card').forEach(card => {
+    card.addEventListener('click', () => {
+      document.querySelectorAll('.model-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      state.model = card.dataset.value;
+    });
+  });
+
+  // ---- Step 5: theme ----
+  document.querySelectorAll('.theme-card').forEach(card => {
+    card.addEventListener('click', () => {
+      document.querySelectorAll('.theme-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      state.theme = card.dataset.value;
+    });
+  });
+
+  // ---- Step 7: notifications ----
+  document.querySelectorAll('.toggle input[data-key]').forEach(input => {
+    input.addEventListener('change', () => {
+      state.notifications[input.dataset.key] = input.checked;
+    });
+  });
+
+  // ---- Step 8: mission ----
+  document.querySelectorAll('.mission-card').forEach(card => {
+    card.addEventListener('click', () => {
+      document.querySelectorAll('.mission-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      state.mission = card.dataset.value;
+      updateNextEnabled();
+    });
+  });
+
+  // ---- Nav ----
+  nextBtn.addEventListener('click', () => {
+    if (nextBtn.disabled) return;
+    if (current < 9) {
+      if (current === 8) populateFinal();
+      show(current + 1);
+      if (current === 9) launchConfetti();
+    }
+  });
+  backBtn.addEventListener('click', () => { if (current > 1) show(current - 1); });
+  skipLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (current < 9) {
+      if (current === 8) populateFinal();
+      show(current + 1);
+      if (current === 9) launchConfetti();
+    }
+  });
+
+  // Keyboard nav
+  document.addEventListener('keydown', (e) => {
+    if (document.activeElement && document.activeElement.tagName === 'INPUT' && document.activeElement.type === 'text') return;
+    if (e.key === 'ArrowRight' && !nextBtn.disabled) nextBtn.click();
+    if (e.key === 'ArrowLeft') backBtn.click();
+  });
+
+  // ---- Final summary ----
+  function populateFinal() {
+    const first = state.name.trim().split(/\s+/)[0] || 'friend';
+    document.getElementById('finalName').textContent = first;
+
+    const useLabels = { work: 'Work', personal: 'Personal', coding: 'Coding', writing: 'Writing', research: 'Research', mix: 'A bit of everything' };
+    const modelLabels = { fast: 'Fast', smart: 'Smart', local: 'Local' };
+    const themeLabels = { light: 'Light', dark: 'Dark', system: 'System' };
+    const connList = Object.keys(state.connections).map(k => ({gdrive:'Drive',github:'GitHub',calendar:'Calendar',email:'Email'}[k])).join(', ') || 'None yet';
+
+    const rows = [
+      ['Name', state.name || '—'],
+      ['Use case', useLabels[state.use] || '—'],
+      ['Connected', connList],
+      ['Default model', modelLabels[state.model]],
+      ['Theme', themeLabels[state.theme]],
+    ];
+    document.getElementById('finalSummary').innerHTML = rows.map(([l,v]) => `<div class="summary-row"><span class="lbl">${l}</span><span class="val">${v}</span></div>`).join('');
+  }
+
+  // ---- Launch button ----
+  document.getElementById('launchBtn').addEventListener('click', () => {
+    document.getElementById('launchBtn').style.opacity = '.7';
+    document.getElementById('launchBtn').firstChild.textContent = 'Opening Metis ';
+    setTimeout(() => { window.location.href = '../ui_kits/metis-app/index.html'; }, 700);
+  });
+
+  // ---- Confetti ----
+  function launchConfetti() {
+    const root = document.getElementById('confetti');
+    const colors = ['#FB7185', '#C026D3', '#6D28D9', '#22C55E', '#2563EB', '#F59E0B'];
+    for (let i = 0; i < 60; i++) {
+      const piece = document.createElement('i');
+      piece.style.left = Math.random() * 100 + '%';
+      piece.style.top = '-20px';
+      piece.style.background = colors[i % colors.length];
+      piece.style.transform = `rotate(${Math.random()*360}deg)`;
+      const dur = 1.6 + Math.random() * 1.6;
+      const drift = (Math.random() - 0.5) * 200;
+      piece.animate([
+        { transform: `translate(0, 0) rotate(0deg)`, opacity: 1 },
+        { transform: `translate(${drift}px, ${window.innerHeight + 40}px) rotate(${720 + Math.random()*360}deg)`, opacity: 0 }
+      ], { duration: dur * 1000, easing: 'cubic-bezier(.2,.7,.3,1)', fill: 'forwards', delay: i * 30 });
+      root.appendChild(piece);
+      setTimeout(() => piece.remove(), dur * 1000 + i * 30 + 100);
+    }
+  }
+
+  // init
+  show(1);
+  setTimeout(() => nameInput.focus(), 400);
+})();
+</script>
+
+</body>
+</html>

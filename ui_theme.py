@@ -16,69 +16,100 @@ import streamlit as st
 from pathlib import Path
 
 
-# ── Design tokens ────────────────────────────────────────────────────────────
-
-_THEMES: dict[str, dict[str, str]] = {
-    "obsidian": {  # Manus-style deep canvas with amber accent
-        "bg0":      "#07070b",
-        "bg1":      "#0e0e14",
-        "bg2":      "#15151d",
-        "surface":  "#191922",
-        "border":   "rgba(255,255,255,0.06)",
-        "text":     "#e9e9ee",
-        "muted":    "#8b8b98",
-        "accent":   "#E8A446",
-        "cyan":     "#4ECDC4",
-        "magenta":  "#FF6B9D",
-        "purple":   "#8B6CFF",
-        "mix":      "linear-gradient(135deg,#E8A446 0%,#FF6B9D 45%,#8B6CFF 100%)",
-    },
-    "aurora": {    # Gemini-style brighter canvas
-        "bg0":      "#0a0612",
-        "bg1":      "#110b1c",
-        "bg2":      "#1a1126",
-        "surface":  "#1d1426",
-        "border":   "rgba(255,255,255,0.07)",
-        "text":     "#f3eef8",
-        "muted":    "#9a94a8",
-        "accent":   "#FF9F5B",
-        "cyan":     "#5BD0FF",
-        "magenta":  "#FF6B9D",
-        "purple":   "#8B6CFF",
-        "mix":      "conic-gradient(from 180deg at 50% 50%,#FF6B9D,#F7B42C,#8B6CFF,#4ECDC4,#FF6B9D)",
-    },
-    "solar": {     # Lighter alternative
-        # Metis AI Design Tokens — light athletic.
-        "bg0":      "#F7FAFC",
-        "bg1":      "#FFFFFF",
-        "bg2":      "#F1F5F9",
-        "surface":  "#FFFFFF",
-        "border":   "#E2E8F0",
-        "text":     "#0F172A",
-        "muted":    "#475569",
-        # Primary blue drives actions in light theme.
-        "accent":   "#2563EB",
-        "cyan":     "#0EA5E9",
-        "magenta":  "#FB7185",
-        "purple":   "#7C3AED",
-        "mix":      "linear-gradient(135deg,#2563EB,#1D4ED8,#1E40AF)",
-        # Disable aurora haze for crisp light UI.
-        "aurora_opacity": "0",
-    },
-}
-
-
 # ── CSS template ────────────────────────────────────────────────────────────
 
 _CSS = """
 <style id="metis-theme">
 __DESIGN_SYSTEM_CSS__
 
+/* Legacy variable aliases (keep existing UI markup working while we migrate). */
+:root{
+  --metis-text: var(--text);
+  --metis-muted: var(--text-muted);
+  --metis-subtle: var(--text-subtle);
+  --metis-surface: var(--surface);
+  --metis-border: var(--border);
+  --metis-accent: var(--primary);
+  --metis-cyan: var(--info);
+  --bg-2: var(--surface-alt);
+  /* ui_theme button block references --ease-soft; tokens only define ease-out / ease-in-out */
+  --ease-soft: var(--ease-out);
+}
+
 /* Streamlit → design system mapping (minimal). We avoid introducing new colors. */
 html, body, [data-testid="stAppViewContainer"] {
-  background: var(--bg) !important;
+  background:
+    radial-gradient(circle at 15% -10%, rgba(124, 58, 237, 0.07), transparent 50%),
+    radial-gradient(circle at 90% 10%, rgba(251, 113, 133, 0.06), transparent 55%),
+    var(--bg) !important;
   color: var(--text) !important;
   font-family: var(--font-body) !important;
+}
+
+/* Page width / breathing room */
+[data-testid="stAppViewContainer"] > .main .block-container {
+  max-width: 1380px !important;
+  padding-top: 2.2rem !important;
+  padding-bottom: 2.2rem !important;
+  padding-left: 2.25rem !important;
+  padding-right: 2.25rem !important;
+}
+
+/* Login/auth page spacing */
+.auth-card {
+  max-width: 680px;
+  margin: 0 auto 0.5rem auto;
+}
+.auth-card h1 {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 3.2vw, 3rem);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+}
+.auth-card .lockup {
+  margin-bottom: 22px;
+}
+[data-testid="stVerticalBlock"] [data-testid="stContainer"] {
+  margin-top: 0.4rem;
+}
+[data-testid="stTextInput"],
+[data-testid="stButton"],
+[data-testid="stLinkButton"] {
+  margin-bottom: 0.3rem;
+}
+
+/* Chat header “aura” (HTML in dynamic_ui — not part of static HTML kit) */
+.metis-aura {
+  width: 88px;
+  height: 88px;
+  margin: 0 auto;
+  border-radius: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.14), rgba(251, 113, 133, 0.1));
+  animation: metis-aura-pulse 3.2s var(--ease-in-out) infinite;
+}
+.metis-thinking .metis-aura {
+  animation: metis-aura-pulse 1.35s var(--ease-in-out) infinite;
+}
+.metis-core {
+  font-size: 36px;
+  line-height: 1;
+  background: var(--heritage-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 10px 24px rgba(124, 58, 237, 0.22));
+  animation: metis-bob 6s ease-in-out infinite;
+}
+@keyframes metis-aura-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.08); transform: scale(1); }
+  50% { box-shadow: 0 0 42px 10px rgba(124, 58, 237, 0.2); transform: scale(1.03); }
+}
+@keyframes metis-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
 }
 
 [data-testid="stSidebar"] {
@@ -207,7 +238,9 @@ def inject(theme: str = "obsidian") -> None:
     design_css = ""
     try:
         root = Path(__file__).resolve().parent
-        ds_root = root / "docs" / "design-system"
+        # Design system lives in-repo so the Streamlit app can load it at runtime.
+        # (This path is created by extracting the provided zip into assets/design-system.)
+        ds_root = root / "assets" / "design-system"
 
         # 1) Always load your primary tokens first (root copy preferred).
         token_css_parts: list[str] = []
@@ -230,12 +263,25 @@ def inject(theme: str = "obsidian") -> None:
             # Avoid duplicating token files; we already loaded them first.
             if p.name.lower() == "colors_and_type.css":
                 continue
-            other_css_parts.append(p.read_text(encoding="utf-8"))
+            css = p.read_text(encoding="utf-8")
+            # We're concatenating many CSS files into one <style> tag; relative
+            # @import paths would break, and tokens are already loaded first.
+            css = "\n".join(
+                ln for ln in css.splitlines()
+                if not ln.lstrip().lower().startswith("@import ")
+            )
+            other_css_parts.append(css)
 
         design_css = "\n\n".join([*token_css_parts, *other_css_parts]).strip()
     except Exception:
         design_css = ""
-    st.markdown(_CSS.replace("__DESIGN_SYSTEM_CSS__", design_css), unsafe_allow_html=True)
+    # Streamlit sanitizes/strips <style> (and often SVG) from st.markdown HTML.
+    # st.html() injects style into the document head via the event container (see streamlit elements/html.py).
+    payload = _CSS.replace("__DESIGN_SYSTEM_CSS__", design_css)
+    if hasattr(st, "html"):
+        st.html(payload)
+    else:
+        st.markdown(payload, unsafe_allow_html=True)
 
 
 def thinking_flag(active: bool) -> None:
@@ -257,16 +303,21 @@ def hero(
 
     Returns the chip prompt text if the user clicked one, otherwise None.
     """
-    st.markdown(
-        f"""
-        <div class="empty">
-          <div class="empty-art" aria-hidden="true">◆</div>
-          <h3>{_html.escape(greeting)}</h3>
-          <p>{_html.escape(subtitle)}</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    root = Path(__file__).resolve().parent
+    logo_png = root / "assets" / "design-system" / "assets" / "metis-logomark.png"
+    col_l, col_c, col_r = st.columns([1, 2, 1])
+    with col_c:
+        if logo_png.exists():
+            st.image(str(logo_png), width=96)
+        st.markdown(
+            f"""
+            <div class="empty" style="padding-top:8px;">
+              <h3>{_html.escape(greeting)}</h3>
+              <p>{_html.escape(subtitle)}</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
     if not chips:
         return None
     chosen: str | None = None

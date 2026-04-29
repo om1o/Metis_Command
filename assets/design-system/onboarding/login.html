@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sign in to Metis</title>
+<link rel="icon" href="../assets/favicon.svg">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; height: 100vh; width: 100vw; background: var(--bg); color: var(--text); font-family: var(--font-body); overflow: hidden; }
+
+/* Desktop titlebar */
+.titlebar { position: fixed; top: 0; left: 0; right: 0; height: 32px; background: rgba(247, 250, 252, 0.85); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 14px; gap: 8px; z-index: 100; }
+.titlebar .traffic { display: flex; gap: 7px; }
+.traffic span { width: 12px; height: 12px; border-radius: 50%; }
+.traffic .r { background: #FF5F57; } .traffic .y { background: #FEBC2E; } .traffic .g { background: #28C840; }
+.titlebar .title { flex: 1; text-align: center; font-size: 12px; color: var(--text-muted); font-family: var(--font-mono); font-weight: 500; }
+.back-link { font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--text-muted); text-decoration: none; padding: 4px 10px; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px; }
+.back-link:hover { background: var(--surface); color: var(--text); }
+.back-link svg { width: 12px; height: 12px; stroke: currentColor; stroke-width: 2.4; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Layout: split panel */
+.shell { display: grid; grid-template-columns: 1fr 1fr; height: 100vh; padding-top: 32px; }
+
+/* Left — form */
+.form-side { display: flex; align-items: center; justify-content: center; padding: 32px 56px; position: relative; }
+.form-card { width: 100%; max-width: 420px; }
+.form-card .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 56px; }
+.form-card .brand img { height: 36px; }
+.form-card .brand .wm { font-family: ui-serif, "Iowan Old Style", Georgia, serif; font-size: 28px; font-weight: 500; letter-spacing: -0.015em; color: var(--text); line-height: 1; }
+.form-card .brand .wm em { font-style: italic; }
+
+.form-card h1 { font-family: var(--font-display); font-size: 36px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; margin: 0 0 10px; color: var(--text); }
+.form-card .sub { font-size: 14.5px; color: var(--text-muted); margin: 0 0 32px; line-height: 1.5; }
+
+/* OAuth buttons */
+.oauth-row { display: flex; flex-direction: column; gap: 9px; margin-bottom: 22px; }
+.oauth-btn { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 11px 16px; height: 44px; border: 1px solid var(--border); background: var(--surface); border-radius: 10px; font-family: var(--font-body); font-size: 14.5px; font-weight: 550; color: var(--text); cursor: pointer; transition: all .15s ease; }
+.oauth-btn:hover { border-color: var(--border-strong); background: #FAFBFC; transform: translateY(-1px); box-shadow: 0 2px 6px rgba(15,23,42,.05); }
+.oauth-btn:active { transform: translateY(0); }
+.oauth-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
+
+/* Divider */
+.divider { display: flex; align-items: center; gap: 12px; margin: 0 0 22px; font-family: var(--font-mono); font-size: 11px; color: var(--text-subtle); letter-spacing: 0.08em; text-transform: uppercase; }
+.divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+
+/* Email form */
+.field { margin-bottom: 14px; }
+.field label { display: block; font-size: 12.5px; font-weight: 600; color: var(--text); margin-bottom: 6px; letter-spacing: -0.003em; }
+.field input { width: 100%; height: 44px; padding: 0 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); font-family: var(--font-body); font-size: 14.5px; color: var(--text); transition: all .15s ease; }
+.field input::placeholder { color: var(--text-subtle); }
+.field input:hover { border-color: var(--border-strong); }
+.field input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,.15); }
+.field-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.field-row label { margin: 0; }
+.field-row a { font-size: 12.5px; color: var(--primary); text-decoration: none; font-weight: 500; }
+.field-row a:hover { text-decoration: underline; }
+
+.submit-btn { width: 100%; height: 46px; background: var(--text); color: #fff; border: none; border-radius: 10px; font-family: var(--font-body); font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 18px; transition: all .15s ease; display: inline-flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 1px 2px rgba(0,0,0,.1); }
+.submit-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.18); }
+.submit-btn:active { transform: translateY(0); }
+.submit-btn svg { width: 14px; height: 14px; transition: transform .2s ease; }
+.submit-btn:hover svg { transform: translateX(3px); }
+
+.toggle { margin-top: 22px; text-align: center; font-size: 13px; color: var(--text-muted); }
+.toggle a { color: var(--primary); font-weight: 600; text-decoration: none; }
+.toggle a:hover { text-decoration: underline; }
+
+/* Tiny security row */
+.security { position: absolute; bottom: 32px; left: 56px; right: 56px; display: flex; gap: 18px; font-family: var(--font-mono); font-size: 10.5px; color: var(--text-subtle); }
+.security span { display: inline-flex; align-items: center; gap: 5px; }
+.security svg { width: 11px; height: 11px; stroke: var(--text-subtle); stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Right — visual side */
+.visual-side { background: linear-gradient(135deg, #FB7185 0%, #C026D3 50%, #6D28D9 100%); position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; padding: 56px; }
+
+/* Floating noise/grid pattern */
+.visual-side::before { content: ""; position: absolute; inset: 0; background-image: linear-gradient(rgba(255,255,255,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 1px); background-size: 40px 40px; }
+
+/* Animated rings */
+.ring-bg { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); border: 1.5px solid rgba(255,255,255,.15); border-radius: 50%; animation: ringFloat 6s ease-in-out infinite; }
+.ring-bg.r1 { width: 320px; height: 320px; }
+.ring-bg.r2 { width: 480px; height: 480px; animation-delay: -2s; }
+.ring-bg.r3 { width: 640px; height: 640px; animation-delay: -4s; opacity: .5; }
+@keyframes ringFloat { 0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: .6; } 50% { transform: translate(-50%, -50%) scale(1.04); opacity: 1; } }
+
+/* The big floating mark */
+.float-mark { position: relative; z-index: 2; width: 200px; height: 150px; animation: bigBob 5s ease-in-out infinite; }
+.float-mark img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 12px 40px rgba(0,0,0,.25)) brightness(0) invert(1); animation: spinMark 24s linear infinite; transform-origin: center center; }
+@keyframes bigBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
+@keyframes spinMark { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+/* Visual side text */
+.visual-text { position: absolute; bottom: 56px; left: 56px; right: 56px; color: #fff; z-index: 2; }
+.visual-text .vw-eyebrow { font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; opacity: 0.7; margin-bottom: 14px; display: inline-flex; align-items: center; gap: 8px; }
+.visual-text .vw-eyebrow::before { content: ""; width: 16px; height: 1.5px; background: #fff; opacity: .8; }
+.visual-text h2 { font-family: ui-serif, "Iowan Old Style", Georgia, serif; font-size: 36px; font-weight: 500; line-height: 1.15; letter-spacing: -0.015em; margin: 0 0 14px; max-width: 22ch; }
+.visual-text h2 em { font-style: italic; }
+.visual-text p { font-size: 14px; opacity: 0.85; max-width: 42ch; line-height: 1.55; margin: 0; }
+
+/* Floating particle dots */
+.spark { position: absolute; width: 4px; height: 4px; border-radius: 50%; background: rgba(255,255,255,.7); animation: sparkFloat 8s ease-in-out infinite; }
+@keyframes sparkFloat {
+  0% { opacity: 0; transform: translate(0, 30px); }
+  20%, 80% { opacity: .9; }
+  100% { opacity: 0; transform: translate(0, -100px); }
+}
+
+/* Responsive collapse */
+@media (max-width: 880px) {
+  .shell { grid-template-columns: 1fr; }
+  .visual-side { display: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="titlebar">
+  <div class="traffic"><span class="r"></span><span class="y"></span><span class="g"></span></div>
+  <div class="title">Metis — Sign in</div>
+  <a href="index.html" class="back-link"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>Back to tour</a>
+</div>
+
+<div class="shell">
+
+  <!-- LEFT: form -->
+  <div class="form-side">
+    <div class="form-card">
+      <div class="brand">
+        <img src="../assets/metis-logomark.png" alt="">
+        <span class="wm">Met<em>i</em>s</span>
+      </div>
+
+      <h1 id="title">Welcome back</h1>
+      <p class="sub" id="subtitle">Sign in to keep your missions, automations, and library in sync.</p>
+
+      <div class="oauth-row">
+        <button class="oauth-btn" type="button">
+          <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+          Continue with Google
+        </button>
+        <button class="oauth-btn" type="button">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
+          Continue with Apple
+        </button>
+        <button class="oauth-btn" type="button">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.69-3.87-1.36-3.87-1.36-.52-1.32-1.27-1.67-1.27-1.67-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.75 2.68 1.24 3.34.95.1-.74.4-1.24.73-1.53-2.55-.29-5.24-1.27-5.24-5.66 0-1.25.45-2.27 1.18-3.07-.12-.29-.51-1.46.11-3.04 0 0 .96-.31 3.16 1.17.92-.26 1.9-.38 2.88-.39.98 0 1.96.13 2.88.39 2.2-1.48 3.16-1.17 3.16-1.17.62 1.58.23 2.75.11 3.04.74.8 1.18 1.82 1.18 3.07 0 4.39-2.69 5.36-5.25 5.65.41.36.78 1.06.78 2.13 0 1.54-.01 2.78-.01 3.16 0 .31.21.67.8.55C20.21 21.39 23.5 17.08 23.5 12 23.5 5.65 18.35.5 12 .5z"/></svg>
+          Continue with GitHub
+        </button>
+      </div>
+
+      <div class="divider">or with email</div>
+
+      <form id="loginForm">
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" type="email" placeholder="you@work.com" autocomplete="email" required>
+        </div>
+        <div class="field">
+          <div class="field-row">
+            <label for="password">Password</label>
+            <a href="#" id="forgot">Forgot?</a>
+          </div>
+          <input id="password" type="password" placeholder="••••••••" autocomplete="current-password" required>
+        </div>
+        <button type="submit" class="submit-btn">Sign in <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>
+      </form>
+
+      <div class="toggle">No account yet? <a href="#" id="signupLink">Create one — it's free</a></div>
+    </div>
+
+    <div class="security">
+      <span><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>End-to-end encrypted</span>
+      <span><svg viewBox="0 0 24 24"><path d="M12 2L3 7v6c0 5 4 9 9 11 5-2 9-6 9-11V7l-9-5z"/></svg>SOC 2 in progress</span>
+    </div>
+  </div>
+
+  <!-- RIGHT: visual -->
+  <div class="visual-side">
+    <div class="ring-bg r3"></div>
+    <div class="ring-bg r2"></div>
+    <div class="ring-bg r1"></div>
+    <div class="float-mark"><img src="../assets/metis-logomark.png" alt=""></div>
+    <div id="sparks"></div>
+
+    <div class="visual-text">
+      <div class="vw-eyebrow">WELCOME TO METIS</div>
+      <h2>Built for the people who actually <em>ship.</em></h2>
+      <p>Free while we cook. Mac, Windows, and Linux today. Web version next.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Sparks
+  const sparks = document.getElementById('sparks');
+  for (let i = 0; i < 14; i++) {
+    const s = document.createElement('span');
+    s.className = 'spark';
+    s.style.left = (10 + Math.random() * 80) + '%';
+    s.style.bottom = (Math.random() * 30) + '%';
+    s.style.animationDelay = (Math.random() * 8) + 's';
+    s.style.animationDuration = (6 + Math.random() * 4) + 's';
+    sparks.appendChild(s);
+  }
+
+  // Toggle Sign in / Sign up
+  let mode = 'signin';
+  const titleEl = document.getElementById('title');
+  const subEl = document.getElementById('subtitle');
+  const submitEl = document.querySelector('.submit-btn');
+  const toggleEl = document.querySelector('.toggle');
+  document.getElementById('signupLink').addEventListener('click', (e) => {
+    e.preventDefault();
+    mode = mode === 'signin' ? 'signup' : 'signin';
+    if (mode === 'signup') {
+      titleEl.textContent = 'Create your account';
+      subEl.textContent = "Free, forever (while we cook). No credit card.";
+      submitEl.firstChild.textContent = 'Create account ';
+      toggleEl.innerHTML = 'Already have one? <a href="#" id="signupLink">Sign in</a>';
+    } else {
+      titleEl.textContent = 'Welcome back';
+      subEl.textContent = 'Sign in to keep your missions, automations, and library in sync.';
+      submitEl.firstChild.textContent = 'Sign in ';
+      toggleEl.innerHTML = "No account yet? <a href=\"#\" id=\"signupLink\">Create one — it's free</a>";
+    }
+    document.getElementById('signupLink').addEventListener('click', arguments.callee);
+  });
+
+  // Submit just bounces — placeholder
+  document.getElementById('loginForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    submitEl.style.opacity = '.7';
+    submitEl.firstChild.textContent = 'One sec ';
+    setTimeout(() => { window.location.href = 'setup.html'; }, 700);
+  });
+</script>
+</body>
+</html>

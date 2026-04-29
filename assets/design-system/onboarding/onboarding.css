@@ -1,0 +1,76 @@
+/* ── Onboarding shared styles ─────────────────────────────── */
+@import url("../colors_and_type.css");
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); overflow: hidden; height: 100vh; width: 100vw; font-family: var(--font-body); }
+.deck { overflow-x: hidden; }
+.scene { overflow-x: hidden; }
+
+/* Hide scrollbars in deck */
+::-webkit-scrollbar { width: 0; height: 0; }
+
+/* Deck container */
+.deck { width: 100vw; height: 100vh; overflow-y: scroll; scroll-snap-type: y mandatory; scroll-behavior: smooth; }
+.scene { width: 100vw; height: 100vh; scroll-snap-align: start; scroll-snap-stop: always; position: relative; display: flex; align-items: center; justify-content: center; padding: 64px; overflow: hidden; }
+
+/* App-window chrome — to feel like a desktop app */
+.app-chrome { position: fixed; inset: 0; pointer-events: none; z-index: 100; }
+.titlebar { position: absolute; top: 0; left: 0; right: 0; height: 32px; background: rgba(247, 250, 252, 0.85); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 14px; gap: 8px; pointer-events: auto; }
+.titlebar .traffic { display: flex; gap: 7px; }
+.traffic span { width: 12px; height: 12px; border-radius: 50%; }
+.traffic .r { background: #FF5F57; } .traffic .y { background: #FEBC2E; } .traffic .g { background: #28C840; }
+.titlebar .title { flex: 1; text-align: center; font-size: 12px; color: var(--text-muted); font-family: var(--font-mono); font-weight: 500; letter-spacing: 0.02em; }
+.titlebar .ver { font-size: 10.5px; color: var(--text-subtle); font-family: var(--font-mono); }
+
+/* Side rail nav (right) */
+.rail { position: fixed; right: 24px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 10px; z-index: 50; }
+.rail .pip { width: 6px; height: 6px; border-radius: 50%; background: var(--border-strong); cursor: pointer; transition: all .25s ease; position: relative; }
+.rail .pip.active { background: var(--primary); width: 6px; height: 22px; border-radius: 3px; }
+.rail .pip:hover { background: var(--text-muted); }
+.rail .pip.active:hover { background: var(--primary); }
+
+/* Skip button */
+.skip { position: fixed; top: 44px; right: 24px; z-index: 50; font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--text-muted); background: transparent; border: none; cursor: pointer; padding: 6px 10px; border-radius: 6px; transition: all .15s ease; }
+.skip:hover { background: var(--surface); color: var(--text); }
+
+/* Generic typography */
+.eyebrow { font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: var(--primary); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 16px; display: inline-flex; align-items: center; gap: 8px; }
+.eyebrow::before { content: ""; width: 16px; height: 1.5px; background: var(--primary); }
+
+h1.headline { font-family: var(--font-display); font-size: 84px; font-weight: 750; line-height: 0.98; letter-spacing: -0.035em; color: var(--text); margin: 0; max-width: 14ch; }
+h1.headline em { font-style: italic; font-family: ui-serif, "Iowan Old Style", Georgia, serif; font-weight: 500; color: var(--text); }
+h2.headline { font-family: var(--font-display); font-size: 64px; font-weight: 750; line-height: 1.0; letter-spacing: -0.03em; margin: 0; max-width: 18ch; }
+h2.headline em { font-style: italic; font-family: ui-serif, "Iowan Old Style", Georgia, serif; font-weight: 500; }
+
+.lede { font-family: var(--font-body); font-size: 19px; font-weight: 450; line-height: 1.55; color: var(--text-muted); max-width: 56ch; margin: 24px 0 0 0; }
+.scene .body { max-width: 1100px; width: 100%; }
+
+/* Scene layouts */
+.scene.split { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center; max-width: 1280px; margin: 0 auto; }
+
+/* Animated entrance — driven by .visible class. Default to visible if no JS or first scene. */
+.fade-up { opacity: 0; transform: translateY(20px); transition: opacity .8s cubic-bezier(.2,.7,.3,1), transform .8s cubic-bezier(.2,.7,.3,1); }
+.scene.visible .fade-up,
+.scene:first-child .fade-up { opacity: 1; transform: translateY(0); }
+.scene.visible .fade-up.d1, .scene:first-child .fade-up.d1 { transition-delay: .15s; }
+.scene.visible .fade-up.d2, .scene:first-child .fade-up.d2 { transition-delay: .3s; }
+.scene.visible .fade-up.d3, .scene:first-child .fade-up.d3 { transition-delay: .45s; }
+.scene.visible .fade-up.d4, .scene:first-child .fade-up.d4 { transition-delay: .6s; }
+/* No-JS fallback: if scenes never get .visible, show them anyway */
+.no-js .scene .fade-up { opacity: 1; transform: translateY(0); }
+
+/* Buttons */
+.btn-primary { font-family: var(--font-body); font-size: 16px; font-weight: 600; padding: 14px 26px; background: var(--text); color: #fff; border: none; border-radius: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 10px; text-decoration: none; transition: all .15s ease; box-shadow: 0 1px 2px rgba(0,0,0,.1), 0 0 0 0 var(--primary); }
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.15); }
+.btn-primary:active { transform: translateY(0); }
+.btn-primary svg { width: 16px; height: 16px; transition: transform .2s ease; }
+.btn-primary:hover svg { transform: translateX(3px); }
+
+.btn-ghost { font-family: var(--font-body); font-size: 14px; font-weight: 500; padding: 10px 16px; background: transparent; color: var(--text-muted); border: none; border-radius: 8px; cursor: pointer; }
+.btn-ghost:hover { color: var(--text); background: var(--surface); }
+
+/* Card (for in-scene demos) */
+.demo-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 1px 2px rgba(15,23,42,.04), 0 8px 32px rgba(15,23,42,.06); overflow: hidden; }
+
+/* Subtle grid background for some scenes */
+.bg-grid { position: absolute; inset: 0; background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px); background-size: 56px 56px; mask-image: radial-gradient(ellipse 80% 60% at center, black 30%, transparent 80%); opacity: 0.4; pointer-events: none; }

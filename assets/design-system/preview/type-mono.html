@@ -1,0 +1,16 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css"><style>
+body { padding: 22px 28px; }
+.row-spec { display: grid; grid-template-columns: 110px 1fr 180px; gap: 16px; align-items: center; padding: 9px 0; border-bottom: 1px dashed var(--border); }
+.row-spec:last-child { border: none; }
+.tag { font-family: var(--font-mono); font-size: 11px; color: var(--text-subtle); }
+.spec { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); text-align: right; }
+.mono-l { font-family: var(--font-mono); font-size: 18px; font-weight: 500; color: var(--text); font-feature-settings: "tnum" 1, "lnum" 1; }
+.mono-id { font-family: var(--font-mono); font-size: 13px; color: var(--text); background: var(--surface-alt); padding: 3px 8px; border-radius: 6px; display: inline-block; }
+.metric { font-family: var(--font-mono); font-size: 14px; color: var(--text); font-feature-settings: "tnum" 1, "lnum" 1; }
+.metric .unit { color: var(--text-muted); }
+</style></head><body>
+<div class="row-spec"><span class="tag">Run ID</span><span><span class="mono-id">run_a91f4c</span></span><span class="spec">JetBrains Mono 13</span></div>
+<div class="row-spec"><span class="tag">Metric</span><span class="metric">1,284 <span class="unit">tokens</span> · $0.0142 · 1m 42s</span><span class="spec">tabular-nums</span></div>
+<div class="row-spec"><span class="tag">Big number</span><span class="mono-l">14 / 27 steps</span><span class="spec">Mono 18 · 500</span></div>
+</body></html>
