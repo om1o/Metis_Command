@@ -120,7 +120,7 @@ def _setup_wizard() -> None:
     st.session_state.setdefault("setup_name", "")
     st.session_state.setdefault("setup_use_case", "")
     st.session_state.setdefault("setup_model_pref", "")
-    st.session_state.setdefault("setup_theme", st.session_state.get("theme", "obsidian"))
+    st.session_state.setdefault("setup_theme", st.session_state.get("theme", "solar"))
 
     total = 4
     step = int(st.session_state.get("setup_step", 1) or 1)
@@ -168,14 +168,17 @@ def _setup_wizard() -> None:
 
         elif step == 4:
             st.markdown("**Theme**")
+            _theme_options = ["solar", "obsidian", "aurora"]
+            _current_theme = st.session_state.get("theme", "solar")
+            _theme_idx = _theme_options.index(_current_theme) if _current_theme in _theme_options else 0
             st.session_state["setup_theme"] = st.radio(
                 "Theme",
-                options=["obsidian", "light"],
-                index=0 if st.session_state.get("theme") != "light" else 1,
+                options=_theme_options,
+                index=_theme_idx,
                 horizontal=True,
                 label_visibility="collapsed",
             )
-            st.caption("You can change this anytime.")
+            st.caption("Solar is the new light athletic theme · Obsidian is dark · Aurora is brighter dark.")
 
         col_l, col_r = st.columns([1, 1])
         with col_l:
@@ -193,7 +196,7 @@ def _setup_wizard() -> None:
                         "display_name": (st.session_state.get("setup_name") or "").strip(),
                         "use_case": st.session_state.get("setup_use_case") or "",
                         "model_preference": st.session_state.get("setup_model_pref") or "",
-                        "theme": st.session_state.get("setup_theme") or "obsidian",
+                        "theme": st.session_state.get("setup_theme") or "solar",
                         "completed_at": datetime.now().isoformat(timespec="seconds"),
                     }
                     _save_profile(profile)
@@ -232,6 +235,22 @@ def _auth_gate() -> bool:
         authed = bool(getattr(u, "user", None))
     except Exception:
         authed = False
+
+    # Token may be expired but the refresh_token still valid — try to refresh once.
+    if not authed and refresh_token:
+        try:
+            from auth_engine import refresh_session
+            new_sess = refresh_session()
+            if new_sess and getattr(new_sess, "access_token", None):
+                st.session_state["supabase_session"] = {
+                    "access_token": new_sess.access_token,
+                    "refresh_token": getattr(new_sess, "refresh_token", refresh_token) or refresh_token,
+                }
+                u = client.auth.get_user()
+                authed = bool(getattr(u, "user", None))
+        except Exception:
+            authed = False
+
     if authed:
         profile = _load_profile()
         if not profile.get("completed_at"):
@@ -448,6 +467,38 @@ def _auth_gate() -> bool:
                     st.rerun()
                 except Exception as e:
                     st.error(str(e))
+
+            # ── Forgot password flow (toggleable inline) ────────────────
+            if st.session_state.get("show_forgot"):
+                with st.container(border=True):
+                    st.caption("Enter your email and we’ll send you a reset link.")
+                    reset_email = st.text_input(
+                        "Reset email",
+                        value=email.strip(),
+                        key="auth_reset_email",
+                        placeholder="you@work.com",
+                    )
+                    col_send, col_cancel = st.columns([1, 1])
+                    with col_send:
+                        if st.button("Send reset email", type="primary", use_container_width=True, key="auth_reset_send"):
+                            try:
+                                from auth_engine import reset_password
+                                if not reset_email.strip():
+                                    st.error("Enter your email first.")
+                                else:
+                                    reset_password(reset_email.strip())
+                                    st.success("Reset email sent. Check your inbox.")
+                                    st.session_state["show_forgot"] = False
+                            except Exception as e:
+                                st.error(str(e))
+                    with col_cancel:
+                        if st.button("Cancel", use_container_width=True, key="auth_reset_cancel"):
+                            st.session_state["show_forgot"] = False
+                            st.rerun()
+            else:
+                if st.button("Forgot password?", key="auth_forgot", use_container_width=True):
+                    st.session_state["show_forgot"] = True
+                    st.rerun()
 
             if st.button("No account yet? Create one — it’s free", key="auth_toggle", use_container_width=True):
                 st.session_state["auth_mode"] = "signup"
