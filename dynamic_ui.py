@@ -147,6 +147,55 @@ def _cached_list_artifacts(limit: int = 50) -> list:
         return []
 
 
+@st.cache_data(ttl=30, show_spinner=False)
+def _cached_list_brains() -> list:
+    try:
+        import brains as _brains
+        return [{"slug": b.slug, "name": b.name} for b in (_brains.list_brains() or [])]
+    except Exception:
+        return []
+
+
+@st.cache_data(ttl=30, show_spinner=False)
+def _cached_list_roster() -> list:
+    try:
+        import agent_roster as _r
+        return [s.to_dict() for s in (_r.list_roster() or [])]
+    except Exception:
+        return []
+
+
+@st.cache_data(ttl=10, show_spinner=False)
+def _cached_marketplace_plugins() -> list:
+    try:
+        from marketplace import list_plugins
+        return list_plugins() or []
+    except Exception:
+        return []
+
+
+@st.cache_data(ttl=8, show_spinner=False)
+def _cached_agent_health() -> list:
+    try:
+        from agent_roster import get_agent_health
+        return get_agent_health() or []
+    except Exception:
+        return []
+
+
+def _bust_caches() -> None:
+    """Clear data caches after state-changing operations (sessions, brains, etc.)."""
+    for fn in (
+        _cached_list_sessions, _cached_list_artifacts, _cached_list_brains,
+        _cached_list_roster, _cached_marketplace_plugins, _cached_agent_health,
+        _cached_health_snapshot,
+    ):
+        try:
+            fn.clear()
+        except Exception:
+            pass
+
+
 # Auth result cache — avoids a Supabase network round-trip on every rerun.
 _AUTH_CACHE_TTL_S = 90  # seconds
 
@@ -560,7 +609,8 @@ def _auth_gate() -> bool:
         pw = st.text_input("Passcode", type="password", key="auth_pw", placeholder="••••••••")
 
         if is_signup:
-            if st.button("Create account  →", type="primary", use_container_width=True, key="auth_submit"):
+            if st.button("Create account", type="primary", use_container_width=True,
+                         key="auth_submit", icon=":material/arrow_forward:"):
                 try:
                     from auth_engine import sign_up
                     out = sign_up(email=email.strip(), password=pw)
@@ -578,7 +628,8 @@ def _auth_gate() -> bool:
                 st.session_state["auth_mode"] = "login"
                 st.rerun()
         else:
-            if st.button("Sign in  →", type="primary", use_container_width=True, key="auth_submit"):
+            if st.button("Sign in", type="primary", use_container_width=True,
+                         key="auth_submit", icon=":material/arrow_forward:"):
                 if not email.strip():
                     st.error("Enter your email first.")
                 elif not pw:
@@ -684,9 +735,10 @@ def _sidebar() -> None:
             )
 
         if st.button("＋  New chat", key="new_chat_btn", use_container_width=True,
-                     help="Ctrl+Shift+N"):
+                     help="Ctrl+Shift+N", icon=":material/add:"):
             st.session_state["session_id"] = f"s_{uuid.uuid4().hex[:10]}"
             st.session_state["messages"] = []
+            _bust_caches()
             st.rerun()
 
         search = st.text_input(
@@ -697,16 +749,8 @@ def _sidebar() -> None:
         )
 
         st.markdown("<div class='metis-side-heading'>History</div>", unsafe_allow_html=True)
-        try:
-            from memory import list_sessions
-            # We don't have a guaranteed user_id at this point; best-effort query.
-            sessions: list[str] = []
-            try:
-                sessions = list_sessions(user_id="") or []
-            except Exception:
-                sessions = []
-        except Exception:
-            sessions = []
+        # Cached 30s — avoids a Supabase round-trip on every Streamlit rerun.
+        sessions: list[str] = list(_cached_list_sessions(user_id="") or [])
 
         if search:
             sessions = [s for s in sessions if search.lower() in s.lower()]
@@ -847,7 +891,8 @@ def _sidebar() -> None:
             try:
                 import brains as _brains
                 cur = _brains.active()
-                options = [b.slug for b in _brains.list_brains()] or ["default"]
+                # Cached list — avoids re-walking the brain index on each rerun.
+                options = [b["slug"] for b in _cached_list_brains()] or ["default"]
                 current_slug = cur.slug if cur else options[0]
                 idx = options.index(current_slug) if current_slug in options else 0
                 chosen_brain = st.selectbox("Active brain", options=options, index=idx,
@@ -855,6 +900,7 @@ def _sidebar() -> None:
                 if chosen_brain != current_slug:
                     try:
                         _brains.switch(chosen_brain)
+                        _bust_caches()
                         st.toast(f"Switched to brain: {chosen_brain}")
                     except Exception as e:
                         st.error(str(e))
@@ -932,10 +978,12 @@ def _sidebar() -> None:
         with st.expander("Agent Roster", expanded=False):
             try:
                 import agent_roster as _roster
-                specs = _roster.list_roster()
+                # Cached roster (rarely changes) + live list (free; in-memory).
+                specs_data = _cached_list_roster()
                 live = set(_roster.list_persistent())
-                st.caption(f"{len(specs)} agents · {len(live)} persistent")
-                for spec in specs:
+                st.caption(f"{len(specs_data)} agents · {len(live)} persistent")
+                for spec_dict in specs_data:
+                    spec = _roster.AgentSpec(**spec_dict)
                     is_live = spec.slug in live
                     body = (spec.system or "").strip()
                     if len(body) > 140:
@@ -951,16 +999,18 @@ def _sidebar() -> None:
                     with cols[0]:
                         if is_live and st.button(
                             "Stop", key=f"agent_stop_{spec.slug}",
-                            use_container_width=True,
+                            use_container_width=True, icon=":material/stop:",
                         ):
                             _roster.stop_persistent(spec.slug)
+                            _bust_caches()
                             st.rerun()
                     with cols[1]:
                         if not is_live and st.button(
                             "Start", key=f"agent_start_{spec.slug}",
-                            use_container_width=True,
+                            use_container_width=True, icon=":material/play_arrow:",
                         ):
                             _roster.spawn_persistent(spec.slug)
+                            _bust_caches()
                             st.rerun()
             except Exception as e:
                 st.caption(f"Roster unavailable: {e}")
@@ -1039,8 +1089,8 @@ def _sidebar() -> None:
         # ── Agent health dashboard ──────────────────────────────────────
         with st.expander("🛰  Agent health", expanded=False):
             try:
-                from agent_roster import get_agent_health, list_persistent
-                health = get_agent_health()
+                from agent_roster import list_persistent
+                health = _cached_agent_health()
                 if not health:
                     st.caption("No persistent agents running. Start one with `/agent <slug>`.")
                 else:
@@ -1053,7 +1103,9 @@ def _sidebar() -> None:
                             + (f" · err: {h['last_error'][:40]}" if h.get("last_error") else "")
                         )
                 if list_persistent():
-                    if st.button("Refresh", key="agent_health_refresh", use_container_width=True):
+                    if st.button("Refresh", key="agent_health_refresh",
+                                 use_container_width=True, icon=":material/refresh:"):
+                        _cached_agent_health.clear()
                         st.rerun()
             except Exception as e:
                 st.caption(f"Health dashboard unavailable: {e}")
@@ -1323,12 +1375,14 @@ def _try_command_palette(text: str) -> bool:
             st.toast("Usage: /install <plugin-slug>", icon="ℹ️")
             return True
         try:
-            from marketplace import list_plugins, install_plugin
-            target = next((p for p in list_plugins() if p.get("slug") == rest), None)
+            from marketplace import install_plugin
+            plugins = _cached_marketplace_plugins()
+            target = next((p for p in plugins if p.get("slug") == rest), None)
             if not target:
                 st.toast(f"Plugin '{rest}' not in catalog.", icon="⚠️")
                 return True
             ok = install_plugin(target)
+            _cached_marketplace_plugins.clear()
             st.toast(f"Installed {rest}." if ok else f"Install failed for {rest}.",
                      icon="📦" if ok else "⚠️")
         except Exception as e:
@@ -1432,7 +1486,8 @@ def _artifacts_pane(container) -> None:
             "<span class='metis-pill muted'>live</span></div>",
             unsafe_allow_html=True,
         )
-        arts = list_artifacts(limit=50)
+        # Cached 15s — list_artifacts walks the filesystem.
+        arts = _cached_list_artifacts(limit=50)
         if not arts:
             st.caption("No artifacts yet. Run /code, /skill, or /screenshot.")
             return
