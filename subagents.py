@@ -107,7 +107,7 @@ def spawn(
     if subagent_type.lower() in ("coder", "researcher") and not readonly:
         try:
             from autonomous_loop import run_mission
-            mission = run_mission(goal, max_steps=max_steps, auto_approve=False, session_id=f"subagent:{subagent_type}:{int(time.time())}")
+            mission = run_mission(goal, max_steps=max_steps, auto_approve=False)
             return SubagentResult(
                 subagent_type=subagent_type,
                 goal=goal,

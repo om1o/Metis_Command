@@ -19,7 +19,6 @@ cryptography>=42.0,<47           # bumped past 46.0.7 to close CVE-2026-26007 / 
 ollama>=0.3,<1
 openai>=1.40,<2
 crewai>=0.80,<2
-litellm>=1.0,<2
 chromadb>=0.5,<2
 peft>=0.11,<1
 
@@ -40,16 +39,6 @@ streamlit-lottie>=0.0.5,<1
 supabase>=2.5,<3
 stripe>=9.0,<13
 duckduckgo-search>=6.0,<9
-
-# ── Scheduling ──────────────────────────────────────────────────────────────
-croniter>=2.0,<7                # full cron syntax (steps, ranges, named days)
-
-# ── Dev / quality gate (used by scripts/release_gate.py) ─────────────────────
-ruff>=0.1,<1
-pytest>=8,<10
-
-# ── Outbound comms (SMS / voice via Twilio) ────────────────────────────────
-twilio>=9.0,<10
 
 # ── Voice / vision / desktop ─────────────────────────────────────────────────
 Pillow>=10.0,<13                 # bumped past 12.2.0 to close CVE-2026-25990 / 40192

@@ -20,14 +20,9 @@ import threading
 import time
 import uuid
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
-
-try:
-    from croniter import croniter as _croniter  # type: ignore
-except ImportError:
-    _croniter = None  # type: ignore
 
 from safety import audit, audited
 
@@ -191,11 +186,9 @@ def _compute_next(s: Schedule, *, reference: float) -> float | None:
         except Exception:
             hh, mm = 9, 0
         target = now.replace(hour=hh, minute=mm, second=0, microsecond=0)
-        # If today's slot already passed, move to the same time tomorrow.
-        # Using timedelta avoids the edge case where day+1 lands on day 29-31
-        # of a short month (the previous code used a `day < 28` heuristic).
         if target.timestamp() <= reference:
-            target = target + timedelta(days=1)
+            target = target.replace(day=target.day + 1) if target.day < 28 else target
+            return target.timestamp() + 86400 if target.timestamp() <= reference else target.timestamp()
         return target.timestamp()
 
     if kind == "once":
@@ -216,20 +209,9 @@ _CRON_RX = re.compile(r"^\s*(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s*$")
 
 def _next_cron(expr: str, reference: float) -> float | None:
     """
-    5-field cron: minute hour dom month dow.
-
-    Uses `croniter` when installed (full cron syntax including step values,
-    ranges, and named days). Falls back to a small bespoke parser that
-    supports '*', comma lists, dashes, and '*/N' so the scheduler still
-    works in environments where croniter isn't installed.
+    Minimal 5-field cron: minute hour dom month dow.
+    Supports '*', comma lists, dashes (e.g. 'mon-fri'), and '*/N'.
     """
-    if _croniter is not None:
-        try:
-            it = _croniter(expr, datetime.fromtimestamp(reference))
-            return float(it.get_next(float))
-        except Exception:
-            return None
-
     m = _CRON_RX.match(expr or "")
     if not m:
         return None

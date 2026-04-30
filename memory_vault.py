@@ -3,7 +3,6 @@ Memory Vault — ChromaDB long-term vector memory for the swarm.
 Prevents re-discovery of the same leads across sessions.
 """
 
-import time
 import chromadb
 
 
@@ -21,11 +20,7 @@ class MemoryBank:
             self.client = chromadb.PersistentClient(path=path)
             self.collection = self.client.get_or_create_collection("metis_memory")
         except Exception as e:
-            try:
-                from safety import log as _safety_log
-                _safety_log("memvault_init_failed", error=str(e))
-            except Exception:
-                pass
+            print(f"[MemoryBank] Init error: {e}")
             self.client = None
             self.collection = None
 
@@ -37,19 +32,10 @@ class MemoryBank:
             self.collection.upsert(
                 ids=[entity_name],
                 documents=[f"Facts: {facts}\nCost: {cost}"],
-                metadatas=[{
-                    "entity_name": entity_name,
-                    "facts": facts,
-                    "cost": cost,
-                    "stored_at_ms": int(time.time() * 1000),
-                }],
+                metadatas=[{"entity_name": entity_name, "facts": facts, "cost": cost}],
             )
         except Exception as e:
-            try:
-                from safety import log as _safety_log
-                _safety_log("memvault_store_failed", entity=entity_name, error=str(e))
-            except Exception:
-                pass
+            print(f"[MemoryBank] Store error for '{entity_name}': {e}")
 
     def recall_entity(self, entity_name: str) -> dict | None:
         """Return a stored entity by name, or None if not found."""
@@ -67,11 +53,7 @@ class MemoryBank:
                 }
             return None
         except Exception as e:
-            try:
-                from safety import log as _safety_log
-                _safety_log("memvault_recall_failed", entity=entity_name, error=str(e))
-            except Exception:
-                pass
+            print(f"[MemoryBank] Recall error for '{entity_name}': {e}")
             return None
 
     def search(self, query: str, n_results: int = 5) -> list[dict]:
@@ -88,45 +70,5 @@ class MemoryBank:
                 })
             return hits
         except Exception as e:
-            try:
-                from safety import log as _safety_log
-                _safety_log("memvault_search_failed", error=str(e))
-            except Exception:
-                pass
+            print(f"[MemoryBank] Search error: {e}")
             return []
-
-    def compact_older_than(self, days: int) -> dict:
-        """
-        Drop vectors older than `days` from the collection.
-
-        Returns a dict with `before`, `after`, `dropped` counts. We rely on
-        the `stored_at_ms` metadata stamped by store_interaction; entries
-        without that field are kept (legacy data, no way to know their age).
-        """
-        if not self.collection or days <= 0:
-            return {"before": 0, "after": 0, "dropped": 0}
-        try:
-            # Pull the whole collection. Chroma keeps this cheap for typical sizes.
-            res = self.collection.get(include=["metadatas"])
-            ids = list(res.get("ids") or [])
-            metas = list(res.get("metadatas") or [])
-            cutoff_ms = int((time.time() - days * 86400) * 1000)
-            doomed: list[str] = []
-            for i, m in zip(ids, metas):
-                ts = (m or {}).get("stored_at_ms") if isinstance(m, dict) else None
-                if isinstance(ts, (int, float)) and ts < cutoff_ms:
-                    doomed.append(i)
-            if doomed:
-                self.collection.delete(ids=doomed)
-            return {
-                "before": len(ids),
-                "after": len(ids) - len(doomed),
-                "dropped": len(doomed),
-            }
-        except Exception as e:
-            try:
-                from safety import log as _safety_log
-                _safety_log("memvault_compact_failed", error=str(e))
-            except Exception:
-                pass
-            return {"before": 0, "after": 0, "dropped": 0, "error": str(e)}
