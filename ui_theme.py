@@ -1,25 +1,11 @@
 """
-Metis UI theme + animations — Gemini × Manus hybrid.
+Metis UI: design-system injector.
 
-Injects a single <style> + <script> block into the Streamlit app that:
-  - paints a low-intensity aurora gradient canvas (4-stop conic, 36s rotation)
-  - rewires typography to Inter + Instrument Serif + JetBrains Mono
-  - gives every interactive element a soft shadow, 16px radius, hover lift
-  - animates the ◆ gem logo with a breathing + rotating aura ONLY while
-    `thinking_flag(True)` has been set for the current turn
-  - provides reusable animation classes:
-        .metis-fade-up   message entry
-        .metis-shimmer   loading text
-        .metis-breath    pulsing orb
-        .metis-chip      Gemini-style suggestion pill
-
-Public API:
-    inject(theme="obsidian" | "aurora" | "solar")
-    thinking_flag(active)                           — toggles body.thinking
-    hero(greeting, subtitle="", chips=[(label, prompt)])   -> chosen prompt | None
-    thinking_orb(active, label="Thinking")
-    agent_card(name=, role=, text=, status="idle", avatar_letter=None)
-    statusbar([(label, value), ...])
+The user explicitly requested we remove agent-authored styling and use their
+design system code verbatim. This module:
+- inlines `colors_and_type.css` + the UI kit `app.css`
+- adds only minimal Streamlit→token bindings so Streamlit elements use the
+  design system variables
 """
 
 from __future__ import annotations
@@ -27,355 +13,357 @@ from __future__ import annotations
 import html as _html
 
 import streamlit as st
-
-
-# ── Design tokens ────────────────────────────────────────────────────────────
-
-_THEMES: dict[str, dict[str, str]] = {
-    "obsidian": {  # Manus-style deep canvas with amber accent
-        "bg0":      "#07070b",
-        "bg1":      "#0e0e14",
-        "bg2":      "#15151d",
-        "surface":  "#191922",
-        "border":   "rgba(255,255,255,0.06)",
-        "text":     "#e9e9ee",
-        "muted":    "#8b8b98",
-        "accent":   "#E8A446",
-        "cyan":     "#4ECDC4",
-        "magenta":  "#FF6B9D",
-        "purple":   "#8B6CFF",
-        "mix":      "linear-gradient(135deg,#E8A446 0%,#FF6B9D 45%,#8B6CFF 100%)",
-    },
-    "aurora": {    # Gemini-style brighter canvas
-        "bg0":      "#0a0612",
-        "bg1":      "#110b1c",
-        "bg2":      "#1a1126",
-        "surface":  "#1d1426",
-        "border":   "rgba(255,255,255,0.07)",
-        "text":     "#f3eef8",
-        "muted":    "#9a94a8",
-        "accent":   "#FF9F5B",
-        "cyan":     "#5BD0FF",
-        "magenta":  "#FF6B9D",
-        "purple":   "#8B6CFF",
-        "mix":      "conic-gradient(from 180deg at 50% 50%,#FF6B9D,#F7B42C,#8B6CFF,#4ECDC4,#FF6B9D)",
-    },
-    "solar": {     # Lighter alternative
-        "bg0":      "#fafaf8",
-        "bg1":      "#ffffff",
-        "bg2":      "#f3f1ec",
-        "surface":  "#ffffff",
-        "border":   "rgba(0,0,0,0.06)",
-        "text":     "#1a1a22",
-        "muted":    "#5f5f6b",
-        "accent":   "#E8A446",
-        "cyan":     "#0BA5A4",
-        "magenta":  "#D6336C",
-        "purple":   "#5B3EFF",
-        "mix":      "linear-gradient(135deg,#E8A446,#D6336C,#5B3EFF)",
-    },
-}
+from pathlib import Path
 
 
 # ── CSS template ────────────────────────────────────────────────────────────
 
 _CSS = """
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-
 <style id="metis-theme">
-:root {
-  --bg-0:        __BG0__;
-  --bg-1:        __BG1__;
-  --bg-2:        __BG2__;
-  --surface:     __SURFACE__;
-  --border:      __BORDER__;
-  --text:        __TEXT__;
-  --muted:       __MUTED__;
-  --accent:      __ACCENT__;
-  --cyan:        __CYAN__;
-  --magenta:     __MAGENTA__;
-  --purple:      __PURPLE__;
-  --mix:         __MIX__;
-  --radius-sm:   10px;
-  --radius-md:   16px;
-  --radius-lg:   24px;
-  --ease-soft:   cubic-bezier(.2,.8,.2,1);
-  --shadow-sm:   0 1px 2px rgba(0,0,0,0.25);
-  --shadow-md:   0 8px 28px rgba(0,0,0,0.35);
-  --shadow-glow: 0 0 40px rgba(232,164,70,0.12);
+__DESIGN_SYSTEM_CSS__
+
+/* Legacy variable aliases (keep existing UI markup working while we migrate). */
+:root{
+  --metis-text: var(--text);
+  --metis-muted: var(--text-muted);
+  --metis-subtle: var(--text-subtle);
+  --metis-surface: var(--surface);
+  --metis-border: var(--border);
+  --metis-accent: var(--primary);
+  --metis-cyan: var(--info);
+  --bg-2: var(--surface-alt);
+  --ease-soft: var(--ease-out);
+  --accent: var(--primary);
 }
 
-html, body, [data-testid="stAppViewContainer"] {
-  background: var(--bg-0) !important;
+/* ═════════════════════════════════════════════════════════════════════
+   Streamlit → Design System mapping
+   Maps Streamlit's auto-generated elements to the design-kit tokens.
+   ═════════════════════════════════════════════════════════════════════ */
+
+/* ── Global background + type ──────────────────────────────────── */
+html, body, [data-testid=”stAppViewContainer”] {
+  background:
+    radial-gradient(circle at 15% -10%, rgba(124, 58, 237, 0.07), transparent 50%),
+    radial-gradient(circle at 90% 10%, rgba(251, 113, 133, 0.06), transparent 55%),
+    var(--bg) !important;
   color: var(--text) !important;
-  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif !important;
-  font-feature-settings: "ss01", "cv11";
-  letter-spacing: -0.005em;
+  font-family: var(--font-body) !important;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* ── Aurora canvas (low-opacity conic gradient painted behind everything) ─ */
-[data-testid="stAppViewContainer"]::before {
-  content: "";
-  position: fixed; inset: -30vmax;
-  z-index: 0; pointer-events: none;
-  background: var(--mix);
-  filter: blur(120px) saturate(120%);
-  opacity: 0.18;
-  animation: metis-aurora 36s linear infinite;
-  will-change: transform;
-}
-@keyframes metis-aurora {
-  0%   { transform: rotate(0deg)   translate(0,0); }
-  50%  { transform: rotate(180deg) translate(2vw,-3vh); }
-  100% { transform: rotate(360deg) translate(0,0); }
+/* ── Page width / breathing room ───────────────────────────────── */
+[data-testid=”stAppViewContainer”] > .main .block-container {
+  max-width: 1380px !important;
+  padding-top: 2.2rem !important;
+  padding-bottom: 2.2rem !important;
+  padding-left: 2.25rem !important;
+  padding-right: 2.25rem !important;
 }
 
-[data-testid="stAppViewContainer"] > .main,
-[data-testid="stSidebarContent"] {
-  position: relative; z-index: 1;
+/* ── Sidebar ───────────────────────────────────────────────────── */
+[data-testid=”stSidebar”] {
+  background: var(--surface) !important;
+  border-right: 1px solid var(--border) !important;
+}
+[data-testid=”stSidebar”] [data-testid=”stMarkdown”] p {
+  font-size: 14px;
+  line-height: 1.55;
 }
 
-/* ── Sidebar ──────────────────────────────────────────────────────────────── */
-[data-testid="stSidebar"] {
-  background: linear-gradient(180deg,var(--bg-1) 0%,var(--bg-0) 100%) !important;
-  border-right: 1px solid var(--border);
-  backdrop-filter: blur(8px);
+/* ── Chat header “aura” ────────────────────────────────────────── */
+.metis-aura {
+  width: 88px;
+  height: 88px;
+  margin: 0 auto;
+  border-radius: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.14), rgba(251, 113, 133, 0.1));
+  animation: metis-aura-pulse 3.2s var(--ease-in-out) infinite;
 }
-[data-testid="stSidebar"] .metis-pill {
-  display:inline-flex;align-items:center;gap:6px;
-  padding: 2px 10px; border-radius: 999px;
-  font-size:11px; font-weight:500; letter-spacing:.02em;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid var(--border);
-  color: var(--text);
+.metis-thinking .metis-aura {
+  animation: metis-aura-pulse 1.35s var(--ease-in-out) infinite;
 }
-[data-testid="stSidebar"] .metis-pill.muted { color: var(--muted); }
-[data-testid="stSidebar"] .metis-side-heading {
-  font-size:10.5px; font-weight:600; letter-spacing:.14em;
-  text-transform:uppercase; color: var(--muted);
-  margin: 14px 4px 8px;
+.metis-core {
+  font-size: 36px;
+  line-height: 1;
+  background: var(--heritage-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 10px 24px rgba(124, 58, 237, 0.22));
+  animation: metis-bob 6s ease-in-out infinite;
+}
+@keyframes metis-aura-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.08); transform: scale(1); }
+  50% { box-shadow: 0 0 42px 10px rgba(124, 58, 237, 0.2); transform: scale(1.03); }
+}
+@keyframes metis-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
 }
 
-/* ── Buttons ──────────────────────────────────────────────────────────────── */
-.stButton > button, .stDownloadButton > button, [data-testid="baseButton-secondary"] {
-  background: var(--surface);
-  color: var(--text);
-  border: 1px solid var(--border);
+/* ── Buttons (Streamlit native) ────────────────────────────────── */
+.stButton > button,
+.stDownloadButton > button,
+[data-testid=”baseButton-secondary”] {
+  background: var(--surface) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
   border-radius: var(--radius-md) !important;
-  font-weight: 500;
-  transition: transform .18s var(--ease-soft), border-color .18s var(--ease-soft),
-              box-shadow .18s var(--ease-soft), background .18s var(--ease-soft);
-  padding: 8px 14px !important;
+  font-family: var(--font-body) !important;
+  font-weight: 650 !important;
+  font-size: 14px !important;
+  letter-spacing: -0.005em;
+  padding: 10px 16px !important;
+  transition: transform var(--dur-base) var(--ease-out),
+              box-shadow var(--dur-base) var(--ease-out),
+              background-color var(--dur-base) var(--ease-out),
+              border-color var(--dur-base) var(--ease-out) !important;
 }
-.stButton > button:hover {
+.stButton > button:hover,
+.stDownloadButton > button:hover,
+[data-testid=”baseButton-secondary”]:hover {
   transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
-  box-shadow: var(--shadow-md);
-  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+  border-color: var(--border-strong) !important;
+  background: var(--surface-alt) !important;
+  box-shadow: var(--shadow-md) !important;
 }
-.stButton > button:active { transform: translateY(0); }
+[data-testid=”baseButton-primary”] {
+  background: var(--primary) !important;
+  color: #fff !important;
+  border-color: var(--primary) !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+[data-testid=”baseButton-primary”]:hover {
+  background: var(--primary-hover) !important;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md) !important;
+}
+[data-testid=”baseButton-primary”]:active {
+  background: var(--primary-press) !important;
+  transform: translateY(0);
+}
 
-[data-testid="baseButton-primary"] {
-  background: var(--mix) !important;
-  color: #0a0a0a !important;
+/* ── Inputs (Streamlit native) ─────────────────────────────────── */
+[data-testid=”stTextInput”] input,
+[data-testid=”stTextArea”] textarea,
+[data-testid=”stNumberInput”] input,
+[data-testid=”stChatInput”] textarea {
+  font-family: var(--font-body) !important;
+  font-size: 14px !important;
+  padding: 10px 12px !important;
+  border-radius: var(--radius-md) !important;
+  border: 1px solid var(--border) !important;
+  background: var(--surface) !important;
+  color: var(--text) !important;
+  transition: border-color var(--dur-base), box-shadow var(--dur-base) !important;
+}
+[data-testid=”stTextInput”] input::placeholder,
+[data-testid=”stTextArea”] textarea::placeholder,
+[data-testid=”stChatInput”] textarea::placeholder {
+  color: var(--text-subtle) !important;
+}
+[data-testid=”stTextInput”] input:focus,
+[data-testid=”stTextArea”] textarea:focus,
+[data-testid=”stChatInput”] textarea:focus {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 3px rgba(37,99,235,.18) !important;
+  outline: none !important;
+}
+
+/* ── Chat input composer feel ──────────────────────────────────── */
+[data-testid=”stChatInput”] {
+  border-radius: 16px !important;
+  border: 1px solid var(--border) !important;
+  background: var(--surface) !important;
+  box-shadow: var(--shadow-md) !important;
+  padding: 4px !important;
+}
+
+/* ── Chat messages (design-kit bubble style) ───────────────────── */
+[data-testid=”stChatMessage”] {
+  border-radius: 16px !important;
+  padding: 12px 16px !important;
+  font-size: 14.5px !important;
+  line-height: 1.55 !important;
+  margin-bottom: 8px !important;
+  max-width: 88%;
   border: none !important;
-  font-weight: 600 !important;
-  box-shadow: var(--shadow-md), var(--shadow-glow);
+  box-shadow: none !important;
 }
-
-/* ── Chat bubbles ─────────────────────────────────────────────────────────── */
-[data-testid="stChatMessage"] {
-  animation: metis-fade-up .35s var(--ease-soft) both;
-  border-radius: var(--radius-md);
-  padding: 14px 18px !important;
-  margin-bottom: 10px;
-  border: 1px solid var(--border);
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
-  backdrop-filter: blur(6px);
+[data-testid=”stChatMessage”][data-testid*=”user”],
+[data-testid=”stChatMessage”]:has([data-testid=”chatAvatarIcon-user”]) {
+  background: var(--primary) !important;
+  color: #fff !important;
+  border-bottom-right-radius: 4px !important;
+  align-self: flex-end;
+  margin-left: auto;
 }
-[data-testid="stChatMessage"][data-testid*="assistant"] {
-  background: linear-gradient(180deg,
-    color-mix(in srgb, var(--surface) 94%, transparent),
-    color-mix(in srgb, var(--bg-2) 94%, transparent));
-  border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border));
+[data-testid=”stChatMessage”]:has([data-testid=”chatAvatarIcon-user”]) p,
+[data-testid=”stChatMessage”]:has([data-testid=”chatAvatarIcon-user”]) span {
+  color: #fff !important;
 }
-@keyframes metis-fade-up {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.metis-fade-up { animation: metis-fade-up .35s var(--ease-soft) both; }
-
-/* ── Input bar ────────────────────────────────────────────────────────────── */
-[data-testid="stChatInput"] {
+[data-testid=”stChatMessage”]:has([data-testid=”chatAvatarIcon-assistant”]) {
   background: var(--surface) !important;
   border: 1px solid var(--border) !important;
-  border-radius: 22px !important;
-  box-shadow: var(--shadow-md);
-  transition: border-color .18s var(--ease-soft), box-shadow .18s var(--ease-soft);
-}
-[data-testid="stChatInput"]:focus-within {
-  border-color: color-mix(in srgb, var(--accent) 60%, var(--border)) !important;
-  box-shadow: 0 8px 28px rgba(0,0,0,.35),
-              0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
-}
-[data-testid="stChatInput"] textarea {
-  background: transparent !important;
   color: var(--text) !important;
-  font-family: 'Inter', system-ui, sans-serif !important;
-  font-size: 15px !important;
+  border-bottom-left-radius: 4px !important;
+  box-shadow: var(--shadow-xs) !important;
+}
+[data-testid=”stChatMessage”]:has([data-testid=”chatAvatarIcon-assistant”]) code {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  background: var(--surface-alt);
+  padding: 1px 6px;
+  border-radius: 5px;
 }
 
-/* ── Hero empty state ─────────────────────────────────────────────────────── */
-.metis-hero {
-  display:flex; flex-direction:column; align-items:center;
-  gap: 14px; padding: 40px 16px 28px;
-  animation: metis-fade-up .6s var(--ease-soft) both;
+/* ── Cards / containers / expanders ────────────────────────────── */
+[data-testid=”stExpander”] {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-sm) !important;
 }
-.metis-hero-title {
-  font-family: 'Instrument Serif', Georgia, serif;
-  font-weight: 400; font-size: 54px; line-height: 1.05;
-  letter-spacing: -0.02em; text-align: center;
-  background: var(--mix);
-  -webkit-background-clip: text; background-clip: text;
-  -webkit-text-fill-color: transparent; color: transparent;
+[data-testid=”stExpander”] summary {
+  font-weight: 600 !important;
+  font-size: 14px !important;
 }
-.metis-hero-sub {
-  font-size: 14px; color: var(--muted);
-  max-width: 520px; text-align:center;
+[data-testid=”stVerticalBlockBorderWrapper”] {
+  border-radius: var(--radius-lg) !important;
 }
 
-/* ── Chips / pills ────────────────────────────────────────────────────────── */
-.metis-chip-row {
-  display:flex; flex-wrap:wrap; gap:10px;
-  justify-content:center; margin-top: 10px;
+/* ── Selectbox / dropdown ──────────────────────────────────────── */
+[data-testid=”stSelectbox”] [data-baseweb=”select”] {
+  border-radius: var(--radius-md) !important;
 }
 
-/* ── Logo gem + breathing aura (only spins while .thinking) ───────────────── */
-.metis-gem {
-  display:inline-flex; align-items:center; justify-content:center;
-  width: 30px; height: 30px; border-radius: 50%;
-  background: radial-gradient(circle at 30% 30%,
-              color-mix(in srgb, var(--accent) 40%, transparent), transparent 60%);
-  color: var(--accent);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 19px;
-  position: relative;
-}
-.metis-gem::after {
-  content: "";
-  position: absolute; inset: -6px; border-radius: 50%;
-  background: conic-gradient(from 0deg,
-              color-mix(in srgb, var(--magenta) 40%, transparent),
-              color-mix(in srgb, var(--accent)  40%, transparent),
-              color-mix(in srgb, var(--purple)  40%, transparent),
-              color-mix(in srgb, var(--cyan)    40%, transparent),
-              color-mix(in srgb, var(--magenta) 40%, transparent));
-  filter: blur(8px);
-  opacity: 0;
-  transition: opacity .4s var(--ease-soft);
-}
-.thinking .metis-gem::after {
-  opacity: .9; animation: metis-spin 6s linear infinite;
-}
-@keyframes metis-spin { to { transform: rotate(360deg); } }
-
-/* ── Thinking orb (used when streaming) ───────────────────────────────────── */
-.metis-breath {
-  display:inline-block;
-  width: 10px; height: 10px; border-radius: 50%;
-  background: var(--mix);
-  box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 60%, transparent);
-  animation: metis-breath 2.4s var(--ease-soft) infinite;
-  margin-right: 8px; vertical-align: middle;
-}
-@keyframes metis-breath {
-  0%,100% { transform: scale(.85); opacity: .6; }
-  50%     { transform: scale(1.15); opacity: 1;  }
-}
-.metis-shimmer {
-  background: linear-gradient(90deg,
-      var(--muted) 0%, var(--text) 50%, var(--muted) 100%);
-  background-size: 200% 100%;
-  -webkit-background-clip: text; background-clip: text;
-  -webkit-text-fill-color: transparent; color: transparent;
-  animation: metis-shimmer 2.2s ease-in-out infinite;
-  font-weight: 500;
-}
-@keyframes metis-shimmer {
-  0%   { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+/* ── Toggle switches ──────────────────────────────────────────── */
+[data-testid=”stToggle”] label {
+  font-size: 14px !important;
+  font-weight: 500 !important;
 }
 
-/* ── Mission / Agent cards ────────────────────────────────────────────────── */
-.metis-agent-card {
-  display:flex; gap:14px; align-items:flex-start;
-  padding: 14px 16px; border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--surface) 94%, transparent);
+/* ── Tabs (design-kit style) ──────────────────────────────────── */
+[data-testid=”stTabs”] [role=”tablist”] {
+  gap: 4px !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+[data-testid=”stTabs”] [role=”tab”] {
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  color: var(--text-muted) !important;
+  padding: 10px 14px !important;
+  border-bottom: 2px solid transparent !important;
+}
+[data-testid=”stTabs”] [role=”tab”]:hover {
+  color: var(--text) !important;
+}
+[data-testid=”stTabs”] [role=”tab”][aria-selected=”true”] {
+  color: var(--primary) !important;
+  border-bottom-color: var(--primary) !important;
+}
+
+/* ── File uploader ─────────────────────────────────────────────── */
+[data-testid=”stFileUploader”] {
+  border-radius: var(--radius-lg) !important;
+}
+[data-testid=”stFileUploader”] section {
+  border: 1px dashed var(--border) !important;
+  border-radius: var(--radius-lg) !important;
+  background: var(--surface) !important;
+}
+
+/* ── Progress bar ──────────────────────────────────────────────── */
+[data-testid=”stProgress”] > div {
+  border-radius: 999px !important;
+  height: 6px !important;
+}
+
+/* ── Toast / notification ──────────────────────────────────────── */
+.stToast {
+  background: var(--text) !important;
+  color: #fff !important;
+  border-radius: 12px !important;
+  box-shadow: var(--shadow-lg) !important;
+  font-size: 13.5px !important;
+}
+
+/* ── Tables ────────────────────────────────────────────────────── */
+.stMarkdown table,
+[data-testid=”stTable”] table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
   border: 1px solid var(--border);
-  transition: transform .18s var(--ease-soft), border-color .18s var(--ease-soft),
-              box-shadow .18s var(--ease-soft);
-  margin-bottom: 8px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
 }
-.metis-agent-card:hover {
-  transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
-  box-shadow: var(--shadow-md);
+.stMarkdown thead th,
+[data-testid=”stTable”] thead th {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: var(--surface-alt);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 12px;
 }
-.metis-avatar {
-  width: 34px; height: 34px; border-radius: 50%;
-  display:flex; align-items:center; justify-content:center;
-  font-family: 'Instrument Serif', serif; font-size: 17px;
-  color: #0a0a0a; flex-shrink:0;
-  background: var(--mix);
-  box-shadow: 0 0 0 1px var(--border);
+.stMarkdown tbody td,
+[data-testid=”stTable”] tbody td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+  color: var(--text);
 }
-.metis-agent-meta { flex:1; min-width:0; }
-.metis-agent-name { font-weight: 600; font-size: 14px; color: var(--text); }
-.metis-agent-role { font-size: 11.5px; color: var(--muted); letter-spacing:.04em; text-transform:uppercase; }
-.metis-agent-body { font-size: 13.5px; color: var(--text); margin-top: 4px; line-height: 1.5; }
-.metis-agent-status {
-  font-size: 11px; padding: 2px 8px; border-radius: 999px;
-  font-family: 'JetBrains Mono', monospace;
-  background: color-mix(in srgb, var(--cyan) 15%, transparent);
-  color: var(--cyan);
-  border: 1px solid color-mix(in srgb, var(--cyan) 25%, transparent);
+.stMarkdown tbody tr:last-child td,
+[data-testid=”stTable”] tbody tr:last-child td {
+  border-bottom: none;
 }
-.metis-agent-status.live { background: color-mix(in srgb, var(--accent) 15%, transparent);
-                           color: var(--accent);
-                           border-color: color-mix(in srgb, var(--accent) 30%, transparent); }
+.stMarkdown tbody tr:hover td,
+[data-testid=”stTable”] tbody tr:hover td {
+  background: color-mix(in srgb, var(--primary) 6%, var(--surface));
+}
 
-/* ── Status bar ───────────────────────────────────────────────────────────── */
-.metis-statusbar {
-  display:flex; gap:14px; align-items:center;
-  padding: 6px 14px; border-radius: 999px;
-  background: color-mix(in srgb, var(--surface) 94%, transparent);
-  border: 1px solid var(--border);
-  backdrop-filter: blur(8px);
-  font-family: 'JetBrains Mono', monospace; font-size: 11px;
-  color: var(--muted);
-}
-.metis-statusbar b { color: var(--text); font-weight: 500; }
-
-/* ── Code blocks ──────────────────────────────────────────────────────────── */
-pre, code, .stMarkdown pre {
-  font-family: 'JetBrains Mono', ui-monospace, monospace !important;
+/* ── Code blocks ───────────────────────────────────────────────── */
+[data-testid=”stCode”],
+.stMarkdown pre {
+  border-radius: var(--radius-md) !important;
+  border: 1px solid var(--border) !important;
+  font-family: var(--font-mono) !important;
   font-size: 13px !important;
 }
-pre {
-  border-radius: var(--radius-sm) !important;
-  border: 1px solid var(--border) !important;
-  background: var(--bg-2) !important;
+
+/* ── Metric cards ──────────────────────────────────────────────── */
+[data-testid=”stMetric”] {
+  font-family: var(--font-display) !important;
+}
+[data-testid=”stMetricValue”] {
+  font-family: var(--font-display) !important;
+  font-weight: 750 !important;
+}
+[data-testid=”stMetricLabel”] {
+  font-family: var(--font-mono) !important;
+  font-size: 10.5px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  color: var(--text-subtle) !important;
 }
 
-/* ── Reduce motion for accessibility ──────────────────────────────────────── */
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.001s !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001s !important;
-  }
+/* ── Auth page spacing ─────────────────────────────────────────── */
+[data-testid=”stVerticalBlock”] [data-testid=”stContainer”] {
+  margin-top: 0.4rem;
+}
+[data-testid=”stTextInput”],
+[data-testid=”stButton”],
+[data-testid=”stLinkButton”] {
+  margin-bottom: 0.3rem;
 }
 </style>
 """
@@ -383,49 +371,60 @@ pre {
 
 # ── Public API ──────────────────────────────────────────────────────────────
 
-def inject(theme: str = "obsidian") -> None:
-    """Inject the Metis theme CSS + thinking-class wiring script."""
-    tokens = _THEMES.get(theme, _THEMES["obsidian"])
-    css = _CSS
-    for key, val in {
-        "__BG0__":     tokens["bg0"],
-        "__BG1__":     tokens["bg1"],
-        "__BG2__":     tokens["bg2"],
-        "__SURFACE__": tokens["surface"],
-        "__BORDER__":  tokens["border"],
-        "__TEXT__":    tokens["text"],
-        "__MUTED__":   tokens["muted"],
-        "__ACCENT__":  tokens["accent"],
-        "__CYAN__":    tokens["cyan"],
-        "__MAGENTA__": tokens["magenta"],
-        "__PURPLE__":  tokens["purple"],
-        "__MIX__":     tokens["mix"],
-    }.items():
-        css = css.replace(key, val)
-    st.markdown(css, unsafe_allow_html=True)
+# Module-level CSS payload cache — built once per process, never re-reads disk.
+_CSS_PAYLOAD_CACHE: dict[str, str] = {}
 
-    # Small JS that watches the hidden thinking-flag input and toggles the
-    # `.thinking` class on <body> so the gem's aura animates only while busy.
-    st.markdown(
-        """
-        <script>
-        (function(){
-          const body = window.parent.document.body;
-          const sync = () => {
-            const flag = window.parent.document.querySelector(
-                'input[data-metis-thinking]');
-            const on = flag && flag.value === '1';
-            body.classList.toggle('thinking', !!on);
-          };
-          new MutationObserver(sync).observe(
-              window.parent.document.body,
-              {childList:true, subtree:true, attributes:true, attributeFilter:['value']});
-          sync();
-        })();
-        </script>
-        """,
-        unsafe_allow_html=True,
-    )
+
+def _build_css_payload(theme: str) -> str:  # noqa: ARG001  (theme reserved for future per-theme tokens)
+    """Read all design-system CSS files and return the full <style> payload."""
+    design_css = ""
+    try:
+        root = Path(__file__).resolve().parent
+        ds_root = root / "assets" / "design-system"
+
+        token_css_parts: list[str] = []
+        token_root = root / "colors_and_type.css"
+        token_ds = ds_root / "colors_and_type.css"
+        if token_root.exists():
+            token_css_parts.append(token_root.read_text(encoding="utf-8"))
+        if token_ds.exists() and token_ds.resolve() != token_root.resolve():
+            token_css_parts.append(token_ds.read_text(encoding="utf-8"))
+
+        css_files = sorted(
+            [p for p in ds_root.rglob("*.css") if p.is_file()],
+            key=lambda p: str(p).lower(),
+        )
+        other_css_parts: list[str] = []
+        for p in css_files:
+            if p.name.lower() == "colors_and_type.css":
+                continue
+            css = p.read_text(encoding="utf-8")
+            css = "\n".join(
+                ln for ln in css.splitlines()
+                if not ln.lstrip().lower().startswith("@import ")
+            )
+            other_css_parts.append(css)
+
+        design_css = "\n\n".join([*token_css_parts, *other_css_parts]).strip()
+    except Exception:
+        design_css = ""
+    return _CSS.replace("__DESIGN_SYSTEM_CSS__", design_css)
+
+
+def inject(theme: str = "obsidian") -> None:
+    """Inject the user's design system CSS into Streamlit.
+
+    The CSS payload is built once per server process and cached in
+    ``_CSS_PAYLOAD_CACHE`` so that Streamlit reruns don't re-read
+    every design-system file from disk each time.
+    """
+    if theme not in _CSS_PAYLOAD_CACHE:
+        _CSS_PAYLOAD_CACHE[theme] = _build_css_payload(theme)
+    payload = _CSS_PAYLOAD_CACHE[theme]
+    if hasattr(st, "html"):
+        st.html(payload)
+    else:
+        st.markdown(payload, unsafe_allow_html=True)
 
 
 def thinking_flag(active: bool) -> None:
@@ -447,16 +446,21 @@ def hero(
 
     Returns the chip prompt text if the user clicked one, otherwise None.
     """
-    st.markdown(
-        f"""
-        <div class="metis-hero">
-            <div class="metis-gem">◆</div>
-            <div class="metis-hero-title">{_html.escape(greeting)}</div>
-            <div class="metis-hero-sub">{_html.escape(subtitle)}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    root = Path(__file__).resolve().parent
+    logo_png = root / "assets" / "design-system" / "assets" / "metis-logomark.png"
+    col_l, col_c, col_r = st.columns([1, 2, 1])
+    with col_c:
+        if logo_png.exists():
+            st.image(str(logo_png), width=96)
+        st.markdown(
+            f"""
+            <div class="empty" style="padding-top:8px;">
+              <h3>{_html.escape(greeting)}</h3>
+              <p>{_html.escape(subtitle)}</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
     if not chips:
         return None
     chosen: str | None = None
@@ -472,10 +476,14 @@ def thinking_orb(active: bool, label: str = "Thinking") -> None:
     if not active:
         return
     st.markdown(
-        f'<div class="metis-fade-up">'
-        f'  <span class="metis-breath"></span>'
-        f'  <span class="metis-shimmer">{_html.escape(label)}…</span>'
-        f'</div>',
+        f"""
+        <div class="thinking" role="status" aria-live="polite">
+          <span class="thinking-dot"></span>
+          <span class="thinking-dot"></span>
+          <span class="thinking-dot"></span>
+          <span>{_html.escape(label)}…</span>
+        </div>
+        """,
         unsafe_allow_html=True,
     )
 
@@ -489,19 +497,28 @@ def agent_card(
     avatar_letter: str | None = None,
 ) -> None:
     letter = (avatar_letter or name[:1] or "·").upper()
-    status_class = "live" if status.lower() in ("live", "running", "active") else ""
+    # Map status → chip variant
+    chip_class = {
+        "live": "chip-running", "running": "chip-running",
+        "idle": "chip-ready", "error": "chip-failed",
+    }.get(status, "chip-ready")
+    chip_label = _html.escape(status.capitalize())
     st.markdown(
         f"""
-        <div class="metis-agent-card metis-fade-up">
-          <div class="metis-avatar">{_html.escape(letter)}</div>
-          <div class="metis-agent-meta">
-            <div style="display:flex;gap:10px;align-items:center;">
-              <div class="metis-agent-name">{_html.escape(name)}</div>
-              <div class="metis-agent-role">{_html.escape(role)}</div>
-              <div style="flex:1;"></div>
-              <span class="metis-agent-status {status_class}">{_html.escape(status)}</span>
+        <div class="card" style="padding:16px;margin-bottom:8px;">
+          <div style="display:flex;gap:12px;align-items:flex-start;">
+            <div class="avatar" aria-hidden="true">{_html.escape(letter)}</div>
+            <div style="flex:1;min-width:0;">
+              <div class="row" style="gap:10px;align-items:center;">
+                <span style="font-family:var(--font-display);font-size:15px;font-weight:700;color:var(--text);">{_html.escape(name)}</span>
+                <span class="chip chip-ready" style="font-size:11px;">{_html.escape(role)}</span>
+                <div style="flex:1;"></div>
+                <span class="chip {chip_class}"><span class="chip-dot"></span>{chip_label}</span>
+              </div>
+              <div style="margin-top:6px;color:var(--text-muted);font-size:13.5px;line-height:1.55;">
+                {_html.escape(text)}
+              </div>
             </div>
-            <div class="metis-agent-body">{_html.escape(text)}</div>
           </div>
         </div>
         """,
@@ -510,11 +527,16 @@ def agent_card(
 
 
 def statusbar(items: list[tuple[str, str]]) -> None:
-    """Render a Manus-style monospace status bar: [(label, value), ...]"""
+    """Render a design-kit monospace status bar: [(label, value), ...]"""
     inner = " · ".join(
-        f"{_html.escape(k)} <b>{_html.escape(v)}</b>" for k, v in items
+        f"<span style='font-family:var(--font-mono);font-size:11px;letter-spacing:0.04em;"
+        f"text-transform:uppercase;color:var(--text-subtle);'>{_html.escape(k)}</span>"
+        f" <b style='font-family:var(--font-mono);font-size:12px;"
+        f"font-feature-settings:\"tnum\" 1,\"lnum\" 1;color:var(--text);'>{_html.escape(v)}</b>"
+        for k, v in items
     )
     st.markdown(
-        f'<div class="metis-statusbar">{inner}</div>',
+        f'<div class="card" style="padding:10px 14px;margin-top:12px;">'
+        f'<div class="row" style="flex-wrap:wrap;gap:10px;justify-content:center;">{inner}</div></div>',
         unsafe_allow_html=True,
     )
