@@ -1,0 +1,8 @@
+{
+  "test_agent": {
+    "slug": "test_agent",
+    "last_heartbeat_at": 1777428992.6918495,
+    "status": "alive",
+    "messages_handled": 0
+  }
+}
