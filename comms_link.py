@@ -14,6 +14,14 @@ class CommsLink:
         Send an email via SMTP using EMAIL_USER / EMAIL_PASS env vars.
         Defaults to Gmail SSL (port 465).
         """
+        try:
+            from comms_policy import is_allowed
+            if not is_allowed("email"):
+                print("[CommsLink] Email blocked by Director tool settings.")
+                return False
+        except ImportError:
+            pass
+
         smtp_user = os.getenv("EMAIL_USER")
         smtp_pass = os.getenv("EMAIL_PASS")
         smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
@@ -44,6 +52,14 @@ class CommsLink:
         Send an SMS via Twilio.
         Requires TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM in environment.
         """
+        try:
+            from comms_policy import is_allowed
+            if not is_allowed("sms"):
+                print("[CommsLink] SMS blocked by Director tool settings.")
+                return False
+        except ImportError:
+            pass
+
         sid = os.getenv("TWILIO_SID")
         token = os.getenv("TWILIO_TOKEN")
         from_number = os.getenv("TWILIO_FROM")
@@ -60,4 +76,43 @@ class CommsLink:
             return True
         except Exception as e:
             print(f"[CommsLink] SMS send error: {e}")
+            return False
+
+    def place_outbound_call(self, to_number: str, twiml_url: str | None = None) -> bool:
+        """
+        Place an outbound voice call via Twilio REST.
+        Set TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM. Optionally set TWILIO_CALL_TWIML_URL
+        to a URL that returns TwiML, or pass twiml_url.
+
+        If not configured, logs and returns False.
+        """
+        try:
+            from comms_policy import is_allowed
+            if not is_allowed("phone"):
+                print("[CommsLink] Outbound call blocked by Director tool settings.")
+                return False
+        except ImportError:
+            pass
+
+        sid = os.getenv("TWILIO_SID")
+        token = os.getenv("TWILIO_TOKEN")
+        from_number = os.getenv("TWILIO_FROM")
+        default_url = os.getenv("TWILIO_CALL_TWIML_URL", "")
+        url = twiml_url or default_url
+
+        if not all([sid, token, from_number, url]):
+            print(
+                "[CommsLink] (SIMULATED) Outbound call — missing Twilio or TWIML URL. "
+                f"to={to_number}"
+            )
+            return False
+
+        try:
+            from twilio.rest import Client
+            client = Client(sid, token)
+            client.calls.create(to=to_number, from_=from_number, url=url)
+            print(f"[CommsLink] Outbound call started to {to_number}.")
+            return True
+        except Exception as e:
+            print(f"[CommsLink] Outbound call error: {e}")
             return False

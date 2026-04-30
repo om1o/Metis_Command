@@ -350,12 +350,18 @@ posthog==5.4.0
     # via chromadb
 pre-commit==4.5.1
     # via instructor
+iniconfig==2.3.0
+    # via pytest
 primp==1.2.2
     # via duckduckgo-search
+pluggy==1.6.0
+    # via pytest
 propcache==0.4.1
     # via
     #   aiohttp
     #   yarl
+pytest==9.0.3
+    # via -r requirements.in
 protobuf==5.29.6
     # via
     #   googleapis-common-protos
@@ -516,6 +522,8 @@ rich==13.9.4
     #   instructor
     #   pyiceberg
     #   typer
+ruff==0.15.12
+    # via -r requirements.in
 rpds-py==0.30.0
     # via
     #   jsonschema

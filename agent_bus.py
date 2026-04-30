@@ -47,6 +47,18 @@ BUS_LOG = Path("logs") / "agent_bus.jsonl"
 
 # ── Data ─────────────────────────────────────────────────────────────────────
 
+def _default_correlation_id() -> str:
+    """Use the active trace_id if one is bound, else mint a fresh id."""
+    try:
+        from tracing import current_trace_id
+        tid = current_trace_id()
+        if tid:
+            return tid
+    except Exception:
+        pass
+    return uuid.uuid4().hex[:10]
+
+
 @dataclass
 class AgentMessage:
     from_slug: str = "orchestrator"
@@ -54,12 +66,28 @@ class AgentMessage:
     channel: str | None = None
     kind: str = "message"                     # free-form: prompt, reply, done, ask, alert…
     payload: dict[str, Any] = field(default_factory=dict)
-    correlation_id: str = field(default_factory=lambda: uuid.uuid4().hex[:10])
+    correlation_id: str = field(default_factory=_default_correlation_id)
     ts: float = field(default_factory=time.time)
     id: str = field(default_factory=lambda: uuid.uuid4().hex[:10])
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+
+@dataclass
+class PublishResult:
+    """What happened when a message was published.
+
+    `delivered` lists slugs whose inbox accepted the message.
+    `dropped` lists slugs whose inbox was full (or otherwise refused it).
+    """
+    delivered: list[str] = field(default_factory=list)
+    dropped: list[str] = field(default_factory=list)
+    targets: int = 0
+
+    @property
+    def ok(self) -> bool:
+        return not self.dropped and self.targets > 0
 
 
 @dataclass
@@ -112,8 +140,13 @@ def subscribers(channel: str) -> list[str]:
         return sorted(_subscriptions.get(channel, set()))
 
 
-def publish(message: AgentMessage) -> None:
-    """Deliver `message` to the target inbox(es) and persist to bus log."""
+def publish(message: AgentMessage) -> PublishResult:
+    """Deliver `message` to the target inbox(es) and persist to bus log.
+
+    Returns a PublishResult describing which targets accepted vs dropped
+    the message. On backpressure (inbox full) we explicitly audit the drop
+    so the failure isn't silent.
+    """
     if not isinstance(message, AgentMessage):
         raise TypeError("publish() expects an AgentMessage")
     targets: list[str] = []
@@ -123,14 +156,30 @@ def publish(message: AgentMessage) -> None:
         _ensure_channel(message.channel)
         with _lock:
             targets.extend(_subscriptions.get(message.channel, set()))
+    targets = sorted(set(targets))
+    result = PublishResult(targets=len(targets))
     if not targets:
         _persist(message, note="no-targets")
-        return
-    for slug in sorted(set(targets)):
+        return result
+    for slug in targets:
         try:
             inbox(slug).put_nowait(message)
+            result.delivered.append(slug)
         except queue.Full:
+            result.dropped.append(slug)
             _persist(message, note=f"inbox-full:{slug}")
+            try:
+                from safety import audit
+                audit({
+                    "event": "bus_backpressure_drop",
+                    "from": message.from_slug,
+                    "to": slug,
+                    "channel": message.channel,
+                    "kind": message.kind,
+                    "cid": message.correlation_id,
+                })
+            except Exception:
+                pass
             continue
     _persist(message)
     try:
@@ -142,9 +191,12 @@ def publish(message: AgentMessage) -> None:
             "channel": message.channel,
             "kind": message.kind,
             "cid": message.correlation_id,
+            "delivered": result.delivered,
+            "dropped": result.dropped,
         })
     except Exception:
         pass
+    return result
 
 
 def drain(slug: str, limit: int = 100, timeout: float = 0.0) -> list[AgentMessage]:
