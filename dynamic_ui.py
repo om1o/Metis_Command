@@ -444,49 +444,393 @@ def _auth_gate() -> bool:
 
     auth_css = f"""
     <style id="metis-auth-page">
-    /* ── Auth page overrides for Streamlit ── */
-    .titlebar {{ position: fixed; top: 0; left: 0; right: 0; height: 32px;
-      background: rgba(247,250,252,0.85); backdrop-filter: blur(20px);
-      border-bottom: 1px solid var(--border); display: flex; align-items: center;
-      padding: 0 14px; gap: 8px; z-index: 100; }}
+    /* ═══════════════════════════════════════════════════════════════════
+       Metis AI — Dark Hero Auth (design v4 onboarding/login.html)
+       Reserves heritage gradient for the auth/onboarding hero per brand.
+       ═══════════════════════════════════════════════════════════════════ */
+    :root {{
+      --auth-bg: #07071a;
+      --auth-text: #F8FAFF;
+      --auth-muted: rgba(248,250,255,.55);
+      --auth-subtle: rgba(248,250,255,.28);
+      --auth-vi: #7C3AED;
+      --auth-vi2: #A78BFA;
+      --auth-co: #FB7185;
+      --auth-am: #F59E0B;
+      --auth-grad: linear-gradient(135deg, #7C3AED, #FB7185 55%, #F59E0B);
+    }}
+
+    /* Force dark page background everywhere on auth screen
+       (chained selectors give higher specificity than ui_theme.py's rules,
+       so order-of-injection no longer matters) */
+    html:root,
+    html body, html [data-testid="stAppViewContainer"], html [data-testid="stApp"],
+    html .main, html .block-container, html [data-testid="stHeader"] {{
+      background: var(--auth-bg) !important;
+      color: var(--auth-text) !important;
+    }}
+    html:root {{ background: #07071a !important; }}
+    html body [data-testid="stAppViewContainer"] {{
+      background:
+        radial-gradient(circle at 18% 22%, rgba(124,58,237,.55), transparent 55%),
+        radial-gradient(circle at 82% 18%, rgba(245,158,11,.35), transparent 60%),
+        radial-gradient(circle at 28% 88%, rgba(59,130,246,.40), transparent 60%),
+        radial-gradient(circle at 78% 78%, rgba(251,113,133,.45), transparent 55%),
+        var(--auth-bg) !important;
+    }}
+    /* Hide Streamlit deploy/menu bar */
+    html [data-testid="stHeader"] {{ background: transparent !important; }}
+    html [data-testid="stToolbar"] {{ display: none !important; }}
+    /* Slow drifting orbs via animated background-position */
+    html body [data-testid="stApp"] {{
+      animation: meshDrift 22s ease-in-out infinite alternate;
+    }}
+    @keyframes meshDrift {{
+      0%   {{ background-position: 0% 0%, 100% 0%, 0% 100%, 100% 100%; }}
+      100% {{ background-position: 8% -4%, 92% 6%, -3% 96%, 96% 88%; }}
+    }}
+    /* Subtle film grain over the whole page */
+    [data-testid="stApp"]::before {{
+      content: "";
+      position: fixed; inset: 0;
+      pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+      background-size: 220px;
+      opacity: .55;
+      z-index: 1;
+      mix-blend-mode: overlay;
+    }}
+
+    /* Window-style chrome */
+    .titlebar {{
+      position: fixed; top: 0; left: 0; right: 0; height: 32px;
+      background: rgba(7,7,26,0.65); backdrop-filter: blur(20px) saturate(180%);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      display: flex; align-items: center; padding: 0 14px; gap: 8px; z-index: 100;
+    }}
     .titlebar .traffic {{ display: flex; gap: 7px; }}
     .traffic span {{ width: 12px; height: 12px; border-radius: 50%; }}
     .traffic .r {{ background: #FF5F57; }} .traffic .y {{ background: #FEBC2E; }} .traffic .g {{ background: #28C840; }}
-    .titlebar .title {{ flex: 1; text-align: center; font-size: 12px;
-      color: var(--text-muted); font-family: var(--font-mono); font-weight: 500; }}
+    .titlebar .title {{
+      flex: 1; text-align: center; font-size: 12px;
+      color: var(--auth-muted); font-family: var(--font-mono); font-weight: 500;
+    }}
 
-    .auth-watermark {{ position: fixed; top: 50px; left: 40px; display: flex;
-      align-items: center; gap: 10px; z-index: 5; }}
-    .auth-watermark img {{ height: 26px; animation: spinSlow 22s linear infinite; }}
-    .auth-watermark .wm {{ font-family: ui-serif, "Iowan Old Style", Georgia, serif;
-      font-size: 19px; font-weight: 500; letter-spacing: -0.01em; color: var(--text); }}
-    .auth-watermark .wm em {{ font-style: italic; }}
+    /* Floating brand watermark (top-left) */
+    .auth-watermark {{
+      position: fixed; top: 56px; left: 40px;
+      display: flex; align-items: center; gap: 10px; z-index: 5;
+    }}
+    .auth-watermark img {{
+      height: 28px; animation: spinSlow 22s linear infinite;
+      filter: drop-shadow(0 0 14px rgba(124,58,237,.6));
+    }}
+    .auth-watermark .wm {{
+      font-family: 'Sora', ui-sans-serif, sans-serif;
+      font-size: 19px; font-weight: 700; letter-spacing: -0.01em;
+      color: var(--auth-text);
+    }}
+    .auth-watermark .wm em {{
+      font-family: ui-serif, "Iowan Old Style", Georgia, serif;
+      font-style: italic; font-weight: 400;
+      background: var(--auth-grad); -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }}
     @keyframes spinSlow {{ to {{ transform: rotate(360deg); }} }}
 
-    .auth-card h1 {{ font-family: var(--font-display); font-size: 32px;
-      font-weight: 750; letter-spacing: -0.02em; line-height: 1.15; margin: 0 0 10px; }}
-    .auth-card h1 em {{ font-family: ui-serif, "Iowan Old Style", Georgia, serif;
-      font-style: italic; font-weight: 500;
-      background: var(--heritage-grad); -webkit-background-clip: text;
-      background-clip: text; -webkit-text-fill-color: transparent; }}
-    .auth-card .sub {{ font-size: 14.5px; color: var(--text-muted);
-      margin: 0 0 28px; line-height: 1.55; }}
-    .auth-card .lockup {{ display: flex; align-items: center; gap: 12px; margin-bottom: 36px; }}
-    .auth-card .lockup img {{ height: 42px; animation: spinSlow 22s linear infinite; }}
+    /* Glass card holding the auth form (auth_col content) */
+    .auth-card {{
+      width: 100%; max-width: 460px; margin: 0 auto;
+      background: rgba(255,255,255,0.055);
+      backdrop-filter: blur(40px) saturate(180%);
+      -webkit-backdrop-filter: blur(40px) saturate(180%);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 24px;
+      padding: 36px 32px 28px;
+      box-shadow: 0 32px 80px rgba(0,0,0,.45),
+                  inset 0 1px 0 rgba(255,255,255,.12);
+      animation: cardIn .6s .1s cubic-bezier(.22,1,.36,1) both;
+      position: relative; z-index: 4;
+    }}
+    @keyframes cardIn {{
+      from {{ opacity: 0; transform: translateY(20px) scale(.97); }}
+      to   {{ opacity: 1; transform: none; }}
+    }}
+    .auth-card .lockup {{ display: flex; justify-content: center; margin: 0 0 18px; }}
+    .auth-card .lockup img {{
+      height: 56px; width: 56px; animation: spinSlow 14s linear infinite;
+      filter: drop-shadow(0 0 16px rgba(124,58,237,.55))
+              drop-shadow(0 0 40px rgba(124,58,237,.2));
+    }}
+    .auth-card h1 {{
+      font-family: 'Sora', ui-sans-serif, sans-serif;
+      font-size: 26px; font-weight: 800; letter-spacing: -0.02em;
+      line-height: 1.15; margin: 0 0 8px;
+      text-align: center; color: var(--auth-text);
+    }}
+    .auth-card h1 em {{
+      font-family: ui-serif, "Iowan Old Style", Georgia, serif;
+      font-style: italic; font-weight: 400;
+      background: var(--auth-grad); -webkit-background-clip: text;
+      background-clip: text; -webkit-text-fill-color: transparent;
+    }}
+    .auth-card .sub {{
+      font-size: 13.5px; color: var(--auth-muted);
+      margin: 0 0 26px; line-height: 1.55;
+      text-align: center;
+    }}
 
-    .auth-security {{ display: flex; gap: 18px; margin-top: 32px;
-      font-family: var(--font-mono); font-size: 10.5px; color: var(--text-subtle);
-      justify-content: center; }}
+    /* Security pills under the form */
+    .auth-security {{
+      display: flex; gap: 18px; margin: 22px 0 4px;
+      font-family: var(--font-mono); font-size: 10.5px;
+      color: var(--auth-subtle); justify-content: center;
+    }}
     .auth-security span {{ display: inline-flex; align-items: center; gap: 5px; }}
-    .auth-security svg {{ width: 11px; height: 11px; stroke: var(--text-subtle);
-      stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }}
-
-    .auth-toggle {{ margin-top: 22px; text-align: center; font-size: 13px; color: var(--text-muted); }}
+    .auth-security svg {{
+      width: 11px; height: 11px; stroke: var(--auth-subtle);
+      stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round;
+    }}
 
     /* Override Streamlit padding for auth page */
     [data-testid="stAppViewContainer"] > .main .block-container {{
-      padding-top: 56px !important;
+      padding-top: 96px !important; padding-bottom: 80px !important;
+      max-width: 100% !important;
     }}
+
+    /* ── Link buttons (OAuth — st.link_button renders <a> tags) ── */
+    html [data-testid="stApp"] [data-testid="stLinkButton"] a,
+    html [data-testid="stApp"] [data-testid="stBaseLinkButton-secondary"] {{
+      background: rgba(255,255,255,0.07) !important;
+      border: 1px solid rgba(255,255,255,0.12) !important;
+      color: var(--auth-text) !important;
+      border-radius: 12px !important;
+      height: 46px !important;
+      font-family: 'Inter', ui-sans-serif, sans-serif !important;
+      font-size: 14px !important; font-weight: 600 !important;
+      display: flex !important; align-items: center !important;
+      justify-content: center !important;
+      text-decoration: none !important;
+      transition: background .2s, border-color .2s, transform .2s !important;
+    }}
+    html [data-testid="stApp"] [data-testid="stLinkButton"] a:hover,
+    html [data-testid="stApp"] [data-testid="stBaseLinkButton-secondary"]:hover {{
+      background: rgba(255,255,255,0.11) !important;
+      border-color: rgba(255,255,255,0.22) !important;
+      transform: translateY(-1px);
+      text-decoration: none !important;
+    }}
+
+    /* All buttons inside auth become glass-style by default */
+    [data-testid="stApp"] .stButton > button,
+    [data-testid="stApp"] [data-testid="stBaseButton-secondary"],
+    [data-testid="stApp"] button[kind="secondary"] {{
+      background: rgba(255,255,255,0.07) !important;
+      border: 1px solid rgba(255,255,255,0.12) !important;
+      color: var(--auth-text) !important;
+      border-radius: 12px !important;
+      height: 46px !important;
+      font-family: 'Inter', ui-sans-serif, sans-serif !important;
+      font-size: 14px !important; font-weight: 600 !important;
+      transition: background .2s, transform .2s, border-color .2s, box-shadow .2s !important;
+      box-shadow: none !important;
+    }}
+    [data-testid="stApp"] .stButton > button:hover,
+    [data-testid="stApp"] [data-testid="stBaseButton-secondary"]:hover,
+    [data-testid="stApp"] button[kind="secondary"]:hover {{
+      background: rgba(255,255,255,0.11) !important;
+      border-color: rgba(255,255,255,0.22) !important;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(0,0,0,.25) !important;
+      color: var(--auth-text) !important;
+    }}
+    [data-testid="stApp"] .stButton > button p,
+    [data-testid="stApp"] [data-testid="stBaseButton-secondary"] p {{
+      color: var(--auth-text) !important;
+    }}
+
+    /* PRIMARY (Sign in / Create account) — heritage gradient with glow */
+    [data-testid="stApp"] [data-testid="stBaseButton-primary"],
+    [data-testid="stApp"] button[kind="primary"] {{
+      background: var(--auth-grad) !important;
+      background-size: 200% 100% !important;
+      color: #fff !important;
+      border: none !important;
+      border-radius: 13px !important;
+      height: 52px !important;
+      font-family: 'Inter', ui-sans-serif, sans-serif !important;
+      font-size: 15px !important; font-weight: 700 !important;
+      letter-spacing: 0.01em !important;
+      box-shadow: 0 12px 30px rgba(124,58,237,.4),
+                  0 4px 12px rgba(251,113,133,.25) !important;
+      transition: transform .2s, box-shadow .3s, background-position .4s !important;
+      position: relative !important; overflow: hidden !important;
+    }}
+    [data-testid="stApp"] [data-testid="stBaseButton-primary"]:hover,
+    [data-testid="stApp"] button[kind="primary"]:hover {{
+      transform: translateY(-2px);
+      background-position: 100% 0% !important;
+      box-shadow: 0 16px 40px rgba(124,58,237,.55),
+                  0 6px 18px rgba(251,113,133,.35) !important;
+    }}
+    [data-testid="stApp"] [data-testid="stBaseButton-primary"] *,
+    [data-testid="stApp"] button[kind="primary"] * {{ color: #fff !important; }}
+
+    /* Inputs (Email / Password) — glass dark.
+       Streamlit nests inputs deeply through BaseWeb, so we target every wrapper. */
+    html [data-testid="stApp"] [data-testid="stTextInput"] label,
+    html [data-testid="stApp"] [data-testid="stTextInput"] label * {{
+      color: rgba(248,250,255,.75) !important;
+      font-size: 12.5px !important; font-weight: 600 !important;
+      letter-spacing: 0.01em;
+    }}
+    html [data-testid="stApp"] [data-testid="stTextInput"] [data-baseweb="input"],
+    html [data-testid="stApp"] [data-testid="stTextInput"] [data-baseweb="base-input"],
+    html [data-testid="stApp"] [data-testid="stTextInput"] [data-baseweb="input"] > div,
+    html [data-testid="stApp"] [data-testid="stTextInput"] > div > div,
+    html [data-testid="stApp"] [data-testid="stTextInput"] > div > div > div {{
+      background: rgba(255,255,255,.06) !important;
+      border: 1px solid rgba(255,255,255,.10) !important;
+      border-radius: 12px !important;
+      transition: all .2s !important;
+      box-shadow: none !important;
+    }}
+    html [data-testid="stApp"] [data-testid="stTextInput"] input {{
+      background: transparent !important;
+      border: none !important;
+      color: var(--auth-text) !important;
+      font-family: 'Inter', ui-sans-serif, sans-serif !important;
+      font-size: 14.5px !important;
+      caret-color: var(--auth-vi2) !important;
+    }}
+    html [data-testid="stApp"] [data-testid="stTextInput"] input::placeholder {{
+      color: var(--auth-subtle) !important;
+    }}
+    html [data-testid="stApp"] [data-testid="stTextInput"]:hover [data-baseweb="input"],
+    html [data-testid="stApp"] [data-testid="stTextInput"]:hover > div > div {{
+      background: rgba(255,255,255,.085) !important;
+      border-color: rgba(255,255,255,.18) !important;
+    }}
+    html [data-testid="stApp"] [data-testid="stTextInput"] [data-baseweb="input"]:focus-within,
+    html [data-testid="stApp"] [data-testid="stTextInput"]:focus-within > div > div {{
+      background: rgba(124,58,237,.12) !important;
+      border-color: rgba(124,58,237,.65) !important;
+      box-shadow: 0 0 0 4px rgba(124,58,237,.15) !important;
+    }}
+    /* Eye/show-password button */
+    html [data-testid="stApp"] [data-testid="stTextInput"] button {{
+      color: var(--auth-subtle) !important;
+      background: transparent !important;
+      border: none !important;
+      height: auto !important;
+      box-shadow: none !important;
+    }}
+    html [data-testid="stApp"] [data-testid="stTextInput"] button:hover {{
+      color: var(--auth-text) !important;
+      background: rgba(255,255,255,.06) !important;
+      transform: none !important;
+    }}
+
+    /* Divider line "OR WITH EMAIL" */
+    .auth-divider {{
+      display: flex; align-items: center; gap: 12px;
+      margin: 4px 0 16px;
+      font-family: var(--font-mono); font-size: 11px;
+      color: var(--auth-subtle); letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }}
+    .auth-divider::before, .auth-divider::after {{
+      content: ""; flex: 1; height: 1px; background: rgba(255,255,255,.08);
+    }}
+
+    /* Streamlit alerts (error/warning/success) — readable on dark */
+    [data-testid="stApp"] [data-testid="stAlert"] {{
+      background: rgba(255,255,255,.06) !important;
+      color: var(--auth-text) !important;
+      border: 1px solid rgba(255,255,255,.1) !important;
+      border-radius: 12px !important;
+    }}
+    [data-testid="stApp"] [data-testid="stAlert"] svg {{
+      color: var(--auth-vi2) !important;
+    }}
+
+    /* Side decoration panels (left testimonial, right features) */
+    .auth-side {{
+      position: fixed; top: 50%; transform: translateY(-50%);
+      width: 320px; z-index: 3; padding: 24px;
+      animation: fadeIn .8s .3s both;
+    }}
+    @keyframes fadeIn {{ to {{ opacity: 1; }} from {{ opacity: 0; }} }}
+    .auth-side.left {{ left: 32px; }}
+    .auth-side.right {{ right: 32px; }}
+    .auth-side h2 {{
+      font-family: 'Sora', ui-sans-serif, sans-serif;
+      font-size: clamp(24px, 2.4vw, 36px); font-weight: 800;
+      line-height: 1.12; letter-spacing: -0.03em;
+      color: var(--auth-text); margin: 0 0 12px;
+    }}
+    .auth-side h2 em {{
+      font-family: 'Georgia', serif; font-style: italic; font-weight: 400;
+      background: var(--auth-grad); -webkit-background-clip: text;
+      background-clip: text; -webkit-text-fill-color: transparent;
+    }}
+    .auth-side .lede {{
+      font-size: 14px; color: var(--auth-muted); line-height: 1.6;
+      max-width: 36ch; margin-bottom: 24px;
+    }}
+    .auth-quote {{
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 16px; padding: 18px 18px;
+      backdrop-filter: blur(20px);
+    }}
+    .auth-quote .q {{
+      font-style: italic; color: rgba(248,250,255,.78);
+      font-size: 13.5px; line-height: 1.6; margin-bottom: 12px;
+    }}
+    .auth-quote .who {{
+      display: flex; align-items: center; gap: 10px;
+    }}
+    .auth-quote .av {{
+      width: 30px; height: 30px; border-radius: 50%;
+      background: var(--auth-grad);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 11px; color: #fff;
+    }}
+    .auth-quote .nm {{ font-size: 12.5px; font-weight: 600; color: var(--auth-text); }}
+    .auth-quote .rl {{ font-size: 11.5px; color: var(--auth-muted); }}
+
+    .auth-side.right .eyebrow {{
+      font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase;
+      color: var(--auth-vi2); font-weight: 600; margin-bottom: 14px;
+    }}
+    .feat-list {{ display: flex; flex-direction: column; gap: 10px; }}
+    .feat-item {{
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 14px; border-radius: 14px;
+      background: rgba(255,255,255,.03);
+      border: 1px solid rgba(255,255,255,.06);
+      transition: all .2s;
+    }}
+    .feat-item:hover {{
+      background: rgba(255,255,255,.05);
+      border-color: rgba(255,255,255,.1);
+      transform: translateX(4px);
+    }}
+    .feat-icon {{
+      width: 32px; height: 32px; border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }}
+    .feat-icon svg {{
+      width: 16px; height: 16px; stroke: currentColor;
+      stroke-width: 1.8; fill: none;
+      stroke-linecap: round; stroke-linejoin: round;
+    }}
+    .feat-body .t {{ font-size: 13px; font-weight: 600; margin-bottom: 2px; color: var(--auth-text); }}
+    .feat-body .d {{ font-size: 11.5px; color: var(--auth-muted); line-height: 1.5; }}
+
+    @media (max-width: 1100px) {{ .auth-side {{ display: none; }} }}
     </style>
 
     <div class="titlebar">
@@ -494,115 +838,150 @@ def _auth_gate() -> bool:
       <div class="title">{title_label}</div>
     </div>
     <div class="auth-watermark">{starburst_img}<span class="wm">Met<em>i</em>s</span></div>
+
+    <!-- Left decoration: welcome + testimonial -->
+    <aside class="auth-side left">
+      <h2>Good to have<br>you <em>back</em>.</h2>
+      <p class="lede">Pick up exactly where you left off — your missions, chats, and automations are all waiting.</p>
+      <div class="auth-quote">
+        <p class="q">"Metis cut my research time from a full afternoon to 20 minutes. I don't know how I shipped without it."</p>
+        <div class="who">
+          <div class="av">SR</div>
+          <div>
+            <div class="nm">Sam R.</div>
+            <div class="rl">Founder, Kira Labs</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Right decoration: features -->
+    <aside class="auth-side right">
+      <div class="eyebrow">What's waiting for you</div>
+      <div class="feat-list">
+        <div class="feat-item">
+          <div class="feat-icon" style="background:rgba(59,130,246,.12);color:#60A5FA"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+          <div class="feat-body"><div class="t">Saved chats &amp; history</div><div class="d">Every conversation, searchable and in context</div></div>
+        </div>
+        <div class="feat-item">
+          <div class="feat-icon" style="background:rgba(124,58,237,.12);color:#A78BFA"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none"/></svg></div>
+          <div class="feat-body"><div class="t">Running missions</div><div class="d">Background jobs that finished while you were away</div></div>
+        </div>
+        <div class="feat-item">
+          <div class="feat-icon" style="background:rgba(245,158,11,.1);color:#FCD34D"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+          <div class="feat-body"><div class="t">Scheduled automations</div><div class="d">Your morning brief, weekly digest and triggers</div></div>
+        </div>
+        <div class="feat-item">
+          <div class="feat-icon" style="background:rgba(251,113,133,.1);color:#FDA4AF"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>
+          <div class="feat-body"><div class="t">Your generated library</div><div class="d">Images, audio, docs you've created</div></div>
+        </div>
+        <div class="feat-item">
+          <div class="feat-icon" style="background:rgba(16,185,129,.1);color:#6EE7B7"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <div class="feat-body"><div class="t">Synced across devices</div><div class="d">Pick up on mobile, desktop, anywhere</div></div>
+        </div>
+      </div>
+    </aside>
     """
     st.html(auth_css)
 
-    # ── OAuth callback handling (runs before form renders) ──────────────
+    # ── OAuth callback: handle ?code= from provider ─────────────────────
     try:
         qp = dict(st.query_params)
     except Exception:
         qp = {}
-    if qp.get("error") or qp.get("error_description"):
-        msg = (qp.get("error_description") or qp.get("error") or "Sign-in failed.").strip()
-        st.error(msg)
+
+    if qp.get('error') or qp.get('error_description'):
+        msg = (qp.get('error_description') or qp.get('error') or 'Sign-in failed.').strip()
+        st.error(f'Sign-in error: {msg}')
         try:
             st.query_params.clear()
         except Exception:
             pass
-        st.session_state.pop("oauth_url", None)
-    code = qp.get("code")
+
+    code = qp.get('code')
     if isinstance(code, str) and code.strip():
-        try:
-            from auth_engine import complete_oauth
-
-            out = complete_oauth(code=code.strip())
-            sess = out.get("session") if isinstance(out, dict) else None
-            if sess and getattr(sess, "access_token", None) and getattr(sess, "refresh_token", None):
-                st.session_state["supabase_session"] = {
-                    "access_token": sess.access_token,
-                    "refresh_token": sess.refresh_token,
-                }
+        with st.spinner('Completing sign-in...'):
             try:
-                st.query_params.clear()
+                from auth_engine import complete_oauth
+                out = complete_oauth(code=code.strip())
+                sess = out.get('session') if isinstance(out, dict) else None
+                if sess and getattr(sess, 'access_token', None) and getattr(sess, 'refresh_token', None):
+                    st.session_state['supabase_session'] = {
+                        'access_token': sess.access_token,
+                        'refresh_token': sess.refresh_token,
+                    }
+                    try:
+                        st.query_params.clear()
+                    except Exception:
+                        pass
+                    st.rerun()
+                else:
+                    st.error('Sign-in completed but no session returned. Try again.')
+                    try:
+                        st.query_params.clear()
+                    except Exception:
+                        pass
+            except Exception as e:
+                st.error(f'Could not complete sign-in: {e}')
+                try:
+                    st.query_params.clear()
+                except Exception:
+                    pass
+
+    # ── Pre-generate OAuth URLs as link buttons ──────────────────────────
+    ui_port = os.getenv('METIS_UI_PORT', '8501')
+    redirect_to = f'http://127.0.0.1:{ui_port}'
+    _oauth_urls: dict[str, str] = {}
+    try:
+        from auth_engine import start_oauth as _start_oauth
+        for _prov in ('google', 'github'):
+            try:
+                _url, _verifier = _start_oauth(provider=_prov, redirect_to=redirect_to)
+                _oauth_urls[_prov] = _url
             except Exception:
                 pass
-            st.session_state.pop("oauth_url", None)
-            st.success("Signed in.")
-            st.rerun()
-        except Exception as e:
-            st.error(str(e))
-            try:
-                st.query_params.clear()
-            except Exception:
-                pass
-            st.session_state.pop("oauth_url", None)
-
-    # ── Auto-redirect for pending OAuth ─────────────────────────────────
-    oauth_url = st.session_state.get("oauth_url")
-    if isinstance(oauth_url, str) and oauth_url.startswith("http"):
-        # Streamlit renders st.html inside an iframe, so we must target
-        # the parent frame to redirect the whole tab, not just the iframe.
-        st.html(f"""<script>
-(function(){{
-  var u={json.dumps(oauth_url)};
-  try{{ window.parent.location.href=u; }}catch(e){{
-    try{{ window.top.location.href=u; }}catch(e2){{ window.location.href=u; }}
-  }}
-}})();
-</script>""")
-        st.link_button("Continue sign-in →", oauth_url, use_container_width=True)
-        st.caption("If nothing happens automatically, click the button above.")
-        st.stop()
-        return False
+    except Exception:
+        pass
 
     # ── Centered auth card ──────────────────────────────────────────────
-    _, auth_col, _ = st.columns([1, 1.6, 1])
+    _, auth_col, _ = st.columns([1, 1.4, 1])
     with auth_col:
-        # Brand lockup + heading
-        logo_img_tag = ""
-        if logo_b64:
-            logo_img_tag = f'<img src="data:image/png;base64,{logo_b64}" alt="Metis">'
+        logo_img_tag = ''
+        logomark_transparent = _REPO_ROOT / 'assets' / 'design-system' / 'assets' / 'metis-logomark-transparent.png'
+        logo_b64_use = _read_b64(logomark_transparent) if logomark_transparent.exists() else logo_b64
+        if logo_b64_use:
+            logo_img_tag = f'<img src="data:image/png;base64,{logo_b64_use}" alt="Metis">'
 
         if is_signup:
-            heading = "Create your <em>account</em>"
-            subtitle = "Free to start. No credit card required. Be running missions in under a minute."
+            heading = 'Welcome to <em>Metis</em>'
+            subtitle = 'Free to start. No credit card required. Run your first mission in a minute.'
         else:
-            heading = "Welcome <em>back</em>"
-            subtitle = "Sign in to keep your missions, automations, and library in sync."
+            heading = 'Welcome <em>back</em>'
+            subtitle = 'Sign in to your Metis account'
 
         st.html(
-            f"""
+            f'''
             <div class="auth-card">
               <div class="lockup">{logo_img_tag}</div>
               <h1>{heading}</h1>
               <p class="sub">{subtitle}</p>
             </div>
-            """,
+            ''',
         )
 
-        # ── OAuth buttons ───────────────────────────────────────────────
-        ui_port = os.getenv("METIS_UI_PORT", "8501")
-        redirect_to = f"http://127.0.0.1:{ui_port}"
+        # OAuth link buttons — st.link_button renders a real <a> tag in the
+        # main Streamlit frame so clicking it navigates the whole tab.
+        if _oauth_urls.get('google'):
+            st.link_button('  Continue with Google', _oauth_urls['google'], use_container_width=True)
+        else:
+            st.button('  Continue with Google', disabled=True, use_container_width=True, help='Google OAuth not configured')
 
-        if st.button("  Continue with Google", use_container_width=True, key="oauth_google", icon=":material/public:"):
-            try:
-                from auth_engine import start_oauth
-                url = start_oauth(provider="google", redirect_to=redirect_to)
-                st.session_state["oauth_url"] = url
-                st.rerun()
-            except Exception as e:
-                st.error(str(e))
-        if st.button("  Continue with GitHub", use_container_width=True, key="oauth_github", icon=":material/code:"):
-            try:
-                from auth_engine import start_oauth
-                url = start_oauth(provider="github", redirect_to=redirect_to)
-                st.session_state["oauth_url"] = url
-                st.rerun()
-            except Exception as e:
-                st.error(str(e))
+        if _oauth_urls.get('github'):
+            st.link_button('  Continue with GitHub', _oauth_urls['github'], use_container_width=True)
+        else:
+            st.button('  Continue with GitHub', disabled=True, use_container_width=True, help='GitHub OAuth not configured')
 
-        # ── Divider ─────────────────────────────────────────────────────
-        st.html('<div style="display:flex;align-items:center;gap:12px;margin:8px 0 12px;font-family:var(--font-mono);font-size:11px;color:var(--text-subtle);letter-spacing:0.08em;text-transform:uppercase;"><span style="flex:1;height:1px;background:var(--border);"></span>or with email<span style="flex:1;height:1px;background:var(--border);"></span></div>')
+        st.html('<div class="auth-divider">or sign in with email</div>')
 
         # ── Email / passcode form ───────────────────────────────────────
         email = st.text_input("Email", key="auth_email", placeholder="you@work.com")

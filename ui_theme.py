@@ -20,7 +20,32 @@ from pathlib import Path
 
 _CSS = """
 <style id="metis-theme">
+@import url("https://fonts.googleapis.com/icon?family=Material+Icons");
+@import url("https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0,0&display=block");
+@import url("https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0,0&display=block");
+
 __DESIGN_SYSTEM_CSS__
+
+/* Material icons rendered by Streamlit (data-testid="stIconMaterial") */
+[data-testid="stIconMaterial"] {
+  font-family: "Material Symbols Rounded", "Material Symbols Outlined", "Material Icons" !important;
+  font-weight: normal !important;
+  font-style: normal !important;
+  font-size: 18px !important;
+  line-height: 1 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  display: inline-block !important;
+  white-space: nowrap !important;
+  word-wrap: normal !important;
+  direction: ltr !important;
+  font-feature-settings: "liga" 1 !important;
+  -webkit-font-feature-settings: "liga" 1 !important;
+  -moz-font-feature-settings: "liga" 1 !important;
+  -webkit-font-smoothing: antialiased !important;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24 !important;
+  text-rendering: optimizeLegibility !important;
+}
 
 /* Legacy variable aliases (keep existing UI markup working while we migrate). */
 :root{
@@ -42,7 +67,7 @@ __DESIGN_SYSTEM_CSS__
    ═════════════════════════════════════════════════════════════════════ */
 
 /* ── Global background + type ──────────────────────────────────── */
-html, body, [data-testid=”stAppViewContainer”] {
+html, body, [data-testid="stAppViewContainer"] {
   background:
     radial-gradient(circle at 15% -10%, rgba(124, 58, 237, 0.07), transparent 50%),
     radial-gradient(circle at 90% 10%, rgba(251, 113, 133, 0.06), transparent 55%),
@@ -53,7 +78,7 @@ html, body, [data-testid=”stAppViewContainer”] {
 }
 
 /* ── Page width / breathing room ───────────────────────────────── */
-[data-testid=”stAppViewContainer”] > .main .block-container {
+[data-testid="stAppViewContainer"] > .main .block-container {
   max-width: 1380px !important;
   padding-top: 2.2rem !important;
   padding-bottom: 2.2rem !important;
@@ -62,16 +87,16 @@ html, body, [data-testid=”stAppViewContainer”] {
 }
 
 /* ── Sidebar ───────────────────────────────────────────────────── */
-[data-testid=”stSidebar”] {
+[data-testid="stSidebar"] {
   background: var(--surface) !important;
   border-right: 1px solid var(--border) !important;
 }
-[data-testid=”stSidebar”] [data-testid=”stMarkdown”] p {
+[data-testid="stSidebar"] [data-testid="stMarkdown"] p {
   font-size: 14px;
   line-height: 1.55;
 }
 
-/* ── Chat header “aura” ────────────────────────────────────────── */
+/* ── Chat header "aura" ────────────────────────────────────────── */
 .metis-aura {
   width: 88px;
   height: 88px;
@@ -108,7 +133,9 @@ html, body, [data-testid=”stAppViewContainer”] {
 /* ── Buttons (Streamlit native) ────────────────────────────────── */
 .stButton > button,
 .stDownloadButton > button,
-[data-testid=”baseButton-secondary”] {
+[data-testid="stBaseButton-secondary"],
+[data-testid="baseButton-secondary"],
+button[kind="secondary"] {
   background: var(--surface) !important;
   color: var(--text) !important;
   border: 1px solid var(--border) !important;
@@ -118,6 +145,7 @@ html, body, [data-testid=”stAppViewContainer”] {
   font-size: 14px !important;
   letter-spacing: -0.005em;
   padding: 10px 16px !important;
+  min-height: 44px !important;
   transition: transform var(--dur-base) var(--ease-out),
               box-shadow var(--dur-base) var(--ease-out),
               background-color var(--dur-base) var(--ease-out),
@@ -125,33 +153,63 @@ html, body, [data-testid=”stAppViewContainer”] {
 }
 .stButton > button:hover,
 .stDownloadButton > button:hover,
-[data-testid=”baseButton-secondary”]:hover {
+[data-testid="stBaseButton-secondary"]:hover,
+[data-testid="baseButton-secondary"]:hover,
+button[kind="secondary"]:hover {
   transform: translateY(-1px);
   border-color: var(--border-strong) !important;
   background: var(--surface-alt) !important;
   box-shadow: var(--shadow-md) !important;
+  color: var(--text) !important;
 }
-[data-testid=”baseButton-primary”] {
+
+/* Primary button (Sign in / Create account) — solid blue */
+[data-testid="stBaseButton-primary"],
+[data-testid="baseButton-primary"],
+button[kind="primary"] {
   background: var(--primary) !important;
   color: #fff !important;
-  border-color: var(--primary) !important;
+  border: 1px solid var(--primary) !important;
+  border-radius: var(--radius-md) !important;
+  font-family: var(--font-body) !important;
+  font-weight: 650 !important;
+  font-size: 14px !important;
+  padding: 10px 16px !important;
+  min-height: 44px !important;
   box-shadow: var(--shadow-sm) !important;
+  transition: transform var(--dur-base), background-color var(--dur-base), box-shadow var(--dur-base) !important;
 }
-[data-testid=”baseButton-primary”]:hover {
+[data-testid="stBaseButton-primary"] *,
+[data-testid="baseButton-primary"] *,
+button[kind="primary"] * {
+  color: #fff !important;
+}
+[data-testid="stBaseButton-primary"]:hover,
+[data-testid="baseButton-primary"]:hover,
+button[kind="primary"]:hover {
   background: var(--primary-hover) !important;
+  border-color: var(--primary-hover) !important;
   transform: translateY(-1px);
   box-shadow: var(--shadow-md) !important;
 }
-[data-testid=”baseButton-primary”]:active {
+[data-testid="stBaseButton-primary"]:active,
+[data-testid="baseButton-primary"]:active,
+button[kind="primary"]:active {
   background: var(--primary-press) !important;
   transform: translateY(0);
 }
 
+/* OAuth buttons (Google / GitHub) — wide, branded feel */
+button[data-testid="stBaseButton-secondary"]:has([data-testid="stIconMaterial"]) {
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+}
+
 /* ── Inputs (Streamlit native) ─────────────────────────────────── */
-[data-testid=”stTextInput”] input,
-[data-testid=”stTextArea”] textarea,
-[data-testid=”stNumberInput”] input,
-[data-testid=”stChatInput”] textarea {
+[data-testid="stTextInput"] input,
+[data-testid="stTextArea"] textarea,
+[data-testid="stNumberInput"] input,
+[data-testid="stChatInput"] textarea {
   font-family: var(--font-body) !important;
   font-size: 14px !important;
   padding: 10px 12px !important;
@@ -161,21 +219,21 @@ html, body, [data-testid=”stAppViewContainer”] {
   color: var(--text) !important;
   transition: border-color var(--dur-base), box-shadow var(--dur-base) !important;
 }
-[data-testid=”stTextInput”] input::placeholder,
-[data-testid=”stTextArea”] textarea::placeholder,
-[data-testid=”stChatInput”] textarea::placeholder {
+[data-testid="stTextInput"] input::placeholder,
+[data-testid="stTextArea"] textarea::placeholder,
+[data-testid="stChatInput"] textarea::placeholder {
   color: var(--text-subtle) !important;
 }
-[data-testid=”stTextInput”] input:focus,
-[data-testid=”stTextArea”] textarea:focus,
-[data-testid=”stChatInput”] textarea:focus {
+[data-testid="stTextInput"] input:focus,
+[data-testid="stTextArea"] textarea:focus,
+[data-testid="stChatInput"] textarea:focus {
   border-color: var(--primary) !important;
   box-shadow: 0 0 0 3px rgba(37,99,235,.18) !important;
   outline: none !important;
 }
 
 /* ── Chat input composer feel ──────────────────────────────────── */
-[data-testid=”stChatInput”] {
+[data-testid="stChatInput"] {
   border-radius: 16px !important;
   border: 1px solid var(--border) !important;
   background: var(--surface) !important;
@@ -184,7 +242,7 @@ html, body, [data-testid=”stAppViewContainer”] {
 }
 
 /* ── Chat messages (design-kit bubble style) ───────────────────── */
-[data-testid=”stChatMessage”] {
+[data-testid="stChatMessage"] {
   border-radius: 16px !important;
   padding: 12px 16px !important;
   font-size: 14.5px !important;
@@ -194,26 +252,26 @@ html, body, [data-testid=”stAppViewContainer”] {
   border: none !important;
   box-shadow: none !important;
 }
-[data-testid=”stChatMessage”][data-testid*=”user”],
-[data-testid=”stChatMessage”]:has([data-testid=”chatAvatarIcon-user”]) {
+[data-testid="stChatMessage"][data-testid*="user"],
+[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) {
   background: var(--primary) !important;
   color: #fff !important;
   border-bottom-right-radius: 4px !important;
   align-self: flex-end;
   margin-left: auto;
 }
-[data-testid=”stChatMessage”]:has([data-testid=”chatAvatarIcon-user”]) p,
-[data-testid=”stChatMessage”]:has([data-testid=”chatAvatarIcon-user”]) span {
+[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) p,
+[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) span {
   color: #fff !important;
 }
-[data-testid=”stChatMessage”]:has([data-testid=”chatAvatarIcon-assistant”]) {
+[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {
   background: var(--surface) !important;
   border: 1px solid var(--border) !important;
   color: var(--text) !important;
   border-bottom-left-radius: 4px !important;
   box-shadow: var(--shadow-xs) !important;
 }
-[data-testid=”stChatMessage”]:has([data-testid=”chatAvatarIcon-assistant”]) code {
+[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) code {
   font-family: var(--font-mono);
   font-size: 12.5px;
   background: var(--surface-alt);
@@ -222,63 +280,63 @@ html, body, [data-testid=”stAppViewContainer”] {
 }
 
 /* ── Cards / containers / expanders ────────────────────────────── */
-[data-testid=”stExpander”] {
+[data-testid="stExpander"] {
   background: var(--surface) !important;
   border: 1px solid var(--border) !important;
   border-radius: var(--radius-lg) !important;
   box-shadow: var(--shadow-sm) !important;
 }
-[data-testid=”stExpander”] summary {
+[data-testid="stExpander"] summary {
   font-weight: 600 !important;
   font-size: 14px !important;
 }
-[data-testid=”stVerticalBlockBorderWrapper”] {
+[data-testid="stVerticalBlockBorderWrapper"] {
   border-radius: var(--radius-lg) !important;
 }
 
 /* ── Selectbox / dropdown ──────────────────────────────────────── */
-[data-testid=”stSelectbox”] [data-baseweb=”select”] {
+[data-testid="stSelectbox"] [data-baseweb="select"] {
   border-radius: var(--radius-md) !important;
 }
 
 /* ── Toggle switches ──────────────────────────────────────────── */
-[data-testid=”stToggle”] label {
+[data-testid="stToggle"] label {
   font-size: 14px !important;
   font-weight: 500 !important;
 }
 
 /* ── Tabs (design-kit style) ──────────────────────────────────── */
-[data-testid=”stTabs”] [role=”tablist”] {
+[data-testid="stTabs"] [role="tablist"] {
   gap: 4px !important;
   border-bottom: 1px solid var(--border) !important;
 }
-[data-testid=”stTabs”] [role=”tab”] {
+[data-testid="stTabs"] [role="tab"] {
   font-weight: 600 !important;
   font-size: 14px !important;
   color: var(--text-muted) !important;
   padding: 10px 14px !important;
   border-bottom: 2px solid transparent !important;
 }
-[data-testid=”stTabs”] [role=”tab”]:hover {
+[data-testid="stTabs"] [role="tab"]:hover {
   color: var(--text) !important;
 }
-[data-testid=”stTabs”] [role=”tab”][aria-selected=”true”] {
+[data-testid="stTabs"] [role="tab"][aria-selected="true"] {
   color: var(--primary) !important;
   border-bottom-color: var(--primary) !important;
 }
 
 /* ── File uploader ─────────────────────────────────────────────── */
-[data-testid=”stFileUploader”] {
+[data-testid="stFileUploader"] {
   border-radius: var(--radius-lg) !important;
 }
-[data-testid=”stFileUploader”] section {
+[data-testid="stFileUploader"] section {
   border: 1px dashed var(--border) !important;
   border-radius: var(--radius-lg) !important;
   background: var(--surface) !important;
 }
 
 /* ── Progress bar ──────────────────────────────────────────────── */
-[data-testid=”stProgress”] > div {
+[data-testid="stProgress"] > div {
   border-radius: 999px !important;
   height: 6px !important;
 }
@@ -294,7 +352,7 @@ html, body, [data-testid=”stAppViewContainer”] {
 
 /* ── Tables ────────────────────────────────────────────────────── */
 .stMarkdown table,
-[data-testid=”stTable”] table {
+[data-testid="stTable"] table {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
@@ -305,7 +363,7 @@ html, body, [data-testid=”stAppViewContainer”] {
   box-shadow: var(--shadow-xs);
 }
 .stMarkdown thead th,
-[data-testid=”stTable”] thead th {
+[data-testid="stTable"] thead th {
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.08em;
@@ -316,23 +374,23 @@ html, body, [data-testid=”stAppViewContainer”] {
   padding: 10px 12px;
 }
 .stMarkdown tbody td,
-[data-testid=”stTable”] tbody td {
+[data-testid="stTable"] tbody td {
   padding: 10px 12px;
   border-bottom: 1px solid var(--border);
   font-size: 14px;
   color: var(--text);
 }
 .stMarkdown tbody tr:last-child td,
-[data-testid=”stTable”] tbody tr:last-child td {
+[data-testid="stTable"] tbody tr:last-child td {
   border-bottom: none;
 }
 .stMarkdown tbody tr:hover td,
-[data-testid=”stTable”] tbody tr:hover td {
+[data-testid="stTable"] tbody tr:hover td {
   background: color-mix(in srgb, var(--primary) 6%, var(--surface));
 }
 
 /* ── Code blocks ───────────────────────────────────────────────── */
-[data-testid=”stCode”],
+[data-testid="stCode"],
 .stMarkdown pre {
   border-radius: var(--radius-md) !important;
   border: 1px solid var(--border) !important;
@@ -341,14 +399,14 @@ html, body, [data-testid=”stAppViewContainer”] {
 }
 
 /* ── Metric cards ──────────────────────────────────────────────── */
-[data-testid=”stMetric”] {
+[data-testid="stMetric"] {
   font-family: var(--font-display) !important;
 }
-[data-testid=”stMetricValue”] {
+[data-testid="stMetricValue"] {
   font-family: var(--font-display) !important;
   font-weight: 750 !important;
 }
-[data-testid=”stMetricLabel”] {
+[data-testid="stMetricLabel"] {
   font-family: var(--font-mono) !important;
   font-size: 10.5px !important;
   text-transform: uppercase !important;
@@ -357,12 +415,12 @@ html, body, [data-testid=”stAppViewContainer”] {
 }
 
 /* ── Auth page spacing ─────────────────────────────────────────── */
-[data-testid=”stVerticalBlock”] [data-testid=”stContainer”] {
+[data-testid="stVerticalBlock"] [data-testid="stContainer"] {
   margin-top: 0.4rem;
 }
-[data-testid=”stTextInput”],
-[data-testid=”stButton”],
-[data-testid=”stLinkButton”] {
+[data-testid="stTextInput"],
+[data-testid="stButton"],
+[data-testid="stLinkButton"] {
   margin-bottom: 0.3rem;
 }
 </style>

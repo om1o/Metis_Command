@@ -1,8 +1,41 @@
 from __future__ import annotations
 
+import os
+import tempfile
+from pathlib import Path
 from typing import Any, Literal
 
 from supabase_client import get_client
+
+# ── PKCE verifier disk cache ─────────────────────────────────────────────────
+# st.session_state is per-WebSocket session and is wiped when the browser
+# navigates to the OAuth provider and back.  We persist the PKCE code_verifier
+# to a temp file on disk so it survives the redirect round-trip.
+
+_PKCE_DIR = Path(tempfile.gettempdir()) / "metis_pkce"
+
+
+def _save_verifier(provider: str, verifier: str) -> None:
+    _PKCE_DIR.mkdir(parents=True, exist_ok=True)
+    (_PKCE_DIR / f"{provider}.txt").write_text(verifier, encoding="utf-8")
+
+
+def _load_verifier(provider: str | None = None) -> str | None:
+    """Return stored verifier for *provider*, or try any stored verifier."""
+    if not _PKCE_DIR.exists():
+        return None
+    if provider:
+        p = _PKCE_DIR / f"{provider}.txt"
+        if p.exists():
+            v = p.read_text(encoding="utf-8").strip()
+            return v or None
+    # Fallback: return the most-recently-modified verifier file
+    files = list(_PKCE_DIR.glob("*.txt"))
+    if not files:
+        return None
+    latest = max(files, key=lambda f: f.stat().st_mtime)
+    v = latest.read_text(encoding="utf-8").strip()
+    return v or None
 
 
 def sign_up(email: str, password: str) -> dict:
@@ -50,25 +83,37 @@ def refresh_session() -> dict | None:
 OAuthProvider = Literal["google", "github"]
 
 
-def start_oauth(*, provider: OAuthProvider, redirect_to: str) -> str:
+def start_oauth(*, provider: OAuthProvider, redirect_to: str) -> tuple[str, str | None]:
     """
-    Start an OAuth flow and return a provider authorization URL.
+    Start an OAuth flow and return ``(authorization_url, code_verifier)``.
 
-    This is intentionally thin so the UI can keep Supabase completely hidden.
+    The verifier is saved to disk so it survives the OAuth redirect round-trip
+    (st.session_state is wiped when the browser navigates away and back).
     """
     client = get_client()
-    # supabase-py returns an object that may contain `.url` or `.data.url`
     resp: Any = client.auth.sign_in_with_oauth(
         {"provider": provider, "options": {"redirect_to": redirect_to}}
     )
     url = getattr(resp, "url", None)
-    if isinstance(url, str) and url:
-        return url
-    data = getattr(resp, "data", None)
-    url = getattr(data, "url", None) if data is not None else None
-    if isinstance(url, str) and url:
-        return url
-    raise RuntimeError("OAuth start failed: missing authorization URL")
+    if not isinstance(url, str) or not url:
+        data = getattr(resp, "data", None)
+        url = getattr(data, "url", None) if data is not None else None
+    if not isinstance(url, str) or not url:
+        raise RuntimeError("OAuth start failed: missing authorization URL")
+
+    # Extract the PKCE code_verifier from in-memory storage and persist to disk.
+    code_verifier: str | None = None
+    try:
+        storage = getattr(client.auth, "_storage", None)
+        storage_key = getattr(client.auth, "_storage_key", "supabase.auth.token")
+        if storage and hasattr(storage, "get_item"):
+            code_verifier = storage.get_item(f"{storage_key}-code-verifier")
+        if code_verifier:
+            _save_verifier(provider, code_verifier)
+    except Exception:
+        pass
+
+    return url, code_verifier
 
 
 # ── MFA / 2FA (TOTP) ─────────────────────────────────────────────────────────
@@ -153,36 +198,68 @@ def unenroll_totp(*, factor_id: str) -> bool:
         return False
 
 
-def complete_oauth(*, code: str) -> dict:
+def complete_oauth(*, code: str, code_verifier: str | None = None) -> dict:
     """
     Complete OAuth by exchanging the returned `code` for a session.
+
+    If ``code_verifier`` is not passed, we load it from the disk cache written
+    by ``start_oauth`` — this handles the case where st.session_state was wiped
+    by the OAuth redirect round-trip.
 
     Returns a dict containing `user` and `session` when available.
     """
     client = get_client()
 
-    # Different supabase-py versions expose slightly different method names /
-    # signatures. We try the common variants in a safe order.
+    # Fall back to disk cache when the caller has no verifier.
+    if not code_verifier:
+        code_verifier = _load_verifier()
+
+    # Inject verifier back into the client's in-memory storage so
+    # exchange_code_for_session can find it.
+    if code_verifier:
+        try:
+            storage = getattr(client.auth, "_storage", None)
+            storage_key = getattr(client.auth, "_storage_key", "supabase.auth.token")
+            if storage and hasattr(storage, "set_item"):
+                storage.set_item(f"{storage_key}-code-verifier", code_verifier)
+        except Exception:
+            pass
+
     resp: Any | None = None
     last_err: Exception | None = None
-    for fn_name, payload in (
-        ("exchange_code_for_session", code),
+
+    attempts: list[tuple[str, Any]] = [
+        ("exchange_code_for_session", {"auth_code": code, "code_verifier": code_verifier}),
         ("exchange_code_for_session", {"auth_code": code}),
-        ("get_session_from_url", code),
-        ("get_session_from_url", {"code": code}),
-    ):
+        ("exchange_code_for_session", code),
+    ]
+
+    for fn_name, payload in attempts:
         fn = getattr(client.auth, fn_name, None)
         if not callable(fn):
             continue
         try:
             resp = fn(payload)
+            # Treat a response with no session as failure (try next attempt).
+            if resp is not None:
+                _sess = getattr(resp, "session", None) or getattr(
+                    getattr(resp, "data", None), "session", None
+                )
+                if _sess is None:
+                    last_err = RuntimeError("No session in response")
+                    resp = None
+                    continue
             break
         except Exception as e:
             last_err = e
             resp = None
 
     if resp is None:
-        raise RuntimeError(f"OAuth completion failed: {last_err or 'unknown error'}")
+        raise RuntimeError(
+            f"OAuth completion failed: {last_err or 'unknown error'}. "
+            "Make sure Google/GitHub OAuth providers are enabled in your Supabase project "
+            "and the redirect URL is listed in Auth → URL Configuration."
+        )
 
     user = getattr(resp, "user", None) or getattr(getattr(resp, "data", None), "user", None)
     session = getattr(resp, "session", None) or getattr(getattr(resp, "data", None), "session", None)
