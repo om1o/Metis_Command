@@ -204,30 +204,55 @@ pre:hover .code-copy{opacity:1}
 .response-time{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--subtle);display:flex;align-items:center;gap:6px;padding-top:2px}
 .response-time svg{width:11px;height:11px;stroke:currentColor;stroke-width:2;fill:none}
 
-/* Subagent activity cards */
-.activity{display:flex;flex-direction:column;gap:8px}
-.plan-banner{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.22);font-size:13px;color:var(--vi2);font-family:'JetBrains Mono',monospace}
-.plan-banner svg{width:14px;height:14px;stroke:currentColor;stroke-width:2;fill:none;flex-shrink:0}
-.agent-card{padding:11px 14px;border-radius:10px;border:1px solid var(--border);background:var(--panel);font-size:13px;display:flex;flex-direction:column;gap:6px;transition:all .25s}
-.agent-card.busy{border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.06)}
-.agent-card.done{border-color:rgba(34,197,94,.3);background:rgba(34,197,94,.05)}
-.agent-card-head{display:flex;align-items:center;gap:8px;cursor:pointer}
-.agent-card-head .label{font-weight:700;color:var(--text);font-size:12.5px}
-.agent-card-head .label .colon{color:var(--subtle);font-weight:400;margin:0 4px}
-.agent-card-head .label .task{color:var(--muted);font-weight:400}
-.agent-card-head .ms{margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--subtle)}
-.agent-card-head .chevron{width:14px;height:14px;color:var(--subtle);transition:transform .2s}
-.agent-card.open .chevron{transform:rotate(90deg)}
-.agent-card-body{display:none;font-size:12.5px;color:var(--muted);line-height:1.55;padding-top:6px;border-top:1px dashed var(--border);white-space:pre-wrap}
-.agent-card.open .agent-card-body{display:block}
-.agent-spin{width:11px;height:11px;border:1.5px solid rgba(255,255,255,.15);border-top-color:var(--am);border-radius:50%;animation:spin .8s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-.agent-check{width:13px;height:13px;color:var(--gr);stroke:currentColor;stroke-width:3;fill:none}
-.synth-banner{display:flex;align-items:center;gap:10px;padding:9px 13px;border-radius:9px;background:var(--accent-soft);border:1px solid color-mix(in srgb, var(--accent) 35%, transparent);font-size:12.5px;color:var(--vi2);font-family:'JetBrains Mono',monospace}
-.synth-banner .dot-trio{display:inline-flex;gap:3px}
-.synth-banner .dot-trio span{width:5px;height:5px;border-radius:50%;background:var(--vi2);animation:bounce 1s infinite}
-.synth-banner .dot-trio span:nth-child(2){animation-delay:.15s}
-.synth-banner .dot-trio span:nth-child(3){animation-delay:.3s}
+/* ── Mission stepper (design system port) ── */
+.mission{background:rgba(23,22,29,.85);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.08);border-radius:14px;overflow:hidden;font-family:'Inter',sans-serif;margin-bottom:2px;animation:msgIn .35s ease-out both}
+.mission-head{display:flex;align-items:center;gap:9px;padding:9px 12px 8px;border-bottom:1px solid rgba(255,255,255,.06)}
+.mission-mark{width:22px;height:16px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;position:relative}
+.mission-mark img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 1px 4px rgba(124,58,237,.45))}
+.mission-head-info{flex:1;min-width:0}
+.mission-head-title{font-size:12px;font-weight:650;color:var(--text);letter-spacing:-.005em;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mission-head-sub{font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:1px;line-height:1.2}
+.mission-live{display:inline-flex;align-items:center;gap:4px;font-size:9.5px;color:var(--gr);font-family:'JetBrains Mono',monospace;padding:2px 7px;border-radius:999px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.22);flex-shrink:0;white-space:nowrap}
+.mission-live.done{color:var(--muted);background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.07)}
+.mission-live-dot{width:5px;height:5px;border-radius:50%;background:var(--gr);animation:live-pulse 1.4s ease-in-out infinite}
+@keyframes live-pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(34,197,94,.5)}50%{opacity:.55;box-shadow:0 0 0 4px transparent}}
+.mission-progress{height:3px;background:rgba(255,255,255,.05);position:relative;overflow:hidden}
+.mission-progress-fill{position:absolute;inset:0 100% 0 0;background:linear-gradient(90deg,#3B82F6,#22C55E);border-radius:0 2px 2px 0;transition:right .6s cubic-bezier(.22,1,.36,1)}
+.mission-progress-sweep{position:absolute;top:0;left:0;right:100%;bottom:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.5),transparent);animation:msweep 1.8s ease-in-out infinite}
+@keyframes msweep{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}
+.mission-steps{padding:4px 12px 10px}
+.mstep{display:grid;grid-template-columns:20px 1fr auto;gap:9px;align-items:flex-start;padding:5px 0;position:relative}
+.mstep-dot-col{display:flex;flex-direction:column;align-items:center;padding-top:1px}
+.mstep-bullet{width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:8px;font-weight:700;font-family:'JetBrains Mono',monospace;position:relative;z-index:1}
+.mstep-bullet.done{background:var(--gr);color:#fff;box-shadow:0 1px 4px rgba(34,197,94,.4)}
+.mstep-bullet.run{background:var(--accent);color:#fff;animation:ring-pulse 1.6s ease-out infinite}
+.mstep-bullet.run::before{content:"";position:absolute;inset:-4px;border-radius:50%;border:2px solid var(--accent);opacity:0;animation:ring-expand 1.6s ease-out infinite}
+@keyframes ring-pulse{0%,100%{box-shadow:0 0 0 0 rgba(124,58,237,.5)}50%{box-shadow:0 0 0 5px rgba(124,58,237,.12)}}
+@keyframes ring-expand{0%{opacity:.6;transform:scale(.9)}100%{opacity:0;transform:scale(1.6)}}
+.mstep-bullet.todo{background:rgba(255,255,255,.04);border:1.5px dashed rgba(255,255,255,.15);color:var(--subtle)}
+.mstep-line{width:1.5px;flex:1;background:rgba(255,255,255,.08);margin-top:2px;min-height:9px;border-radius:1px}
+.mstep-line.done{background:var(--gr)}
+.mstep-line.active{background:linear-gradient(180deg,var(--accent),rgba(255,255,255,.07) 80%)}
+.mstep-body{min-width:0}
+.mstep-title{font-size:12px;font-weight:600;color:var(--text);letter-spacing:-.003em;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mstep-meta{font-size:10px;color:var(--muted);margin-top:2px;font-family:'JetBrains Mono',monospace;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mstep.todo .mstep-title{color:var(--muted);font-weight:500}
+.mstep.todo .mstep-meta{color:var(--subtle)}
+.mstep-shimmer{margin-top:5px;height:3px;border-radius:2px;background:rgba(255,255,255,.05);position:relative;overflow:hidden}
+.mstep-shimmer::before{content:"";position:absolute;inset:0;width:40%;background:linear-gradient(90deg,transparent,var(--accent),transparent);animation:shim-sweep 1.3s ease-in-out infinite;border-radius:2px}
+@keyframes shim-sweep{0%{transform:translateX(-150%)}100%{transform:translateX(350%)}}
+.mstep-ticker{display:inline-flex;align-items:center;gap:5px;margin-top:4px;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--vi2)}
+.mstep-ticker-text{transition:opacity .18s ease}
+.mstep-tdot{width:4px;height:4px;border-radius:50%;background:var(--vi2);animation:tdot 1.1s ease-in-out infinite}
+.mstep-tdot:nth-child(3){animation-delay:.15s}.mstep-tdot:nth-child(4){animation-delay:.3s}
+@keyframes tdot{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-2px)}}
+.mstep-dur{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);white-space:nowrap;padding-top:2px}
+.mstep.running .mstep-dur{color:var(--vi2)}
+/* Legacy compat — keep .activity wrapper */
+.activity{display:flex;flex-direction:column;gap:4px}
+/* Agent timeout warning */
+.agent-timeout{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);font-size:12px;color:#FBBF24;font-family:'JetBrains Mono',monospace;margin-top:4px;animation:msgIn .3s ease}
+.agent-timeout .ico{font-size:14px;flex-shrink:0}
 @keyframes bounce{0%,80%,100%{transform:scale(.6);opacity:.4}40%{transform:scale(1);opacity:1}}
 
 .msg-actions{display:flex;gap:4px;opacity:0;transition:opacity .2s}
@@ -747,6 +772,10 @@ if (cfg?.manager_name) {
     if (window.toast) toast('success', `${cfg.manager_name} is ready`, `Welcome back, ${cfg.director_name || 'Director'}.`, 3200);
   }, 600);
 }
+// Silently warm up the manager model on page load so first message is fast
+if (cfg?.manager_model) {
+  api.warmupModel(cfg.manager_model).catch(() => {});
+}
 
 function renderModelMenu() {
   const modelDD = document.getElementById('modelDropdown');
@@ -820,7 +849,9 @@ function renderModelMenu() {
         modelSelect.classList.remove('open');
         closeAllDropdowns();
         const meta = getModelMeta(id);
-        if (window.toast) toast('info', 'Model switched', `${meta.icon} ${meta.friendly}`, 2200);
+        // Pre-warm the new model so next message is instant
+        api.warmupModel(id).catch(() => {});
+        if (window.toast) toast('info', 'Model switched', `${meta.icon} ${meta.friendly} — warming up ⚡`, 2200);
       });
     });
   });
@@ -1076,6 +1107,10 @@ function setCrewStatus(name, status) {
 }
 function resetCrew() {
   document.querySelectorAll('.crew-row .crew-dot').forEach(d => d.classList.remove('busy', 'done'));
+  missionBox = null;
+  missionSteps = [];
+  missionProgressEl = null;
+  missionStatEl = null;
 }
 
 // ── Message rendering ───────────────────────────────────────────────────
@@ -1099,6 +1134,13 @@ function makeMsg(role) {
   return bubble;
 }
 
+// ── Mission stepper state ───────────────────────────────────────────────
+let missionBox = null;         // the .mission container
+let missionSteps = [];         // [{name, task, el, startMs}] in order
+let missionProgressEl = null;
+let missionLiveDotEl = null;
+let missionStatEl = null;
+
 function makeActivityContainer(messageEl) {
   const wrap = document.createElement('div');
   wrap.className = 'activity';
@@ -1107,53 +1149,163 @@ function makeActivityContainer(messageEl) {
 }
 
 function makePlanBanner(activity, agents) {
-  const b = document.createElement('div');
-  b.className = 'plan-banner';
-  b.innerHTML = `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-    <span>${agents.length ? `Delegating to ${agents.length} specialist${agents.length > 1 ? 's' : ''}…` : 'Handling directly'}</span>`;
-  activity.appendChild(b);
-  return b;
+  // Build the mission stepper box
+  const managerName = cfg?.manager_name || 'Manager';
+  const stepCount = agents.length || 1;
+  const box = document.createElement('div');
+  box.className = 'mission';
+  box.innerHTML = `
+    <div class="mission-head">
+      <div class="mission-mark"><img src="/static/assets/metis-logomark-transparent.png" alt=""></div>
+      <div class="mission-head-info">
+        <div class="mission-head-title">${escapeHtml(managerName)}</div>
+        <div class="mission-head-sub mission-sub-text">${escapeHtml(agents.length ? `${agents.length} specialist${agents.length > 1 ? 's' : ''} · planning` : 'self-handling')}</div>
+      </div>
+      <span class="mission-live" id="missionStat"><span class="mission-live-dot"></span>running</span>
+    </div>
+    <div class="mission-progress"><div class="mission-progress-fill" id="missionFill" style="right:100%"></div><div class="mission-progress-sweep"></div></div>
+    <div class="mission-steps" id="missionStepList"></div>
+  `;
+  activity.appendChild(box);
+  missionBox = box;
+  missionSteps = [];
+  missionProgressEl = box.querySelector('#missionFill');
+  missionStatEl = box.querySelector('#missionStat');
+
+  // Pre-render todo steps for each known agent
+  agents.forEach((name, i) => {
+    _addMissionStep(box.querySelector('#missionStepList'), name, '', 'todo', i + 1);
+  });
+  return box;
+}
+
+function _addMissionStep(container, name, task, state, num) {
+  const step = document.createElement('div');
+  step.className = `mstep ${state}`;
+  step.dataset.agent = name;
+  const isLast = true; // will be updated
+  step.innerHTML = `
+    <div class="mstep-dot-col">
+      <div class="mstep-bullet ${state === 'done' ? 'done' : state === 'running' ? 'run' : 'todo'}">${state === 'done' ? '✓' : num}</div>
+      <div class="mstep-line"></div>
+    </div>
+    <div class="mstep-body">
+      <div class="mstep-title">${escapeHtml(name)}</div>
+      <div class="mstep-meta">${escapeHtml(task || 'pending')}</div>
+    </div>
+    <div class="mstep-dur">${state === 'todo' ? '—' : state === 'running' ? 'running' : ''}</div>
+  `;
+  container.appendChild(step);
+  return step;
 }
 
 function makeAgentCard(activity, name, task) {
-  const c = document.createElement('div');
-  c.className = 'agent-card busy';
-  c.dataset.agent = name;
-  const head = document.createElement('div');
-  head.className = 'agent-card-head';
-  head.innerHTML = `<div class="agent-spin"></div>
-    <span class="label">${name}<span class="colon">·</span><span class="task"></span></span>
-    <span class="ms"></span>
-    <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 6 15 12 9 18"/></svg>`;
-  head.querySelector('.task').textContent = task;
-  const body = document.createElement('div');
-  body.className = 'agent-card-body';
-  body.textContent = '…';
-  c.appendChild(head);
-  c.appendChild(body);
-  activity.appendChild(c);
-  head.addEventListener('click', () => c.classList.toggle('open'));
   setCrewStatus(name, 'busy');
-  return c;
+
+  // Find or create the mission box
+  if (!missionBox) {
+    makePlanBanner(activity, []);
+  }
+  const container = missionBox.querySelector('#missionStepList');
+
+  // Check if there's already a todo placeholder for this agent
+  let step = container.querySelector(`.mstep[data-agent="${CSS.escape(name)}"]`);
+  const num = missionSteps.length + 1;
+
+  if (step) {
+    // Upgrade the todo placeholder to running
+    step.className = 'mstep running';
+    step.querySelector('.mstep-bullet').className = 'mstep-bullet run';
+    step.querySelector('.mstep-bullet').textContent = num;
+    step.querySelector('.mstep-meta').textContent = task || 'working…';
+    step.querySelector('.mstep-dur').textContent = 'running';
+  } else {
+    step = _addMissionStep(container, name, task, 'running', num);
+    step.className = 'mstep running';
+    step.querySelector('.mstep-bullet').className = 'mstep-bullet run';
+  }
+
+  // Add shimmer + ticker for the running step
+  const body = step.querySelector('.mstep-body');
+  const shimmer = document.createElement('div');
+  shimmer.className = 'mstep-shimmer';
+  const ticker = document.createElement('div');
+  ticker.className = 'mstep-ticker';
+  ticker.innerHTML = `<span class="mstep-ticker-text">${escapeHtml(task || 'processing…')}</span><span class="mstep-tdot"></span><span class="mstep-tdot"></span><span class="mstep-tdot"></span>`;
+  body.appendChild(shimmer);
+  body.appendChild(ticker);
+
+  // Update progress bar
+  const done = missionSteps.filter(s => s.done).length;
+  const total = Math.max(container.children.length, 1);
+  if (missionProgressEl) missionProgressEl.style.right = `${100 - Math.round(done / total * 100)}%`;
+
+  const entry = { name, task, el: step, startMs: Date.now(), done: false };
+  missionSteps.push(entry);
+
+  // Add 30s timeout warning
+  const timeoutId = setTimeout(() => {
+    if (!entry.done) {
+      const warn = document.createElement('div');
+      warn.className = 'agent-timeout';
+      warn.innerHTML = '<span class="ico">⏳</span> Taking a moment — first use loads the model into memory';
+      step.appendChild(warn);
+    }
+  }, 30000);
+  entry.timeoutId = timeoutId;
+
+  return step; // return the step element (acts as "card" for finishAgentCard)
 }
 
-function finishAgentCard(card, output, ms) {
-  card.classList.remove('busy');
-  card.classList.add('done');
-  card.querySelector('.agent-spin').outerHTML =
-    '<svg class="agent-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>';
-  card.querySelector('.ms').textContent = `${(ms / 1000).toFixed(1)}s`;
-  card.querySelector('.agent-card-body').textContent = output;
-  setCrewStatus(card.dataset.agent, 'done');
+function finishAgentCard(stepEl, output, ms) {
+  // Find matching entry
+  const entry = missionSteps.find(s => s.el === stepEl);
+  if (entry) {
+    entry.done = true;
+    if (entry.timeoutId) clearTimeout(entry.timeoutId);
+  }
+
+  stepEl.className = 'mstep done';
+  const bullet = stepEl.querySelector('.mstep-bullet');
+  bullet.className = 'mstep-bullet done';
+  bullet.textContent = '✓';
+  stepEl.querySelector('.mstep-dur').textContent = `${(ms / 1000).toFixed(1)}s`;
+  const meta = stepEl.querySelector('.mstep-meta');
+  if (meta && output) meta.textContent = output.substring(0, 80) + (output.length > 80 ? '…' : '');
+
+  // Remove shimmer + ticker
+  stepEl.querySelector('.mstep-shimmer')?.remove();
+  stepEl.querySelector('.mstep-ticker')?.remove();
+
+  // Update progress bar
+  const container = missionBox?.querySelector('#missionStepList');
+  if (container && missionProgressEl) {
+    const doneCount = missionSteps.filter(s => s.done).length;
+    const total = Math.max(container.children.length, 1);
+    missionProgressEl.style.right = `${100 - Math.round(doneCount / total * 100)}%`;
+  }
+
+  // Update step connector lines
+  const lineEl = stepEl.querySelector('.mstep-line');
+  if (lineEl) lineEl.className = 'mstep-line done';
+
+  setCrewStatus(stepEl.dataset.agent || '', 'done');
 }
 
 function makeSynthBanner(activity) {
-  const b = document.createElement('div');
-  b.className = 'synth-banner';
-  const name = cfg?.manager_name || 'Manager';
-  b.innerHTML = `<span class="dot-trio"><span></span><span></span><span></span></span> ${escapeHtml(name)} is composing your answer…`;
-  activity.appendChild(b);
-  return b;
+  // Show "composing" on the mission stat pill
+  if (missionStatEl) {
+    missionStatEl.innerHTML = `<span class="mstep-tdot"></span><span class="mstep-tdot"></span><span class="mstep-tdot"></span> composing`;
+  }
+  if (missionProgressEl) missionProgressEl.style.right = '5%';
+  const managerName = cfg?.manager_name || 'Manager';
+  // Update sub text
+  missionBox?.querySelector('.mission-sub-text')?.setAttribute('data-orig', '');
+  if (missionBox) {
+    const sub = missionBox.querySelector('.mission-head-sub');
+    if (sub) sub.textContent = `${escapeHtml(managerName)} is composing…`;
+  }
+  return missionBox; // return box so caller can call .remove() if needed
 }
 
 // ── Send + stream ───────────────────────────────────────────────────────
@@ -1301,7 +1453,7 @@ async function sendMessage() {
       } else if (ev.type === 'token') {
         if (!answerStarted) {
           clearInterval(thinkingInterval);
-          if (synthBanner) synthBanner.remove();
+          // synthBanner is the missionBox — don't remove it, just clear the composing state
           replyBubble.innerHTML = '';
           answerStarted = true;
         }
@@ -1348,6 +1500,12 @@ async function sendMessage() {
         replyBubble.textContent = `Error: ${ev.message}`;
         if (window.toast) toast('error', 'Manager error', ev.message, 5000);
       } else if (ev.type === 'done') {
+        // Mark mission as complete
+        if (missionStatEl) {
+          missionStatEl.classList.add('done');
+          missionStatEl.innerHTML = '✓ done';
+        }
+        if (missionProgressEl) missionProgressEl.style.right = '0%';
         // Render markdown now that streaming is complete
         if (fullAnswer) {
           replyBubble.innerHTML = renderMarkdown(fullAnswer);

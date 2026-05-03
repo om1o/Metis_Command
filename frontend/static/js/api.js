@@ -105,9 +105,13 @@ export const api = {
   createRelationship: (data) => _fetch('/relationships', { method: 'POST', body: JSON.stringify(data) }),
   deleteRelationship: (id) => _fetch(`/relationships/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 
-  // Ollama auto-management
+  // Ollama auto-management + model warmup
   ollamaStatus: () => _fetch('/ollama/status'),
   ollamaStart: () => _fetch('/ollama/start', { method: 'POST' }),
+  warmupModel: (modelId) => _fetch('/models/warmup', {
+    method: 'POST',
+    body: JSON.stringify({ model: modelId }),
+  }),
 
   // Streaming chat (Server-Sent Events)
   chatStream: async function* (sessionId, message, role = 'manager', signal) {
