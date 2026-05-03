@@ -24,7 +24,6 @@ from typing import Any, Callable
 
 from brain_engine import chat_by_role
 from safety import audit, confirm_gate, ConfirmRequired
-from tool_runtime import SessionExecutionLog, ToolRunner
 
 
 # ── Public registry of atomic tools ──────────────────────────────────────────
@@ -171,7 +170,6 @@ def run_mission(
     auto_approve: bool = False,
     on_event: Callable[[dict], None] | None = None,
     cancel=None,
-    session_id: str | None = None,
 ) -> Mission:
     """
     Execute a goal as a plan -> execute -> reflect loop.
@@ -224,7 +222,6 @@ def run_mission(
                 step.tool, step.args,
                 auto_approve=auto_approve, on_event=on_event,
                 cancel=cancel,
-                session_id=session_id,
             )
             _emit(on_event, {"type": "step_end", "step": step.index,
                              "ok": step.ok, "tool": step.tool,
@@ -302,7 +299,6 @@ def _run_tool(
     auto_approve: bool,
     on_event: Callable[[dict], None] | None,
     cancel=None,
-    session_id: str | None = None,
 ) -> tuple[Any, bool, int]:
     """
     Invoke one tool with per-call budget.
@@ -313,6 +309,9 @@ def _run_tool(
       METIS_TOOL_TIMEOUT_S (default 120s) we surface a timeout observation
       so the executor can re-plan.
     """
+    import os as _os
+    import threading
+
     reg = tool_registry()
     if name not in reg:
         return f"unknown tool: {name}", False, 0
@@ -320,40 +319,48 @@ def _run_tool(
     if cancel is not None and getattr(cancel, "cancelled", False):
         return "cancelled before tool started", False, 0
 
-    # ToolRunner emits tool_start/tool_end/error events for the UI, validates args,
-    # supports retry/backoff, and persists a per-session tool run log.
-    log = SessionExecutionLog(session_id) if session_id else None
-    runner = ToolRunner(reg, on_event=on_event, session_log=log)
+    timeout_s = float(_os.getenv("METIS_TOOL_TIMEOUT_S", "120"))
+    started = time.time()
+    result_box: dict[str, Any] = {}
 
-    # Keep confirm-gate semantics: a destructive tool can raise ConfirmRequired.
-    def _wrapped(**kw: Any) -> Any:
+    def _call() -> None:
         try:
-            return reg[name](**kw)
+            try:
+                result_box["value"] = reg[name](**args)
+            except ConfirmRequired as cr:
+                if not auto_approve:
+                    result_box["confirm_required"] = str(cr)
+                    return
+                token = str(cr)
+                result_box["value"] = reg[name](**{**args, "confirm_token": token})
         except ConfirmRequired as cr:
-            if not auto_approve:
-                raise
-            token = str(cr)
-            return reg[name](**{**kw, "confirm_token": token})
+            result_box["confirm_required"] = str(cr)
+        except Exception as e:
+            result_box["error"] = f"{type(e).__name__}: {e}"
 
-    tmp_reg = {**reg, name: _wrapped}
-    runner.registry = tmp_reg
+    t = threading.Thread(target=_call, daemon=True, name=f"tool:{name}")
+    t.start()
+    # Cooperative cancel: check every 200ms.
+    while t.is_alive():
+        t.join(0.2)
+        if cancel is not None and getattr(cancel, "cancelled", False):
+            # The tool thread is daemonic and will be abandoned on shutdown;
+            # we can't hard-kill it from Python, but we stop waiting.
+            elapsed = int((time.time() - started) * 1000)
+            return "cancelled by user", False, elapsed
+        if time.time() - started > timeout_s:
+            elapsed = int((time.time() - started) * 1000)
+            return f"tool {name} timed out after {timeout_s:.0f}s", False, elapsed
 
-    res = runner.run(
-        name,
-        args,
-        agent="manager",
-        cancel_token=cancel,
-        timeout_s=None,
-        max_retries=1,
-    )
-
-    if res.confirm_required:
-        _emit(on_event, {"type": "confirm_required", "tool": name, "token": res.confirm_token, "args": args})
-        return {"confirm_required": True, "token": res.confirm_token}, False, res.duration_ms
-
-    if not res.ok:
-        return res.error or "tool failed", False, res.duration_ms
-    return res.data, True, res.duration_ms
+    elapsed = int((time.time() - started) * 1000)
+    if "confirm_required" in result_box:
+        tok = result_box["confirm_required"]
+        _emit(on_event, {"type": "confirm_required", "tool": name,
+                         "token": tok, "args": args})
+        return {"confirm_required": True, "token": tok}, False, elapsed
+    if "error" in result_box:
+        return result_box["error"], False, elapsed
+    return result_box.get("value"), True, elapsed
 
 
 def _reflect(mission: Mission) -> dict[str, Any]:

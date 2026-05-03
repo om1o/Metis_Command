@@ -15,27 +15,23 @@ from typing import Any
 from dotenv import load_dotenv
 load_dotenv()
 
-# noqa-block: imports below intentionally come AFTER load_dotenv() so any
-# settings read at module load time pick up values from .env.
-from fastapi import FastAPI, HTTPException, Query  # noqa: E402
-from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
-from fastapi.responses import StreamingResponse  # noqa: E402
-from pydantic import BaseModel  # noqa: E402
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
-from brain_engine import ROLE_MODELS, list_local_models, stream_chat  # noqa: E402
-from artifacts import list_artifacts, get_artifact  # noqa: E402
-from metis_version import METIS_VERSION  # noqa: E402
+from brain_engine import ROLE_MODELS, list_local_models, stream_chat
+from artifacts import list_artifacts, get_artifact
 
 
-import auth_local  # noqa: E402
+import auth_local
 
 app = FastAPI(title="Metis API Bridge", version="16.4.0")
 
 PUBLIC_PATHS = {"/", "/health", "/version", "/status",
-                "/docs", "/openapi.json", "/redoc",
-                "/webhooks/stripe"}
+                "/docs", "/openapi.json", "/redoc"}
 
-app.version = METIS_VERSION
+METIS_VERSION = "0.16.4"
 
 
 @app.middleware("http")
@@ -83,36 +79,15 @@ def _boot_services() -> None:
     except Exception as e:
         print(f"[api_bridge] wallet defaults skipped: {e}")
 
-def _resolve_cors_origins() -> list[str]:
-    """
-    Allow operators to override CORS origins via env var.
-
-    METIS_CORS_ORIGINS=https://app.example.com,https://other.com
-    """
-    raw = os.getenv("METIS_CORS_ORIGINS", "").strip()
-    if raw:
-        extras = [o.strip() for o in raw.split(",") if o.strip()]
-    else:
-        extras = []
-    defaults = [
-        "http://127.0.0.1", "http://127.0.0.1:8501",
-        "http://localhost", "http://localhost:8501",
-        "http://localhost:3000", "http://127.0.0.1:3000",  # Next.js dev
-        "tauri://localhost",                                # Tauri desktop
-    ]
-    seen: set[str] = set()
-    out: list[str] = []
-    for origin in [*defaults, *extras]:
-        if origin not in seen:
-            seen.add(origin)
-            out.append(origin)
-    return out
-
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_resolve_cors_origins(),
-    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_origins=[
+        "http://127.0.0.1", "http://127.0.0.1:8501",
+        "http://localhost",  "http://localhost:8501",
+        "http://localhost:3000", "http://127.0.0.1:3000",  # Next.js dev
+        "tauri://localhost",                                # Tauri desktop
+    ],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
     max_age=600,
 )
@@ -134,7 +109,7 @@ class ForgeRequest(BaseModel):
 def root() -> dict:
     return {
         "name": "Metis API Bridge",
-        "version": METIS_VERSION,
+        "version": "16.3.0",
         "roles": list(ROLE_MODELS.keys()),
         "models_local": list_local_models(),
     }
@@ -408,201 +383,6 @@ def tier_plan(tier: str) -> dict:
         "total_gb": p.total_gb,
         "missing_gb": p.missing_gb,
     }
-
-
-# ── Sessions ─────────────────────────────────────────────────────────────────
-
-@app.get("/sessions")
-def sessions_list(limit: int = 50) -> list[str]:
-    from memory import list_sessions
-    try:
-        return list(list_sessions(limit=limit) or [])
-    except Exception as e:
-        raise HTTPException(status_code=503, detail=f"sessions backend unavailable: {e}")
-
-
-@app.get("/sessions/{session_id}")
-def sessions_load(session_id: str, limit: int = 200) -> list[dict]:
-    from memory import load_session
-    try:
-        return list(load_session(session_id, limit=limit) or [])
-    except Exception as e:
-        raise HTTPException(status_code=503, detail=f"session load failed: {e}")
-
-
-@app.delete("/sessions/{session_id}")
-def sessions_clear(session_id: str) -> dict:
-    from memory import clear_session
-    try:
-        clear_session(session_id)
-    except Exception as e:
-        raise HTTPException(status_code=503, detail=f"session clear failed: {e}")
-    return {"ok": True, "session_id": session_id}
-
-
-# ── Schedules ────────────────────────────────────────────────────────────────
-
-class ScheduleAddRequest(BaseModel):
-    goal: str
-    kind: str = "interval"  # interval | daily | once | cron
-    spec: str = "60"
-    project_slug: str | None = None
-    auto_approve: bool = True
-    action: str = ""
-
-
-@app.get("/schedules")
-def schedules_list() -> list[dict]:
-    from scheduler import list_schedules
-    return [s.to_dict() for s in list_schedules()]
-
-
-@app.post("/schedules")
-def schedules_add(req: ScheduleAddRequest) -> dict:
-    from scheduler import add as _add
-    s = _add(
-        req.goal,
-        kind=req.kind,
-        spec=req.spec,
-        project_slug=req.project_slug,
-        auto_approve=req.auto_approve,
-        action=req.action,
-    )
-    return s.to_dict()
-
-
-@app.delete("/schedules/{schedule_id}")
-def schedules_remove(schedule_id: str) -> dict:
-    from scheduler import remove as _remove
-    return {"ok": _remove(schedule_id), "id": schedule_id}
-
-
-@app.post("/schedules/{schedule_id}/toggle")
-def schedules_toggle(schedule_id: str) -> dict:
-    from scheduler import toggle as _toggle
-    return {"enabled": _toggle(schedule_id), "id": schedule_id}
-
-
-# ── Marketplace ──────────────────────────────────────────────────────────────
-
-@app.get("/marketplace")
-def marketplace_list() -> list[dict]:
-    from marketplace import list_plugins
-    return list_plugins() or []
-
-
-class MarketplaceInstallRequest(BaseModel):
-    slug: str
-
-
-@app.post("/marketplace/install")
-def marketplace_install(req: MarketplaceInstallRequest) -> dict:
-    from marketplace import list_plugins, install_plugin
-    plugins = list_plugins() or []
-    target = next((p for p in plugins if p.get("slug") == req.slug), None)
-    if not target:
-        raise HTTPException(status_code=404, detail="plugin not in catalog")
-    ok = install_plugin(target)
-    return {"ok": bool(ok), "slug": req.slug}
-
-
-# ── Skills ───────────────────────────────────────────────────────────────────
-
-@app.get("/skills")
-def skills_list() -> list[dict]:
-    from skill_forge import list_skills
-    return list_skills()
-
-
-class SkillInvokeRequest(BaseModel):
-    name: str
-    kwargs: dict[str, Any] = {}
-
-
-@app.post("/skills/invoke")
-def skills_invoke(req: SkillInvokeRequest) -> dict:
-    from skill_forge import invoke
-    try:
-        result = invoke(req.name, **(req.kwargs or {}))
-    except KeyError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    return {"ok": True, "result": result}
-
-
-# ── Usage forecast ───────────────────────────────────────────────────────────
-
-@app.get("/usage/forecast")
-def usage_forecast() -> dict:
-    """
-    Project month-end spend by extrapolating elapsed usage to month length.
-    Best-effort: returns zeros if usage_tracker is empty.
-    """
-    from datetime import datetime, timedelta
-    try:
-        import usage_tracker as _u
-        events = _u.recent(limit=10000) if hasattr(_u, "recent") else []
-    except Exception:
-        events = []
-    now = datetime.now()
-    start_of_month = datetime(now.year, now.month, 1)
-    days_elapsed = max((now - start_of_month).days + 1, 1)
-    if now.month == 12:
-        next_month_start = datetime(now.year + 1, 1, 1)
-    else:
-        next_month_start = datetime(now.year, now.month + 1, 1)
-    days_in_month = (next_month_start - start_of_month).days
-    spend_so_far_cents = 0
-    try:
-        for e in events or []:
-            cost = e.get("cost_cents") if isinstance(e, dict) else getattr(e, "cost_cents", 0)
-            spend_so_far_cents += int(cost or 0)
-    except Exception:
-        spend_so_far_cents = 0
-    if days_elapsed <= 0:
-        projected = 0
-    else:
-        projected = int(spend_so_far_cents * (days_in_month / days_elapsed))
-    return {
-        "month": now.strftime("%Y-%m"),
-        "days_elapsed": days_elapsed,
-        "days_in_month": days_in_month,
-        "spend_so_far_cents": spend_so_far_cents,
-        "projected_month_end_cents": projected,
-    }
-
-
-# ── Agent health ─────────────────────────────────────────────────────────────
-
-@app.get("/agents/health")
-def agents_health() -> list[dict]:
-    try:
-        from agent_roster import get_agent_health
-        return get_agent_health()
-    except Exception as e:
-        raise HTTPException(status_code=503, detail=f"health unavailable: {e}")
-
-
-# ── Stripe webhook ───────────────────────────────────────────────────────────
-
-@app.post("/webhooks/stripe")
-async def stripe_webhook(request) -> dict:  # type: ignore[no-untyped-def]
-    """
-    Wallet top-up via Stripe Checkout completion.
-
-    This endpoint is on the PUBLIC_PATHS allowlist below — Stripe's webhook
-    sender doesn't carry the local Bearer token. Signature verification is
-    delegated to wallet.handle_stripe_webhook (uses STRIPE_WEBHOOK_SECRET).
-    """
-    body = await request.body()
-    sig = request.headers.get("stripe-signature", "")
-    try:
-        from wallet import handle_stripe_webhook
-        result = handle_stripe_webhook(body, sig)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"webhook failed: {e}")
-    return result
 
 
 if __name__ == "__main__":

@@ -25,11 +25,6 @@ htmlcov/
 logs/
 metis_db/
 artifacts/
-generated/
-docs/design-system/
-Metis AI Design System*.zip
-colors_and_type.css
-SKILL - Copy.md
 identity/brains/
 identity/projects/
 identity/backups/
@@ -43,6 +38,10 @@ identity/personas.json
 identity/.active
 identity/local_auth.token
 identity/brains/*/compact_trash.jsonl
+identity/manager_configs/
+identity/local_chat.db
+identity/local_chat.db-shm
+identity/local_chat.db-wal
 logs/locks/
 
 # ── Website + build artifacts ────────────────────────────────────────────────
@@ -59,7 +58,6 @@ dist/
 *.spec.tmp
 
 # ── IDE / OS noise ───────────────────────────────────────────────────────────
-.cursor/
 .vscode/
 .idea/
 .DS_Store

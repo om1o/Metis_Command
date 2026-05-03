@@ -204,34 +204,6 @@ class ConfirmRequired(Exception):
 _pending_confirms: dict[str, dict[str, Any]] = {}
 _pending_lock = threading.Lock()
 
-# Confirm tokens stop being valid after this many seconds. Five minutes is
-# generous enough for a human-in-the-loop reviewer but short enough that an
-# accidentally-leaked token can't be used to authorize destructive ops hours
-# later. Override with METIS_CONFIRM_TTL_S if needed.
-CONFIRM_TTL_S = float(os.getenv("METIS_CONFIRM_TTL_S", "300"))
-
-
-def _sweep_expired_confirms() -> int:
-    """Drop expired confirm tokens. Returns how many were swept."""
-    now = time.time()
-    swept = 0
-    with _pending_lock:
-        expired = [
-            tok for tok, entry in _pending_confirms.items()
-            if now - float(entry.get("created_at", 0) or 0) > CONFIRM_TTL_S
-        ]
-        for tok in expired:
-            entry = _pending_confirms.pop(tok, None)
-            if entry:
-                swept += 1
-                try:
-                    audit({"event": "confirm_token_expired",
-                           "action": entry.get("action"),
-                           "age_s": int(now - float(entry.get("created_at", 0) or 0))})
-                except Exception:
-                    pass
-    return swept
-
 
 def confirm_gate(action: str, args: dict[str, Any], *, token: str | None = None) -> str:
     """
@@ -240,28 +212,16 @@ def confirm_gate(action: str, args: dict[str, Any], *, token: str | None = None)
     First call:  returns a short confirm_token and records {action, args, ts}.
     Second call: if `token` matches, the action is allowed.
 
-    Tokens that haven't been redeemed within CONFIRM_TTL_S (default 5 min)
-    are swept on every call so a leaked token can't authorize an op hours
-    after it was issued.
-
     Usage inside a tool:
         token = confirm_gate("shell_run", {"cmd": cmd})
         raise ConfirmRequired(token)   # user reviews, passes token back
         # on retry with the matching token, just continue
     """
-    # Always sweep first so this call sees a clean view.
-    _sweep_expired_confirms()
-
     if token:
         with _pending_lock:
             entry = _pending_confirms.pop(token, None)
         if not entry:
             audit({"event": "confirm_bad_token", "action": action})
-            raise PermissionError("Confirm token invalid or expired.")
-        # Defense-in-depth — token+age check (sweep should have caught it).
-        age = time.time() - float(entry.get("created_at", 0) or 0)
-        if age > CONFIRM_TTL_S:
-            audit({"event": "confirm_token_late", "action": action, "age_s": int(age)})
             raise PermissionError("Confirm token invalid or expired.")
         if entry["action"] != action:
             audit({"event": "confirm_action_mismatch", "expected": entry["action"], "got": action})
@@ -277,8 +237,7 @@ def confirm_gate(action: str, args: dict[str, Any], *, token: str | None = None)
             "args": args,
             "created_at": time.time(),
         }
-    audit({"event": "confirm_requested", "action": action, "token": new_token,
-           "args": _redact_args(args), "ttl_s": int(CONFIRM_TTL_S)})
+    audit({"event": "confirm_requested", "action": action, "token": new_token, "args": _redact_args(args)})
     return new_token
 
 
@@ -320,23 +279,10 @@ _audit_lock = threading.Lock()
 
 
 def audit(event: dict[str, Any]) -> None:
-    """Append a structured event to logs/audit.jsonl. Never raises.
-
-    If a trace is active (see tracing.start_trace), the trace_id is stamped
-    on the record so events can be correlated across tool calls, agent
-    handoffs, and bus messages.
-    """
+    """Append a structured event to logs/audit.jsonl. Never raises."""
     try:
         LOGS_DIR.mkdir(parents=True, exist_ok=True)
         record = {"ts": int(time.time() * 1000), **event}
-        # Best-effort trace stamping — never fails the audit.
-        try:
-            from tracing import current_trace_id
-            tid = current_trace_id()
-            if tid and "trace_id" not in record:
-                record["trace_id"] = tid
-        except Exception:
-            pass
         line = json.dumps(record, ensure_ascii=False, default=str)
         with _audit_lock, AUDIT_LOG.open("a", encoding="utf-8") as f:
             f.write(line + "\n")
