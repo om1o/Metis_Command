@@ -14,6 +14,9 @@ a native window.
 
 On subsequent runs: skips everything already done, launches services,
 opens the window in ~3 seconds.
+
+The UI is served by FastAPI (api_bridge) on METIS_API_PORT (default 7331),
+including static HTML under ./frontend. There is no separate Streamlit process.
 """
 
 from __future__ import annotations
@@ -34,7 +37,6 @@ sys.path.insert(0, str(ROOT))
 
 from scripts import bootstrap  # noqa: E402  stdlib-only
 
-DEFAULT_UI_PORT = int(os.getenv("METIS_UI_PORT", "8501"))
 DEFAULT_API_PORT = int(os.getenv("METIS_API_PORT", "7331"))
 
 
@@ -52,7 +54,7 @@ def _pick_port(start: int, *, host: str = "127.0.0.1", span: int = 50) -> int:
     """
     Pick the first free port in [start, start+span).
 
-    This avoids the common UX failure where 8501 is already in use.
+    Avoids failing when the default API port is already in use.
     """
     for p in range(int(start), int(start) + int(span)):
         if _port_free(p, host=host):
@@ -96,7 +98,7 @@ def _run_bootstrap(args: argparse.Namespace) -> None:
 
 
 def _reexec_in_venv(args: argparse.Namespace) -> None:
-    """Re-launch under the venv python so we can import streamlit etc."""
+    """Re-launch under the venv python so uvicorn and deps resolve correctly."""
     py = bootstrap.venv_python()
     if not py.exists():
         raise RuntimeError("venv python missing after bootstrap.")
@@ -117,17 +119,6 @@ def _start_api() -> subprocess.Popen:
     return subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "api_bridge:app",
          "--host", "127.0.0.1", "--port", str(int(os.environ["METIS_API_PORT"])), "--log-level", "warning"],
-        cwd=str(ROOT),
-    )
-
-
-def _start_ui() -> subprocess.Popen:
-    return subprocess.Popen(
-        [sys.executable, "-m", "streamlit", "run", str(ROOT / "dynamic_ui.py"),
-         "--server.port", str(int(os.environ["METIS_UI_PORT"])),
-         "--server.headless", "true",
-         "--server.address", "127.0.0.1",
-         "--browser.gatherUsageStats", "false"],
         cwd=str(ROOT),
     )
 
@@ -181,32 +172,21 @@ def _early_exit(proc: subprocess.Popen) -> tuple[bool, int]:
 def _run_services(args: argparse.Namespace) -> int:
     from scripts import desktop_shell
 
-    # Pick ports only once we’re inside the venv (so `socket` is available but
-    # we still stay stdlib-only here).
-    ui_port = int(os.environ.get("METIS_UI_PORT", str(DEFAULT_UI_PORT)))
     api_port = int(os.environ.get("METIS_API_PORT", str(DEFAULT_API_PORT)))
-    # If the env var was explicitly set, we still try to be helpful and pick the
-    # next free port rather than failing.
-    if not _port_free(ui_port):
-        picked = _pick_port(ui_port)
-        print(f"[launch] UI port {ui_port} in use; switching to {picked}", flush=True)
-        ui_port = picked
-        os.environ["METIS_UI_PORT"] = str(ui_port)
     if not _port_free(api_port):
         picked = _pick_port(api_port)
         print(f"[launch] API port {api_port} in use; switching to {picked}", flush=True)
         api_port = picked
         os.environ["METIS_API_PORT"] = str(api_port)
 
-    ui_url = f"http://127.0.0.1:{ui_port}"
     api_url = f"http://127.0.0.1:{api_port}"
+    # Splash is the HTML entry the desktop shell waits on; `/` may return JSON for API clients.
+    splash_url = f"{api_url}/splash"
 
-    print(f"[launch] starting API  -> {api_url}", flush=True)
+    print(f"[launch] starting API + UI -> {api_url}", flush=True)
     api = _start_api()
-    print(f"[launch] starting UI   -> {ui_url}", flush=True)
-    ui = _start_ui()
 
-    procs: list[subprocess.Popen] = [api, ui]
+    procs: list[subprocess.Popen] = [api]
 
     def _handler(signum, _frame):
         print(f"\n[launch] signal {signum} - shutting down.")
@@ -217,28 +197,20 @@ def _run_services(args: argparse.Namespace) -> int:
     if hasattr(signal, "SIGTERM"):
         signal.signal(signal.SIGTERM, _handler)
 
-    # Fail fast if the child exited immediately (e.g. port in use, missing deps).
-    # Streamlit/Uvicorn often print a message then exit quickly; we surface a
-    # deterministic non-zero status so scripts can detect failure.
     time.sleep(0.8)
-    ui_exited, ui_code = _early_exit(ui)
     api_exited, api_code = _early_exit(api)
-    if ui_exited:
-        print(f"[launch] UI exited early (code={ui_code}).", file=sys.stderr, flush=True)
-        _terminate(procs)
-        return 2
     if api_exited:
         print(f"[launch] API exited early (code={api_code}).", file=sys.stderr, flush=True)
         _terminate(procs)
         return 3
 
-    if not desktop_shell.wait_for_ui(ui_url):
-        print(f"[launch] UI never came up at {ui_url}", file=sys.stderr, flush=True)
+    if not _wait_for_api(api_url):
+        print(f"[launch] API never came up at {api_url}", file=sys.stderr, flush=True)
         _terminate(procs)
         return 1
 
-    if not _wait_for_api(api_url):
-        print(f"[launch] API never came up at {api_url}", file=sys.stderr, flush=True)
+    if not desktop_shell.wait_for_ui(splash_url):
+        print(f"[launch] Splash never became reachable at {splash_url}", file=sys.stderr, flush=True)
         _terminate(procs)
         return 1
 
@@ -254,14 +226,10 @@ def _run_services(args: argparse.Namespace) -> int:
         print(f"[launch] update probe skipped: {e}")
 
     if args.no_window:
-        print(f"[launch] headless mode - UI at {ui_url} (ui_pid={ui.pid}, api_pid={api.pid})", flush=True)
+        print(f"[launch] headless mode - open {splash_url} (api_pid={api.pid})", flush=True)
         try:
             while True:
                 time.sleep(5)
-                if ui.poll() is not None:
-                    print("[launch] UI died - restarting.", flush=True)
-                    ui = _start_ui()
-                    procs[1] = ui
                 if api.poll() is not None:
                     print("[launch] API died - restarting.", flush=True)
                     api = _start_api()
@@ -273,7 +241,7 @@ def _run_services(args: argparse.Namespace) -> int:
         return 0
 
     try:
-        desktop_shell.open_window(ui_url)
+        desktop_shell.open_window(splash_url)
     finally:
         _terminate(procs)
     return 0
