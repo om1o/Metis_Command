@@ -50,7 +50,7 @@
 - No multi-turn context window management
 - No rate limit UI feedback
 - No onboarding tour
-- Streamlit UI (dynamic_ui.py) still exists but is unused
+- Legacy Streamlit UI (`dynamic_ui.py`) remains in the tree for reference; `launch.py` only starts FastAPI
 
 ---
 
