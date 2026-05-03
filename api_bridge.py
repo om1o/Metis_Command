@@ -1150,6 +1150,47 @@ def ollama_start() -> dict:
     return _ol.start_if_needed(wait=True, max_wait_s=15.0)
 
 
+@app.post("/models/warmup")
+def models_warmup(request: Request) -> dict:
+    """
+    Pre-load a model into Ollama's VRAM so the next chat response is instant.
+    Fires a background thread and returns immediately.
+    """
+    import threading, time as _t
+
+    class _Body(BaseModel):
+        model: str | None = None
+
+    body_raw = {}
+    try:
+        import asyncio
+        loop = asyncio.new_event_loop()
+        body_raw = loop.run_until_complete(request.json())
+        loop.close()
+    except Exception:
+        pass
+
+    model_id = body_raw.get("model") if isinstance(body_raw, dict) else None
+    if not model_id:
+        import manager_config as _mc
+        model_id = _mc.ManagerConfigStore().load().get("manager_model") or "qwen2.5-coder:1.5b"
+
+    def _do_warmup(model: str) -> None:
+        try:
+            import requests as _req
+            _req.post(
+                "http://127.0.0.1:11434/api/generate",
+                json={"model": model, "prompt": "", "stream": False, "keep_alive": "10m"},
+                timeout=90,
+            )
+            print(f"[warmup] {model} loaded")
+        except Exception as e:
+            print(f"[warmup] {model} failed: {e}")
+
+    threading.Thread(target=_do_warmup, args=(model_id,), daemon=True).start()
+    return {"ok": True, "model": model_id, "status": "warming_up"}
+
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("METIS_API_PORT", "7331"))
