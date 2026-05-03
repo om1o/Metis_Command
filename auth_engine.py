@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import secrets
 import tempfile
 from pathlib import Path
 from typing import Any, Literal
@@ -15,19 +16,23 @@ from supabase_client import get_client
 _PKCE_DIR = Path(tempfile.gettempdir()) / "metis_pkce"
 
 
-def _save_verifier(provider: str, verifier: str) -> None:
+def _save_verifier(state: str, verifier: str) -> None:
     _PKCE_DIR.mkdir(parents=True, exist_ok=True)
-    (_PKCE_DIR / f"{provider}.txt").write_text(verifier, encoding="utf-8")
+    # Save by state (unique per request) instead of just provider.
+    (_PKCE_DIR / f"{state}.txt").write_text(verifier, encoding="utf-8")
 
 
-def _load_verifier(provider: str | None = None) -> str | None:
-    """Return stored verifier for *provider*, or try any stored verifier."""
+def _load_verifier(state: str | None = None) -> str | None:
+    """Return stored verifier for *state*, or try the most recent as fallback."""
     if not _PKCE_DIR.exists():
         return None
-    if provider:
-        p = _PKCE_DIR / f"{provider}.txt"
+    if state:
+        p = _PKCE_DIR / f"{state}.txt"
         if p.exists():
             v = p.read_text(encoding="utf-8").strip()
+            # Cleanup after use
+            try: p.unlink()
+            except Exception: pass
             return v or None
     # Fallback: return the most-recently-modified verifier file
     files = list(_PKCE_DIR.glob("*.txt"))
@@ -41,17 +46,22 @@ def _load_verifier(provider: str | None = None) -> str | None:
 def sign_up(email: str, password: str) -> dict:
     """Register a new user. Returns the user object on success."""
     client = get_client()
-    response = client.auth.sign_up({"email": email, "password": password})
-    return {"user": response.user, "session": response.session}
+    resp = client.auth.sign_up({"email": email, "password": password})
+    # Handle both AuthResponse objects and dicts
+    user = getattr(resp, "user", None) or (resp.get("user") if isinstance(resp, dict) else None)
+    session = getattr(resp, "session", None) or (resp.get("session") if isinstance(resp, dict) else None)
+    return {"user": user, "session": session}
 
 
 def sign_in(email: str, password: str) -> dict:
     """Sign in with email + password. Returns session and user."""
     client = get_client()
-    response = client.auth.sign_in_with_password(
+    resp = client.auth.sign_in_with_password(
         {"email": email, "password": password}
     )
-    return {"user": response.user, "session": response.session}
+    user = getattr(resp, "user", None) or (resp.get("user") if isinstance(resp, dict) else None)
+    session = getattr(resp, "session", None) or (resp.get("session") if isinstance(resp, dict) else None)
+    return {"user": user, "session": session}
 
 
 def sign_out() -> None:
@@ -80,19 +90,24 @@ def refresh_session() -> dict | None:
     return response.session if response else None
 
 
-OAuthProvider = Literal["google", "github"]
-
-
-def start_oauth(*, provider: OAuthProvider, redirect_to: str) -> tuple[str, str | None]:
+def start_oauth(*, provider: OAuthProvider, redirect_to: str) -> tuple[str, str]:
     """
-    Start an OAuth flow and return ``(authorization_url, code_verifier)``.
+    Start an OAuth flow and return ``(authorization_url, state)``.
 
-    The verifier is saved to disk so it survives the OAuth redirect round-trip
-    (st.session_state is wiped when the browser navigates away and back).
+    The state and PKCE verifier are saved to disk so they survive the redirect.
     """
     client = get_client()
+    state = secrets.token_urlsafe(16)
+    
+    # Explicitly request PKCE flow if the library supports it via options.
     resp: Any = client.auth.sign_in_with_oauth(
-        {"provider": provider, "options": {"redirect_to": redirect_to}}
+        {
+            "provider": provider, 
+            "options": {
+                "redirect_to": redirect_to,
+                "skip_browser_redirect": True,
+            }
+        }
     )
     url = getattr(resp, "url", None)
     if not isinstance(url, str) or not url:
@@ -101,7 +116,7 @@ def start_oauth(*, provider: OAuthProvider, redirect_to: str) -> tuple[str, str 
     if not isinstance(url, str) or not url:
         raise RuntimeError("OAuth start failed: missing authorization URL")
 
-    # Extract the PKCE code_verifier from in-memory storage and persist to disk.
+    # Extract the PKCE code_verifier from the client's internal storage.
     code_verifier: str | None = None
     try:
         storage = getattr(client.auth, "_storage", None)
@@ -109,11 +124,16 @@ def start_oauth(*, provider: OAuthProvider, redirect_to: str) -> tuple[str, str 
         if storage and hasattr(storage, "get_item"):
             code_verifier = storage.get_item(f"{storage_key}-code-verifier")
         if code_verifier:
-            _save_verifier(provider, code_verifier)
+            _save_verifier(state, code_verifier)
     except Exception:
         pass
 
-    return url, code_verifier
+    # Append state to the URL if not already present
+    if url and "state=" not in url:
+        sep = "&" if "?" in url else "?"
+        url = f"{url}{sep}state={state}"
+
+    return url, state
 
 
 # ── MFA / 2FA (TOTP) ─────────────────────────────────────────────────────────
@@ -198,21 +218,14 @@ def unenroll_totp(*, factor_id: str) -> bool:
         return False
 
 
-def complete_oauth(*, code: str, code_verifier: str | None = None) -> dict:
+def complete_oauth(*, code: str, state: str | None = None) -> dict:
     """
     Complete OAuth by exchanging the returned `code` for a session.
 
-    If ``code_verifier`` is not passed, we load it from the disk cache written
-    by ``start_oauth`` — this handles the case where st.session_state was wiped
-    by the OAuth redirect round-trip.
-
-    Returns a dict containing `user` and `session` when available.
+    If ``state`` is passed, we load the specific verifier for that request.
     """
     client = get_client()
-
-    # Fall back to disk cache when the caller has no verifier.
-    if not code_verifier:
-        code_verifier = _load_verifier()
+    code_verifier = _load_verifier(state)
 
     # Inject verifier back into the client's in-memory storage so
     # exchange_code_for_session can find it.
