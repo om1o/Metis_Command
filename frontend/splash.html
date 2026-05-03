@@ -173,11 +173,35 @@ async function bootRuntime() {
 
 async function bootAuth() {
   if (!getToken()) {
+    // Try the local install bootstrap token first (works on localhost without a cloud account)
+    try {
+      const res = await fetch('/auth/local-token');
+      if (res.ok) {
+        const { token } = await res.json();
+        if (token) {
+          localStorage.setItem('metis.access_token', token);
+        }
+      }
+    } catch {}
+  }
+  if (!getToken()) {
     routeNext = '/login';
     return 'no session — going to login';
   }
   const u = await ensureAuthed();
   if (!u) {
+    // If cloud auth failed, try refreshing with local token
+    try {
+      const res = await fetch('/auth/local-token');
+      if (res.ok) {
+        const { token } = await res.json();
+        if (token) {
+          localStorage.setItem('metis.access_token', token);
+          const { user } = await api.me();
+          if (user) return user.email || 'local install';
+        }
+      }
+    } catch {}
     routeNext = '/login';
     return 'session expired';
   }

@@ -47,6 +47,7 @@ PUBLIC_PATHS = {"/", "/health", "/version", "/status",
                 "/auth/signup", "/auth/signin", "/auth/signout",
                 "/auth/oauth/start", "/auth/oauth/complete",
                 "/auth/me", "/auth/refresh", "/auth/reset_password",
+                "/auth/local-token",
                 # Ollama auto-start probes the splash screen calls before login
                 "/ollama/status", "/ollama/start"}
 
@@ -820,6 +821,7 @@ class OAuthStartRequest(BaseModel):
 
 class OAuthCompleteRequest(BaseModel):
     code: str
+    state: str | None = None
 
 
 class ResetPasswordRequest(BaseModel):
@@ -829,23 +831,58 @@ class ResetPasswordRequest(BaseModel):
 def _session_payload(session: Any) -> dict:
     if session is None:
         return {}
+    
+    def _get(obj, attr, default=None):
+        if isinstance(obj, dict):
+            return obj.get(attr, default)
+        return getattr(obj, attr, default)
+
     return {
-        "access_token": getattr(session, "access_token", None),
-        "refresh_token": getattr(session, "refresh_token", None),
-        "expires_at": getattr(session, "expires_at", None),
-        "token_type": getattr(session, "token_type", "bearer"),
+        "access_token": _get(session, "access_token"),
+        "refresh_token": _get(session, "refresh_token"),
+        "expires_at": _get(session, "expires_at"),
+        "token_type": _get(session, "token_type", "bearer"),
     }
 
 
 def _user_payload(user: Any) -> dict:
     if user is None:
         return {}
+
+    def _get(obj, attr, default=None):
+        if isinstance(obj, dict):
+            return obj.get(attr, default)
+        return getattr(obj, attr, default)
+
     return {
-        "id": getattr(user, "id", None),
-        "email": getattr(user, "email", None),
-        "created_at": str(getattr(user, "created_at", "") or ""),
-        "user_metadata": getattr(user, "user_metadata", {}) or {},
+        "id": _get(user, "id"),
+        "email": _get(user, "email"),
+        "created_at": str(_get(user, "created_at", "") or ""),
+        "user_metadata": _get(user, "user_metadata", {}) or {},
     }
+
+
+@app.get("/auth/local-token")
+def auth_local_token(request: Request) -> dict:
+    """
+    Bootstrap endpoint — returns the local install bearer token so the
+    browser SPA can authenticate without a cloud account.
+
+    SECURITY: Only reachable at 127.0.0.1 (the server binds to localhost
+    only). External traffic never reaches this; there is no secret to leak.
+    """
+    host = request.headers.get("host", "")
+    client_host = getattr(request.client, "host", "")
+    # Block anything that isn't a loopback caller
+    loopback = {"127.0.0.1", "localhost", "::1"}
+    is_local = (
+        any(h in host for h in loopback)
+        or client_host in loopback
+    )
+    if not is_local:
+        raise HTTPException(status_code=403, detail="local-only endpoint")
+    token = auth_local.get_or_create()
+    return {"token": token, "type": "local-install"}
 
 
 @app.post("/auth/signup")
@@ -934,7 +971,7 @@ def auth_oauth_start(req: OAuthStartRequest) -> dict:
 @app.post("/auth/oauth/complete")
 def auth_oauth_complete(req: OAuthCompleteRequest) -> dict:
     try:
-        out = auth_engine.complete_oauth(code=req.code)
+        out = auth_engine.complete_oauth(code=req.code, state=req.state)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
     return {

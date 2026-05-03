@@ -64,9 +64,9 @@ export const api = {
     method: 'POST',
     body: JSON.stringify({ provider, redirect_to }),
   }),
-  oauthComplete: (code) => _fetch('/auth/oauth/complete', {
+  oauthComplete: (code, state) => _fetch('/auth/oauth/complete', {
     method: 'POST',
-    body: JSON.stringify({ code }),
+    body: JSON.stringify({ code, state }),
   }),
   resetPassword: (email) => _fetch('/auth/reset_password', {
     method: 'POST',
