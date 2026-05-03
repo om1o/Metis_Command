@@ -154,8 +154,12 @@ def _purchase(plugin: dict) -> None:
     try:
         url = start_subscription_checkout(
             tier_needed,
-            success_url=f"http://localhost:{os.getenv('METIS_UI_PORT','8501')}/?checkout=success",
-            cancel_url=f"http://localhost:{os.getenv('METIS_UI_PORT','8501')}/?checkout=cancel",
+            success_url=(
+                f"http://localhost:{os.getenv('METIS_API_PORT', '7331')}/app?checkout=success"
+            ),
+            cancel_url=(
+                f"http://localhost:{os.getenv('METIS_API_PORT', '7331')}/app?checkout=cancel"
+            ),
         )
         st.link_button("Open Stripe Checkout", url)
     except Exception as e:
