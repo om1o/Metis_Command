@@ -1231,9 +1231,14 @@ async function sendMessage() {
   const thinkingInterval = setInterval(() => {
     const elapsed = Math.floor((Date.now() - thinkingStartTime) / 1000);
     if (timerEl) timerEl.textContent = elapsed + 's';
-    if (elapsed >= 10 && slowHint && !slowHint.classList.contains('show')) {
-      slowHint.textContent = 'Local models can take a moment on first use...';
+    // Progressive hints so the user knows EXACTLY what's happening
+    if (elapsed === 5 && slowHint && !slowHint.classList.contains('show')) {
+      slowHint.textContent = 'Model is loading into memory — takes ~30s on first use';
       slowHint.classList.add('show');
+    } else if (elapsed === 25 && slowHint) {
+      slowHint.textContent = 'Almost there — model is large, loading into GPU...';
+    } else if (elapsed === 55 && slowHint) {
+      slowHint.textContent = 'Taking longer than usual. You can switch to a faster model (⚡ Fast) below.';
     }
   }, 1000);
 
@@ -1252,7 +1257,10 @@ async function sendMessage() {
 
   try {
     for await (const ev of api.chatStream(currentSession, text, 'manager', abortController.signal)) {
-      if (ev.type === 'manager_identity') {
+      if (ev.type === 'heartbeat') {
+        // Server received message — update stage to confirm
+        if (stageLabel) stageLabel.textContent = 'Connected · Loading model...';
+      } else if (ev.type === 'manager_identity') {
         // already configured; nothing to do
       } else if (ev.type === 'manager_plan') {
         if (stageLabel) stageLabel.textContent = ev.agents?.length ? 'Delegating to crew...' : 'Composing answer...';

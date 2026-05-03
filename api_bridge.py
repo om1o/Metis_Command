@@ -131,6 +131,35 @@ def _boot_services() -> None:
         install_default_policies()
     except Exception as e:
         print(f"[api_bridge] wallet defaults skipped: {e}")
+    # Pre-warm the manager model so the first user message is fast.
+    # Runs in its own thread so it never blocks the app boot.
+    try:
+        import threading
+        def _warmup():
+            try:
+                import requests as _req, time as _t
+                from manager_config import ManagerConfigStore
+                cfg = ManagerConfigStore().load()
+                model = cfg.get("manager_model") or "qwen2.5-coder:1.5b"
+                # Wait up to 20s for Ollama to be ready
+                for _ in range(20):
+                    try:
+                        r = _req.get("http://127.0.0.1:11434/api/tags", timeout=1)
+                        if r.ok:
+                            break
+                    except Exception:
+                        pass
+                    _t.sleep(1)
+                # Send an empty generate to load model into VRAM
+                _req.post("http://127.0.0.1:11434/api/generate",
+                          json={"model": model, "prompt": "", "stream": False},
+                          timeout=60)
+                print(f"[api_bridge] model warm-up complete: {model}")
+            except Exception as _e:
+                print(f"[api_bridge] model warm-up skipped: {_e}")
+        threading.Thread(target=_warmup, name="model-warmup", daemon=True).start()
+    except Exception as e:
+        print(f"[api_bridge] model warm-up thread failed: {e}")
 
 def _resolve_cors_origins() -> list[str]:
     """
@@ -277,6 +306,9 @@ async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
 
     def sse() -> Any:
         full_answer = ""
+        # Emit a heartbeat instantly so the browser knows we received the request.
+        # This prevents a blank spinner before the model starts generating.
+        yield f"data: {json.dumps({'type': 'heartbeat', 'message': 'Processing…'})}\n\n"
         if req.role == "manager":
             from manager_orchestrator import orchestrate
             try:
