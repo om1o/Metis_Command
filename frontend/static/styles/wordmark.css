@@ -1,0 +1,135 @@
+/* ============================================================
+   Metis Wordmark — shared across login, signup, splash, setup, app.
+   Clicking refreshes the current page (no navigation).
+   The letterform is stretched (uppercase + ~0.28em tracking) to
+   match assets/metis-wordmark.svg.
+   ============================================================ */
+
+.metis-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 10px 6px 6px;
+  border-radius: 10px;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-family: inherit;
+  color: inherit;
+  text-decoration: none;
+  transition: background .18s ease, border-color .18s ease, transform .18s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.metis-mark:hover {
+  background: rgba(255, 255, 255, .05);
+  border-color: rgba(255, 255, 255, .08);
+}
+
+.metis-mark:active {
+  transform: scale(.98);
+}
+
+.metis-mark .mm-glyph {
+  width: 30px;
+  height: auto;           /* preserve source aspect ratio */
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 12px rgba(124, 58, 237, .55));
+  transition: filter .25s ease;
+}
+
+.metis-mark:hover .mm-glyph {
+  filter: drop-shadow(0 0 18px rgba(124, 58, 237, .8));
+}
+
+.metis-mark .mm-word {
+  font-family: 'Sora', 'Manrope', system-ui, sans-serif;
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: 0.28em;          /* the stretched look from the SVG */
+  text-transform: uppercase;
+  line-height: 1;
+  /* Tail compensation: letter-spacing pushes empty space after the last
+     glyph; soak it back so the wordmark sits flush against the next
+     element without extra padding. */
+  margin-right: -0.28em;
+  background: linear-gradient(135deg, #FFFFFF 0%, #A78BFA 70%, #FFFFFF 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: mm-shine 6s linear infinite;
+}
+
+@keyframes mm-shine {
+  from { background-position: 0% 0; }
+  to   { background-position: -200% 0; }
+}
+
+/* Size variants — height: auto preserves the source aspect ratio */
+.metis-mark.size-sm .mm-glyph { width: 26px; }
+.metis-mark.size-sm .mm-word  { font-size: 18px; }
+
+.metis-mark.size-lg .mm-glyph { width: 56px; }
+.metis-mark.size-lg .mm-word  { font-size: 44px; letter-spacing: 0.30em; margin-right: -0.30em; }
+
+.metis-mark.size-xl .mm-glyph { width: 76px; }
+.metis-mark.size-xl .mm-word  { font-size: 64px; letter-spacing: 0.32em; margin-right: -0.32em; }
+
+/* When the wordmark sits on a header bar with a tag/version pill, this
+   subtitle slot keeps showing the company name beneath the wordmark
+   without breaking layout. Pages that don't need a subtitle just omit it. */
+.metis-mark .mm-stack {
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.metis-mark .mm-sub {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(167, 139, 250, .9);
+  font-weight: 500;
+}
+
+.metis-mark .mm-sub.gradient {
+  background: linear-gradient(135deg, rgba(167,139,250,.9), rgba(251,113,133,.9));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Stacked variant — icon on top, text centered below (matches the
+   logomark reference image: compact vertical block).  Use this on
+   splash, login hero, and any context where the mark is the focal
+   point rather than an inline nav element. */
+.metis-mark.stacked {
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 16px;
+  align-items: center;
+  text-align: center;
+}
+.metis-mark.stacked .mm-stack {
+  align-items: center;
+}
+.metis-mark.stacked .mm-word {
+  margin-right: 0;   /* no tail compensation when centered */
+}
+
+/* Stacked size overrides */
+.metis-mark.stacked.size-xl .mm-glyph { width: 96px; height: 96px; }
+.metis-mark.stacked.size-xl .mm-word  { font-size: 28px; letter-spacing: 0.32em; }
+.metis-mark.stacked.size-xl .mm-sub   { font-size: 10px; }
+
+.metis-mark.stacked.size-lg .mm-glyph { width: 72px; height: 72px; }
+.metis-mark.stacked.size-lg .mm-word  { font-size: 22px; letter-spacing: 0.30em; }
+
+@media (prefers-reduced-motion: reduce) {
+  .metis-mark .mm-word { animation: none; }
+}

@@ -7,25 +7,25 @@
   },
   "calendar_planner": {
     "slug": "calendar_planner",
-    "last_heartbeat_at": 1777768805.908817,
+    "last_heartbeat_at": 1777770313.5422325,
     "status": "alive",
     "messages_handled": 3
   },
   "finance_watch": {
     "slug": "finance_watch",
-    "last_heartbeat_at": 1777768800.125845,
+    "last_heartbeat_at": 1777770326.5388942,
     "status": "alive",
     "messages_handled": 3
   },
   "inbox_triage": {
     "slug": "inbox_triage",
-    "last_heartbeat_at": 1777768800.6528113,
+    "last_heartbeat_at": 1777770327.4958987,
     "status": "alive",
     "messages_handled": 3
   },
   "news_digest": {
     "slug": "news_digest",
-    "last_heartbeat_at": 1777768798.0670798,
+    "last_heartbeat_at": 1777770321.075611,
     "status": "alive",
     "messages_handled": 3
   }

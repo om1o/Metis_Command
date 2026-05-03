@@ -23,6 +23,7 @@ import threading
 import time
 from typing import Generator, Iterable
 
+import ollama
 import requests
 
 from hardware_scanner import get_hardware_tier
@@ -137,9 +138,19 @@ def _is_cloud_model(name: str) -> bool:
 
 def list_local_models() -> list[str]:
     try:
-        r = requests.get(f"{OLLAMA_BASE}/api/tags", timeout=10)
-        r.raise_for_status()
-        return [m["name"] for m in r.json().get("models", [])]
+        client = ollama.Client(host=OLLAMA_BASE)
+        response = client.list()
+        models = getattr(response, "models", None)
+        if models is None and isinstance(response, dict):
+            models = response.get("models", [])
+        names: list[str] = []
+        for m in models or []:
+            if isinstance(m, dict):
+                names.append(m.get("model") or m.get("name") or "")
+            else:
+                # Newer ollama python types use `.model` (not `.name`).
+                names.append(getattr(m, "model", None) or getattr(m, "name", None) or "")
+        return [n for n in names if n]
     except Exception:
         return []
 
@@ -149,24 +160,15 @@ def ensure_model(name: str, on_progress=None) -> bool:
     if name in list_local_models():
         return True
     try:
-        with requests.post(
-            f"{OLLAMA_BASE}/api/pull",
-            json={"name": name, "stream": True},
-            stream=True,
-            timeout=None,
-        ) as r:
-            r.raise_for_status()
-            for line in r.iter_lines():
-                if not line:
-                    continue
-                try:
-                    event = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                if on_progress:
-                    on_progress(event)
-                if event.get("status") == "success":
-                    return True
+        client = ollama.Client(host=OLLAMA_BASE)
+        for progress in client.pull(name, stream=True):
+            # Ensure we cast the ProgressResponse back to dict if needed by UI
+            # module_manager expects dicts with "status", "total", "completed"
+            prog_dict = progress if isinstance(progress, dict) else progress.model_dump()
+            if on_progress:
+                on_progress(prog_dict)
+            if prog_dict.get("status") == "success":
+                return True
         return name in list_local_models()
     except Exception as e:
         print(f"[BrainEngine] ensure_model({name}) failed: {e}")
@@ -330,7 +332,8 @@ def stream_chat(
 
     # Read timeout covers "stream wedged mid-response" cases; connect
     # timeout covers Ollama being down.  Either fires -> we raise out.
-    stream_connect_timeout = float(os.getenv("METIS_CONNECT_TIMEOUT", "10"))
+    # Defaults are tuned for UI responsiveness. Override via env vars if needed.
+    stream_connect_timeout = float(os.getenv("METIS_CONNECT_TIMEOUT", "5"))
     stream_read_timeout = float(os.getenv("METIS_STREAM_READ_TIMEOUT", "60"))
 
     try:
