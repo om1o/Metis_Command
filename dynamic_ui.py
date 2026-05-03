@@ -1,5 +1,9 @@
 """
-Metis Command — Streamlit UI.
+Metis Command — legacy Streamlit UI (not started by launch.py).
+
+The product UI is the FastAPI app: `api_bridge.py` + static `frontend/`
+on `METIS_API_PORT` (default 7331). This file remains for reference and
+optional manual `streamlit run dynamic_ui.py` during migration.
 
 Feels like Claude.ai (3-column layout, artifacts pane, show-thinking,
 copyable code, drag-drop attachments) with Codex agent ergonomics
@@ -929,7 +933,7 @@ def _auth_gate() -> bool:
                     pass
 
     # ── Pre-generate OAuth URLs as link buttons ──────────────────────────
-    ui_port = os.getenv('METIS_UI_PORT', '8501')
+    ui_port = os.getenv("METIS_UI_PORT", os.getenv("METIS_API_PORT", "7331"))
     redirect_to = f'http://127.0.0.1:{ui_port}'
     _oauth_urls: dict[str, str] = {}
     try:
