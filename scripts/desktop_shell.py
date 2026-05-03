@@ -1,5 +1,5 @@
 """
-Metis desktop shell - opens a native window pointing at the Streamlit UI.
+Metis desktop shell - opens a native window pointing at the FastAPI web UI.
 
 Graceful fallback order:
     1. pywebview native window (Windows WebView2 / macOS WKWebView / Linux WebKit)
@@ -95,7 +95,7 @@ def open_window(
 
 
 if __name__ == "__main__":
-    target = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:8501"
+    target = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:7331/splash"
     if not wait_for_ui(target):
         print(f"[shell] UI never came up at {target}", file=sys.stderr)
         sys.exit(1)
