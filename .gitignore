@@ -42,6 +42,10 @@ identity/*.mts
 identity/personas.json
 identity/.active
 identity/local_auth.token
+identity/local_chat.db
+identity/local_chat.db-shm
+identity/local_chat.db-wal
+identity/manager_configs/
 identity/brains/*/compact_trash.jsonl
 logs/locks/
 
