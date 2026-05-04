@@ -113,8 +113,18 @@ export const api = {
     body: JSON.stringify({ model: modelId }),
   }),
 
+  // Media generation
+  generateImage: (prompt, opts = {}) => _fetch('/generate/image', {
+    method: 'POST',
+    body: JSON.stringify({ prompt, width: opts.width || 1024, height: opts.height || 1024, style: opts.style || '' }),
+  }),
+  generateVideo: (prompt, opts = {}) => _fetch('/generate/video', {
+    method: 'POST',
+    body: JSON.stringify({ prompt, duration: opts.duration || 4 }),
+  }),
+
   // Streaming chat (Server-Sent Events)
-  chatStream: async function* (sessionId, message, role = 'manager', signal) {
+  chatStream: async function* (sessionId, message, role = 'manager', signal, direct = false) {
     const token = getToken();
     const r = await fetch('/chat', {
       method: 'POST',
@@ -122,7 +132,7 @@ export const api = {
         'Content-Type': 'application/json',
         ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({ session_id: sessionId, message, role }),
+      body: JSON.stringify({ session_id: sessionId, message, role, direct }),
       signal,
     });
     if (!r.ok || !r.body) {

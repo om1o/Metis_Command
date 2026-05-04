@@ -138,9 +138,9 @@ def _boot_services() -> None:
         def _warmup():
             try:
                 import requests as _req, time as _t
-                from manager_config import ManagerConfigStore
-                cfg = ManagerConfigStore().load()
-                model = cfg.get("manager_model") or "qwen2.5-coder:1.5b"
+                from manager_config import get_config
+                cfg = get_config("local-install")
+                model = cfg.manager_model or "qwen2.5-coder:1.5b"
                 # Wait up to 20s for Ollama to be ready
                 for _ in range(20):
                     try:
@@ -200,6 +200,7 @@ class ChatRequest(BaseModel):
     session_id: str
     message: str
     role: str = "manager"
+    direct: bool = False   # True = skip orchestrator, stream directly to model
 
 
 class ForgeRequest(BaseModel):
@@ -306,10 +307,52 @@ async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
 
     def sse() -> Any:
         full_answer = ""
-        # Emit a heartbeat instantly so the browser knows we received the request.
-        # This prevents a blank spinner before the model starts generating.
+        # Instant heartbeat — browser knows we're alive before model loads
         yield f"data: {json.dumps({'type': 'heartbeat', 'message': 'Processing…'})}\n\n"
-        if req.role == "manager":
+
+        # Direct mode: bypass orchestrator entirely — just stream tokens.
+        # Used for Fast + Auto tiers where speed matters more than crew routing.
+        use_direct = req.direct or req.role not in ("manager",)
+        if use_direct:
+            try:
+                import manager_config as _mc
+                cfg_obj = _mc.get_config(user_id)
+                model_id = cfg_obj.manager_model or "qwen2.5-coder:1.5b"
+                manager_name = cfg_obj.manager_name or "Metis"
+                # Emit identity so UI can show manager name
+                yield f"data: {json.dumps({'type': 'manager_identity', 'name': manager_name, 'model': model_id})}\n\n"
+                import requests as _req
+                t0 = __import__('time').time()
+                r = _req.post(
+                    "http://127.0.0.1:11434/api/generate",
+                    json={
+                        "model": model_id,
+                        "prompt": req.message,
+                        "stream": True,
+                        "keep_alive": "15m",
+                        "options": {"num_ctx": 4096},
+                    },
+                    stream=True,
+                    timeout=120,
+                )
+                for line in r.iter_lines():
+                    if not line:
+                        continue
+                    try:
+                        chunk = json.loads(line)
+                    except Exception:
+                        continue
+                    token = chunk.get("response", "")
+                    if token:
+                        full_answer += token
+                        yield f"data: {json.dumps({'type': 'token', 'delta': token})}\n\n"
+                    if chunk.get("done"):
+                        dur_ms = int((__import__('time').time() - t0) * 1000)
+                        yield f"data: {json.dumps({'type': 'done', 'duration_ms': dur_ms, 'agents_used': []})}\n\n"
+                        break
+            except Exception as e:
+                yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+        elif req.role == "manager":
             from manager_orchestrator import orchestrate
             try:
                 for ev in orchestrate(req.message, user_id=user_id, session_id=req.session_id):
@@ -354,6 +397,63 @@ async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
         yield "event: close\ndata: {}\n\n"
 
     return StreamingResponse(sse(), media_type="text/event-stream")
+
+
+# ── Image + Video generation ─────────────────────────────────────────────────
+
+class ImageGenRequest(BaseModel):
+    prompt: str
+    width: int = 1024
+    height: int = 1024
+    style: str = ""          # optional style suffix
+    seed: int | None = None
+
+class VideoGenRequest(BaseModel):
+    prompt: str
+    duration: int = 4        # seconds (used as hint for services that support it)
+
+@app.post("/generate/image")
+async def generate_image(req: ImageGenRequest) -> dict:
+    """
+    Generate an image via Pollinations.ai — completely free, no API key needed.
+    Returns an image URL the browser can render directly.
+    """
+    import urllib.parse, random as _rnd
+    prompt = req.prompt.strip()
+    if req.style:
+        prompt = f"{prompt}, {req.style}"
+    seed = req.seed if req.seed is not None else _rnd.randint(1, 99999)
+    encoded = urllib.parse.quote(prompt)
+    url = (
+        f"https://image.pollinations.ai/prompt/{encoded}"
+        f"?width={req.width}&height={req.height}&seed={seed}&nologo=true&enhance=true"
+    )
+    return {"url": url, "prompt": req.prompt, "seed": seed, "width": req.width, "height": req.height}
+
+
+@app.post("/generate/video")
+async def generate_video(req: VideoGenRequest) -> dict:
+    """
+    Generate a video via Pollinations.ai video endpoint (free).
+    Falls back to an animated GIF-style preview using multiple image frames.
+    """
+    import urllib.parse, random as _rnd
+    prompt = req.prompt.strip()
+    encoded = urllib.parse.quote(prompt)
+    seed = _rnd.randint(1, 99999)
+    # Primary: Pollinations video endpoint
+    video_url = f"https://video.pollinations.ai/prompt/{encoded}?seed={seed}&duration={req.duration}"
+    # Fallback frames for animated preview (different seeds = different frames)
+    frames = [
+        f"https://image.pollinations.ai/prompt/{encoded}?width=1024&height=576&seed={seed+i}&nologo=true"
+        for i in range(4)
+    ]
+    return {
+        "video_url": video_url,
+        "frames": frames,
+        "prompt": req.prompt,
+        "seed": seed,
+    }
 
 
 # ── Forge a new skill ────────────────────────────────────────────────────────
@@ -1173,7 +1273,7 @@ def models_warmup(request: Request) -> dict:
     model_id = body_raw.get("model") if isinstance(body_raw, dict) else None
     if not model_id:
         import manager_config as _mc
-        model_id = _mc.ManagerConfigStore().load().get("manager_model") or "qwen2.5-coder:1.5b"
+        model_id = _mc.get_config("local-install").manager_model or "qwen2.5-coder:1.5b"
 
     def _do_warmup(model: str) -> None:
         try:

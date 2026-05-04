@@ -345,9 +345,10 @@ pre:hover .code-copy{opacity:1}
 .input-model-btn.open .caret{transform:rotate(180deg)}
 .input-model-btn .tier-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
 .input-model-btn .tier-dot.fast{background:var(--gr);box-shadow:0 0 4px rgba(34,197,94,.5)}
-.input-model-btn .tier-dot.balanced{background:var(--bl);box-shadow:0 0 4px rgba(59,130,246,.5)}
-.input-model-btn .tier-dot.pro{background:var(--vi2);box-shadow:0 0 4px rgba(167,139,250,.5)}
-.input-model-btn .tier-dot.max{background:var(--am);box-shadow:0 0 4px rgba(245,158,11,.5)}
+.input-model-btn .tier-dot.auto{background:var(--bl);box-shadow:0 0 4px rgba(59,130,246,.5)}
+.input-model-btn .tier-dot.super{background:var(--vi2);box-shadow:0 0 4px rgba(167,139,250,.5)}
+.input-model-btn .tier-dot.mega{background:var(--am);box-shadow:0 0 4px rgba(245,158,11,.5)}
+.input-model-btn .tier-dot.cloud{background:var(--co);box-shadow:0 0 4px rgba(251,113,133,.5)}
 .input-model-btn .tier-dot.cloud{background:var(--co);box-shadow:0 0 4px rgba(251,113,133,.5)}
 
 /* ── Upward dropdown (shared for mode + model pickers) ── */
@@ -365,9 +366,10 @@ pre:hover .code-copy{opacity:1}
 .input-dropdown .dd-item .dd-desc{font-size:10.5px;color:var(--subtle);margin-top:1px}
 .input-dropdown .dd-item .dd-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
 .input-dropdown .dd-item .dd-dot.fast{background:var(--gr);box-shadow:0 0 4px rgba(34,197,94,.5)}
-.input-dropdown .dd-item .dd-dot.balanced{background:var(--bl);box-shadow:0 0 4px rgba(59,130,246,.5)}
-.input-dropdown .dd-item .dd-dot.pro{background:var(--vi2);box-shadow:0 0 4px rgba(167,139,250,.5)}
-.input-dropdown .dd-item .dd-dot.max{background:var(--am);box-shadow:0 0 4px rgba(245,158,11,.5)}
+.input-dropdown .dd-item .dd-dot.auto{background:var(--bl);box-shadow:0 0 4px rgba(59,130,246,.5)}
+.input-dropdown .dd-item .dd-dot.super{background:var(--vi2);box-shadow:0 0 4px rgba(167,139,250,.5)}
+.input-dropdown .dd-item .dd-dot.mega{background:var(--am);box-shadow:0 0 4px rgba(245,158,11,.5)}
+.input-dropdown .dd-item .dd-dot.cloud{background:var(--co);box-shadow:0 0 4px rgba(251,113,133,.5)}
 .input-dropdown .dd-item .dd-dot.cloud{background:var(--co);box-shadow:0 0 4px rgba(251,113,133,.5)}
 .input-dropdown .group-label{padding:8px 11px 4px;font-family:'Sora',sans-serif;font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--subtle)}
 .input-dropdown::-webkit-scrollbar{width:8px}
@@ -733,35 +735,53 @@ function applyConfig(c) {
   });
 }
 
-// ── Friendly model name mapping ───────────────────────────────────────
-// Maps raw Ollama model IDs to user-friendly tier names.
-// MUST be declared before renderModelMenu() is called.
+// ── 4-Tier model system ────────────────────────────────────────────────
+// Fast  = 1-2B  models, direct stream, no orchestrator (~1s)
+// Auto  = 3-4B  models, direct stream, smart routing   (~2-4s)
+// Super = 7B    models, full orchestrator crew         (~5-15s)
+// Mega  = 9B+   models, full orchestrator + reasoning  (~10-30s)
 const MODEL_TIERS = {
-  'qwen2.5-coder:1.5b':   { friendly: 'Fast',       icon: '⚡', tier: 'fast',     desc: 'Quick answers, light tasks',     priority: 1 },
-  'deepseek-r1:1.5b':     { friendly: 'Thinker',    icon: '🧠', tier: 'fast',     desc: 'Fast reasoning model',           priority: 2 },
-  'llama3.2:3b':           { friendly: 'Balanced',   icon: '⚖️', tier: 'balanced', desc: 'Good balance of speed & quality', priority: 3 },
-  'qwen3:4b':              { friendly: 'Standard',   icon: '📝', tier: 'balanced', desc: 'Well-rounded general model',     priority: 4 },
-  'qwen3.5:4b':            { friendly: 'Standard+',  icon: '📝', tier: 'balanced', desc: 'Enhanced general model',         priority: 5 },
-  'qwen2.5-coder:7b':     { friendly: 'Pro',         icon: '🔥', tier: 'pro',      desc: 'Best for code & complex tasks',  priority: 6 },
-  'qwen3-coder:latest':   { friendly: 'Coder Pro',   icon: '💻', tier: 'pro',      desc: 'Advanced coding specialist',     priority: 7 },
-  'glm4:9b':               { friendly: 'Premium',    icon: '💎', tier: 'max',      desc: 'Highest quality, slower',        priority: 8 },
-  'qwen3.6:latest':        { friendly: 'Advanced',   icon: '🚀', tier: 'max',      desc: 'Latest advanced model',          priority: 9 },
-  'qwen3.6-limited:latest':{ friendly: 'Advanced Lite', icon: '🚀', tier: 'max',  desc: 'Advanced with limits',           priority: 10 },
-  'llava:latest':          { friendly: 'Vision',      icon: '👁️', tier: 'pro',     desc: 'Image understanding',            priority: 11 },
+  // ── Fast (⚡) — <2B, direct, instant ──────────────────
+  'qwen2.5-coder:1.5b':    { friendly: 'Fast', icon: '⚡', tier: 'fast', direct: true,  desc: '~1s · lightning responses',  priority: 1 },
+  'deepseek-r1:1.5b':      { friendly: 'Fast', icon: '⚡', tier: 'fast', direct: true,  desc: '~1s · fast reasoning',       priority: 2 },
+  // ── Auto (🔄) — 3-4B, smart routing ──────────────────
+  'llama3.2:3b':            { friendly: 'Auto', icon: '🔄', tier: 'auto', direct: true,  desc: '~3s · smart & balanced',     priority: 3 },
+  'qwen3:4b':               { friendly: 'Auto', icon: '🔄', tier: 'auto', direct: true,  desc: '~3s · well-rounded',         priority: 4 },
+  'qwen3.5:4b':             { friendly: 'Auto', icon: '🔄', tier: 'auto', direct: true,  desc: '~3s · enhanced general',     priority: 5 },
+  'llava:latest':           { friendly: 'Auto', icon: '🔄', tier: 'auto', direct: true,  desc: '~3s · vision capable',       priority: 6 },
+  // ── Super (🔥) — 7B, full crew orchestrator ───────────
+  'qwen2.5-coder:7b':       { friendly: 'Super', icon: '🔥', tier: 'super', direct: false, desc: '~10s · code + complex tasks', priority: 7 },
+  'qwen3-coder:latest':     { friendly: 'Super', icon: '🔥', tier: 'super', direct: false, desc: '~10s · advanced coding',      priority: 8 },
+  // ── Mega (💎) — 9B+, maximum quality ─────────────────
+  'glm4:9b':                { friendly: 'Mega', icon: '💎', tier: 'mega', direct: false, desc: '~20s · highest quality',      priority: 9 },
+  'qwen3.6:latest':         { friendly: 'Mega', icon: '💎', tier: 'mega', direct: false, desc: '~20s · latest flagship',      priority: 10 },
+  'qwen3.6-limited:latest': { friendly: 'Mega', icon: '💎', tier: 'mega', direct: false, desc: '~20s · flagship lite',        priority: 11 },
+  'gemma4:latest':          { friendly: 'Mega', icon: '💎', tier: 'mega', direct: false, desc: '~20s · Google Gemma 4',       priority: 12 },
 };
+
+// Tier color dots
+const TIER_COLORS = { fast: 'var(--gr)', auto: 'var(--bl)', super: 'var(--vi2)', mega: 'var(--am)', cloud: 'var(--co)' };
 
 function getModelMeta(id) {
   if (MODEL_TIERS[id]) return MODEL_TIERS[id];
   if (id.startsWith('groq/') || id.includes('gpt') || id.includes('claude') || id.includes('glm-'))
-    return { friendly: 'Cloud', icon: '☁️', tier: 'cloud', desc: 'Cloud-powered AI', priority: 0 };
-  const size = id.match(/(\d+)b/)?.[1];
+    return { friendly: 'Auto', icon: '☁️', tier: 'cloud', direct: false, desc: 'Cloud-powered AI', priority: 0 };
+  const size = id.match(/(\d+(?:\.\d+)?)b/i)?.[1];
   if (size) {
-    const gb = parseInt(size);
-    if (gb <= 3) return { friendly: 'Fast',     icon: '⚡', tier: 'fast',     desc: id, priority: 50 };
-    if (gb <= 7) return { friendly: 'Pro',      icon: '🔥', tier: 'pro',      desc: id, priority: 51 };
-    return { friendly: 'Premium',   icon: '💎', tier: 'max',      desc: id, priority: 52 };
+    const gb = parseFloat(size);
+    if (gb <= 2)  return { friendly: 'Fast',  icon: '⚡', tier: 'fast',  direct: true,  desc: id, priority: 50 };
+    if (gb <= 5)  return { friendly: 'Auto',  icon: '🔄', tier: 'auto',  direct: true,  desc: id, priority: 51 };
+    if (gb <= 8)  return { friendly: 'Super', icon: '🔥', tier: 'super', direct: false, desc: id, priority: 52 };
+    return              { friendly: 'Mega',  icon: '💎', tier: 'mega',  direct: false, desc: id, priority: 53 };
   }
-  return { friendly: id.split(':')[0], icon: '🤖', tier: 'balanced', desc: 'Local model', priority: 99 };
+  return { friendly: 'Auto', icon: '🔄', tier: 'auto', direct: true, desc: 'Local model', priority: 99 };
+}
+
+// Returns true if current model should bypass the orchestrator
+function isDirectMode() {
+  if (!cfg?.manager_model) return true;
+  const meta = getModelMeta(cfg.manager_model);
+  return meta.direct === true;
 }
 
 applyConfig(cfg);
@@ -822,19 +842,27 @@ function renderModelMenu() {
   }
   modelMenu.innerHTML = headerHtml;
 
-  // ── Inline model dropdown (upward from input box) ─────
-  let ddHtml = '<div class="group-label">Select Model</div>';
-  sorted.forEach(m => {
-    const meta = getModelMeta(m.id);
-    ddHtml += `<div class="dd-item ${m.id === cfg.manager_model ? 'selected' : ''}" data-id="${escapeHtml(m.id)}">
-      <span class="dd-dot ${meta.tier}"></span>
+  // ── Inline model dropdown — grouped by tier ──────────────
+  const tierOrder4 = ['fast','auto','super','mega','cloud'];
+  const tierLabels = { fast:'⚡ Fast', auto:'🔄 Auto', super:'🔥 Super', mega:'💎 Mega', cloud:'☁️ Cloud' };
+  const tierDescs  = { fast:'~1s · direct stream', auto:'~3s · smart routing', super:'~10s · full crew', mega:'~20s · max quality', cloud:'Cloud AI' };
+  let ddHtml = '';
+  tierOrder4.forEach(tier => {
+    const models = sorted.filter(m => getModelMeta(m.id).tier === tier);
+    if (!models.length) return;
+    // Show best model per tier, plus expand to show all
+    const best = models[0];
+    const meta = getModelMeta(best.id);
+    const isSel = models.some(m => m.id === cfg.manager_model);
+    ddHtml += `<div class="dd-item ${isSel ? 'selected' : ''}" data-id="${escapeHtml(best.id)}" title="${escapeHtml(tierDescs[tier]||'')}">
+      <span class="dd-dot ${tier}"></span>
       <div class="dd-body">
-        <div class="dd-name">${escapeHtml(meta.friendly)}</div>
-        <div class="dd-desc">${escapeHtml(meta.desc)}</div>
+        <div class="dd-name">${escapeHtml(tierLabels[tier] || tier)}</div>
+        <div class="dd-desc">${escapeHtml(tierDescs[tier] || meta.desc)}</div>
       </div>
     </div>`;
   });
-  modelDD.innerHTML = ddHtml;
+  modelDD.innerHTML = ddHtml || '<div style="padding:12px;color:var(--subtle);font-size:12px">No models found</div>';
 
   // Wire click handlers for header menu + inline dropdown
   [modelMenu, modelDD].forEach(container => {
@@ -856,12 +884,14 @@ function renderModelMenu() {
     });
   });
 
-  // Update inline model button label
+  // Update inline model button label — show tier name (Fast/Auto/Super/Mega)
   const sel = sorted.find(m => m.id === cfg.manager_model) || sorted[0];
   if (sel) {
     const meta = getModelMeta(sel.id);
-    modelBtn.innerHTML = `<span class="tier-dot ${meta.tier}"></span> ${escapeHtml(meta.friendly)} <span class="caret">▾</span>`;
-    modelLabel.textContent = `${meta.icon} ${meta.friendly}`;
+    const tierLabel = { fast:'Fast', auto:'Auto', super:'Super', mega:'Mega', cloud:'Cloud' }[meta.tier] || meta.friendly;
+    const tierIcon  = { fast:'⚡', auto:'🔄', super:'🔥', mega:'💎', cloud:'☁️' }[meta.tier] || meta.icon;
+    modelBtn.innerHTML = `<span class="tier-dot ${meta.tier}"></span> ${escapeHtml(tierLabel)} <span class="caret">▾</span>`;
+    modelLabel.textContent = `${tierIcon} ${tierLabel}`;
   }
 }
 
@@ -1344,19 +1374,88 @@ async function sendMessage() {
   msgInput.value = '';
   msgInput.style.height = 'auto';
 
-  // Handle non-chat modes
+  // ── Image generation mode ─────────────────────────────────────────────
   if (currentMode === 'image') {
     makeMsg('user').textContent = text;
-    const infoBubble = makeMsg('assistant');
-    infoBubble.textContent = 'Image generation coming soon — requires a compatible model (e.g. Stable Diffusion). Stay tuned!';
-    if (window.toast) toast('info', 'Image mode', 'Image generation is not yet available', 3000);
+    const replyBubble = makeMsg('assistant');
+    replyBubble.innerHTML = `<div class="thinking-timer">
+      <span class="dots"><span></span><span></span><span></span></span>
+      <span class="stage-label">Generating image…</span>
+      <span class="elapsed">0s</span>
+    </div>`;
+    const t0 = Date.now();
+    const timer = setInterval(() => {
+      const el = replyBubble.querySelector('.elapsed');
+      if (el) el.textContent = Math.floor((Date.now()-t0)/1000) + 's';
+    }, 1000);
+    try {
+      const result = await api.generateImage(text);
+      clearInterval(timer);
+      replyBubble.innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <img src="${escapeHtml(result.url)}" alt="${escapeHtml(text)}"
+            style="width:100%;max-width:600px;border-radius:12px;border:1px solid var(--border);display:block"
+            onload="this.style.opacity=1" onerror="this.src='';this.parentElement.innerHTML='<span style=color:var(--co)>Image generation failed — try again</span>'"
+            style="opacity:0;transition:opacity .4s">
+          <div style="font-size:11px;color:var(--subtle);font-family:'JetBrains Mono',monospace">seed: ${result.seed} · ${result.width}×${result.height}</div>
+        </div>`;
+      replyBubble.querySelector('img')?.addEventListener('load', function(){ this.style.opacity=1; });
+    } catch (err) {
+      clearInterval(timer);
+      replyBubble.textContent = 'Image generation failed: ' + err.message;
+    }
+    loadSessions();
     return;
   }
+
+  // ── Video generation mode ─────────────────────────────────────────────
   if (currentMode === 'video') {
     makeMsg('user').textContent = text;
-    const infoBubble = makeMsg('assistant');
-    infoBubble.textContent = 'Video generation coming soon — requires a compatible model. Stay tuned!';
-    if (window.toast) toast('info', 'Video mode', 'Video generation is not yet available', 3000);
+    const replyBubble = makeMsg('assistant');
+    replyBubble.innerHTML = `<div class="thinking-timer">
+      <span class="dots"><span></span><span></span><span></span></span>
+      <span class="stage-label">Generating video…</span>
+      <span class="elapsed">0s</span>
+    </div>`;
+    const t0 = Date.now();
+    const timer = setInterval(() => {
+      const el = replyBubble.querySelector('.elapsed');
+      if (el) el.textContent = Math.floor((Date.now()-t0)/1000) + 's';
+    }, 1000);
+    try {
+      const result = await api.generateVideo(text);
+      clearInterval(timer);
+      // Show animated frame preview + link to video
+      const frameHtml = result.frames.map((url, i) =>
+        `<img src="${escapeHtml(url)}" data-frame="${i}" style="display:${i===0?'block':'none'};width:100%;max-width:640px;border-radius:12px;border:1px solid var(--border)" alt="">`
+      ).join('');
+      replyBubble.innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div class="vid-preview" style="position:relative;overflow:hidden;border-radius:12px;max-width:640px">
+            ${frameHtml}
+            <div style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,.6);color:#fff;font-size:11px;padding:3px 8px;border-radius:20px;font-family:'JetBrains Mono',monospace">▶ preview</div>
+          </div>
+          <a href="${escapeHtml(result.video_url)}" target="_blank" rel="noopener"
+             style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--vi2);text-decoration:underline">
+            🎬 Open video in browser
+          </a>
+          <div style="font-size:11px;color:var(--subtle);font-family:'JetBrains Mono',monospace">seed: ${result.seed}</div>
+        </div>`;
+      // Animate frames
+      const imgs = replyBubble.querySelectorAll('[data-frame]');
+      if (imgs.length > 1) {
+        let fi = 0;
+        setInterval(() => {
+          imgs[fi].style.display = 'none';
+          fi = (fi + 1) % imgs.length;
+          imgs[fi].style.display = 'block';
+        }, 900);
+      }
+    } catch (err) {
+      clearInterval(timer);
+      replyBubble.textContent = 'Video generation failed: ' + err.message;
+    }
+    loadSessions();
     return;
   }
   if (currentMode === 'automations') {
@@ -1408,7 +1507,8 @@ async function sendMessage() {
   let fullReasoning = '';
 
   try {
-    for await (const ev of api.chatStream(currentSession, text, 'manager', abortController.signal)) {
+    const useDirect = isDirectMode();
+    for await (const ev of api.chatStream(currentSession, text, 'manager', abortController.signal, useDirect)) {
       if (ev.type === 'heartbeat') {
         // Server received message — update stage to confirm
         if (stageLabel) stageLabel.textContent = 'Connected · Loading model...';
