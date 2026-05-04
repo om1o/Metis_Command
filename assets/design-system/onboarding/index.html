@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Welcome to Metis</title>
+<link rel="icon" href="../assets/favicon.svg">
+<link rel="stylesheet" href="onboarding.css">
+<link rel="stylesheet" href="scene-splash.css">
+<link rel="stylesheet" href="scenes.css">
+</head>
+<body>
+
+<!-- Fake desktop app titlebar -->
+<div class="app-chrome">
+  <div class="titlebar">
+    <div class="traffic"><span class="r"></span><span class="y"></span><span class="g"></span></div>
+    <div class="title">Metis — Welcome</div>
+    <div class="ver">v1.0.0</div>
+  </div>
+</div>
+
+<button class="skip" onclick="window.location.href='login.html'">Skip →</button>
+
+<!-- Side rail nav -->
+<div class="rail" id="rail"></div>
+
+<div class="deck" id="deck">
+
+  <!-- 1. SPLASH -->
+  <section class="scene splash" data-label="splash">
+    <div class="halo">
+      <div class="ring"></div>
+      <div class="ring"></div>
+      <div class="ring"></div>
+    </div>
+    <div class="glow"></div>
+
+    <div class="stack">
+      <div class="mark-wrap"><img src="../assets/metis-logomark.png" alt=""></div>
+      <div class="wordmark">Met<em>i</em>s</div>
+      <div class="tagline">YOUR DESKTOP COPILOT <span></span> NOW IN BETA</div>
+    </div>
+
+    <div class="hint"><kbd>↓</kbd> or <kbd>scroll</kbd> to begin</div>
+  </section>
+
+  <!-- 2. HERO -->
+  <section class="scene hero" data-label="hero">
+    <div class="bg-grid"></div>
+    <div class="body">
+      <div class="copy">
+        <div class="eyebrow fade-up">One app. Everything.</div>
+        <h1 class="headline fade-up d1">The AI that <em>actually</em><br>does the work.</h1>
+        <p class="lede fade-up d2">Chat, code, write, learn, generate images, video and audio — and schedule any of it to run on its own. Free while we cook.</p>
+        <div class="meta fade-up d3">
+          <span class="item"><span class="dot"></span>Mac · Windows · Linux</span>
+          <span class="item">No credit card</span>
+          <span class="item">Local-first</span>
+        </div>
+      </div>
+
+      <div class="orbit fade-up d2">
+        <div class="ring-track r2"></div>
+        <div class="ring-track r1"></div>
+
+        <div class="cap c1"><div class="ico"><svg viewBox="0 0 24 24" stroke="currentColor"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>Chat</div>
+        <div class="cap c2"><div class="ico"><svg viewBox="0 0 24 24" stroke="currentColor"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>Code</div>
+        <div class="cap c3"><div class="ico"><svg viewBox="0 0 24 24" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>Images</div>
+        <div class="cap c4"><div class="ico"><svg viewBox="0 0 24 24" stroke="currentColor"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg></div>Video</div>
+        <div class="cap c5"><div class="ico"><svg viewBox="0 0 24 24" stroke="currentColor"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div>Audio</div>
+        <div class="cap c6"><div class="ico"><svg viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>Schedule</div>
+
+        <div class="center"><img src="../assets/metis-logomark.png" alt=""></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. CHAT -->
+  <section class="scene feature" data-label="chat">
+    <div class="body">
+      <div class="copy">
+        <div class="eyebrow fade-up">01 · Chat</div>
+        <h2 class="headline fade-up d1">Smarter than the <em>last</em> chatbot you tried.</h2>
+        <p class="lede fade-up d2">Real reasoning. Real research. Real answers — with sources, code, and citations you can verify.</p>
+        <div class="bullets fade-up d3">
+          <div class="bullet"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg><span><b>Streams thoughts</b>, not just text. Watch it work.</span></div>
+          <div class="bullet"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg><span><b>Web + your files.</b> It reads what's relevant.</span></div>
+          <div class="bullet"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg><span><b>Picks the right model</b> for the job, not just the latest.</span></div>
+        </div>
+      </div>
+
+      <div class="demo-card fade-up d2">
+        <div class="demo-chat">
+          <div class="user-msg">Find 30 fintech leads with Series A in 2024 and draft outreach for each.</div>
+          <div class="agent-row">
+            <div class="agent-head">
+              <span class="agent-mark"><img src="../assets/metis-logomark.png" alt=""></span>
+              <span class="agent-name">Metis</span>
+              <span class="agent-tag">· researcher</span>
+            </div>
+            <div class="agent-text" id="streamA"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. MISSIONS -->
+  <section class="scene feature reverse" data-label="missions">
+    <div class="body">
+      <div class="copy">
+        <div class="eyebrow fade-up">02 · Missions</div>
+        <h2 class="headline fade-up d1">Long jobs. <em>Done</em> right.</h2>
+        <p class="lede fade-up d2">Big tasks broken into steps you can watch, edit, and replay. Walk away — Metis keeps going.</p>
+        <div class="bullets fade-up d3">
+          <div class="bullet"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg><span><b>Plans before it acts.</b> Nothing happens you didn't see coming.</span></div>
+          <div class="bullet"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg><span><b>Saves artifacts</b> — files, drafts, datasets. Real outputs.</span></div>
+          <div class="bullet"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg><span><b>Replay</b> any step. Edit and re-run if it didn't land.</span></div>
+        </div>
+      </div>
+
+      <div class="demo-card fade-up d2">
+        <div class="demo-mission">
+          <div class="head">
+            <div class="ico"><img src="../assets/metis-logomark.png" alt=""></div>
+            <div>
+              <div class="title">Outbound — Fintech Series A</div>
+              <div class="sub">mission · 4 steps · started 41s ago</div>
+            </div>
+            <span class="stat"><span class="ldot"></span>running</span>
+          </div>
+          <div class="progress"><div class="fill"></div><div class="sweep"></div></div>
+          <div class="steps">
+            <div class="step"><div><div class="bullet b-done">✓</div><div class="line done"></div></div><div><div class="title">Plan the mission</div><div class="meta">routed to planner · 4 sub-tasks</div></div><div class="dur">2s</div></div>
+            <div class="step"><div><div class="bullet b-done">✓</div><div class="line"></div></div><div><div class="title">Search Crunchbase · Series A 2024</div><div class="meta">42 candidates · narrowed to 30</div></div><div class="dur">38s</div></div>
+            <div class="step running"><div><div class="bullet b-run">3</div><div class="line"></div></div><div><div class="title">Draft first-touch emails</div><div class="meta">14 / 30 written</div><div class="shimmer"></div></div><div class="dur">running</div></div>
+            <div class="step todo"><div><div class="bullet b-todo">4</div></div><div><div class="title">Save artifacts</div><div class="meta">leads_q2.csv · drafts/*.eml</div></div><div class="dur">—</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. SCHEDULE -->
+  <section class="scene feature" data-label="schedule">
+    <div class="body">
+      <div class="copy">
+        <div class="eyebrow fade-up">03 · Automations</div>
+        <h2 class="headline fade-up d1">Set it. <em>Forget it.</em><br>It still ships.</h2>
+        <p class="lede fade-up d2">Schedule any task to run hourly, daily, weekly — or on a trigger. Metis runs it in the background and drops the results in your inbox.</p>
+        <div class="bullets fade-up d3">
+          <div class="bullet"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg><span><b>Cron-simple.</b> Pick "every weekday 9am." Done.</span></div>
+          <div class="bullet"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg><span><b>Or trigger-based.</b> Run when an email lands, a price moves, a PR opens.</span></div>
+          <div class="bullet"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg><span><b>Replays + diffs.</b> See what changed since the last run.</span></div>
+        </div>
+      </div>
+
+      <div class="demo-card fade-up d2">
+        <div class="demo-schedule" id="schedDemo">
+          <div class="row"><div class="when">9:00 AM</div><div class="what">Daily news brief<small>summarize tech, fintech, AI · last 24h</small></div><div class="badge live">running</div></div>
+          <div class="row"><div class="when">EVERY 4H</div><div class="what">Inbox triage<small>label, summarize, draft replies</small></div><div class="badge queued">in 2h 14m</div></div>
+          <div class="row"><div class="when">FRI 5PM</div><div class="what">Weekly outbound batch<small>30 fintech leads · custom emails</small></div><div class="badge queued">in 3d</div></div>
+          <div class="row"><div class="when">ON PR</div><div class="what">Code review<small>review + suggest tests</small></div><div class="badge queued">trigger</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. GENERATE -->
+  <section class="scene feature reverse" data-label="generate">
+    <div class="body">
+      <div class="copy">
+        <div class="eyebrow fade-up">04 · Generate</div>
+        <h2 class="headline fade-up d1">Text. Images.<br>Video. <em>Audio.</em></h2>
+        <p class="lede fade-up d2">One app to draft a doc, render a hero shot, score a podcast intro, or storyboard a scene. State-of-the-art models, swappable per task.</p>
+        <div class="bullets fade-up d3">
+          <div class="bullet"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg><span><b>Pick a model</b> per task — or let Metis route.</span></div>
+          <div class="bullet"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg><span><b>Local + cloud.</b> Run private models on your machine.</span></div>
+          <div class="bullet"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg><span><b>One library</b> — all your generations, searchable.</span></div>
+        </div>
+      </div>
+
+      <div class="gen-grid fade-up d2" id="genGrid">
+        <div class="gen-tile t-text">
+          <div class="tile-head"><span class="dot"></span>Text</div>
+          <div class="tile-body"><div class="line l1"></div><div class="line l2"></div><div class="line l3"></div><div class="line l4"></div><div class="line l1"></div><div class="line l2"></div></div>
+        </div>
+        <div class="gen-tile t-image">
+          <div class="tile-head"><span class="dot"></span>Image</div>
+          <div class="tile-body"></div>
+        </div>
+        <div class="gen-tile t-video">
+          <div class="tile-head"><span class="dot"></span>Video</div>
+          <div class="tile-body">
+            <div class="play"><svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>
+            <div class="timeline"><div class="pf"></div></div>
+          </div>
+        </div>
+        <div class="gen-tile t-audio">
+          <div class="tile-head"><span class="dot"></span>Audio</div>
+          <div class="tile-body">
+            <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+            <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+            <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. CTA -->
+  <section class="scene cta" data-label="cta">
+    <div class="bg-grid"></div>
+    <div class="body">
+      <div class="price-pill fade-up"><span class="pulse"></span>FREE — WHILE WE COOK</div>
+      <h1 class="headline fade-up d1">Ready when you<br>are.</h1>
+      <p class="lede fade-up d2">Download the desktop app. Sign in. Start shipping. The web version comes next.</p>
+      <div class="actions fade-up d3">
+        <a href="login.html" class="btn-primary">Get started <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
+        <button class="btn-ghost" onclick="document.getElementById('deck').scrollTo({top:0,behavior:'smooth'})">Watch the tour again</button>
+      </div>
+      <div class="small-print fade-up d4">
+        <span>No credit card</span>
+        <span>Mac, Windows, Linux</span>
+        <span>Local-first &amp; private</span>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+const deck = document.getElementById('deck');
+const scenes = [...document.querySelectorAll('.scene')];
+const rail = document.getElementById('rail');
+
+scenes.forEach((s, i) => {
+  const pip = document.createElement('div');
+  pip.className = 'pip' + (i === 0 ? ' active' : '');
+  pip.title = s.dataset.label;
+  pip.addEventListener('click', () => s.scrollIntoView({ behavior: 'smooth' }));
+  rail.appendChild(pip);
+});
+const pips = [...rail.children];
+
+const splash = scenes[0];
+for (let i = 0; i < 18; i++) {
+  const p = document.createElement('span');
+  p.className = 'particle';
+  const colors = ['rgba(192,38,211,.6)', 'rgba(251,113,133,.6)', 'rgba(37,99,235,.5)'];
+  p.style.background = colors[i % 3];
+  p.style.left = (10 + Math.random() * 80) + '%';
+  p.style.top  = (40 + Math.random() * 30) + '%';
+  p.style.animationDelay = (Math.random() * 8) + 's';
+  p.style.animationDuration = (6 + Math.random() * 4) + 's';
+  splash.appendChild(p);
+}
+
+const io = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    const idx = scenes.indexOf(e.target);
+    if (e.intersectionRatio > 0.5) {
+      e.target.classList.add('visible');
+      pips.forEach((p, i) => p.classList.toggle('active', i === idx));
+      if (e.target.dataset.label === 'chat') startStream();
+      if (e.target.dataset.label === 'schedule') document.getElementById('schedDemo').classList.add('on');
+      if (e.target.dataset.label === 'generate') document.getElementById('genGrid').classList.add('on');
+    }
+  });
+}, { threshold: [0, 0.5, 1] });
+scenes.forEach(s => io.observe(s));
+splash.classList.add('visible');
+
+const streamText = "Searching Crunchbase for fintech companies that closed a Series A in 2024. Found 42 candidates — narrowing to NA HQ + B2B SaaS, >20 employees. Saving the working set to leads_q2.csv as I go. Drafting first-touch emails next, one per company.";
+let streamStarted = false;
+function startStream() {
+  if (streamStarted) return;
+  streamStarted = true;
+  const target = document.getElementById('streamA');
+  const tokens = streamText.split(' ').map(w => w + ' ');
+  let i = 0;
+  function loop() {
+    if (i > tokens.length) {
+      setTimeout(() => { target.innerHTML = '<span class="caret"></span>'; i = 0; loop(); }, 2200);
+      return;
+    }
+    target.innerHTML = tokens.slice(0, i).join('') + '<span class="caret"></span>';
+    i++;
+    setTimeout(loop, 50 + Math.random() * 50);
+  }
+  loop();
+}
+
+document.addEventListener('keydown', (e) => {
+  const cur = pips.findIndex(p => p.classList.contains('active'));
+  if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ') {
+    e.preventDefault();
+    if (cur < scenes.length - 1) scenes[cur + 1].scrollIntoView({ behavior: 'smooth' });
+  } else if (e.key === 'ArrowUp' || e.key === 'PageUp') {
+    e.preventDefault();
+    if (cur > 0) scenes[cur - 1].scrollIntoView({ behavior: 'smooth' });
+  } else if (e.key === 'Escape') {
+    window.location.href = 'login.html';
+  } else if (e.key === 'Enter' && pips[scenes.length - 1].classList.contains('active')) {
+    window.location.href = 'login.html';
+  }
+});
+</script>
+</body>
+</html>

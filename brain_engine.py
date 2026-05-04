@@ -23,6 +23,7 @@ import threading
 import time
 from typing import Generator, Iterable
 
+import ollama
 import requests
 
 from hardware_scanner import get_hardware_tier
@@ -81,17 +82,29 @@ def get_active_model(role: str = "default") -> str:
     """
     Resolve the active model for a role.
 
-    For `genius`, prefer the GLM cloud model when GLM_API_KEY is set; else
-    prefer the local fallback (glm4) if present; else default to the base.
+    For `genius`, cascading preference:
+        1. GLM cloud (GLM_API_KEY set)
+        2. Groq cloud (GROQ_API_KEY set) — FREE tier
+        3. Local glm4:9b via Ollama
+        4. Local qwen2.5-coder:7b fallback
     """
     primary = ROLE_MODELS.get(role, ROLE_MODELS["default"])
     if role == "genius":
+        # 1. GLM cloud
         try:
             from providers import glm as _glm
             if _glm.is_configured():
                 return _glm.default_model() or primary
         except Exception:
             pass
+        # 2. Groq cloud (free)
+        try:
+            from providers import groq as _groq
+            if _groq.is_configured():
+                return f"groq/{_groq.default_model()}"
+        except Exception:
+            pass
+        # 3. Local fallback
         fallback = ROLE_LOCAL_FALLBACK.get(role)
         if fallback:
             try:
@@ -111,14 +124,33 @@ def _is_cloud_model(name: str) -> bool:
             return True
     except Exception:
         pass
+    # Groq models are prefixed with "groq/" or match known Groq model names.
+    try:
+        from providers import groq as _groq
+        if name and name.startswith("groq/"):
+            return True
+        if _groq.is_groq_model(name):
+            return True
+    except Exception:
+        pass
     return False
 
 
 def list_local_models() -> list[str]:
     try:
-        r = requests.get(f"{OLLAMA_BASE}/api/tags", timeout=10)
-        r.raise_for_status()
-        return [m["name"] for m in r.json().get("models", [])]
+        client = ollama.Client(host=OLLAMA_BASE)
+        response = client.list()
+        models = getattr(response, "models", None)
+        if models is None and isinstance(response, dict):
+            models = response.get("models", [])
+        names: list[str] = []
+        for m in models or []:
+            if isinstance(m, dict):
+                names.append(m.get("model") or m.get("name") or "")
+            else:
+                # Newer ollama python types use `.model` (not `.name`).
+                names.append(getattr(m, "model", None) or getattr(m, "name", None) or "")
+        return [n for n in names if n]
     except Exception:
         return []
 
@@ -128,24 +160,15 @@ def ensure_model(name: str, on_progress=None) -> bool:
     if name in list_local_models():
         return True
     try:
-        with requests.post(
-            f"{OLLAMA_BASE}/api/pull",
-            json={"name": name, "stream": True},
-            stream=True,
-            timeout=None,
-        ) as r:
-            r.raise_for_status()
-            for line in r.iter_lines():
-                if not line:
-                    continue
-                try:
-                    event = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                if on_progress:
-                    on_progress(event)
-                if event.get("status") == "success":
-                    return True
+        client = ollama.Client(host=OLLAMA_BASE)
+        for progress in client.pull(name, stream=True):
+            # Ensure we cast the ProgressResponse back to dict if needed by UI
+            # module_manager expects dicts with "status", "total", "completed"
+            prog_dict = progress if isinstance(progress, dict) else progress.model_dump()
+            if on_progress:
+                on_progress(prog_dict)
+            if prog_dict.get("status") == "success":
+                return True
         return name in list_local_models()
     except Exception as e:
         print(f"[BrainEngine] ensure_model({name}) failed: {e}")
@@ -163,20 +186,36 @@ def chat_by_role(
     """Send `messages` to the role's model and return the full reply."""
     model = model or get_active_model(role)
 
-    # Cloud-routed models (GLM today; room for more providers later).
+    # Cloud-routed models — try GLM first, then Groq.
     if _is_cloud_model(model):
-        try:
-            from providers import glm as _glm
-            reply = _glm.chat(messages, model=model, temperature=temperature)
-            _record_usage(role, model, messages, reply, started=time.time())
-            return reply
-        except Exception as e:
-            # Fall through to local Ollama with the role's local fallback.
-            local_fb = ROLE_LOCAL_FALLBACK.get(role)
-            if local_fb:
-                model = local_fb
-            else:
-                return f"[BrainEngine] Cloud route failed: {e}"
+        # Route: Groq (free)
+        if model and model.startswith("groq/"):
+            try:
+                from providers import groq as _groq
+                actual_model = model.removeprefix("groq/")
+                reply = _groq.chat(messages, model=actual_model, temperature=temperature)
+                _record_usage(role, model, messages, reply, started=time.time())
+                return reply
+            except Exception as e:
+                local_fb = ROLE_LOCAL_FALLBACK.get(role)
+                if local_fb:
+                    model = local_fb
+                else:
+                    return f"[BrainEngine] Groq route failed: {e}"
+        else:
+            # Route: GLM
+            try:
+                from providers import glm as _glm
+                reply = _glm.chat(messages, model=model, temperature=temperature)
+                _record_usage(role, model, messages, reply, started=time.time())
+                return reply
+            except Exception as e:
+                # Fall through to local Ollama with the role's local fallback.
+                local_fb = ROLE_LOCAL_FALLBACK.get(role)
+                if local_fb:
+                    model = local_fb
+                else:
+                    return f"[BrainEngine] Cloud route failed: {e}"
 
     payload = {
         "model": model,
@@ -247,21 +286,38 @@ def stream_chat(
     model = model or get_active_model(role)
 
     if _is_cloud_model(model):
-        try:
-            from providers import glm as _glm
-            tokens = 0
-            for ev in _glm.stream_chat(messages, model=model, temperature=temperature, cancel=cancel):
-                if ev.get("type") == "done":
-                    tokens = int(ev.get("tokens", 0) or 0)
-                yield ev
-            return
-        except Exception as e:
-            yield {"type": "token", "delta": f"[BrainEngine] Cloud stream failed: {e}"}
-            local_fb = ROLE_LOCAL_FALLBACK.get(role)
-            if not local_fb:
-                yield {"type": "done", "duration_ms": 0, "tokens": 0}
+        # Groq streaming
+        if model and model.startswith("groq/"):
+            try:
+                from providers import groq as _groq
+                actual_model = model.removeprefix("groq/")
+                for ev in _groq.stream_chat(messages, model=actual_model, temperature=temperature, cancel=cancel):
+                    yield ev
                 return
-            model = local_fb  # fall through to the Ollama path below
+            except Exception as e:
+                yield {"type": "token", "delta": f"[BrainEngine] Groq stream failed: {e}"}
+                local_fb = ROLE_LOCAL_FALLBACK.get(role)
+                if not local_fb:
+                    yield {"type": "done", "duration_ms": 0, "tokens": 0}
+                    return
+                model = local_fb
+        else:
+            # GLM streaming
+            try:
+                from providers import glm as _glm
+                tokens = 0
+                for ev in _glm.stream_chat(messages, model=model, temperature=temperature, cancel=cancel):
+                    if ev.get("type") == "done":
+                        tokens = int(ev.get("tokens", 0) or 0)
+                    yield ev
+                return
+            except Exception as e:
+                yield {"type": "token", "delta": f"[BrainEngine] Cloud stream failed: {e}"}
+                local_fb = ROLE_LOCAL_FALLBACK.get(role)
+                if not local_fb:
+                    yield {"type": "done", "duration_ms": 0, "tokens": 0}
+                    return
+                model = local_fb  # fall through to the Ollama path below
 
     payload = {
         "model": model,
@@ -276,7 +332,8 @@ def stream_chat(
 
     # Read timeout covers "stream wedged mid-response" cases; connect
     # timeout covers Ollama being down.  Either fires -> we raise out.
-    stream_connect_timeout = float(os.getenv("METIS_CONNECT_TIMEOUT", "10"))
+    # Defaults are tuned for UI responsiveness. Override via env vars if needed.
+    stream_connect_timeout = float(os.getenv("METIS_CONNECT_TIMEOUT", "5"))
     stream_read_timeout = float(os.getenv("METIS_STREAM_READ_TIMEOUT", "60"))
 
     try:

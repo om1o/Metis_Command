@@ -1,0 +1,33 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css"><style>
+body { padding: 24px 28px; }
+.row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.row + .row { margin-top: 12px; }
+.btn { font-family: var(--font-body); font-size: 14px; font-weight: 650; letter-spacing: -0.005em; border-radius: 12px; padding: 10px 18px; border: 1px solid transparent; cursor: pointer; line-height: 1.2; display: inline-flex; align-items: center; gap: 8px; }
+.btn-primary { background: var(--primary); color: #fff; box-shadow: var(--shadow-sm); }
+.btn-primary.h { background: var(--primary-hover); transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.btn-secondary { background: var(--surface); color: var(--text); border-color: var(--border); }
+.btn-ghost { background: transparent; color: var(--text); }
+.btn-destructive { background: var(--error); color: #fff; }
+.btn-disabled { background: var(--surface-alt); color: var(--text-subtle); border-color: var(--border); cursor: not-allowed; }
+.btn-loading { background: var(--primary); color: #fff; opacity: .85; }
+.spinner { width:12px;height:12px;border:2px solid rgba(255,255,255,.4); border-top-color:#fff; border-radius:50%; animation: sp 0.8s linear infinite;}
+@keyframes sp { to { transform: rotate(360deg); } }
+.lbl { font-family: var(--font-mono); font-size: 10px; color: var(--text-subtle); width: 80px; }
+</style></head><body>
+<div class="row"><span class="lbl">default</span>
+  <button class="btn btn-primary">Start mission</button>
+  <button class="btn btn-secondary">Cancel</button>
+  <button class="btn btn-ghost">Skip</button>
+  <button class="btn btn-destructive">Delete run</button>
+</div>
+<div class="row"><span class="lbl">hover</span>
+  <button class="btn btn-primary h">Start mission</button>
+  <button class="btn btn-secondary" style="border-color:var(--border-strong);background:var(--surface-alt)">Cancel</button>
+  <button class="btn btn-ghost" style="background:var(--surface-alt)">Skip</button>
+</div>
+<div class="row"><span class="lbl">disabled / loading</span>
+  <button class="btn btn-disabled" disabled>Start mission</button>
+  <button class="btn btn-loading"><span class="spinner"></span>Running…</button>
+</div>
+</body></html>

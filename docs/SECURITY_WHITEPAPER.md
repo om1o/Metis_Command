@@ -48,11 +48,10 @@ Fallback: if Docker is unavailable, a constrained subprocess with the same timeo
 
 ## 5. Network boundary
 
-Metis opens two local ports by default:
-- **8501** — Streamlit UI, bound to `127.0.0.1`.
-- **7331** — FastAPI bridge, bound to `127.0.0.1`.
+Metis opens one primary local port by default:
+- **7331** — FastAPI (`api_bridge`) serves the HTML UI (under `./frontend`) and the JSON/SSE API, bound to `127.0.0.1`.
 
-Neither binds to `0.0.0.0`. External extensions must tunnel through the loopback interface.
+It does not bind to `0.0.0.0`. External extensions must tunnel through the loopback interface.
 
 ## 6. Audit
 

@@ -1,0 +1,1863 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Metis</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="/static/assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/polish/global-polish.v2.css">
+<link rel="stylesheet" href="/static/styles/wordmark.css">
+<script src="/static/js/wordmark.js" defer></script>
+<style>
+:root{
+  --vi:#7C3AED; --vi2:#A78BFA; --co:#FB7185; --am:#F59E0B; --bl:#3B82F6; --gr:#22C55E;
+  --bg:#07071a; --bg-2:#0d0d24; --panel:rgba(255,255,255,.04); --panel-2:rgba(255,255,255,.06);
+  --text:#F8FAFF; --muted:rgba(248,250,255,.6); --subtle:rgba(248,250,255,.32);
+  --border:rgba(255,255,255,.08); --border-2:rgba(255,255,255,.14);
+  --grad:linear-gradient(135deg,var(--vi),var(--co) 55%,var(--am));
+  --accent: #7C3AED;
+  --accent-soft: rgba(124,58,237,.18);
+  --accent-glow: rgba(124,58,237,.35);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden}
+body{cursor:auto}
+body::before{content:"";position:fixed;inset:0;background:
+  radial-gradient(circle at 12% 8%,rgba(124,58,237,.18),transparent 50%),
+  radial-gradient(circle at 90% 100%,rgba(251,113,133,.10),transparent 55%);
+  z-index:0;pointer-events:none}
+
+#mp-dot, #mp-ring, #mp-grain { display: none !important; }
+
+.layout{position:relative;z-index:1;display:grid;grid-template-columns:280px 1fr;height:100vh}
+
+/* ── Sidebar ── */
+.side{background:rgba(7,7,26,.7);backdrop-filter:blur(20px);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+
+/* Sidebar header: stretched clickable wordmark + version pill */
+.side-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;min-height:64px}
+.side-head .metis-mark{flex:1;min-width:0}
+.side-head .ver{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--subtle);background:var(--panel);padding:3px 7px;border-radius:5px;border:1px solid var(--border);flex-shrink:0}
+
+.new-btn{margin:14px 16px 8px;height:38px;border-radius:10px;border:1px solid var(--border-2);background:var(--panel-2);color:var(--text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .18s}
+.new-btn:hover{background:var(--accent-soft);border-color:var(--accent)}
+.new-btn svg{width:14px;height:14px;stroke:currentColor;stroke-width:2.5;fill:none}
+
+.side-section{padding:14px 16px 4px;font-family:'Sora',sans-serif;font-size:10.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--subtle);display:flex;align-items:center;justify-content:space-between}
+.session-list{flex:1;overflow-y:auto;padding:0 8px 8px;min-height:60px}
+.session-item{padding:9px 12px;border-radius:8px;font-size:13px;color:var(--muted);cursor:pointer;transition:all .15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px}
+.session-item:hover{background:var(--panel);color:var(--text)}
+.session-item.active{background:var(--accent-soft);color:var(--text);padding-left:10px;border-left:2px solid var(--accent)}
+
+.crew-panel{border-top:1px solid var(--border);padding:12px 16px}
+.crew-panel .legend{font-family:'Sora',sans-serif;font-size:10.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--subtle);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.crew-panel .legend::after{content:"";flex:1;height:1px;background:var(--border)}
+.crew-row{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:12.5px;color:var(--muted)}
+.crew-dot{width:7px;height:7px;border-radius:50%;background:var(--subtle);transition:all .25s;flex-shrink:0}
+.crew-dot.busy{background:var(--am);box-shadow:0 0 8px rgba(245,158,11,.65);animation:pulse 1.2s ease-in-out infinite}
+.crew-dot.done{background:var(--gr);box-shadow:0 0 8px rgba(34,197,94,.5)}
+@keyframes pulse{0%,100%{opacity:.6;transform:scale(.8)}50%{opacity:1;transform:scale(1.15)}}
+.crew-name{flex:1;font-weight:500}
+.crew-tag{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--subtle);text-transform:uppercase;letter-spacing:.06em}
+.crew-row.disabled{opacity:.35}
+
+/* Agent health panel */
+.agent-health-panel{border-top:1px solid var(--border);padding:10px 16px}
+.agent-health-panel .legend{font-family:'Sora',sans-serif;font-size:10.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--subtle);margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.agent-health-panel .legend::after{content:"";flex:1;height:1px;background:var(--border)}
+.ah-row{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px;color:var(--muted)}
+.ah-row .dot{flex-shrink:0;font-size:10px}
+.ah-row .slug{flex:1;font-weight:500;font-size:11.5px}
+.ah-row .age{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--subtle)}
+
+.side-foot{border-top:1px solid var(--border);padding:14px 16px;display:flex;align-items:center;gap:10px}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--grad);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;flex-shrink:0}
+.user-meta{flex:1;min-width:0}
+.user-meta .name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.user-meta .role{font-size:11px;color:var(--subtle);text-transform:uppercase;letter-spacing:.06em}
+.icon-btn{background:transparent;border:none;color:var(--subtle);cursor:pointer;padding:7px;border-radius:7px;transition:all .15s;display:flex;align-items:center;justify-content:center}
+.icon-btn:hover{color:var(--text);background:var(--panel)}
+.icon-btn.danger:hover{color:var(--co);background:rgba(251,113,133,.1)}
+.icon-btn svg{width:16px;height:16px;stroke:currentColor;stroke-width:2;fill:none}
+
+/* ── Main ── */
+.main{display:flex;flex-direction:column;overflow:hidden;position:relative}
+.main-head{padding:14px 28px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;background:rgba(7,7,26,.5);backdrop-filter:blur(14px)}
+.manager-badge{display:flex;align-items:center;gap:10px;padding:8px 14px;border-radius:10px;background:var(--accent-soft);border:1px solid color-mix(in srgb, var(--accent) 40%, transparent)}
+.manager-badge .pulse{width:7px;height:7px;border-radius:50%;background:var(--gr);box-shadow:0 0 8px rgba(34,197,94,.6);animation:dot-pulse 2s ease-in-out infinite}
+@keyframes dot-pulse{0%,100%{opacity:.7}50%{opacity:1}}
+.manager-badge .name{font-family:'Sora',sans-serif;font-size:13.5px;font-weight:700;color:var(--text);letter-spacing:-.005em}
+.manager-badge .role{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--vi2);text-transform:uppercase;letter-spacing:.1em}
+.spacer{flex:1}
+
+/* Model selector dropdown */
+.model-select{position:relative}
+.model-trigger{display:flex;align-items:center;gap:8px;padding:7px 12px;border-radius:8px;background:var(--panel);border:1px solid var(--border);color:var(--text);font-family:inherit;font-size:12px;cursor:pointer;transition:all .15s;font-weight:500;line-height:1}
+.model-trigger:hover{background:var(--panel-2);border-color:var(--border-2)}
+.model-trigger .label{font-family:'Inter',sans-serif;font-size:12px;font-weight:600;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.model-trigger .badge{font-family:'JetBrains Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.06em;padding:2px 5px;border-radius:4px}
+.model-trigger .badge.local{background:rgba(34,197,94,.15);color:#86EFAC}
+.model-trigger .badge.cloud{background:rgba(124,58,237,.18);color:var(--vi2)}
+.model-trigger svg{width:11px;height:11px;color:var(--subtle);stroke:currentColor;fill:none}
+.model-trigger svg.brain-ico{width:13px;height:13px;color:var(--vi2);stroke-width:2}
+.model-trigger svg.caret{stroke-width:2.5;transition:transform .2s}
+.model-select.open .model-trigger svg.caret{transform:rotate(180deg)}
+.model-menu{display:none;position:absolute;top:calc(100% + 6px);right:0;width:280px;max-height:340px;overflow-y:auto;background:rgba(13,13,36,.96);backdrop-filter:blur(28px);border:1px solid var(--border-2);border-radius:11px;box-shadow:0 24px 64px rgba(0,0,0,.55);padding:6px;z-index:50}
+.model-select.open .model-menu{display:block;animation:dropIn .18s ease-out}
+@keyframes dropIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.model-opt{padding:9px 11px;border-radius:7px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:background .12s}
+.model-opt:hover{background:var(--panel-2)}
+.model-opt.selected{background:var(--accent-soft)}
+.model-opt .ico{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700}
+.model-opt .ico.local{background:rgba(34,197,94,.15);color:#86EFAC;border:1px solid rgba(34,197,94,.3)}
+.model-opt .ico.cloud{background:rgba(124,58,237,.15);color:var(--vi2);border:1px solid rgba(124,58,237,.4)}
+.model-opt .body{flex:1;min-width:0}
+.model-opt .n{font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.model-opt .d{font-size:10.5px;color:var(--subtle);text-transform:uppercase;letter-spacing:.05em;margin-top:1px}
+.model-empty{padding:16px;text-align:center;color:var(--subtle);font-size:12px;line-height:1.5}
+.model-menu .group-label{padding:8px 11px 4px;font-family:'Sora',sans-serif;font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--subtle)}
+
+.kbd-hint{font-size:11px;color:var(--subtle);font-family:'JetBrains Mono',monospace;display:flex;gap:6px;align-items:center}
+.kbd-hint kbd{background:var(--panel);padding:2px 6px;border-radius:4px;border:1px solid var(--border);font-size:10.5px;font-family:inherit}
+.health-pill{display:flex;align-items:center;gap:6px;padding:6px 9px;border-radius:7px;background:var(--panel);border:1px solid var(--border);font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace}
+.health-dot{width:6px;height:6px;border-radius:50%;background:var(--gr);box-shadow:0 0 6px rgba(34,197,94,.6)}
+.health-dot.bad{background:var(--co);box-shadow:0 0 6px rgba(251,113,133,.6)}
+
+.chat{flex:1;overflow-y:auto;padding:32px 0}
+.chat-inner{max-width:820px;margin:0 auto;padding:0 28px}
+.empty{text-align:center;padding:60px 20px;color:var(--muted)}
+.empty img{width:80px;height:auto;margin-bottom:24px;filter:drop-shadow(0 0 20px var(--accent-glow));animation:float 5s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.empty h2{font-family:'Sora',sans-serif;font-size:32px;font-weight:700;letter-spacing:-.02em;margin-bottom:10px;color:var(--text)}
+.empty h2 em{font-family:Georgia,serif;font-style:italic;font-weight:400;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.empty p{font-size:15px;color:var(--muted);max-width:48ch;margin:0 auto 28px;line-height:1.55}
+.suggestions{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;max-width:600px;margin:0 auto}
+.suggestion{padding:14px 16px;border-radius:12px;border:1px solid var(--border);background:var(--panel);text-align:left;cursor:pointer;transition:all .18s;font-family:inherit;font-size:13.5px;color:var(--text)}
+.suggestion:hover{background:var(--panel-2);border-color:color-mix(in srgb, var(--accent) 35%, transparent);transform:translateY(-2px)}
+.suggestion .stitle{font-weight:600;margin-bottom:4px}
+.suggestion .ssub{font-size:12px;color:var(--muted)}
+
+.msg{margin-bottom:24px;display:flex;gap:12px;animation:msgIn .35s ease-out both}
+@keyframes msgIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.msg.user{flex-direction:row-reverse}
+.msg-avatar{width:32px;height:32px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;color:#fff;font-family:'Sora',sans-serif}
+.msg.assistant .msg-avatar{background:var(--accent);box-shadow:0 0 12px var(--accent-glow)}
+.msg.user .msg-avatar{background:var(--panel-2);border:1px solid var(--border-2);color:var(--text)}
+.msg-content{max-width:80%;display:flex;flex-direction:column;gap:8px}
+.msg.user .msg-content{align-items:flex-end}
+.msg-bubble{padding:14px 18px;border-radius:16px;font-size:14.5px;line-height:1.65;word-wrap:break-word;white-space:pre-wrap}
+.msg.assistant .msg-bubble{background:var(--panel);border:1px solid var(--border);color:var(--text);border-top-left-radius:4px}
+.msg.user .msg-bubble{background:var(--accent-soft);border:1px solid color-mix(in srgb, var(--accent) 35%, transparent);color:var(--text);border-top-right-radius:4px}
+.msg-bubble.md{white-space:normal}
+.msg-bubble.md h1,.msg-bubble.md h2,.msg-bubble.md h3,.msg-bubble.md h4{font-family:'Sora',sans-serif;margin:16px 0 8px;line-height:1.3;letter-spacing:-.01em}
+.msg-bubble.md h1{font-size:20px;font-weight:700}
+.msg-bubble.md h2{font-size:17px;font-weight:700}
+.msg-bubble.md h3{font-size:15px;font-weight:600}
+.msg-bubble.md h4{font-size:14px;font-weight:600;color:var(--muted)}
+.msg-bubble.md p{margin:0 0 10px;line-height:1.65}
+.msg-bubble.md p:last-child{margin-bottom:0}
+.msg-bubble.md ul,.msg-bubble.md ol{margin:8px 0 12px 20px;line-height:1.6}
+.msg-bubble.md li{margin-bottom:4px}
+.msg-bubble.md blockquote{border-left:3px solid var(--accent);padding:6px 14px;margin:10px 0;color:var(--muted);background:rgba(124,58,237,.05);border-radius:0 8px 8px 0;font-style:italic}
+.msg-bubble.md hr{border:none;border-top:1px solid var(--border);margin:16px 0}
+.msg-bubble.md a{color:var(--vi2);text-decoration:underline;text-underline-offset:2px}
+.msg-bubble.md a:hover{color:var(--text)}
+.msg-bubble.md strong{font-weight:700;color:var(--text)}
+.msg-bubble.md em{font-style:italic;color:rgba(248,250,255,.85)}
+
+.msg-bubble pre{background:rgba(0,0,0,.3);padding:12px;border-radius:8px;overflow-x:auto;margin:8px 0;font-family:'JetBrains Mono',monospace;font-size:12.5px;white-space:pre;position:relative}
+.msg-bubble code{font-family:'JetBrains Mono',monospace;font-size:13px;background:rgba(0,0,0,.25);padding:2px 6px;border-radius:4px}
+.msg-bubble pre code{padding:0;background:none}
+.code-lang{position:absolute;top:6px;left:12px;font-family:'JetBrains Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);pointer-events:none}
+.code-copy{position:absolute;top:6px;right:8px;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--subtle);font-family:'JetBrains Mono',monospace;font-size:10px;padding:3px 8px;border-radius:5px;cursor:pointer;transition:all .15s;opacity:0}
+pre:hover .code-copy{opacity:1}
+.code-copy:hover{background:rgba(255,255,255,.12);color:var(--text)}
+.code-copy.copied{color:var(--gr);border-color:rgba(34,197,94,.4)}
+
+/* Reasoning / thinking toggle */
+.reasoning-wrap{margin-bottom:6px}
+.reasoning-toggle{display:flex;align-items:center;gap:7px;padding:8px 12px;border-radius:8px;background:rgba(167,139,250,.06);border:1px solid rgba(167,139,250,.15);cursor:pointer;transition:all .2s;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--vi2)}
+.reasoning-toggle:hover{background:rgba(167,139,250,.1);border-color:rgba(167,139,250,.3)}
+.reasoning-toggle .chevron{width:12px;height:12px;transition:transform .2s;stroke:currentColor;fill:none}
+.reasoning-wrap.open .reasoning-toggle .chevron{transform:rotate(90deg)}
+.reasoning-body{display:none;padding:10px 14px;font-size:12px;color:var(--subtle);line-height:1.6;white-space:pre-wrap;max-height:300px;overflow-y:auto;border:1px solid rgba(167,139,250,.1);border-top:none;border-radius:0 0 8px 8px;background:rgba(167,139,250,.03)}
+.reasoning-wrap.open .reasoning-body{display:block}
+
+/* Session item layout + action buttons */
+.session-item{position:relative;display:flex;align-items:center;gap:4px}
+.session-label{pointer-events:none;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.session-rename,.session-del{flex-shrink:0;background:transparent;border:none;color:var(--subtle);cursor:pointer;padding:4px;border-radius:4px;opacity:0;transition:all .15s;display:flex;align-items:center;justify-content:center}
+.session-item:hover .session-rename,.session-item:hover .session-del{opacity:1}
+.session-rename:hover{color:var(--accent);background:rgba(99,102,241,.1)}
+.session-del:hover{color:var(--co);background:rgba(251,113,133,.1)}
+.session-rename svg,.session-del svg{width:12px;height:12px;stroke:currentColor;stroke-width:2.5;fill:none}
+.session-rename-input{flex:1;min-width:0;background:var(--panel);border:1px solid var(--accent);border-radius:4px;color:var(--text);font-size:13px;padding:2px 6px;outline:none;font-family:inherit}
+
+/* Session title in header (when viewing a past session) */
+.session-title-header{font-size:12px;color:var(--subtle);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:0;transition:opacity .2s}
+.session-title-header.visible{opacity:1}
+
+/* Response timing footer */
+.response-time{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--subtle);display:flex;align-items:center;gap:6px;padding-top:2px}
+.response-time svg{width:11px;height:11px;stroke:currentColor;stroke-width:2;fill:none}
+
+/* ── Mission stepper (design system port) ── */
+.mission{background:rgba(23,22,29,.85);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.08);border-radius:14px;overflow:hidden;font-family:'Inter',sans-serif;margin-bottom:2px;animation:msgIn .35s ease-out both}
+.mission-head{display:flex;align-items:center;gap:9px;padding:9px 12px 8px;border-bottom:1px solid rgba(255,255,255,.06)}
+.mission-mark{width:22px;height:16px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;position:relative}
+.mission-mark img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 1px 4px rgba(124,58,237,.45))}
+.mission-head-info{flex:1;min-width:0}
+.mission-head-title{font-size:12px;font-weight:650;color:var(--text);letter-spacing:-.005em;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mission-head-sub{font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:1px;line-height:1.2}
+.mission-live{display:inline-flex;align-items:center;gap:4px;font-size:9.5px;color:var(--gr);font-family:'JetBrains Mono',monospace;padding:2px 7px;border-radius:999px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.22);flex-shrink:0;white-space:nowrap}
+.mission-live.done{color:var(--muted);background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.07)}
+.mission-live-dot{width:5px;height:5px;border-radius:50%;background:var(--gr);animation:live-pulse 1.4s ease-in-out infinite}
+@keyframes live-pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(34,197,94,.5)}50%{opacity:.55;box-shadow:0 0 0 4px transparent}}
+.mission-progress{height:3px;background:rgba(255,255,255,.05);position:relative;overflow:hidden}
+.mission-progress-fill{position:absolute;inset:0 100% 0 0;background:linear-gradient(90deg,#3B82F6,#22C55E);border-radius:0 2px 2px 0;transition:right .6s cubic-bezier(.22,1,.36,1)}
+.mission-progress-sweep{position:absolute;top:0;left:0;right:100%;bottom:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.5),transparent);animation:msweep 1.8s ease-in-out infinite}
+@keyframes msweep{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}
+.mission-steps{padding:4px 12px 10px}
+.mstep{display:grid;grid-template-columns:20px 1fr auto;gap:9px;align-items:flex-start;padding:5px 0;position:relative}
+.mstep-dot-col{display:flex;flex-direction:column;align-items:center;padding-top:1px}
+.mstep-bullet{width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:8px;font-weight:700;font-family:'JetBrains Mono',monospace;position:relative;z-index:1}
+.mstep-bullet.done{background:var(--gr);color:#fff;box-shadow:0 1px 4px rgba(34,197,94,.4)}
+.mstep-bullet.run{background:var(--accent);color:#fff;animation:ring-pulse 1.6s ease-out infinite}
+.mstep-bullet.run::before{content:"";position:absolute;inset:-4px;border-radius:50%;border:2px solid var(--accent);opacity:0;animation:ring-expand 1.6s ease-out infinite}
+@keyframes ring-pulse{0%,100%{box-shadow:0 0 0 0 rgba(124,58,237,.5)}50%{box-shadow:0 0 0 5px rgba(124,58,237,.12)}}
+@keyframes ring-expand{0%{opacity:.6;transform:scale(.9)}100%{opacity:0;transform:scale(1.6)}}
+.mstep-bullet.todo{background:rgba(255,255,255,.04);border:1.5px dashed rgba(255,255,255,.15);color:var(--subtle)}
+.mstep-line{width:1.5px;flex:1;background:rgba(255,255,255,.08);margin-top:2px;min-height:9px;border-radius:1px}
+.mstep-line.done{background:var(--gr)}
+.mstep-line.active{background:linear-gradient(180deg,var(--accent),rgba(255,255,255,.07) 80%)}
+.mstep-body{min-width:0}
+.mstep-title{font-size:12px;font-weight:600;color:var(--text);letter-spacing:-.003em;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mstep-meta{font-size:10px;color:var(--muted);margin-top:2px;font-family:'JetBrains Mono',monospace;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mstep.todo .mstep-title{color:var(--muted);font-weight:500}
+.mstep.todo .mstep-meta{color:var(--subtle)}
+.mstep-shimmer{margin-top:5px;height:3px;border-radius:2px;background:rgba(255,255,255,.05);position:relative;overflow:hidden}
+.mstep-shimmer::before{content:"";position:absolute;inset:0;width:40%;background:linear-gradient(90deg,transparent,var(--accent),transparent);animation:shim-sweep 1.3s ease-in-out infinite;border-radius:2px}
+@keyframes shim-sweep{0%{transform:translateX(-150%)}100%{transform:translateX(350%)}}
+.mstep-ticker{display:inline-flex;align-items:center;gap:5px;margin-top:4px;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--vi2)}
+.mstep-ticker-text{transition:opacity .18s ease}
+.mstep-tdot{width:4px;height:4px;border-radius:50%;background:var(--vi2);animation:tdot 1.1s ease-in-out infinite}
+.mstep-tdot:nth-child(3){animation-delay:.15s}.mstep-tdot:nth-child(4){animation-delay:.3s}
+@keyframes tdot{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-2px)}}
+.mstep-dur{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);white-space:nowrap;padding-top:2px}
+.mstep.running .mstep-dur{color:var(--vi2)}
+/* Legacy compat — keep .activity wrapper */
+.activity{display:flex;flex-direction:column;gap:4px}
+/* Agent timeout warning */
+.agent-timeout{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);font-size:12px;color:#FBBF24;font-family:'JetBrains Mono',monospace;margin-top:4px;animation:msgIn .3s ease}
+.agent-timeout .ico{font-size:14px;flex-shrink:0}
+@keyframes bounce{0%,80%,100%{transform:scale(.6);opacity:.4}40%{transform:scale(1);opacity:1}}
+
+.msg-actions{display:flex;gap:4px;opacity:0;transition:opacity .2s}
+.msg.assistant:hover .msg-actions{opacity:1}
+.act-btn{background:transparent;border:1px solid transparent;color:var(--subtle);font-size:11px;padding:4px 8px;border-radius:6px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px;transition:all .15s}
+.act-btn:hover{color:var(--text);background:var(--panel);border-color:var(--border)}
+.act-btn svg{width:11px;height:11px;stroke:currentColor;stroke-width:2;fill:none}
+
+.thinking{display:inline-flex;gap:4px;align-items:center}
+.thinking span{width:6px;height:6px;border-radius:50%;background:var(--vi2);animation:pulse2 1.4s infinite}
+.thinking span:nth-child(2){animation-delay:.2s}
+.thinking span:nth-child(3){animation-delay:.4s}
+@keyframes pulse2{0%,80%,100%{opacity:.3;transform:scale(.7)}40%{opacity:1;transform:scale(1)}}
+
+/* Input */
+.input-wrap{padding:16px 28px 24px;border-top:1px solid var(--border);background:rgba(7,7,26,.65);backdrop-filter:blur(16px)}
+.input-inner{max-width:820px;margin:0 auto;position:relative}
+.input-row{display:flex;align-items:flex-end;gap:10px;background:var(--panel);border:1px solid var(--border-2);border-radius:16px;padding:10px 12px;transition:border-color .2s,box-shadow .2s}
+.input-row:focus-within{border-color:color-mix(in srgb, var(--accent) 55%, transparent);box-shadow:0 0 0 4px color-mix(in srgb, var(--accent) 12%, transparent)}
+.input-row textarea{flex:1;background:transparent;border:none;resize:none;outline:none;color:var(--text);font-family:inherit;font-size:14.5px;line-height:1.55;padding:8px 4px;max-height:200px;min-height:24px}
+.input-row textarea::placeholder{color:var(--subtle)}
+.send-btn{width:36px;height:36px;border-radius:10px;border:none;background:var(--grad);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .15s,box-shadow .15s;flex-shrink:0}
+.send-btn:hover:not(:disabled){transform:scale(1.05);box-shadow:0 6px 20px var(--accent-glow)}
+.send-btn:disabled{opacity:.4;cursor:not-allowed}
+.send-btn svg{width:16px;height:16px;stroke:#fff;stroke-width:2.5;fill:none}
+.send-btn.stop{background:rgba(251,113,133,.25);color:#FCA5A5}
+.send-btn.stop svg{stroke:#FCA5A5;fill:#FCA5A5}
+
+.input-hint{font-size:11px;color:var(--subtle);margin-top:8px;text-align:center;font-family:'JetBrains Mono',monospace}
+.input-hint kbd{background:var(--panel);padding:1px 6px;border-radius:4px;border:1px solid var(--border);font-family:inherit;font-size:10.5px}
+
+/* Command palette */
+.palette-overlay{position:fixed;inset:0;z-index:200;background:rgba(7,7,26,.7);backdrop-filter:blur(8px);display:none;align-items:flex-start;justify-content:center;padding-top:120px;animation:fadeIn .2s ease}
+.palette-overlay.show{display:flex}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.palette{width:560px;max-width:92vw;background:rgba(13,13,36,.95);backdrop-filter:blur(40px);border:1px solid var(--border-2);border-radius:14px;box-shadow:0 32px 80px rgba(0,0,0,.5);overflow:hidden;animation:popIn .25s cubic-bezier(.34,1.4,.64,1)}
+@keyframes popIn{from{opacity:0;transform:translateY(-12px) scale(.96)}to{opacity:1;transform:none}}
+.palette-input{width:100%;padding:16px 18px;background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text);font-family:inherit;font-size:15px;outline:none}
+.palette-input::placeholder{color:var(--subtle)}
+.palette-list{max-height:360px;overflow-y:auto;padding:8px}
+.palette-item{padding:11px 14px;border-radius:8px;display:flex;align-items:center;gap:12px;cursor:pointer;font-size:13.5px}
+.palette-item.active{background:var(--accent-soft)}
+.palette-item .ico{width:24px;height:24px;border-radius:6px;background:var(--panel-2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px}
+.palette-item .body{flex:1;min-width:0}
+.palette-item .t{color:var(--text);font-weight:600}
+.palette-item .d{color:var(--muted);font-size:12px;margin-top:2px}
+.palette-item .kbd{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--subtle);padding:2px 6px;background:var(--panel);border:1px solid var(--border);border-radius:4px}
+
+/* Scrollbar */
+.chat::-webkit-scrollbar,.session-list::-webkit-scrollbar,.palette-list::-webkit-scrollbar,.model-menu::-webkit-scrollbar{width:8px}
+.chat::-webkit-scrollbar-thumb,.session-list::-webkit-scrollbar-thumb,.palette-list::-webkit-scrollbar-thumb,.model-menu::-webkit-scrollbar-thumb{background:rgba(255,255,255,.06);border-radius:4px}
+.chat::-webkit-scrollbar-thumb:hover,.session-list::-webkit-scrollbar-thumb:hover,.model-menu::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.12)}
+
+/* Agent timeout warning banner */
+.agent-timeout{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);font-size:12px;color:#FBBF24;font-family:'JetBrains Mono',monospace;margin-top:4px;animation:fadeIn .3s ease}
+.agent-timeout .ico{font-size:14px;flex-shrink:0}
+
+/* ── Hamburger toggle (mobile only) ── */
+.hamburger{display:none;background:transparent;border:none;color:var(--text);cursor:pointer;padding:6px;border-radius:7px;transition:background .15s;flex-shrink:0}
+.hamburger:hover{background:var(--panel)}
+.hamburger svg{width:22px;height:22px;stroke:currentColor;stroke-width:2;fill:none}
+.sidebar-overlay{position:fixed;inset:0;z-index:90;background:rgba(7,7,26,.65);backdrop-filter:blur(4px);display:none;animation:fadeIn .2s ease}
+.sidebar-overlay.show{display:block}
+
+/* ── Thinking timer ── */
+.thinking-timer{display:flex;align-items:center;gap:10px;padding:14px 18px;border-radius:12px;background:linear-gradient(135deg,rgba(167,139,250,.1),rgba(124,58,237,.06));border:1px solid rgba(167,139,250,.22);font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--vi2);animation:msgIn .35s ease-out both;position:relative;overflow:hidden}
+.thinking-timer::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(167,139,250,.06),transparent);animation:shimmer 2s infinite;pointer-events:none}
+@keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+.thinking-timer .dots{display:inline-flex;gap:4px}
+.thinking-timer .dots span{width:6px;height:6px;border-radius:50%;background:var(--vi2);animation:bounce 1s infinite}
+.thinking-timer .dots span:nth-child(2){animation-delay:.15s}
+.thinking-timer .dots span:nth-child(3){animation-delay:.3s}
+.thinking-timer .elapsed{font-size:12px;color:var(--subtle);margin-left:4px;font-weight:500}
+.thinking-timer .slow-hint{display:block;font-size:11px;color:var(--am);margin-top:4px;opacity:0;transition:opacity .4s;width:100%}
+.thinking-timer .slow-hint.show{opacity:1}
+.thinking-timer .stage-label{font-weight:600;color:var(--text);font-size:12px}
+
+/* ── Inline mode button (inside input row) ── */
+.input-mode-btn{display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:var(--panel);color:var(--muted);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;transition:all .18s;white-space:nowrap;flex-shrink:0;line-height:1}
+.input-mode-btn:hover{background:var(--panel-2);color:var(--text);border-color:var(--border-2)}
+.input-mode-btn.open{background:var(--accent-soft);color:var(--text);border-color:color-mix(in srgb, var(--accent) 45%, transparent)}
+.input-mode-btn .caret{font-size:8px;color:var(--subtle);transition:transform .2s}
+.input-mode-btn.open .caret{transform:rotate(180deg)}
+
+/* ── Inline model button (inside input row) ── */
+.input-model-btn{display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:var(--panel);color:var(--muted);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;transition:all .18s;white-space:nowrap;flex-shrink:0;line-height:1}
+.input-model-btn:hover{background:var(--panel-2);color:var(--text);border-color:var(--border-2)}
+.input-model-btn.open{background:var(--accent-soft);color:var(--text);border-color:color-mix(in srgb, var(--accent) 45%, transparent)}
+.input-model-btn .caret{font-size:8px;color:var(--subtle);transition:transform .2s}
+.input-model-btn.open .caret{transform:rotate(180deg)}
+.input-model-btn .tier-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.input-model-btn .tier-dot.fast{background:var(--gr);box-shadow:0 0 4px rgba(34,197,94,.5)}
+.input-model-btn .tier-dot.balanced{background:var(--bl);box-shadow:0 0 4px rgba(59,130,246,.5)}
+.input-model-btn .tier-dot.pro{background:var(--vi2);box-shadow:0 0 4px rgba(167,139,250,.5)}
+.input-model-btn .tier-dot.max{background:var(--am);box-shadow:0 0 4px rgba(245,158,11,.5)}
+.input-model-btn .tier-dot.cloud{background:var(--co);box-shadow:0 0 4px rgba(251,113,133,.5)}
+
+/* ── Upward dropdown (shared for mode + model pickers) ── */
+.input-dropdown{display:none;position:absolute;bottom:calc(100% + 8px);width:260px;max-height:380px;overflow-y:auto;background:rgba(13,13,36,.96);backdrop-filter:blur(28px);border:1px solid var(--border-2);border-radius:11px;box-shadow:0 -16px 48px rgba(0,0,0,.55);padding:6px;z-index:60}
+.input-dropdown.left{left:0}
+.input-dropdown.right{right:0}
+.input-dropdown.open{display:block;animation:dropUp .18s ease-out}
+@keyframes dropUp{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.input-dropdown .dd-item{padding:9px 12px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:background .12s;font-size:13px;color:var(--muted)}
+.input-dropdown .dd-item:hover{background:var(--panel-2);color:var(--text)}
+.input-dropdown .dd-item.selected{background:var(--accent-soft);color:var(--text)}
+.input-dropdown .dd-item .dd-icon{font-size:15px;flex-shrink:0;width:22px;text-align:center}
+.input-dropdown .dd-item .dd-body{flex:1;min-width:0}
+.input-dropdown .dd-item .dd-name{font-weight:600;color:var(--text)}
+.input-dropdown .dd-item .dd-desc{font-size:10.5px;color:var(--subtle);margin-top:1px}
+.input-dropdown .dd-item .dd-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.input-dropdown .dd-item .dd-dot.fast{background:var(--gr);box-shadow:0 0 4px rgba(34,197,94,.5)}
+.input-dropdown .dd-item .dd-dot.balanced{background:var(--bl);box-shadow:0 0 4px rgba(59,130,246,.5)}
+.input-dropdown .dd-item .dd-dot.pro{background:var(--vi2);box-shadow:0 0 4px rgba(167,139,250,.5)}
+.input-dropdown .dd-item .dd-dot.max{background:var(--am);box-shadow:0 0 4px rgba(245,158,11,.5)}
+.input-dropdown .dd-item .dd-dot.cloud{background:var(--co);box-shadow:0 0 4px rgba(251,113,133,.5)}
+.input-dropdown .group-label{padding:8px 11px 4px;font-family:'Sora',sans-serif;font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--subtle)}
+.input-dropdown::-webkit-scrollbar{width:8px}
+.input-dropdown::-webkit-scrollbar-thumb{background:rgba(255,255,255,.06);border-radius:4px}
+
+/* ── Session search ── */
+.session-search{margin:8px 8px 4px;position:relative}
+.session-search input{width:100%;padding:7px 10px 7px 30px;border-radius:8px;border:1px solid var(--border);background:var(--panel);color:var(--text);font-family:inherit;font-size:12px;outline:none;transition:border-color .2s}
+.session-search input:focus{border-color:color-mix(in srgb, var(--accent) 45%, transparent)}
+.session-search input::placeholder{color:var(--subtle)}
+.session-search svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);width:13px;height:13px;stroke:var(--subtle);stroke-width:2;fill:none;pointer-events:none}
+.session-count{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--subtle);background:var(--panel);padding:1px 6px;border-radius:10px;border:1px solid var(--border)}
+
+/* ── Relationship items ── */
+.rel-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;font-size:12px;color:var(--muted);cursor:pointer;transition:all .15s;margin-bottom:2px}
+.rel-item:hover{background:var(--panel);color:var(--text)}
+.rel-item .rel-avatar{width:24px;height:24px;border-radius:50%;background:var(--panel-2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--text);flex-shrink:0}
+.rel-item .rel-info{flex:1;min-width:0}
+.rel-item .rel-name{font-weight:600;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rel-item .rel-role{font-size:10px;color:var(--subtle);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rel-item .rel-del{flex-shrink:0;background:transparent;border:none;color:var(--subtle);cursor:pointer;padding:3px;border-radius:4px;opacity:0;transition:all .15s;display:flex;align-items:center}
+.rel-item:hover .rel-del{opacity:1}
+.rel-item .rel-del:hover{color:var(--co);background:rgba(251,113,133,.1)}
+.rel-item .rel-del svg{width:11px;height:11px;stroke:currentColor;stroke-width:2.5;fill:none}
+.rel-empty{padding:8px 4px;text-align:center;font-size:11px;color:var(--subtle)}
+
+/* ── Session empty state (enhanced) ── */
+.session-empty{padding:20px 12px;font-size:12px;color:var(--subtle);text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px}
+.session-empty svg{width:28px;height:28px;stroke:var(--subtle);stroke-width:1.5;fill:none;opacity:.5}
+
+/* ── Settings panel (slide-out) ── */
+.settings-overlay{position:fixed;inset:0;z-index:300;background:rgba(7,7,26,.6);backdrop-filter:blur(4px);display:none;animation:fadeIn .2s ease}
+.settings-overlay.show{display:block}
+.settings-panel{position:fixed;top:0;right:0;bottom:0;width:360px;max-width:90vw;z-index:310;background:rgba(13,13,36,.97);backdrop-filter:blur(28px);border-left:1px solid var(--border-2);box-shadow:-16px 0 48px rgba(0,0,0,.4);transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column}
+.settings-panel.open{transform:translateX(0)}
+.settings-panel-head{padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.settings-panel-head h3{font-family:'Sora',sans-serif;font-size:16px;font-weight:700;color:var(--text)}
+.settings-close{background:transparent;border:none;color:var(--subtle);cursor:pointer;padding:6px;border-radius:7px;transition:all .15s;display:flex;align-items:center;justify-content:center}
+.settings-close:hover{color:var(--text);background:var(--panel)}
+.settings-close svg{width:18px;height:18px;stroke:currentColor;stroke-width:2;fill:none}
+.settings-panel-body{flex:1;overflow-y:auto;padding:20px 24px}
+.settings-group{margin-bottom:24px}
+.settings-group-label{font-family:'Sora',sans-serif;font-size:10.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--subtle);margin-bottom:10px}
+.settings-row{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:10px;background:var(--panel);border:1px solid var(--border);margin-bottom:8px}
+.settings-row .s-label{font-size:13px;color:var(--muted)}
+.settings-row .s-value{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text);font-weight:500;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.settings-row .color-swatch{width:18px;height:18px;border-radius:50%;border:2px solid var(--border-2);flex-shrink:0}
+.settings-wizard-link{display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;border-radius:10px;border:1px solid var(--border-2);background:var(--panel-2);color:var(--text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all .18s;text-decoration:none;width:100%}
+.settings-wizard-link:hover{background:var(--accent-soft);border-color:var(--accent)}
+.settings-wizard-link svg{width:14px;height:14px;stroke:currentColor;stroke-width:2;fill:none}
+
+/* Tablet + mobile: collapse sidebar, show hamburger */
+@media(max-width:880px){
+  .layout{grid-template-columns:1fr}
+  .side{position:fixed;left:0;top:0;bottom:0;width:300px;z-index:100;transform:translateX(-100%);transition:transform .28s cubic-bezier(.4,0,.2,1);box-shadow:12px 0 48px rgba(0,0,0,.5)}
+  .side.open{transform:translateX(0)}
+  .hamburger{display:flex}
+  .main-head{padding:10px 14px;gap:8px;flex-wrap:wrap}
+  .kbd-hint{display:none}
+  .manager-badge{padding:6px 10px}
+  .manager-badge .role{display:none}
+  .model-trigger .label{max-width:100px}
+  .health-pill{display:none}
+  .input-wrap{padding:12px 14px 18px}
+  .chat-inner{padding:0 14px}
+  .empty h2{font-size:24px}
+  .suggestions{grid-template-columns:1fr}
+  .msg-content{max-width:88%}
+}
+/* Very small phones */
+@media(max-width:430px){
+  .main-head{padding:8px 12px}
+  .model-trigger .label{max-width:80px;font-size:11px}
+  .manager-badge .name{font-size:12.5px}
+}
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <aside class="side">
+    <div class="side-head">
+      <button class="metis-mark size-sm" type="button" id="brandMark" title="Refresh">
+        <img class="mm-glyph" src="/static/assets/metis-logomark-transparent.png" alt="">
+        <span class="mm-stack">
+          <span class="mm-word">Metis</span>
+          <span class="mm-sub" id="brandSub">Director's Console</span>
+        </span>
+      </button>
+      <span class="ver">v16.4</span>
+    </div>
+
+    <button class="new-btn" id="newChatBtn">
+      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      New conversation
+    </button>
+
+    <div class="side-section"><span>Recent</span><span class="session-count" id="sessionCount">0</span></div>
+    <div class="session-search">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="sessionSearchInput" placeholder="Search sessions..." autocomplete="off">
+    </div>
+    <div class="session-list" id="sessionList">
+      <div class="session-empty">
+        <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        No previous sessions yet.
+      </div>
+    </div>
+
+    <!-- Relationships folder -->
+    <div class="crew-panel" id="relationshipsPanel">
+      <div class="legend" style="cursor:pointer" id="relToggle">Relationships <span id="relCount" style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--subtle);background:var(--panel);padding:1px 5px;border-radius:8px;border:1px solid var(--border);margin-left:auto">0</span></div>
+      <div id="relList" style="max-height:140px;overflow-y:auto"></div>
+    </div>
+
+    <div class="crew-panel" id="crewPanel">
+      <div class="legend">Crew</div>
+      <div class="crew-row" data-agent="Researcher"><div class="crew-dot"></div><span class="crew-name">Researcher</span><span class="crew-tag">Web</span></div>
+      <div class="crew-row" data-agent="Coder"><div class="crew-dot"></div><span class="crew-name">Coder</span><span class="crew-tag">Code</span></div>
+      <div class="crew-row" data-agent="Thinker"><div class="crew-dot"></div><span class="crew-name">Thinker</span><span class="crew-tag">Reason</span></div>
+      <div class="crew-row" data-agent="Scholar"><div class="crew-dot"></div><span class="crew-name">Scholar</span><span class="crew-tag">Knowledge</span></div>
+    </div>
+
+    <div class="agent-health-panel" id="agentHealthPanel" style="display:none">
+      <div class="legend">Agents</div>
+      <div id="agentHealthList"></div>
+    </div>
+
+    <div class="side-foot">
+      <div class="avatar" id="userAvatar">M</div>
+      <div class="user-meta">
+        <div class="name" id="userName">Loading…</div>
+        <div class="role">Director</div>
+      </div>
+      <button class="icon-btn" id="paletteBtn" title="Command palette (⌘K)">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </button>
+      <button class="icon-btn" id="settingsBtn" title="Reconfigure Manager">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+      <button class="icon-btn danger" id="signoutBtn" title="Sign out">
+        <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Mobile sidebar overlay -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <main class="main">
+    <div class="main-head">
+      <button class="hamburger" id="hamburgerBtn" title="Menu">
+        <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <div class="manager-badge" id="managerBadge">
+        <span class="pulse"></span>
+        <span class="name" id="managerName">Manager</span>
+        <span class="role">orchestrator</span>
+      </div>
+      <span class="session-title-header" id="sessionTitleHeader"></span>
+      <div class="spacer"></div>
+      <div class="kbd-hint"><kbd>⌘</kbd><kbd>K</kbd></div>
+
+      <!-- Model selector -->
+      <div class="model-select" id="modelSelect">
+        <button class="model-trigger" id="modelTrigger">
+          <svg class="brain-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2z"/></svg>
+          <span class="label" id="modelLabel">no model</span>
+          <svg class="caret" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="model-menu" id="modelMenu"></div>
+      </div>
+
+      <div class="health-pill" id="healthPill"><span class="health-dot" id="healthDot"></span><span id="healthText">Connecting…</span></div>
+    </div>
+
+    <div class="chat" id="chat">
+      <div class="chat-inner" id="chatInner">
+        <div class="empty" id="empty">
+          <img src="/static/assets/metis-logomark-transparent.png" alt="">
+          <h2 id="emptyTitle">What can I help you <em>build</em>, <span id="emptyDirector">Director</span>?</h2>
+          <p id="emptySub">I'm <span id="emptyManager">Manager</span>. I delegate to specialists when their depth helps and synthesize their work into one clean answer. Ask me anything.</p>
+          <div class="suggestions" id="suggestions">
+            <button class="suggestion" data-q="What can you do? Walk me through your specialists.">
+              <div class="stitle">🎯 What can you do?</div>
+              <div class="ssub">Tour your specialists and capabilities</div>
+            </button>
+            <button class="suggestion" data-q="Write a Python function that finds duplicate files in a directory by content hash.">
+              <div class="stitle">⚙️ Write some code</div>
+              <div class="ssub">Delegates to Coder + Thinker</div>
+            </button>
+            <button class="suggestion" data-q="Explain the difference between fine-tuning and RAG, in 4 bullet points.">
+              <div class="stitle">📚 Explain a concept</div>
+              <div class="ssub">Routes to Scholar for the explanation</div>
+            </button>
+            <button class="suggestion" data-q="Plan a 3-day trip to Tokyo for a software engineer interested in food.">
+              <div class="stitle">🗾 Plan something</div>
+              <div class="ssub">Multi-agent: Researcher + Thinker</div>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="input-wrap">
+      <div class="input-inner" style="position:relative">
+        <div class="input-row">
+          <button class="input-mode-btn" id="inputModeBtn" title="Switch mode">💬 Chat <span class="caret">▾</span></button>
+          <textarea id="msgInput" placeholder="Ask the Manager…  (⌘K for commands)" rows="1"></textarea>
+          <button class="input-model-btn" id="inputModelBtn" title="Switch model"><span class="tier-dot fast"></span> Fast <span class="caret">▾</span></button>
+          <button class="send-btn" id="sendBtn" disabled title="Send (↵)">
+            <svg id="sendIcon" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </div>
+        <!-- Mode dropdown (upward) -->
+        <div class="input-dropdown left" id="modeDropdown"></div>
+        <!-- Model dropdown (upward) -->
+        <div class="input-dropdown right" id="modelDropdown"></div>
+        <div class="input-hint"><kbd>&#x21B5;</kbd> send · <kbd>&#x21E7;&#x21B5;</kbd> newline · <kbd>&#x2318;K</kbd> palette</div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Command palette -->
+<div class="palette-overlay" id="paletteOverlay">
+  <div class="palette" role="dialog" aria-label="Command palette">
+    <input type="text" class="palette-input" id="paletteInput" placeholder="Type a command or search…" autocomplete="off">
+    <div class="palette-list" id="paletteList"></div>
+  </div>
+</div>
+
+<!-- Settings slide-out panel -->
+<div class="settings-overlay" id="settingsOverlay"></div>
+<div class="settings-panel" id="settingsPanel">
+  <div class="settings-panel-head">
+    <h3>Settings</h3>
+    <button class="settings-close" id="settingsClose" title="Close">
+      <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="settings-panel-body">
+    <div class="settings-group">
+      <div class="settings-group-label">Manager</div>
+      <div class="settings-row">
+        <span class="s-label">Name</span>
+        <span class="s-value" id="settingsManagerName">--</span>
+      </div>
+      <div class="settings-row">
+        <span class="s-label">Model</span>
+        <span class="s-value" id="settingsManagerModel">--</span>
+      </div>
+    </div>
+    <div class="settings-group">
+      <div class="settings-group-label">Appearance</div>
+      <div class="settings-row">
+        <span class="s-label">Accent color</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="color-swatch" id="settingsColorSwatch"></span>
+          <span class="s-value" id="settingsAccentColor">--</span>
+        </div>
+      </div>
+    </div>
+    <div class="settings-group">
+      <div class="settings-group-label">Advanced</div>
+      <a class="settings-wizard-link" href="/setup">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Open full setup wizard
+      </a>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { api, ensureAuthed, clearSession, getUser } from '/static/js/api.js';
+
+window.addEventListener('load', () => {
+  const g = document.getElementById('mp-grain');
+  if (g) g.style.display = 'none';
+});
+
+// ── State ───────────────────────────────────────────────────────────────
+let currentSession = 'sess-' + Date.now();
+let isStreaming = false;
+let abortController = null;
+let cfg = null;
+let availableModels = [];
+let currentMode = 'chat';
+
+const empty = document.getElementById('empty');
+const chatInner = document.getElementById('chatInner');
+const chat = document.getElementById('chat');
+const msgInput = document.getElementById('msgInput');
+const sendBtn = document.getElementById('sendBtn');
+const sendIcon = document.getElementById('sendIcon');
+
+// ── Boot ────────────────────────────────────────────────────────────────
+const user = await ensureAuthed();
+if (!user) {
+  // ensureAuthed already redirected; nothing to do.
+} else {
+  const cached = getUser() || user;
+  const email = cached.email || 'Operator';
+  document.getElementById('userName').textContent = email;
+  document.getElementById('userAvatar').textContent = (email[0] || 'M').toUpperCase();
+}
+
+// Pull config + models in parallel
+let configRes, modelsRes;
+try {
+  [configRes, modelsRes] = await Promise.all([api.managerConfig(), api.models()]);
+  cfg = configRes.config;
+  availableModels = modelsRes.models || [];
+} catch (e) {
+  console.warn('boot data:', e);
+  cfg = { manager_name: 'Manager', company_name: 'Metis', accent_color: '#7C3AED', specialists: ['Genius','Researcher','Coder','Thinker','Scholar'], director_name: 'Director' };
+  availableModels = [];
+}
+
+// If we somehow ended up here without setup, send to wizard.
+if (!configRes?.is_configured) {
+  window.location.replace('/setup');
+}
+
+// ── DOM refs (declared BEFORE the boot calls below so they're in scope) ─
+// The model selector functions read these via closure; if they were
+// declared after `renderModelMenu()` is invoked we'd hit a TDZ silently.
+const modelSelect = document.getElementById('modelSelect');
+const modelTrigger = document.getElementById('modelTrigger');
+const modelMenu = document.getElementById('modelMenu');
+const modelLabel = document.getElementById('modelLabel');
+
+function hexToRgba(hex, a) {
+  if (!hex) return `rgba(124,58,237,${a})`;
+  const m = hex.replace('#', '').match(/.{1,2}/g);
+  if (!m || m.length < 3) return `rgba(124,58,237,${a})`;
+  const [r, g, b] = m.slice(0, 3).map(x => parseInt(x, 16));
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+function applyConfig(c) {
+  if (!c) return;
+  // Accent color cascading via CSS custom prop
+  document.documentElement.style.setProperty('--accent', c.accent_color || '#7C3AED');
+  document.documentElement.style.setProperty('--accent-soft', hexToRgba(c.accent_color, 0.18));
+  document.documentElement.style.setProperty('--accent-glow', hexToRgba(c.accent_color, 0.35));
+
+  document.getElementById('managerName').textContent = c.manager_name || 'Manager';
+  document.getElementById('emptyDirector').textContent = c.director_name || 'Director';
+  document.getElementById('emptyManager').textContent = c.manager_name || 'the Manager';
+  document.getElementById('brandSub').textContent = c.company_name || 'Director\'s Console';
+  document.title = `${c.manager_name || 'Manager'} · ${c.company_name || 'Metis'}`;
+
+  // Disable specialist rows that aren't in the user's crew; hide "Genius"
+  const enabled = new Set(c.specialists || []);
+  enabled.delete('Genius');  // Genius is handled via model selector, not as a crew member
+  document.querySelectorAll('.crew-row').forEach(r => {
+    if (r.dataset.agent === 'Genius') {
+      r.style.display = 'none';
+      return;
+    }
+    r.classList.toggle('disabled', !enabled.has(r.dataset.agent));
+  });
+}
+
+// ── Friendly model name mapping ───────────────────────────────────────
+// Maps raw Ollama model IDs to user-friendly tier names.
+// MUST be declared before renderModelMenu() is called.
+const MODEL_TIERS = {
+  'qwen2.5-coder:1.5b':   { friendly: 'Fast',       icon: '⚡', tier: 'fast',     desc: 'Quick answers, light tasks',     priority: 1 },
+  'deepseek-r1:1.5b':     { friendly: 'Thinker',    icon: '🧠', tier: 'fast',     desc: 'Fast reasoning model',           priority: 2 },
+  'llama3.2:3b':           { friendly: 'Balanced',   icon: '⚖️', tier: 'balanced', desc: 'Good balance of speed & quality', priority: 3 },
+  'qwen3:4b':              { friendly: 'Standard',   icon: '📝', tier: 'balanced', desc: 'Well-rounded general model',     priority: 4 },
+  'qwen3.5:4b':            { friendly: 'Standard+',  icon: '📝', tier: 'balanced', desc: 'Enhanced general model',         priority: 5 },
+  'qwen2.5-coder:7b':     { friendly: 'Pro',         icon: '🔥', tier: 'pro',      desc: 'Best for code & complex tasks',  priority: 6 },
+  'qwen3-coder:latest':   { friendly: 'Coder Pro',   icon: '💻', tier: 'pro',      desc: 'Advanced coding specialist',     priority: 7 },
+  'glm4:9b':               { friendly: 'Premium',    icon: '💎', tier: 'max',      desc: 'Highest quality, slower',        priority: 8 },
+  'qwen3.6:latest':        { friendly: 'Advanced',   icon: '🚀', tier: 'max',      desc: 'Latest advanced model',          priority: 9 },
+  'qwen3.6-limited:latest':{ friendly: 'Advanced Lite', icon: '🚀', tier: 'max',  desc: 'Advanced with limits',           priority: 10 },
+  'llava:latest':          { friendly: 'Vision',      icon: '👁️', tier: 'pro',     desc: 'Image understanding',            priority: 11 },
+};
+
+function getModelMeta(id) {
+  if (MODEL_TIERS[id]) return MODEL_TIERS[id];
+  if (id.startsWith('groq/') || id.includes('gpt') || id.includes('claude') || id.includes('glm-'))
+    return { friendly: 'Cloud', icon: '☁️', tier: 'cloud', desc: 'Cloud-powered AI', priority: 0 };
+  const size = id.match(/(\d+)b/)?.[1];
+  if (size) {
+    const gb = parseInt(size);
+    if (gb <= 3) return { friendly: 'Fast',     icon: '⚡', tier: 'fast',     desc: id, priority: 50 };
+    if (gb <= 7) return { friendly: 'Pro',      icon: '🔥', tier: 'pro',      desc: id, priority: 51 };
+    return { friendly: 'Premium',   icon: '💎', tier: 'max',      desc: id, priority: 52 };
+  }
+  return { friendly: id.split(':')[0], icon: '🤖', tier: 'balanced', desc: 'Local model', priority: 99 };
+}
+
+applyConfig(cfg);
+renderModelMenu();
+
+if (cfg?.manager_name) {
+  setTimeout(() => {
+    if (window.toast) toast('success', `${cfg.manager_name} is ready`, `Welcome back, ${cfg.director_name || 'Director'}.`, 3200);
+  }, 600);
+}
+// Silently warm up the manager model on page load so first message is fast
+if (cfg?.manager_model) {
+  api.warmupModel(cfg.manager_model).catch(() => {});
+}
+
+function renderModelMenu() {
+  const modelDD = document.getElementById('modelDropdown');
+  const modelBtn = document.getElementById('inputModelBtn');
+
+  if (!availableModels.length) {
+    modelMenu.innerHTML = `<div class="model-empty">No models detected.<br>Start Ollama or set a cloud API key.</div>`;
+    modelLabel.textContent = 'no model';
+    modelBtn.innerHTML = `<span class="tier-dot balanced"></span> No model <span class="caret">▾</span>`;
+    modelDD.innerHTML = `<div style="padding:14px;text-align:center;color:var(--subtle);font-size:12px">No models available</div>`;
+    return;
+  }
+
+  // Sort models by priority
+  const sorted = [...availableModels].sort((a, b) => (getModelMeta(a.id).priority || 99) - (getModelMeta(b.id).priority || 99));
+
+  // ── Header dropdown (detailed) ───────────────────────
+  let headerHtml = '';
+  const cloudModels = sorted.filter(m => getModelMeta(m.id).tier === 'cloud');
+  const localModels = sorted.filter(m => getModelMeta(m.id).tier !== 'cloud');
+  if (localModels.length) {
+    headerHtml += `<div class="group-label">Local Models</div>`;
+    localModels.forEach(m => {
+      const meta = getModelMeta(m.id);
+      headerHtml += `<div class="model-opt ${m.id === cfg.manager_model ? 'selected' : ''}" data-id="${escapeHtml(m.id)}">
+        <div class="body">
+          <div class="n">${meta.icon} ${escapeHtml(meta.friendly)}</div>
+          <div class="d">${escapeHtml(meta.desc)}</div>
+        </div>
+      </div>`;
+    });
+  }
+  if (cloudModels.length) {
+    headerHtml += `<div class="group-label">Cloud Models</div>`;
+    cloudModels.forEach(m => {
+      const meta = getModelMeta(m.id);
+      headerHtml += `<div class="model-opt ${m.id === cfg.manager_model ? 'selected' : ''}" data-id="${escapeHtml(m.id)}">
+        <div class="body">
+          <div class="n">${meta.icon} ${escapeHtml(meta.friendly)}</div>
+          <div class="d">${escapeHtml(meta.desc)}</div>
+        </div>
+      </div>`;
+    });
+  }
+  modelMenu.innerHTML = headerHtml;
+
+  // ── Inline model dropdown (upward from input box) ─────
+  let ddHtml = '<div class="group-label">Select Model</div>';
+  sorted.forEach(m => {
+    const meta = getModelMeta(m.id);
+    ddHtml += `<div class="dd-item ${m.id === cfg.manager_model ? 'selected' : ''}" data-id="${escapeHtml(m.id)}">
+      <span class="dd-dot ${meta.tier}"></span>
+      <div class="dd-body">
+        <div class="dd-name">${escapeHtml(meta.friendly)}</div>
+        <div class="dd-desc">${escapeHtml(meta.desc)}</div>
+      </div>
+    </div>`;
+  });
+  modelDD.innerHTML = ddHtml;
+
+  // Wire click handlers for header menu + inline dropdown
+  [modelMenu, modelDD].forEach(container => {
+    container.querySelectorAll('[data-id]').forEach(el => {
+      el.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const id = el.dataset.id;
+        cfg.manager_model = id;
+        try { await api.saveManagerConfig({ manager_model: id }); }
+        catch (err) { if (window.toast) toast('error', 'Save failed', err.message, 3000); }
+        renderModelMenu();
+        modelSelect.classList.remove('open');
+        closeAllDropdowns();
+        const meta = getModelMeta(id);
+        // Pre-warm the new model so next message is instant
+        api.warmupModel(id).catch(() => {});
+        if (window.toast) toast('info', 'Model switched', `${meta.icon} ${meta.friendly} — warming up ⚡`, 2200);
+      });
+    });
+  });
+
+  // Update inline model button label
+  const sel = sorted.find(m => m.id === cfg.manager_model) || sorted[0];
+  if (sel) {
+    const meta = getModelMeta(sel.id);
+    modelBtn.innerHTML = `<span class="tier-dot ${meta.tier}"></span> ${escapeHtml(meta.friendly)} <span class="caret">▾</span>`;
+    modelLabel.textContent = `${meta.icon} ${meta.friendly}`;
+  }
+}
+
+// ── Mode dropdown (inline) ──────────────────────────────────────────────
+const MODES = [
+  { id: 'chat',        icon: '💬', name: 'Chat',        desc: 'Talk with the Manager' },
+  { id: 'image',       icon: '🎨', name: 'Image',       desc: 'Generate images (coming soon)' },
+  { id: 'video',       icon: '🎬', name: 'Video',       desc: 'Generate videos (coming soon)' },
+  { id: 'automations', icon: '⚡', name: 'Automations', desc: 'Run automated workflows' },
+];
+
+function renderModeDropdown() {
+  const modeDD = document.getElementById('modeDropdown');
+  const modeBtn = document.getElementById('inputModeBtn');
+  const cur = MODES.find(m => m.id === currentMode) || MODES[0];
+  modeBtn.innerHTML = `${cur.icon} ${cur.name} <span class="caret">▾</span>`;
+
+  modeDD.innerHTML = MODES.map(m =>
+    `<div class="dd-item ${m.id === currentMode ? 'selected' : ''}" data-mode="${m.id}">
+      <span class="dd-icon">${m.icon}</span>
+      <div class="dd-body">
+        <div class="dd-name">${m.name}</div>
+        <div class="dd-desc">${m.desc}</div>
+      </div>
+    </div>`
+  ).join('');
+
+  modeDD.querySelectorAll('.dd-item').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      currentMode = el.dataset.mode;
+      const placeholders = {
+        chat: 'Ask the Manager…  (⌘K for commands)',
+        image: 'Describe the image you want to generate…',
+        video: 'Describe the video you want to generate…',
+        automations: 'Describe a workflow to automate…'
+      };
+      msgInput.placeholder = placeholders[currentMode] || placeholders.chat;
+      renderModeDropdown();
+      closeAllDropdowns();
+    });
+  });
+}
+
+// ── Dropdown toggle logic ──────────────────────────────────────────────
+function closeAllDropdowns() {
+  document.getElementById('modeDropdown').classList.remove('open');
+  document.getElementById('modelDropdown').classList.remove('open');
+  document.getElementById('inputModeBtn').classList.remove('open');
+  document.getElementById('inputModelBtn').classList.remove('open');
+  modelSelect.classList.remove('open');
+}
+
+document.getElementById('inputModeBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  const dd = document.getElementById('modeDropdown');
+  const wasOpen = dd.classList.contains('open');
+  closeAllDropdowns();
+  if (!wasOpen) {
+    dd.classList.add('open');
+    document.getElementById('inputModeBtn').classList.add('open');
+  }
+});
+
+document.getElementById('inputModelBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  const dd = document.getElementById('modelDropdown');
+  const wasOpen = dd.classList.contains('open');
+  closeAllDropdowns();
+  if (!wasOpen) {
+    dd.classList.add('open');
+    document.getElementById('inputModelBtn').classList.add('open');
+  }
+});
+
+modelTrigger.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const wasOpen = modelSelect.classList.contains('open');
+  closeAllDropdowns();
+  if (!wasOpen) modelSelect.classList.add('open');
+});
+
+document.addEventListener('click', () => {
+  closeAllDropdowns();
+});
+
+// Prevent dropdown clicks from closing
+document.getElementById('modeDropdown').addEventListener('click', (e) => e.stopPropagation());
+document.getElementById('modelDropdown').addEventListener('click', (e) => e.stopPropagation());
+
+renderModeDropdown();
+
+// ── Session search ─────────────────────────────────────────────────────
+document.getElementById('sessionSearchInput').addEventListener('input', (e) => {
+  const q = e.target.value.toLowerCase();
+  document.querySelectorAll('.session-item').forEach(item => {
+    const label = item.querySelector('.session-label');
+    const text = (label ? label.textContent : '').toLowerCase();
+    item.style.display = text.includes(q) ? '' : 'none';
+  });
+});
+
+// ── Status polling ──────────────────────────────────────────────────────
+async function refreshStatus() {
+  try {
+    const s = await api.status();
+    document.getElementById('healthText').textContent = `v${s.version}`;
+    document.getElementById('healthDot').classList.remove('bad');
+  } catch {
+    document.getElementById('healthText').textContent = 'offline';
+    document.getElementById('healthDot').classList.add('bad');
+  }
+}
+refreshStatus();
+setInterval(refreshStatus, 30000);
+
+// ── Sessions list ───────────────────────────────────────────────────────
+async function loadSessions() {
+  try {
+    const sessions = await api.sessions();  // [{id, title, updated_at}, ...]
+    const list = document.getElementById('sessionList');
+    const countEl = document.getElementById('sessionCount');
+    if (!sessions || !sessions.length) {
+      list.innerHTML = '<div class="session-empty"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>No previous sessions yet.</div>';
+      countEl.textContent = '0';
+      return;
+    }
+    countEl.textContent = sessions.length;
+    list.innerHTML = '';
+    sessions.slice(0, 30).forEach(s => {
+      // Support both old format (plain string) and new format ({id, title, updated_at})
+      const id    = typeof s === 'string' ? s : s.id;
+      const title = (typeof s === 'object' && s.title) ? s.title : id;
+
+      const div = document.createElement('div');
+      div.className = 'session-item';
+      div.dataset.id = id;
+      div.title = id;
+      if (id === currentSession) div.classList.add('active');
+
+      // Session label — show human-readable title
+      const label = document.createElement('span');
+      label.className = 'session-label';
+      label.textContent = title;
+      div.appendChild(label);
+
+      // Rename button (pencil icon) — only visible on hover
+      const renameBtn = document.createElement('button');
+      renameBtn.className = 'session-rename';
+      renameBtn.title = 'Rename session';
+      renameBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>';
+      renameBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        // Turn label into an inline editable input
+        const input = document.createElement('input');
+        input.className = 'session-rename-input';
+        input.value = label.textContent;
+        input.maxLength = 120;
+        label.replaceWith(input);
+        input.focus();
+        input.select();
+        const finish = async () => {
+          const newTitle = input.value.trim() || label.textContent;
+          const span = document.createElement('span');
+          span.className = 'session-label';
+          span.textContent = newTitle;
+          input.replaceWith(span);
+          try { await api.renameSession(id, newTitle); } catch {}
+        };
+        input.addEventListener('blur', finish);
+        input.addEventListener('keydown', (ev) => {
+          if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
+          if (ev.key === 'Escape') { input.value = label.textContent; input.blur(); }
+        });
+      });
+      div.appendChild(renameBtn);
+
+      // Delete button
+      const del = document.createElement('button');
+      del.className = 'session-del';
+      del.title = 'Delete session';
+      del.innerHTML = '<svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+      del.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        try {
+          await api.deleteSession(id);
+          div.remove();
+          if (id === currentSession) newChat();
+          if (window.toast) toast('info', 'Session deleted', '', 1500);
+        } catch (err) {
+          if (window.toast) toast('error', 'Delete failed', err.message, 3000);
+        }
+      });
+      div.appendChild(del);
+
+      div.addEventListener('click', () => loadSession(id));
+      list.appendChild(div);
+    });
+  } catch {}
+}
+async function loadSession(id) {
+  try {
+    const msgs = await api.sessionMessages(id);
+    chatInner.innerHTML = '';
+    empty.style.display = 'none';
+    (msgs || []).forEach(m => {
+      const role = m.role === 'user' ? 'user' : 'assistant';
+      const bubble = makeMsg(role);
+      if (role === 'assistant') {
+        bubble.innerHTML = renderMarkdown(m.content || '');
+        bubble.classList.add('md');
+      } else {
+        bubble.textContent = m.content || '';
+      }
+    });
+    currentSession = id;
+    document.querySelectorAll('.session-item').forEach(el =>
+      el.classList.toggle('active', el.dataset.id === id));
+    // Show session title in header
+    const item = document.querySelector(`.session-item[data-id="${CSS.escape(id)}"]`);
+    const titleEl = document.getElementById('sessionTitleHeader');
+    const label = item?.querySelector('.session-label');
+    if (label && label.textContent && label.textContent !== id) {
+      titleEl.textContent = '· ' + label.textContent;
+      titleEl.classList.add('visible');
+    } else {
+      titleEl.textContent = '';
+      titleEl.classList.remove('visible');
+    }
+    chat.scrollTop = chat.scrollHeight;
+  } catch (e) {
+    if (window.toast) toast('error', 'Could not load session', e.message, 4000);
+  }
+}
+loadSessions();
+
+// ── Crew status indicators ──────────────────────────────────────────────
+function setCrewStatus(name, status) {
+  const row = document.querySelector(`.crew-row[data-agent="${name}"] .crew-dot`);
+  if (!row) return;
+  row.classList.remove('busy', 'done');
+  if (status) row.classList.add(status);
+}
+function resetCrew() {
+  document.querySelectorAll('.crew-row .crew-dot').forEach(d => d.classList.remove('busy', 'done'));
+  missionBox = null;
+  missionSteps = [];
+  missionProgressEl = null;
+  missionStatEl = null;
+}
+
+// ── Message rendering ───────────────────────────────────────────────────
+function makeMsg(role) {
+  const el = document.createElement('div');
+  el.className = `msg ${role}`;
+  const avatar = document.createElement('div');
+  avatar.className = 'msg-avatar';
+  avatar.textContent = role === 'user'
+    ? 'You'
+    : (cfg?.manager_name || 'M').trim().split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  const content = document.createElement('div');
+  content.className = 'msg-content';
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-bubble';
+  content.appendChild(bubble);
+  el.appendChild(avatar);
+  el.appendChild(content);
+  chatInner.appendChild(el);
+  chat.scrollTop = chat.scrollHeight;
+  return bubble;
+}
+
+// ── Mission stepper state ───────────────────────────────────────────────
+let missionBox = null;         // the .mission container
+let missionSteps = [];         // [{name, task, el, startMs}] in order
+let missionProgressEl = null;
+let missionLiveDotEl = null;
+let missionStatEl = null;
+
+function makeActivityContainer(messageEl) {
+  const wrap = document.createElement('div');
+  wrap.className = 'activity';
+  messageEl.appendChild(wrap);
+  return wrap;
+}
+
+function makePlanBanner(activity, agents) {
+  // Build the mission stepper box
+  const managerName = cfg?.manager_name || 'Manager';
+  const stepCount = agents.length || 1;
+  const box = document.createElement('div');
+  box.className = 'mission';
+  box.innerHTML = `
+    <div class="mission-head">
+      <div class="mission-mark"><img src="/static/assets/metis-logomark-transparent.png" alt=""></div>
+      <div class="mission-head-info">
+        <div class="mission-head-title">${escapeHtml(managerName)}</div>
+        <div class="mission-head-sub mission-sub-text">${escapeHtml(agents.length ? `${agents.length} specialist${agents.length > 1 ? 's' : ''} · planning` : 'self-handling')}</div>
+      </div>
+      <span class="mission-live" id="missionStat"><span class="mission-live-dot"></span>running</span>
+    </div>
+    <div class="mission-progress"><div class="mission-progress-fill" id="missionFill" style="right:100%"></div><div class="mission-progress-sweep"></div></div>
+    <div class="mission-steps" id="missionStepList"></div>
+  `;
+  activity.appendChild(box);
+  missionBox = box;
+  missionSteps = [];
+  missionProgressEl = box.querySelector('#missionFill');
+  missionStatEl = box.querySelector('#missionStat');
+
+  // Pre-render todo steps for each known agent
+  agents.forEach((name, i) => {
+    _addMissionStep(box.querySelector('#missionStepList'), name, '', 'todo', i + 1);
+  });
+  return box;
+}
+
+function _addMissionStep(container, name, task, state, num) {
+  const step = document.createElement('div');
+  step.className = `mstep ${state}`;
+  step.dataset.agent = name;
+  const isLast = true; // will be updated
+  step.innerHTML = `
+    <div class="mstep-dot-col">
+      <div class="mstep-bullet ${state === 'done' ? 'done' : state === 'running' ? 'run' : 'todo'}">${state === 'done' ? '✓' : num}</div>
+      <div class="mstep-line"></div>
+    </div>
+    <div class="mstep-body">
+      <div class="mstep-title">${escapeHtml(name)}</div>
+      <div class="mstep-meta">${escapeHtml(task || 'pending')}</div>
+    </div>
+    <div class="mstep-dur">${state === 'todo' ? '—' : state === 'running' ? 'running' : ''}</div>
+  `;
+  container.appendChild(step);
+  return step;
+}
+
+function makeAgentCard(activity, name, task) {
+  setCrewStatus(name, 'busy');
+
+  // Find or create the mission box
+  if (!missionBox) {
+    makePlanBanner(activity, []);
+  }
+  const container = missionBox.querySelector('#missionStepList');
+
+  // Check if there's already a todo placeholder for this agent
+  let step = container.querySelector(`.mstep[data-agent="${CSS.escape(name)}"]`);
+  const num = missionSteps.length + 1;
+
+  if (step) {
+    // Upgrade the todo placeholder to running
+    step.className = 'mstep running';
+    step.querySelector('.mstep-bullet').className = 'mstep-bullet run';
+    step.querySelector('.mstep-bullet').textContent = num;
+    step.querySelector('.mstep-meta').textContent = task || 'working…';
+    step.querySelector('.mstep-dur').textContent = 'running';
+  } else {
+    step = _addMissionStep(container, name, task, 'running', num);
+    step.className = 'mstep running';
+    step.querySelector('.mstep-bullet').className = 'mstep-bullet run';
+  }
+
+  // Add shimmer + ticker for the running step
+  const body = step.querySelector('.mstep-body');
+  const shimmer = document.createElement('div');
+  shimmer.className = 'mstep-shimmer';
+  const ticker = document.createElement('div');
+  ticker.className = 'mstep-ticker';
+  ticker.innerHTML = `<span class="mstep-ticker-text">${escapeHtml(task || 'processing…')}</span><span class="mstep-tdot"></span><span class="mstep-tdot"></span><span class="mstep-tdot"></span>`;
+  body.appendChild(shimmer);
+  body.appendChild(ticker);
+
+  // Update progress bar
+  const done = missionSteps.filter(s => s.done).length;
+  const total = Math.max(container.children.length, 1);
+  if (missionProgressEl) missionProgressEl.style.right = `${100 - Math.round(done / total * 100)}%`;
+
+  const entry = { name, task, el: step, startMs: Date.now(), done: false };
+  missionSteps.push(entry);
+
+  // Add 30s timeout warning
+  const timeoutId = setTimeout(() => {
+    if (!entry.done) {
+      const warn = document.createElement('div');
+      warn.className = 'agent-timeout';
+      warn.innerHTML = '<span class="ico">⏳</span> Taking a moment — first use loads the model into memory';
+      step.appendChild(warn);
+    }
+  }, 30000);
+  entry.timeoutId = timeoutId;
+
+  return step; // return the step element (acts as "card" for finishAgentCard)
+}
+
+function finishAgentCard(stepEl, output, ms) {
+  // Find matching entry
+  const entry = missionSteps.find(s => s.el === stepEl);
+  if (entry) {
+    entry.done = true;
+    if (entry.timeoutId) clearTimeout(entry.timeoutId);
+  }
+
+  stepEl.className = 'mstep done';
+  const bullet = stepEl.querySelector('.mstep-bullet');
+  bullet.className = 'mstep-bullet done';
+  bullet.textContent = '✓';
+  stepEl.querySelector('.mstep-dur').textContent = `${(ms / 1000).toFixed(1)}s`;
+  const meta = stepEl.querySelector('.mstep-meta');
+  if (meta && output) meta.textContent = output.substring(0, 80) + (output.length > 80 ? '…' : '');
+
+  // Remove shimmer + ticker
+  stepEl.querySelector('.mstep-shimmer')?.remove();
+  stepEl.querySelector('.mstep-ticker')?.remove();
+
+  // Update progress bar
+  const container = missionBox?.querySelector('#missionStepList');
+  if (container && missionProgressEl) {
+    const doneCount = missionSteps.filter(s => s.done).length;
+    const total = Math.max(container.children.length, 1);
+    missionProgressEl.style.right = `${100 - Math.round(doneCount / total * 100)}%`;
+  }
+
+  // Update step connector lines
+  const lineEl = stepEl.querySelector('.mstep-line');
+  if (lineEl) lineEl.className = 'mstep-line done';
+
+  setCrewStatus(stepEl.dataset.agent || '', 'done');
+}
+
+function makeSynthBanner(activity) {
+  // Show "composing" on the mission stat pill
+  if (missionStatEl) {
+    missionStatEl.innerHTML = `<span class="mstep-tdot"></span><span class="mstep-tdot"></span><span class="mstep-tdot"></span> composing`;
+  }
+  if (missionProgressEl) missionProgressEl.style.right = '5%';
+  const managerName = cfg?.manager_name || 'Manager';
+  // Update sub text
+  missionBox?.querySelector('.mission-sub-text')?.setAttribute('data-orig', '');
+  if (missionBox) {
+    const sub = missionBox.querySelector('.mission-head-sub');
+    if (sub) sub.textContent = `${escapeHtml(managerName)} is composing…`;
+  }
+  return missionBox; // return box so caller can call .remove() if needed
+}
+
+// ── Send + stream ───────────────────────────────────────────────────────
+msgInput.addEventListener('input', () => {
+  msgInput.style.height = 'auto';
+  msgInput.style.height = Math.min(msgInput.scrollHeight, 200) + 'px';
+  if (!isStreaming) sendBtn.disabled = !msgInput.value.trim();
+});
+msgInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    if (!sendBtn.disabled) sendMessage();
+  }
+});
+sendBtn.addEventListener('click', () => {
+  if (isStreaming) {
+    if (abortController) abortController.abort();
+  } else {
+    sendMessage();
+  }
+});
+
+function setStreaming(on) {
+  isStreaming = on;
+  sendBtn.classList.toggle('stop', on);
+  sendBtn.disabled = on ? false : !msgInput.value.trim();
+  sendIcon.innerHTML = on
+    ? '<rect x="6" y="6" width="12" height="12" rx="2" />'
+    : '<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>';
+}
+
+async function sendMessage() {
+  let text = msgInput.value.trim();
+  if (!text || isStreaming) return;
+  empty.style.display = 'none';
+  msgInput.value = '';
+  msgInput.style.height = 'auto';
+
+  // Handle non-chat modes
+  if (currentMode === 'image') {
+    makeMsg('user').textContent = text;
+    const infoBubble = makeMsg('assistant');
+    infoBubble.textContent = 'Image generation coming soon — requires a compatible model (e.g. Stable Diffusion). Stay tuned!';
+    if (window.toast) toast('info', 'Image mode', 'Image generation is not yet available', 3000);
+    return;
+  }
+  if (currentMode === 'video') {
+    makeMsg('user').textContent = text;
+    const infoBubble = makeMsg('assistant');
+    infoBubble.textContent = 'Video generation coming soon — requires a compatible model. Stay tuned!';
+    if (window.toast) toast('info', 'Video mode', 'Video generation is not yet available', 3000);
+    return;
+  }
+  if (currentMode === 'automations') {
+    text = 'AUTOMATION REQUEST: ' + text;
+  }
+
+  makeMsg('user').textContent = currentMode === 'automations' ? text.replace('AUTOMATION REQUEST: ', '') : text;
+  const replyBubble = makeMsg('assistant');
+  const replyMsg = chatInner.lastChild;
+  const replyContent = replyMsg.querySelector('.msg-content');
+  const activity = makeActivityContainer(replyContent);
+
+  // Elapsed timer thinking indicator with stage tracking
+  const thinkingStartTime = Date.now();
+  replyBubble.innerHTML = `<div class="thinking-timer">
+    <span class="dots"><span></span><span></span><span></span></span>
+    <span class="stage-label">Planning...</span>
+    <span class="elapsed">0s</span>
+    <span class="slow-hint"></span>
+  </div>`;
+  const timerEl = replyBubble.querySelector('.elapsed');
+  const stageLabel = replyBubble.querySelector('.stage-label');
+  const slowHint = replyBubble.querySelector('.slow-hint');
+  const thinkingInterval = setInterval(() => {
+    const elapsed = Math.floor((Date.now() - thinkingStartTime) / 1000);
+    if (timerEl) timerEl.textContent = elapsed + 's';
+    // Progressive hints so the user knows EXACTLY what's happening
+    if (elapsed === 5 && slowHint && !slowHint.classList.contains('show')) {
+      slowHint.textContent = 'Model is loading into memory — takes ~30s on first use';
+      slowHint.classList.add('show');
+    } else if (elapsed === 25 && slowHint) {
+      slowHint.textContent = 'Almost there — model is large, loading into GPU...';
+    } else if (elapsed === 55 && slowHint) {
+      slowHint.textContent = 'Taking longer than usual. You can switch to a faster model (⚡ Fast) below.';
+    }
+  }, 1000);
+
+  resetCrew();
+  setStreaming(true);
+  abortController = new AbortController();
+
+  let agentCards = {};
+  let agentTimers = {};
+  let synthBanner = null;
+  let answerStarted = false;
+  let fullAnswer = '';
+  let reasoningWrap = null;
+  let reasoningBody = null;
+  let fullReasoning = '';
+
+  try {
+    for await (const ev of api.chatStream(currentSession, text, 'manager', abortController.signal)) {
+      if (ev.type === 'heartbeat') {
+        // Server received message — update stage to confirm
+        if (stageLabel) stageLabel.textContent = 'Connected · Loading model...';
+      } else if (ev.type === 'manager_identity') {
+        // already configured; nothing to do
+      } else if (ev.type === 'manager_plan') {
+        if (stageLabel) stageLabel.textContent = ev.agents?.length ? 'Delegating to crew...' : 'Composing answer...';
+        if (!ev.agents?.length) {
+          // Self-handling — keep timer visible until tokens arrive
+        } else {
+          clearInterval(thinkingInterval);
+          replyBubble.innerHTML = '';
+        }
+        makePlanBanner(activity, ev.agents || []);
+      } else if (ev.type === 'agent_start') {
+        // Clear thinking timer once first agent starts
+        if (replyBubble.querySelector('.thinking-timer')) {
+          clearInterval(thinkingInterval);
+          replyBubble.innerHTML = '';
+        }
+        agentCards[ev.agent] = makeAgentCard(activity, ev.agent, ev.task || '');
+        // Auto-open so user can see what's happening
+        agentCards[ev.agent].classList.add('open');
+        // Start 30s timeout — show hint if specialist takes long (e.g. first model load)
+        agentTimers[ev.agent] = setTimeout(() => {
+          const card = agentCards[ev.agent];
+          if (card && card.classList.contains('busy')) {
+            const warn = document.createElement('div');
+            warn.className = 'agent-timeout';
+            warn.innerHTML = '<span class="ico">⏳</span> Taking a moment — first use loads the model into memory';
+            card.appendChild(warn);
+          }
+        }, 30000);
+      } else if (ev.type === 'agent_done') {
+        if (agentTimers[ev.agent]) { clearTimeout(agentTimers[ev.agent]); delete agentTimers[ev.agent]; }
+        if (agentCards[ev.agent]) {
+          finishAgentCard(agentCards[ev.agent], ev.output || '', ev.duration_ms || 0);
+        }
+      } else if (ev.type === 'manager_synthesis') {
+        if (stageLabel) stageLabel.textContent = 'Composing answer...';
+        synthBanner = makeSynthBanner(activity);
+      } else if (ev.type === 'token') {
+        if (!answerStarted) {
+          clearInterval(thinkingInterval);
+          // synthBanner is the missionBox — don't remove it, just clear the composing state
+          replyBubble.innerHTML = '';
+          answerStarted = true;
+        }
+        fullAnswer += ev.delta || '';
+        replyBubble.textContent = fullAnswer;
+        chat.scrollTop = chat.scrollHeight;
+      } else if (ev.type === 'reasoning') {
+        clearInterval(thinkingInterval);
+        // Show reasoning in a collapsible toggle above the answer
+        if (!reasoningWrap) {
+          reasoningWrap = document.createElement('div');
+          reasoningWrap.className = 'reasoning-wrap';
+          reasoningWrap.innerHTML = `
+            <div class="reasoning-toggle">
+              <svg class="chevron" viewBox="0 0 24 24" stroke-width="2.5"><polyline points="9 6 15 12 9 18"/></svg>
+              <span>Thinking…</span>
+            </div>
+            <div class="reasoning-body"></div>`;
+          reasoningWrap.querySelector('.reasoning-toggle').addEventListener('click', () => {
+            reasoningWrap.classList.toggle('open');
+          });
+          reasoningBody = reasoningWrap.querySelector('.reasoning-body');
+          // Insert before the bubble
+          replyContent.insertBefore(reasoningWrap, replyBubble);
+        }
+        fullReasoning += ev.delta || '';
+        reasoningBody.textContent = fullReasoning;
+      } else if (ev.type === 'session_title') {
+        // Update sidebar + header with the auto-generated session title
+        const sid = ev.session_id || currentSession;
+        const titleEl = document.getElementById('sessionTitleHeader');
+        if (ev.title) {
+          titleEl.textContent = '· ' + ev.title;
+          titleEl.classList.add('visible');
+        }
+        // Update sidebar label if it exists
+        const item = document.querySelector(`.session-item[data-id="${CSS.escape(sid)}"]`);
+        if (item) {
+          const lbl = item.querySelector('.session-label');
+          if (lbl) lbl.textContent = ev.title;
+        }
+      } else if (ev.type === 'error') {
+        clearInterval(thinkingInterval);
+        replyBubble.textContent = `Error: ${ev.message}`;
+        if (window.toast) toast('error', 'Manager error', ev.message, 5000);
+      } else if (ev.type === 'done') {
+        // Mark mission as complete
+        if (missionStatEl) {
+          missionStatEl.classList.add('done');
+          missionStatEl.innerHTML = '✓ done';
+        }
+        if (missionProgressEl) missionProgressEl.style.right = '0%';
+        // Render markdown now that streaming is complete
+        if (fullAnswer) {
+          replyBubble.innerHTML = renderMarkdown(fullAnswer);
+          replyBubble.classList.add('md');
+        }
+        // Update reasoning toggle label with final state
+        if (reasoningWrap) {
+          const words = fullReasoning.split(/\s+/).length;
+          reasoningWrap.querySelector('.reasoning-toggle span').textContent =
+            `Thought for ${words} words`;
+        }
+        // Response time
+        const dur = ev.duration_ms || 0;
+        if (dur > 0) {
+          const timeEl = document.createElement('div');
+          timeEl.className = 'response-time';
+          timeEl.innerHTML = `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${(dur / 1000).toFixed(1)}s${ev.agents_used?.length ? ' · ' + ev.agents_used.join(', ') : ''}`;
+          replyContent.appendChild(timeEl);
+        }
+        // Action buttons
+        const actions = document.createElement('div');
+        actions.className = 'msg-actions';
+        actions.innerHTML = `
+          <button class="act-btn" data-act="copy" title="Copy"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy</button>
+          <button class="act-btn" data-act="regen" title="Regenerate"><svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Regenerate</button>
+        `;
+        replyContent.appendChild(actions);
+        actions.querySelector('[data-act=copy]').addEventListener('click', () => {
+          navigator.clipboard.writeText(fullAnswer);
+          if (window.toast) toast('success', 'Copied', '', 1500);
+        });
+        actions.querySelector('[data-act=regen]').addEventListener('click', () => {
+          msgInput.value = text;
+          msgInput.dispatchEvent(new Event('input'));
+          sendMessage();
+        });
+      }
+    }
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      if (!fullAnswer) replyBubble.textContent = '(stopped)';
+      if (window.toast) toast('warning', 'Stopped', '', 1500);
+    } else {
+      replyBubble.textContent = `Error: ${err.message}`;
+      if (window.toast) toast('error', 'Network error', err.message, 5000);
+    }
+  } finally {
+    // Clear thinking timer and any remaining timeout timers
+    clearInterval(thinkingInterval);
+    Object.values(agentTimers).forEach(t => clearTimeout(t));
+    agentTimers = {};
+    setStreaming(false);
+    setTimeout(resetCrew, 1200);
+    // Refresh sidebar — new session now has messages + title
+    loadSessions();
+  }
+}
+
+document.querySelectorAll('.suggestion').forEach(b => {
+  b.addEventListener('click', () => {
+    msgInput.value = b.dataset.q;
+    msgInput.dispatchEvent(new Event('input'));
+    msgInput.focus();
+  });
+});
+
+// ── Sign out / settings / new chat ──────────────────────────────────────
+async function signOut() {
+  try { await api.signout(); } catch {}
+  clearSession();
+  if (window.toast) toast('info', 'Signed out', '', 1500);
+  setTimeout(() => window.location.replace('/login'), 600);
+}
+function openSettings() {
+  const panel = document.getElementById('settingsPanel');
+  const overlay = document.getElementById('settingsOverlay');
+  // Populate settings values
+  document.getElementById('settingsManagerName').textContent = cfg?.manager_name || 'Manager';
+  const selMeta = cfg?.manager_model ? getModelMeta(cfg.manager_model) : null;
+  document.getElementById('settingsManagerModel').textContent = selMeta ? `${selMeta.icon} ${selMeta.friendly}` : '--';
+  document.getElementById('settingsAccentColor').textContent = cfg?.accent_color || '#7C3AED';
+  document.getElementById('settingsColorSwatch').style.background = cfg?.accent_color || '#7C3AED';
+  panel.classList.add('open');
+  overlay.classList.add('show');
+}
+function closeSettings() {
+  document.getElementById('settingsPanel').classList.remove('open');
+  document.getElementById('settingsOverlay').classList.remove('show');
+}
+document.getElementById('settingsClose').addEventListener('click', closeSettings);
+document.getElementById('settingsOverlay').addEventListener('click', closeSettings);
+function newChat() {
+  if (isStreaming && abortController) abortController.abort();
+  chatInner.innerHTML = '';
+  chatInner.appendChild(empty);
+  empty.style.display = '';
+  currentSession = 'sess-' + Date.now();
+  // Clear session title from header
+  const titleEl = document.getElementById('sessionTitleHeader');
+  titleEl.textContent = '';
+  titleEl.classList.remove('visible');
+  loadSessions();
+}
+document.getElementById('signoutBtn').addEventListener('click', signOut);
+document.getElementById('settingsBtn').addEventListener('click', openSettings);
+document.getElementById('newChatBtn').addEventListener('click', newChat);
+
+// ── Command palette ─────────────────────────────────────────────────────
+const COMMANDS = [
+  { id: 'new',     icon: '✚', t: 'New conversation', d: 'Start a fresh session', kbd: '⌘L', run: newChat },
+  { id: 'settings',icon: '⚙', t: 'Settings', d: 'View manager settings and configuration',  kbd: '', run: openSettings },
+  { id: 'signout', icon: '⏏', t: 'Sign out', d: 'Log out and return to login', kbd: '',  run: signOut },
+  { id: 'sessions',icon: '🗂', t: 'Reload sessions', d: 'Pull latest session list', kbd: '', run: loadSessions },
+  { id: 'reload-models', icon: '🧠', t: 'Reload model list', d: 'Re-discover available local + cloud models', kbd: '', run: async () => {
+      try { availableModels = (await api.models()).models || []; renderModelMenu(); toast('success', 'Models reloaded', `${availableModels.length} found`, 2200); }
+      catch (e) { toast('error', 'Reload failed', e.message, 3000); }
+  }},
+  { id: 'wallet', icon: '💰', t: 'Check wallet', d: 'Show balance + recent ledger', kbd: '', run: async () => {
+      try { const w = await api.wallet(); toast('info', 'Wallet', JSON.stringify(w), 5000); }
+      catch (e) { toast('error', 'Wallet error', e.message, 4000); }
+  }},
+];
+const overlay = document.getElementById('paletteOverlay');
+const palInput = document.getElementById('paletteInput');
+const palList = document.getElementById('paletteList');
+let palIdx = 0;
+
+function renderPalette(query = '') {
+  const q = query.toLowerCase();
+  const items = COMMANDS.filter(c => !q || c.t.toLowerCase().includes(q) || c.d.toLowerCase().includes(q));
+  palList.innerHTML = '';
+  items.forEach((c, i) => {
+    const el = document.createElement('div');
+    el.className = 'palette-item' + (i === palIdx ? ' active' : '');
+    el.innerHTML = `<div class="ico">${c.icon}</div><div class="body"><div class="t">${c.t}</div><div class="d">${c.d}</div></div>${c.kbd ? `<div class="kbd">${c.kbd}</div>` : ''}`;
+    el.addEventListener('click', () => { closePalette(); c.run(); });
+    palList.appendChild(el);
+  });
+}
+function openPalette() {
+  overlay.classList.add('show');
+  palInput.value = '';
+  palIdx = 0;
+  renderPalette();
+  setTimeout(() => palInput.focus(), 50);
+}
+function closePalette() { overlay.classList.remove('show'); }
+palInput.addEventListener('input', () => { palIdx = 0; renderPalette(palInput.value); });
+palInput.addEventListener('keydown', (e) => {
+  const items = COMMANDS.filter(c => !palInput.value || c.t.toLowerCase().includes(palInput.value.toLowerCase()) || c.d.toLowerCase().includes(palInput.value.toLowerCase()));
+  if (e.key === 'Escape') closePalette();
+  else if (e.key === 'ArrowDown') { e.preventDefault(); palIdx = (palIdx + 1) % items.length; renderPalette(palInput.value); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); palIdx = (palIdx - 1 + items.length) % items.length; renderPalette(palInput.value); }
+  else if (e.key === 'Enter') { e.preventDefault(); if (items[palIdx]) { closePalette(); items[palIdx].run(); } }
+});
+overlay.addEventListener('click', (e) => { if (e.target === overlay) closePalette(); });
+document.getElementById('paletteBtn').addEventListener('click', openPalette);
+
+// ── Global keyboard shortcuts ───────────────────────────────────────────
+document.addEventListener('keydown', (e) => {
+  const meta = e.metaKey || e.ctrlKey;
+  if (meta && e.key === 'k') {
+    e.preventDefault();
+    if (overlay.classList.contains('show')) closePalette();
+    else openPalette();
+  } else if (meta && e.key === 'l') {
+    e.preventDefault();
+    newChat();
+  } else if (meta && e.key === '/') {
+    e.preventDefault();
+    msgInput.focus();
+  } else if (e.key === 'Escape') {
+    if (overlay.classList.contains('show')) closePalette();
+    if (document.getElementById('settingsPanel').classList.contains('open')) closeSettings();
+  }
+});
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+// ── Markdown renderer ──────────────────────────────────────────────────
+function renderMarkdown(raw) {
+  let text = raw || '';
+  // 1. Extract fenced code blocks before escaping (preserve raw content)
+  const codeBlocks = [];
+  text = text.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
+    codeBlocks.push({ lang: lang || '', code });
+    return `\x00CODE${codeBlocks.length - 1}\x00`;
+  });
+
+  // 2. Escape HTML in remaining text
+  text = escapeHtml(text);
+
+  // 3. Inline code (before bold/italic so backticks inside don't interfere)
+  text = text.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+
+  // 4. Bold + italic combos
+  text = text.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+  text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  text = text.replace(/(?<!\w)\*(.+?)\*(?!\w)/g, '<em>$1</em>');
+
+  // 5. Headers (must come before list processing)
+  text = text.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
+  text = text.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  text = text.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  text = text.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+
+  // 6. Blockquotes
+  text = text.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+
+  // 7. Horizontal rules
+  text = text.replace(/^---+$/gm, '<hr>');
+
+  // 8. Unordered lists — group consecutive lines starting with - or *
+  text = text.replace(/(?:^[\-\*] .+(?:\n|$))+/gm, match => {
+    const items = match.trim().split('\n')
+      .map(l => `<li>${l.replace(/^[\-\*] /, '')}</li>`).join('');
+    return `<ul>${items}</ul>\n`;
+  });
+
+  // 9. Ordered lists
+  text = text.replace(/(?:^\d+\. .+(?:\n|$))+/gm, match => {
+    const items = match.trim().split('\n')
+      .map(l => `<li>${l.replace(/^\d+\. /, '')}</li>`).join('');
+    return `<ol>${items}</ol>\n`;
+  });
+
+  // 10. Links
+  text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+
+  // 11. Paragraphs: double newlines become paragraph breaks
+  text = text.replace(/\n{2,}/g, '</p><p>');
+  // Single newlines inside paragraphs become <br>
+  text = text.replace(/\n/g, '<br>');
+  text = '<p>' + text + '</p>';
+
+  // 12. Restore code blocks with copy buttons
+  text = text.replace(/\x00CODE(\d+)\x00/g, (_, idx) => {
+    const { lang, code } = codeBlocks[parseInt(idx)];
+    const escaped = escapeHtml(code.replace(/\n$/, ''));
+    const langLabel = lang ? `<span class="code-lang">${escapeHtml(lang)}</span>` : '';
+    return `</p><pre>${langLabel}<button class="code-copy" onclick="this.textContent='copied';navigator.clipboard.writeText(this.parentElement.querySelector('code').textContent);setTimeout(()=>this.textContent='copy',1500);this.classList.add('copied');setTimeout(()=>this.classList.remove('copied'),1500)">copy</button><code>${escaped}</code></pre><p>`;
+  });
+
+  // Clean up empty paragraphs and artifacts
+  text = text.replace(/<p>\s*<\/p>/g, '');
+  text = text.replace(/<p>(\s*<(?:ul|ol|h[1-4]|blockquote|hr|pre))/g, '$1');
+  text = text.replace(/(<\/(?:ul|ol|h[1-4]|blockquote|pre)>)\s*<\/p>/g, '$1');
+
+  return text;
+}
+
+// ── Agent health panel ─────────────────────────────────────────────────
+async function refreshAgentHealth() {
+  try {
+    const agents = await api.agentHealth();
+    const panel = document.getElementById('agentHealthPanel');
+    const list = document.getElementById('agentHealthList');
+    if (!agents || !agents.length) {
+      panel.style.display = 'none';
+      return;
+    }
+    panel.style.display = '';
+    list.innerHTML = agents.map(a => `
+      <div class="ah-row">
+        <span class="dot">${escapeHtml(a.status_color || '🔴')}</span>
+        <span class="slug">${escapeHtml(a.slug)}</span>
+        <span class="age">${escapeHtml(a.label || '')}</span>
+      </div>
+    `).join('');
+  } catch {
+    // Not critical — hide panel silently
+    document.getElementById('agentHealthPanel').style.display = 'none';
+  }
+}
+refreshAgentHealth();
+setInterval(refreshAgentHealth, 30000);
+
+// ── Relationships panel ────────────────────────────────────────────────
+let relCollapsed = false;
+document.getElementById('relToggle').addEventListener('click', () => {
+  relCollapsed = !relCollapsed;
+  document.getElementById('relList').style.display = relCollapsed ? 'none' : '';
+});
+
+async function loadRelationships() {
+  try {
+    const rels = await api.relationships();
+    const list = document.getElementById('relList');
+    const countEl = document.getElementById('relCount');
+    countEl.textContent = rels.length;
+    if (!rels.length) {
+      list.innerHTML = '<div class="rel-empty">No contacts yet. Ask the AI to save one!</div>';
+      return;
+    }
+    list.innerHTML = rels.map(r => `
+      <div class="rel-item" data-id="${escapeHtml(r.id)}" title="${escapeHtml(r.notes || '')}">
+        <div class="rel-avatar">${(r.name || '?')[0].toUpperCase()}</div>
+        <div class="rel-info">
+          <div class="rel-name">${escapeHtml(r.name)}</div>
+          <div class="rel-role">${escapeHtml(r.role || r.company || '')}</div>
+        </div>
+        <button class="rel-del" title="Remove">
+          <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    `).join('');
+    list.querySelectorAll('.rel-del').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const item = btn.closest('.rel-item');
+        const id = item.dataset.id;
+        try {
+          await api.deleteRelationship(id);
+          item.remove();
+          countEl.textContent = parseInt(countEl.textContent) - 1;
+          if (window.toast) toast('info', 'Contact removed', '', 1500);
+        } catch (err) {
+          if (window.toast) toast('error', 'Delete failed', err.message, 3000);
+        }
+      });
+    });
+  } catch {
+    // Silently ignore — not critical
+  }
+}
+loadRelationships();
+
+// ── Mobile sidebar drawer ──────────────────────────────────────────────
+const sidebar = document.querySelector('.side');
+const sidebarOverlay = document.getElementById('sidebarOverlay');
+const hamburgerBtn = document.getElementById('hamburgerBtn');
+
+function openSidebar() {
+  sidebar.classList.add('open');
+  sidebarOverlay.classList.add('show');
+}
+function closeSidebar() {
+  sidebar.classList.remove('open');
+  sidebarOverlay.classList.remove('show');
+}
+hamburgerBtn.addEventListener('click', () => {
+  sidebar.classList.contains('open') ? closeSidebar() : openSidebar();
+});
+sidebarOverlay.addEventListener('click', closeSidebar);
+// Close sidebar when clicking any action inside it (on mobile)
+sidebar.addEventListener('click', (e) => {
+  const btn = e.target.closest('.session-item, .new-btn, .icon-btn');
+  if (btn && window.innerWidth <= 880) setTimeout(closeSidebar, 150);
+});
+</script>
+<script src="/static/polish/global-polish.v2.js"></script>
+</body>
+</html>

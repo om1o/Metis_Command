@@ -1,0 +1,180 @@
+/* ============================================================
+   Metis AI — Design Tokens
+   Light Athletic. Rounded. Playful-Professional.
+   ============================================================ */
+
+/* ---- Web fonts (Google Fonts: Sora, Inter, JetBrains Mono) ---- */
+@import url("https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap");
+
+:root {
+  /* ============ Color: Surfaces & Structure ============ */
+  --bg:           #F7FAFC;   /* page background */
+  --surface:      #FFFFFF;   /* cards, modals, primary surfaces */
+  --surface-alt:  #F1F5F9;   /* code blocks, subtle wells */
+  --border:       #E2E8F0;   /* hairlines */
+  --border-strong:#CBD5E1;   /* hover borders, dividers */
+
+  /* ============ Color: Text ============ */
+  --text:         #0F172A;   /* primary text */
+  --text-muted:   #475569;   /* secondary text, captions */
+  --text-subtle:  #94A3B8;   /* tertiary, placeholders */
+  --text-on-primary: #FFFFFF;
+
+  /* ============ Color: Brand ============ */
+  --primary:        #2563EB; /* athletic blue — actions */
+  --primary-hover:  #1D4ED8;
+  --primary-press:  #1E40AF;
+  --primary-soft:   #DBEAFE; /* tinted backgrounds */
+  --primary-soft-2: #EFF6FF;
+
+  /* ============ Color: Energy + Status ============ */
+  --energy:       #22C55E;   /* "synced", success — sparingly */
+  --energy-soft:  #DCFCE7;
+  --warning:      #F59E0B;
+  --warning-soft: #FEF3C7;
+  --error:        #EF4444;
+  --error-soft:   #FEE2E2;
+  --info:         #0EA5E9;
+  --info-soft:    #E0F2FE;
+
+  /* ============ Color: Heritage (logo accents) ============ */
+  --heritage-violet: #7C3AED;
+  --heritage-coral:  #FB7185;
+  --heritage-grad:   linear-gradient(135deg, #FB7185 0%, #C026D3 45%, #6D28D9 100%);
+
+  /* ============ Type ============ */
+  --font-display: "Sora", "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-body:    "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono:    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* Display (Sora — hero only, never long paragraphs) */
+  --text-h1: 44px;   --lh-h1: 1.15;  --w-h1: 800;
+  --text-h2: 32px;   --lh-h2: 1.20;  --w-h2: 750;
+  --text-h3: 24px;   --lh-h3: 1.25;  --w-h3: 700;
+  --text-h4: 18px;   --lh-h4: 1.35;  --w-h4: 650;
+
+  /* Body / UI (Inter — everything readable) */
+  --text-body:    16px; --lh-body:    1.60; --w-body:    450; /* default body */
+  --text-body-2:  15px; --lh-body-2:  1.60; --w-body-2:  450; /* secondary body */
+  --text-small:   14px; --lh-small:   1.55; --w-small:   450; /* help, footnote */
+  --text-micro:   13px; --lh-micro:   1.40; --w-micro:   500; /* labels, dense cells */
+  --text-button:  15px; --lh-button:  1.20; --w-button:  650; /* +0.01em tracking */
+  --text-input:   15px; --lh-input:   1.30; --w-input:   450;
+  --text-table:   14px; --lh-table:   1.40; --w-table:   450;
+  --text-eyebrow: 11px; --lh-eyebrow: 1.20; --w-eyebrow: 600; /* +0.08em tracking, ALL CAPS */
+  --text-label:   14px; --lh-label:   1.20; --w-label:   650; /* legacy alias */
+
+  /* tabular numerals helper */
+  --num-feature: "tnum" 1, "lnum" 1;
+
+  /* ============ Spacing (8pt grid) ============ */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 40px;
+  --space-8: 56px;
+  --space-9: 72px;
+  --space-10: 96px;
+
+  /* ============ Radius ============ */
+  --radius-xs:   6px;  /* tight chips, inline */
+  --radius-sm:  10px;  /* small controls */
+  --radius-md:  12px;  /* inputs, buttons */
+  --radius-lg:  16px;  /* cards */
+  --radius-xl:  20px;  /* large cards, sheets */
+  --radius-pill: 999px;
+
+  /* ============ Shadows (subtle, practical) ============ */
+  --shadow-xs:  0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-sm:  0 1px 2px rgba(15, 23, 42, 0.05), 0 1px 1px rgba(15, 23, 42, 0.04);
+  --shadow-md:  0 4px 12px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-lg:  0 12px 32px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(15, 23, 42, 0.04);
+  --shadow-xl:  0 24px 56px rgba(15, 23, 42, 0.10), 0 4px 12px rgba(15, 23, 42, 0.05);
+  --shadow-focus: 0 0 0 3px rgba(37, 99, 235, 0.25);
+
+  /* ============ Motion ============ */
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-fast: 120ms;
+  --dur-base: 160ms;
+  --dur-slow: 220ms;
+
+  /* ============ Layout ============ */
+  --max-content: 1240px;
+  --max-prose:    720px;
+  --max-form:     560px;
+  --gutter:        24px;
+}
+
+/* ============================================================
+   Semantic / Element styles
+   ============================================================ */
+
+html, body { background: var(--bg); color: var(--text); }
+body {
+  font-family: var(--font-body);
+  font-size: var(--text-body);
+  line-height: var(--lh-body);
+  font-weight: var(--w-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, .h1 {
+  font-family: var(--font-display);
+  font-size: var(--text-h1); line-height: var(--lh-h1);
+  font-weight: var(--w-h1); letter-spacing: -0.02em;
+  color: var(--text); margin: 0;
+}
+h2, .h2 {
+  font-family: var(--font-display);
+  font-size: var(--text-h2); line-height: var(--lh-h2);
+  font-weight: var(--w-h2); letter-spacing: -0.015em;
+  color: var(--text); margin: 0;
+}
+h3, .h3 {
+  font-family: var(--font-display);
+  font-size: var(--text-h3); line-height: var(--lh-h3);
+  font-weight: var(--w-h3); letter-spacing: -0.01em;
+  color: var(--text); margin: 0;
+}
+h4, .h4 {
+  font-family: var(--font-display);
+  font-size: var(--text-h4); line-height: var(--lh-h4);
+  font-weight: var(--w-h4); color: var(--text); margin: 0;
+}
+
+p { margin: 0; }
+
+.text-small { font-size: var(--text-small); line-height: var(--lh-small); }
+.text-label {
+  font-size: var(--text-label); line-height: var(--lh-label);
+  font-weight: var(--w-label); letter-spacing: -0.005em;
+}
+.text-muted { color: var(--text-muted); }
+.text-subtle { color: var(--text-subtle); }
+
+.mono, code, kbd, samp, pre {
+  font-family: var(--font-mono);
+  font-feature-settings: var(--num-feature);
+}
+.tabular { font-variant-numeric: tabular-nums lining-nums; }
+
+/* ============ Focus ring (system-wide) ============ */
+*:focus { outline: none; }
+.focus-ring:focus-visible,
+button:focus-visible,
+[role="button"]:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  box-shadow: var(--shadow-focus);
+  border-color: var(--primary);
+}
+
+/* ============ Selection ============ */
+::selection { background: var(--primary-soft); color: var(--text); }

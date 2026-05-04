@@ -1,0 +1,85 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css"><style>
+body { padding: 22px 28px; background: var(--bg); width: 700px; }
+.thread { display: flex; flex-direction: column; gap: 18px; }
+
+/* User bubble */
+.user { padding: 11px 15px; border-radius: 16px; border-bottom-right-radius: 4px; font-size: 14px; line-height: 1.55; max-width: 76%; background: var(--primary); color: #fff; align-self: flex-end; font-weight: 500; box-shadow: 0 1px 2px rgba(37, 99, 235, .25); }
+
+/* Agent: text on canvas */
+.agent { align-self: stretch; max-width: 94%; }
+.agent .role { display: flex; align-items: center; gap: 9px; margin-bottom: 8px; }
+
+/* Logomark — naked, breathing */
+.mark { width: 24px; height: 18px; position: relative; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; }
+.mark img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 1px 2px rgba(109, 40, 217, .2)); animation: bob 3s ease-in-out infinite; transform-origin: center bottom; }
+.mark::before, .mark::after { content: ""; position: absolute; left: 50%; top: 55%; transform: translate(-50%, -50%); border-radius: 50%; pointer-events: none; }
+.mark::before { width: 36px; height: 36px; background: radial-gradient(circle, rgba(192, 38, 211, .22) 0%, transparent 70%); animation: aura 3s ease-in-out infinite; }
+.mark::after  { width: 28px; height: 28px; background: radial-gradient(circle, rgba(251, 113, 133, .25) 0%, transparent 65%); animation: aura 3s ease-in-out infinite .9s; mix-blend-mode: multiply; opacity: .6; }
+@keyframes bob  { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-1px) scale(1.04); } }
+@keyframes aura { 0%, 100% { opacity: .4; transform: translate(-50%, -50%) scale(0.85); } 50% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); } }
+
+.role .name { font-family: var(--font-body); font-size: 13px; font-weight: 650; color: var(--text); letter-spacing: -0.005em; }
+.role .sep { color: var(--text-subtle); }
+.role .tag { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
+.role .pill { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); padding: 2px 8px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); }
+.role .pill .ldot { width: 5px; height: 5px; border-radius: 50%; background: var(--energy); animation: live 1.4s ease-in-out infinite; }
+@keyframes live { 50% { opacity: .35; } }
+
+.agent .body { font-family: var(--font-body); font-size: 15px; line-height: 1.65; color: var(--text); font-weight: 450; padding-left: 33px; }
+.agent .body code { font-family: var(--font-mono); font-size: 13px; background: var(--surface-alt); padding: 1.5px 6px; border-radius: 5px; color: var(--text); }
+
+/* streaming caret */
+.caret { display: inline-block; width: 7px; height: 1.05em; background: var(--text); margin-left: 2px; vertical-align: -2px; animation: blink 1.05s steps(2) infinite; border-radius: 1px; }
+@keyframes blink { 50% { opacity: 0; } }
+
+.thinking { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-muted); margin-top: 10px; margin-left: 33px; font-family: var(--font-body); }
+.dot { width: 4px; height: 4px; border-radius: 50%; background: var(--text-subtle); animation: b 1.2s ease-in-out infinite; }
+.dot:nth-child(2) { animation-delay: .15s; } .dot:nth-child(3) { animation-delay: .3s; }
+@keyframes b { 0%, 80%, 100% { opacity: .25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-2px); } }
+</style></head><body>
+
+<div class="thread">
+
+  <div class="user">Find 30 fintech leads with Series A in 2024, then draft a first-touch email for each.</div>
+
+  <div class="agent">
+    <div class="role">
+      <span class="mark"><img src="../assets/metis-logomark.png" alt=""></span>
+      <span class="name">Metis</span>
+      <span class="sep">·</span>
+      <span class="tag">researcher</span>
+      <span class="pill"><span class="ldot"></span>streaming</span>
+    </div>
+    <div class="body"><span class="streaming-line">Searching Crunchbase for fintech companies that closed a Series A in 2024. I've got 42 candidates so far — narrowing to those with HQ in NA and ICP fit (B2B SaaS, &gt;20 employees). Saving the working set to <code>leads_q2.csv</code> as I go<span class="caret"></span></span></div>
+    <div class="thinking"><span>Drafting email 14 / 30</span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+  </div>
+
+</div>
+
+<script>
+const target = document.querySelector('.streaming-line');
+const caret = '<span class="caret"></span>';
+const tmp = document.createElement('div'); tmp.innerHTML = target.innerHTML.replace(caret, '');
+const text = tmp.innerHTML;
+const tokens = [];
+let buf = '', inTag = false;
+for (const ch of text) {
+  if (ch === '<') inTag = true;
+  if (!inTag && ch === ' ' && buf) { tokens.push(buf + ' '); buf = ''; continue; }
+  buf += ch;
+  if (ch === '>') inTag = false;
+}
+if (buf) tokens.push(buf);
+target.innerHTML = caret;
+let i = 0;
+function step() {
+  if (i >= tokens.length) { setTimeout(() => { target.innerHTML = caret; i = 0; step(); }, 1800); return; }
+  target.innerHTML = tokens.slice(0, i + 1).join('') + caret;
+  i++;
+  setTimeout(step, 55 + Math.random() * 45);
+}
+step();
+</script>
+
+</body></html>

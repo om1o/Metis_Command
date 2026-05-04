@@ -129,7 +129,18 @@ def nightly_brain_compact() -> str:
             total += brains.compact(brain=b, window=50)
         except Exception:
             continue
-    return f"compact:ok:folded={total}"
+
+    # Drop ChromaDB vectors older than the configured retention (default 90 days).
+    vault_dropped = 0
+    try:
+        import os
+        from memory_vault import MemoryBank
+        keep_days = int(os.getenv("METIS_MEMORY_RETENTION_DAYS", "90"))
+        gc = MemoryBank().compact_older_than(days=keep_days)
+        vault_dropped = int(gc.get("dropped", 0))
+    except Exception:
+        pass
+    return f"compact:ok:folded={total}:vault_gc={vault_dropped}"
 
 
 # ── Weekly brain backup ─────────────────────────────────────────────────────

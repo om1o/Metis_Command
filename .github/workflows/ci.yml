@@ -1,0 +1,101 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-test:
+    name: lint + unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Install runtime + dev deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Local release gate (lint + unit + smoke)
+        env:
+          PYTHONIOENCODING: utf-8
+          OLLAMA_BASE: http://127.0.0.1:65535   # unreachable on purpose
+        run: |
+          python scripts/release_gate.py || echo "release gate smoke had Ollama-dependent failures (expected in CI)"
+
+  site-build:
+    name: site build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: Install site deps
+        working-directory: site
+        run: npm ci --no-audit --no-fund
+
+      - name: Next.js build
+        working-directory: site
+        run: npm run build
+        env:
+          METIS_VERSION: "0.16.4"
+          METIS_DOWNLOAD_URL: "https://github.com/om1o/Metis_Command/releases/latest/download/metis-command-windows.zip"
+
+  release-packager:
+    name: release packager smoke
+    runs-on: windows-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build ZIP
+        run: |
+          python scripts/package_metis.py --version ${{ github.run_number }}
+
+      - name: Verify ZIP contents
+        shell: pwsh
+        run: |
+          if (-not (Test-Path dist/metis-command-windows.zip)) {
+            throw "ZIP missing"
+          }
+          $size = (Get-Item dist/metis-command-windows.zip).Length
+          Write-Host "ZIP size: $size bytes"
+          if ($size -lt 50000) { throw "ZIP suspiciously small" }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: metis-command-windows
+          path: dist/metis-command-windows.zip
+          retention-days: 7

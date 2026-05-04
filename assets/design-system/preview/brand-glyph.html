@@ -1,0 +1,30 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css"><style>
+body { padding: 22px 28px; background: var(--bg); }
+.row { display: flex; gap: 28px; align-items: center; }
+.glyph { width: 96px; height: 96px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; position: relative; }
+.glyph img { width: 100%; height: 100%; object-fit: contain; }
+.glyph.on-dark { background: #0F172A; border-radius: 18px; padding: 14px; }
+.glyph.on-dark img { filter: brightness(0) invert(1); }
+.glyph.mono img { filter: brightness(0); }
+.note { font-size: 12px; color: var(--text-muted); max-width: 240px; line-height: 1.5; }
+.note b { color: var(--text); font-weight: 650; display: block; margin-bottom: 4px; font-family: var(--font-display); font-size: 14px; }
+.label { font-family: var(--font-mono); font-size: 10px; color: var(--text-subtle); margin-top: 6px; text-align: center; letter-spacing: 0.04em; text-transform: uppercase; }
+.col { display: flex; flex-direction: column; align-items: center; }
+</style></head><body>
+<div class="row">
+  <div class="col">
+    <div class="glyph"><img src="../assets/metis-logomark.png" alt="Metis"></div>
+    <div class="label">full color</div>
+  </div>
+  <div class="col">
+    <div class="glyph mono"><img src="../assets/metis-logomark.png" alt="Metis"></div>
+    <div class="label">mono</div>
+  </div>
+  <div class="col">
+    <div class="glyph on-dark"><img src="../assets/metis-logomark.png" alt="Metis"></div>
+    <div class="label">on dark</div>
+  </div>
+  <div class="note"><b>Logomark</b>The standalone Metis mark. Used for the favicon, the agent avatar, and "shipped" celebrations. Never put it inside a tile or container — it sits on the canvas naked.</div>
+</div>
+</body></html>

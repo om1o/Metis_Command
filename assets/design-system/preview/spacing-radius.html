@@ -1,0 +1,18 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css"><style>
+body { padding: 22px 24px; }
+.row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; }
+.cell { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.box { width: 80px; height: 56px; background: var(--primary-soft); border: 1px solid var(--primary); }
+.t { font-family: var(--font-mono); font-size: 11px; color: var(--text); }
+.s { font-size: 11px; color: var(--text-subtle); text-align: center; }
+</style></head><body>
+<div class="row">
+  <div class="cell"><div class="box" style="border-radius:6px"></div><div class="t">6px</div><div class="s">radius-xs<br>chips inline</div></div>
+  <div class="cell"><div class="box" style="border-radius:10px"></div><div class="t">10px</div><div class="s">radius-sm<br>small ctrl</div></div>
+  <div class="cell"><div class="box" style="border-radius:12px"></div><div class="t">12px</div><div class="s">radius-md<br>inputs/btn</div></div>
+  <div class="cell"><div class="box" style="border-radius:16px"></div><div class="t">16px</div><div class="s">radius-lg<br>cards</div></div>
+  <div class="cell"><div class="box" style="border-radius:20px"></div><div class="t">20px</div><div class="s">radius-xl<br>modals</div></div>
+  <div class="cell"><div class="box" style="border-radius:999px;width:80px"></div><div class="t">pill</div><div class="s">radius-pill<br>chips/badges</div></div>
+</div>
+</body></html>

@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>Command palette · Metis</title>
+<link rel="icon" href="../assets/favicon.svg">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+*{box-sizing:border-box}html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--font-body);min-height:100vh;overflow:hidden}
+.titlebar{position:sticky;top:0;height:32px;background:rgba(247,250,252,.85);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 14px;gap:8px;z-index:100}
+.traffic{display:flex;gap:7px}.traffic span{width:12px;height:12px;border-radius:50%}.traffic .r{background:#FF5F57}.traffic .y{background:#FEBC2E}.traffic .g{background:#28C840}
+.title{flex:1;text-align:center;font-size:12px;color:var(--text-muted);font-family:var(--font-mono);font-weight:500}
+.bg{padding:80px 48px;max-width:1280px;margin:0 auto;text-align:center}
+.bg h1{font-family:var(--font-display);font-size:36px;font-weight:750;margin:0 0 8px;letter-spacing:-.02em}
+.bg p{color:var(--text-muted);margin:0 0 28px}
+.bg .open{font-family:var(--font-body);font-size:14px;font-weight:600;padding:0 18px;height:44px;border-radius:10px;background:var(--text);color:#fff;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:10px}
+.bg .open kbd{font-family:var(--font-mono);font-size:11px;padding:3px 6px;border-radius:5px;background:rgba(255,255,255,.15);color:#fff}
+
+/* Backdrop fake desktop */
+.demo-app{margin-top:48px;background:var(--surface);border:1px solid var(--border);border-radius:18px;height:480px;box-shadow:var(--shadow-lg);overflow:hidden;display:flex;align-items:center;justify-content:center;color:var(--text-subtle);font-size:13px;font-family:var(--font-mono);position:relative}
+.demo-app::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 30% 20%,rgba(124,58,237,.06),transparent 60%),radial-gradient(circle at 80% 80%,rgba(251,113,133,.06),transparent 60%)}
+
+/* Palette overlay */
+.overlay{position:fixed;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(8px);z-index:200;display:flex;align-items:flex-start;justify-content:center;padding-top:14vh;opacity:0;pointer-events:none;transition:opacity .2s}
+.overlay.open{opacity:1;pointer-events:auto}
+.palette{width:640px;max-width:92vw;background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-xl);overflow:hidden;transform:translateY(-12px) scale(.98);transition:transform .25s var(--ease-out)}
+.overlay.open .palette{transform:translateY(0) scale(1)}
+.input-wrap{display:flex;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border);gap:12px}
+.input-wrap svg{width:18px;height:18px;stroke:var(--text-muted);stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.input{flex:1;border:none;outline:none;background:transparent;font-family:var(--font-body);font-size:16px;color:var(--text)}
+.input::placeholder{color:var(--text-subtle)}
+.esc{font-family:var(--font-mono);font-size:11px;padding:3px 7px;border-radius:5px;background:var(--surface-alt);border:1px solid var(--border);color:var(--text-muted)}
+.results{max-height:420px;overflow-y:auto;padding:8px 0}
+.section{padding:8px 16px 4px;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-subtle);font-weight:600}
+.row{display:flex;align-items:center;gap:12px;padding:9px 16px;cursor:pointer;font-size:14px;border:none;background:transparent;width:100%;text-align:left;color:var(--text);font-family:var(--font-body)}
+.row.active{background:linear-gradient(90deg,rgba(124,58,237,.08),rgba(251,113,133,.05));border-left:3px solid var(--heritage-violet);padding-left:13px}
+.row .icon{width:28px;height:28px;border-radius:8px;background:var(--surface-alt);display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid var(--border)}
+.row .icon svg{width:14px;height:14px;stroke:var(--text-muted);stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.row.active .icon{background:var(--heritage-violet);border-color:var(--heritage-violet)}
+.row.active .icon svg{stroke:#fff}
+.row .label{flex:1;font-weight:500}
+.row .meta{color:var(--text-subtle);font-size:12px}
+.row .keys{display:flex;gap:3px}
+.row .keys kbd{font-family:var(--font-mono);font-size:10px;padding:2px 5px;border-radius:4px;background:var(--surface-alt);border:1px solid var(--border);color:var(--text-muted)}
+.footer{padding:9px 16px;border-top:1px solid var(--border);background:var(--surface-alt);display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:10.5px;color:var(--text-subtle);letter-spacing:.04em}
+.footer span kbd{padding:2px 5px;border-radius:4px;background:var(--surface);border:1px solid var(--border);color:var(--text-muted);margin:0 2px}
+</style></head><body>
+<div class="titlebar"><div class="traffic"><span class="r"></span><span class="y"></span><span class="g"></span></div><div class="title">command palette · metis</div><div style="width:56px"></div></div>
+
+<div class="bg">
+<h1>Command palette</h1>
+<p>Press <kbd style="font-family:var(--font-mono);font-size:11px;padding:2px 6px;border-radius:5px;background:var(--surface-alt);border:1px solid var(--border);color:var(--text-muted)">⌘</kbd> + <kbd style="font-family:var(--font-mono);font-size:11px;padding:2px 6px;border-radius:5px;background:var(--surface-alt);border:1px solid var(--border);color:var(--text-muted)">K</kbd> from anywhere to jump.</p>
+<button class="open" id="openBtn">Open palette <kbd>⌘K</kbd></button>
+<div class="demo-app">— pretend this is the rest of the app —</div>
+</div>
+
+<div class="overlay" id="overlay">
+<div class="palette" role="dialog">
+<div class="input-wrap">
+<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+<input class="input" id="q" placeholder="Search anything — chats, missions, files, actions…" autofocus>
+<span class="esc">esc</span>
+</div>
+<div class="results" id="results"></div>
+<div class="footer">
+<span><kbd>↑↓</kbd> navigate <kbd>↵</kbd> select <kbd>esc</kbd> close</span>
+<span>Metis · v0.4</span>
+</div>
+</div>
+</div>
+
+<script>
+const items=[
+{group:'Actions',label:'New chat',meta:'Start a fresh conversation',keys:['⌘','N'],icon:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>'},
+{group:'Actions',label:'New mission',meta:'Run a multi-step background job',keys:['⌘','⇧','M'],icon:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>'},
+{group:'Actions',label:'Generate image',meta:'Image, video, audio, doc',keys:['⌘','G'],icon:'<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/>'},
+{group:'Actions',label:'Switch model',meta:'Fast · Smart · Local',keys:['⌘','M'],icon:'<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>'},
+{group:'Actions',label:'Toggle sidebar',meta:'Hide or show navigation',keys:['⌘','B'],icon:'<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/>'},
+{group:'Recent chats',label:'Pricing analysis · Stripe vs Paddle',meta:'2 hours ago',keys:[],icon:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>'},
+{group:'Recent chats',label:'Refactor agent.py to use async',meta:'Yesterday',keys:[],icon:'<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>'},
+{group:'Recent chats',label:'Q2 board deck draft',meta:'3 days ago',keys:[],icon:'<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>'},
+{group:'Missions',label:'Map fintech competitors (running)',meta:'Step 4 of 8 · 2m 14s',keys:[],icon:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>'},
+{group:'Missions',label:'Scrape job postings → leads.csv',meta:'Completed · yesterday',keys:[],icon:'<polyline points="20 6 9 17 4 12"/>'},
+{group:'Settings',label:'Account & profile',meta:'Settings → Profile',keys:[],icon:'<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/>'},
+{group:'Settings',label:'Connected accounts',meta:'Drive · GitHub · Calendar',keys:[],icon:'<path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/>'},
+{group:'Help',label:'Keyboard shortcuts',meta:'See all',keys:['⌘','/'],icon:'<rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="10" x2="6.01" y2="10"/><line x1="10" y1="10" x2="10.01" y2="10"/><line x1="14" y1="10" x2="14.01" y2="10"/><line x1="18" y1="10" x2="18.01" y2="10"/><line x1="6" y1="14" x2="18" y2="14"/>'}
+];
+const overlay=document.getElementById('overlay'),qEl=document.getElementById('q'),resEl=document.getElementById('results');
+let active=0,filtered=items;
+function render(){
+let html='';let last='';let idx=0;
+filtered.forEach(it=>{if(it.group!==last){html+=`<div class="section">${it.group}</div>`;last=it.group;}
+const k=it.keys.length?`<span class="keys">${it.keys.map(x=>`<kbd>${x}</kbd>`).join('')}</span>`:'';
+html+=`<button class="row ${idx===active?'active':''}" data-i="${idx}"><span class="icon"><svg viewBox="0 0 24 24">${it.icon}</svg></span><span class="label">${it.label}</span><span class="meta">${it.meta}</span>${k}</button>`;idx++;});
+resEl.innerHTML=html||'<div style="padding:32px;text-align:center;color:var(--text-subtle);font-size:13px">No matches</div>';
+resEl.querySelectorAll('.row').forEach(r=>r.addEventListener('click',()=>{active=+r.dataset.i;render();}));
+}
+function filter(){const q=qEl.value.toLowerCase();filtered=items.filter(i=>i.label.toLowerCase().includes(q)||i.meta.toLowerCase().includes(q)||i.group.toLowerCase().includes(q));active=0;render();}
+qEl.addEventListener('input',filter);
+function open(){overlay.classList.add('open');qEl.value='';filtered=items;active=0;render();setTimeout(()=>qEl.focus(),100);}
+function close(){overlay.classList.remove('open');}
+document.getElementById('openBtn').addEventListener('click',open);
+overlay.addEventListener('click',e=>{if(e.target===overlay)close();});
+document.addEventListener('keydown',e=>{
+if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();open();return;}
+if(!overlay.classList.contains('open'))return;
+if(e.key==='Escape')close();
+if(e.key==='ArrowDown'){e.preventDefault();active=Math.min(filtered.length-1,active+1);render();}
+if(e.key==='ArrowUp'){e.preventDefault();active=Math.max(0,active-1);render();}
+});
+open();
+</script>
+</body></html>

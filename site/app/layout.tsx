@@ -1,13 +1,16 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { METIS_PRODUCT_NAME, metisVersion } from "@/lib/brand";
+
+const v = metisVersion();
 
 export const metadata: Metadata = {
-  title: "Metis Command — local-first autonomous AI",
+  title: `${METIS_PRODUCT_NAME} v${v} — local-first AI workspace`,
   description:
-    "A Claude/Codex-style desktop AI that runs 100% on your hardware. 5-agent swarm, persistent memory, budget-gated autonomy.",
+    "Desktop AI workspace: local models (Ollama), memory, agents, and a localhost API. You control the machine.",
   openGraph: {
-    title: "Metis Command",
-    description: "Local-first autonomous AI operating system.",
+    title: `${METIS_PRODUCT_NAME} v${v}`,
+    description: "Local-first AI workspace for Windows. FAQ & support on site.",
     type: "website",
   },
   icons: { icon: "/favicon.svg" },

@@ -1,0 +1,84 @@
+/* ── Scene 1: Splash ─────────────────────────────────────── */
+.splash { background: var(--bg); }
+
+/* Animated halo behind logo */
+.splash .halo { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 600px; height: 600px; pointer-events: none; }
+.splash .halo .ring {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 1px solid;
+  opacity: 0;
+  animation: ringExpand 4s cubic-bezier(.2,.7,.3,1) infinite;
+}
+.splash .halo .ring:nth-child(1) { width: 200px; height: 200px; border-color: rgba(192, 38, 211, 0.35); animation-delay: 0s; }
+.splash .halo .ring:nth-child(2) { width: 200px; height: 200px; border-color: rgba(251, 113, 133, 0.35); animation-delay: 1.3s; }
+.splash .halo .ring:nth-child(3) { width: 200px; height: 200px; border-color: rgba(37, 99, 235, 0.3);  animation-delay: 2.6s; }
+@keyframes ringExpand {
+  0%   { width: 80px;  height: 80px;  opacity: 0; }
+  20%  { opacity: .7; }
+  100% { width: 700px; height: 700px; opacity: 0; }
+}
+
+/* Glow */
+.splash .glow {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: 400px; height: 400px;
+  background: radial-gradient(circle, rgba(192, 38, 211, 0.18) 0%, rgba(251, 113, 133, 0.08) 30%, transparent 60%);
+  border-radius: 50%;
+  pointer-events: none;
+  animation: glowPulse 4s ease-in-out infinite;
+}
+@keyframes glowPulse { 0%, 100% { opacity: .6; transform: translate(-50%, -50%) scale(1); } 50% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); } }
+
+/* Logo + wordmark stack */
+.splash .stack { position: relative; display: flex; flex-direction: column; align-items: center; gap: 28px; z-index: 2; }
+.splash .mark-wrap {
+  width: 140px; height: 105px;
+  display: flex; align-items: center; justify-content: center;
+  animation: markBreathe 4s ease-in-out infinite;
+}
+.splash .mark-wrap img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 6px 24px rgba(192, 38, 211, 0.3)); }
+@keyframes markBreathe { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-4px) scale(1.03); } }
+
+.splash .wordmark {
+  font-family: ui-serif, "Iowan Old Style", "Apple Garamond", Baskerville, "Times New Roman", Georgia, serif;
+  font-size: 88px;
+  font-weight: 500;
+  color: var(--text);
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.splash .wordmark em { font-style: italic; font-weight: 400; }
+
+.splash .tagline {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin-top: 4px;
+  display: flex; align-items: center; gap: 14px;
+}
+.splash .tagline span { display: inline-block; width: 4px; height: 4px; border-radius: 50%; background: var(--text-subtle); }
+
+.splash .hint {
+  position: absolute; bottom: 56px; left: 50%; transform: translateX(-50%);
+  font-family: var(--font-mono); font-size: 11.5px; color: var(--text-subtle);
+  display: flex; align-items: center; gap: 10px;
+  animation: hintBlink 2.4s ease-in-out infinite;
+}
+.splash .hint kbd { font-family: var(--font-mono); font-size: 10.5px; padding: 3px 8px; border: 1px solid var(--border-strong); border-radius: 5px; background: var(--surface); color: var(--text-muted); font-weight: 500; box-shadow: 0 1px 0 var(--border-strong); }
+@keyframes hintBlink { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+
+/* Splash entrance — animate by default so it works without JS too */
+.splash .stack { opacity: 1; animation: splashIn 1.2s cubic-bezier(.2,.7,.3,1) both; }
+@keyframes splashIn { 0% { opacity: 0; transform: scale(0.96); } 100% { opacity: 1; transform: scale(1); } }
+
+/* Floating particles */
+.splash .particle { position: absolute; width: 4px; height: 4px; border-radius: 50%; pointer-events: none; opacity: 0; animation: float 8s ease-in-out infinite; }
+@keyframes float {
+  0% { opacity: 0; transform: translate(0, 40px); }
+  10%, 90% { opacity: 0.7; }
+  100% { opacity: 0; transform: translate(0, -120px); }
+}

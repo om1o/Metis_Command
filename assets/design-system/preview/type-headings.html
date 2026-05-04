@@ -1,0 +1,76 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css"><style>
+body { padding: 18px 24px; width: 700px; }
+.head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+.head .ttl { font-family: var(--font-display); font-size: 13px; font-weight: 700; color: var(--text); }
+.head .meta { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted); }
+
+.tbl { width: 100%; border-collapse: collapse; }
+.tbl th { text-align: left; font-size: 9.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-subtle); padding: 4px 8px 4px 0; border-bottom: 1px solid var(--border); }
+.tbl td { padding: 7px 8px 7px 0; border-bottom: 1px dashed var(--border); vertical-align: baseline; }
+.tbl tr:last-child td { border-bottom: none; }
+
+.role { width: 50px; }
+.role .lab { font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: var(--text); }
+.role .var { font-family: var(--font-mono); font-size: 9.5px; color: var(--text-subtle); }
+
+.sample { color: var(--text); }
+.h1 { font-family: var(--font-display); font-weight: 800; font-size: 36px; line-height: 1.15; letter-spacing: -0.02em; }
+.h2 { font-family: var(--font-display); font-weight: 750; font-size: 26px; line-height: 1.2; letter-spacing: -0.015em; }
+.h3 { font-family: var(--font-display); font-weight: 700; font-size: 20px; line-height: 1.25; letter-spacing: -0.01em; }
+.h4 { font-family: var(--font-display); font-weight: 650; font-size: 16px; line-height: 1.35; letter-spacing: -0.005em; }
+
+.spec { width: 130px; text-align: right; font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted); font-feature-settings: "tnum" 1, "lnum" 1; line-height: 1.5; }
+.spec .px { color: var(--text); font-weight: 600; }
+
+.where { width: 200px; font-size: 11px; color: var(--text-muted); line-height: 1.4; }
+
+.foot { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; font-size: 10.5px; color: var(--text-muted); line-height: 1.45; }
+.foot b { color: var(--text); font-weight: 650; display: block; margin-bottom: 2px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-subtle);}
+.foot code { font-family: var(--font-mono); font-size: 10px; background: var(--surface-alt); padding: 1px 4px; border-radius: 3px; color: var(--text); }
+</style></head><body>
+
+<div class="head">
+  <div class="ttl">Heading scale — Sora display</div>
+  <div class="meta">Hero only · never long paragraphs · -0.02em → -0.005em tracking</div>
+</div>
+
+<table class="tbl">
+  <thead><tr>
+    <th class="role">Role</th><th>Specimen</th><th class="where">Where it appears</th><th class="spec">Spec</th>
+  </tr></thead>
+  <tbody>
+    <tr>
+      <td class="role"><div class="lab">H1</div><div class="var">--text-h1</div></td>
+      <td><span class="sample h1">Ship the work</span></td>
+      <td class="where">Page hero, auth screen, "shipped" celebration</td>
+      <td class="spec"><div><span class="px">44 / 1.15</span></div><div>Sora 800</div><div>tracking -0.02em</div></td>
+    </tr>
+    <tr>
+      <td class="role"><div class="lab">H2</div><div class="var">--text-h2</div></td>
+      <td><span class="sample h2">Mission complete</span></td>
+      <td class="where">Top of pages: Mission Control, Artifacts, Settings</td>
+      <td class="spec"><div><span class="px">32 / 1.20</span></div><div>Sora 750</div><div>tracking -0.015em</div></td>
+    </tr>
+    <tr>
+      <td class="role"><div class="lab">H3</div><div class="var">--text-h3</div></td>
+      <td><span class="sample h3">Run a91f4c — 1m 42s</span></td>
+      <td class="where">Mission card titles, modal headers, big metric labels</td>
+      <td class="spec"><div><span class="px">24 / 1.25</span></div><div>Sora 700</div><div>tracking -0.01em</div></td>
+    </tr>
+    <tr>
+      <td class="role"><div class="lab">H4</div><div class="var">--text-h4</div></td>
+      <td><span class="sample h4">Step 3 — Research</span></td>
+      <td class="where">Section heads inside cards, settings group titles</td>
+      <td class="spec"><div><span class="px">18 / 1.35</span></div><div>Sora 650</div><div>tracking -0.005em</div></td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="foot">
+  <div><b>Pairing</b>Always pair a heading with body or a meta row in <code>--text-body-2</code> 15/1.6. Don't stack two headings without separator space.</div>
+  <div><b>Casing</b>Sentence case for product copy. <i>Title Case</i> only for proper nouns (Mission Control, Local Brain). Never ALL CAPS at heading sizes.</div>
+  <div><b>Above H1</b>If you need bigger, use <code>56 / 1.05 / 800</code> (heritage hero only — auth, "Shipped" moment). Same tracking as H1.</div>
+</div>
+
+</body></html>

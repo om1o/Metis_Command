@@ -23,18 +23,32 @@ from custom_tools import internet_search
 
 def _llm_for(role: str) -> LLM | None:
     """Return a CrewAI LLM bound to the role's model, or None for cloud default."""
-    # Genius role prefers Z.ai GLM when configured; skips OpenAI even if present.
-    if role == "genius" and os.getenv("GLM_API_KEY"):
-        model = os.getenv("GLM_MODEL", "glm-4.6")
-        base = (os.getenv("GLM_BASE") or "https://open.bigmodel.cn/api/paas/v4").rstrip("/")
-        try:
-            return LLM(
-                model=f"openai/{model}",
-                base_url=base,
-                api_key=os.getenv("GLM_API_KEY"),
-            )
-        except Exception:
-            pass
+    # Genius role: GLM → Groq (free) → local Ollama
+    if role == "genius":
+        # 1. Z.ai GLM when configured
+        if os.getenv("GLM_API_KEY"):
+            model = os.getenv("GLM_MODEL", "glm-4.6")
+            base = (os.getenv("GLM_BASE") or "https://open.bigmodel.cn/api/paas/v4").rstrip("/")
+            try:
+                return LLM(
+                    model=f"openai/{model}",
+                    base_url=base,
+                    api_key=os.getenv("GLM_API_KEY"),
+                )
+            except Exception:
+                pass
+        # 2. Groq (free, no credit card)
+        if os.getenv("GROQ_API_KEY"):
+            groq_model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+            groq_base = (os.getenv("GROQ_BASE") or "https://api.groq.com/openai/v1").rstrip("/")
+            try:
+                return LLM(
+                    model=f"openai/{groq_model}",
+                    base_url=groq_base,
+                    api_key=os.getenv("GROQ_API_KEY"),
+                )
+            except Exception:
+                pass
 
     if os.getenv("OPENAI_API_KEY"):
         return None
@@ -43,8 +57,10 @@ def _llm_for(role: str) -> LLM | None:
 
 
 def _genius_available() -> bool:
-    """True when either Z.ai cloud GLM or local glm4 via Ollama is reachable."""
+    """True when Z.ai GLM, Groq, or local glm4 via Ollama is reachable."""
     if os.getenv("GLM_API_KEY"):
+        return True
+    if os.getenv("GROQ_API_KEY"):
         return True
     try:
         from brain_engine import list_local_models

@@ -1,0 +1,25 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css"><style>
+body { padding: 18px 22px; background: var(--bg); }
+.tbl { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; font-size: 13px; }
+thead th { text-align: left; font-weight: 650; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); padding: 10px 14px; background: var(--surface-alt); border-bottom: 1px solid var(--border); }
+tbody td { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+tbody tr:nth-child(even) { background: #FAFCFD; }
+tbody tr:last-child td { border-bottom: none; }
+.id { font-family: var(--font-mono); font-size: 12px; color: var(--text); }
+.num { font-family: var(--font-mono); font-feature-settings: "tnum" 1, "lnum" 1; text-align: right; }
+.chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+.dot { width: 5px; height: 5px; border-radius: 50%; }
+.c-ok { background: #DCFCE7; color: #15803D;} .c-ok .dot { background: #22C55E; }
+.c-r { background: #FEF3C7; color: #B45309;} .c-r .dot { background: #F59E0B; }
+.c-f { background: #FEE2E2; color: #B91C1C;} .c-f .dot { background: #EF4444; }
+</style></head><body>
+<table class="tbl">
+  <thead><tr><th>Run</th><th>Mission</th><th>Status</th><th class="num">Tokens</th><th class="num">Cost</th><th class="num">Duration</th></tr></thead>
+  <tbody>
+    <tr><td class="id">run_a91f4c</td><td>Outreach — fintech ICP</td><td><span class="chip c-ok"><span class="dot"></span>Shipped</span></td><td class="num">12,840</td><td class="num">$0.142</td><td class="num">1m 42s</td></tr>
+    <tr><td class="id">run_b2c81d</td><td>Competitor brief</td><td><span class="chip c-r"><span class="dot"></span>Running</span></td><td class="num">3,210</td><td class="num">$0.041</td><td class="num">14s</td></tr>
+    <tr><td class="id">run_c4081e</td><td>API research</td><td><span class="chip c-f"><span class="dot"></span>Failed</span></td><td class="num">1,084</td><td class="num">$0.012</td><td class="num">8s</td></tr>
+  </tbody>
+</table>
+</body></html>

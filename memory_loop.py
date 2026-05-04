@@ -38,6 +38,7 @@ def inject_context(
     k_recall: int = 5,
     k_history: int = 6,
     brain: str | None = None,
+    user_id: str | None = None,
 ) -> list[dict]:
     """
     Return a list of message dicts ready to prepend to the user's prompt.
@@ -72,16 +73,24 @@ def inject_context(
                 ),
             })
     except Exception as e:
-        print(f"[MemoryLoop] recall failed: {e}")
+        try:
+            from safety import log as _safety_log
+            _safety_log("memory_recall_failed", error=str(e))
+        except Exception:
+            pass
 
     # Recent turns from this session.
     try:
-        recent = load_session(session_id, limit=k_history)
+        recent = load_session(session_id, limit=k_history, user_id=user_id)
         for row in recent:
             role = row.get("role", "user")
             injected.append({"role": role, "content": row.get("content", "")})
     except Exception as e:
-        print(f"[MemoryLoop] session load failed: {e}")
+        try:
+            from safety import log as _safety_log
+            _safety_log("memory_session_load_failed", error=str(e))
+        except Exception:
+            pass
 
     return injected
 
@@ -100,7 +109,11 @@ def persist_turn(
         save_message(session_id, "user", user_msg, user_id=user_id)
         save_message(session_id, "assistant", assistant_msg, user_id=user_id)
     except Exception as e:
-        print(f"[MemoryLoop] supabase persist failed: {e}")
+        try:
+            from safety import log as _safety_log
+            _safety_log("memory_supabase_persist_failed", error=str(e))
+        except Exception:
+            pass
 
     try:
         turn_id = f"{session_id}:{_short_hash(user_msg)}"
@@ -112,7 +125,11 @@ def persist_turn(
             ),
         )
     except Exception as e:
-        print(f"[MemoryLoop] vault upsert failed: {e}")
+        try:
+            from safety import log as _safety_log
+            _safety_log("memory_vault_upsert_failed", error=str(e))
+        except Exception:
+            pass
 
     # Mirror to the active brain's episodic tier so per-brain recall stays current.
     try:
@@ -124,7 +141,11 @@ def persist_turn(
                 entity=f"{session_id}:{_short_hash(user_msg)}",
             )
     except Exception as e:
-        print(f"[MemoryLoop] brain mirror failed: {e}")
+        try:
+            from safety import log as _safety_log
+            _safety_log("memory_brain_mirror_failed", error=str(e))
+        except Exception:
+            pass
 
     if reasoning:
         try:
@@ -137,7 +158,11 @@ def persist_turn(
                     "reasoning": reasoning,
                 }) + "\n")
         except Exception as e:
-            print(f"[MemoryLoop] reasoning write failed: {e}")
+            try:
+                from safety import log as _safety_log
+                _safety_log("memory_reasoning_write_failed", error=str(e))
+            except Exception:
+                pass
 
 
 def load_reasoning(session_id: str) -> list[dict]:
@@ -194,7 +219,11 @@ def nightly_synthesizer(session_ids: Iterable[str] | None = None) -> list[str]:
                 except Exception:
                     continue
         except Exception as e:
-            print(f"[MemoryLoop] synthesizer session {sid} failed: {e}")
+            try:
+                from safety import log as _safety_log
+                _safety_log("memory_synthesizer_session_failed", session=sid, error=str(e))
+            except Exception:
+                pass
     return facts_written
 
 

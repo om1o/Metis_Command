@@ -154,8 +154,12 @@ def _purchase(plugin: dict) -> None:
     try:
         url = start_subscription_checkout(
             tier_needed,
-            success_url=f"http://localhost:{os.getenv('METIS_UI_PORT','8501')}/?checkout=success",
-            cancel_url=f"http://localhost:{os.getenv('METIS_UI_PORT','8501')}/?checkout=cancel",
+            success_url=(
+                f"http://localhost:{os.getenv('METIS_API_PORT', '7331')}/app?checkout=success"
+            ),
+            cancel_url=(
+                f"http://localhost:{os.getenv('METIS_API_PORT', '7331')}/app?checkout=cancel"
+            ),
         )
         st.link_button("Open Stripe Checkout", url)
     except Exception as e:
@@ -164,6 +168,13 @@ def _purchase(plugin: dict) -> None:
 
 # ── UI ───────────────────────────────────────────────────────────────────────
 
+@st.cache_data(ttl=60, show_spinner=False)
+def _cached_storefront_plugins() -> list[dict]:
+    """Cache the plugin catalog locally so the storefront doesn't hit
+    Supabase on every Streamlit rerun. Cleared explicitly on install."""
+    return list_plugins() or []
+
+
 def render_storefront() -> None:
     st.markdown("### Metis Marketplace")
     st.caption(
@@ -171,7 +182,18 @@ def render_storefront() -> None:
         "Install skills the swarm can invoke on demand."
     )
 
-    plugins = list_plugins()
+    cols_top = st.columns([3, 1])
+    with cols_top[1]:
+        if st.button("Refresh", key="mkt_refresh", use_container_width=True,
+                     icon=":material/refresh:"):
+            _cached_storefront_plugins.clear()
+            st.rerun()
+
+    plugins = _cached_storefront_plugins()
+    if not plugins:
+        st.caption("No plugins available right now.")
+        return
+
     cols = st.columns(2)
     for i, p in enumerate(plugins):
         col = cols[i % 2]
@@ -187,6 +209,9 @@ def render_storefront() -> None:
             )
             st.caption(p.get("description", ""))
             price_cents = int(p.get("price_cents") or 0)
-            label = "Install (free)" if price_cents == 0 else f"Buy · ${price_cents/100:.2f}"
-            if st.button(label, key=f"mkt_{p['slug']}", use_container_width=True):
+            free = price_cents == 0
+            label = "Install" if free else f"Buy · ${price_cents/100:.2f}"
+            icon = ":material/download:" if free else ":material/shopping_cart:"
+            if st.button(label, key=f"mkt_{p['slug']}", use_container_width=True, icon=icon):
                 _purchase(p)
+                _cached_storefront_plugins.clear()

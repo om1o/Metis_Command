@@ -1,0 +1,32 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css"><style>
+body { padding: 24px 28px; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 18px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.lab { font-size: 12px; font-weight: 600; color: var(--text); }
+.input, .select, .ta { font-family: var(--font-body); font-size: 14px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text); width: 100%; box-sizing: border-box; }
+.input:focus, .ta:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,.2); outline: none; }
+.input.focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,.2);}
+.search { position: relative; }
+.search svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-subtle); }
+.search .input { padding-left: 36px; }
+.toggle { width: 36px; height: 22px; background: var(--primary); border-radius: 999px; position: relative; }
+.toggle::after { content:""; position: absolute; top: 2px; left: 16px; width: 18px; height: 18px; background: #fff; border-radius: 50%; box-shadow: var(--shadow-sm); }
+.toggle.off { background: var(--border-strong); }
+.toggle.off::after { left: 2px; }
+.toggle-row { display: flex; align-items: center; gap: 10px; }
+</style></head><body>
+<div class="grid">
+  <div class="field"><label class="lab">Mission name</label><input class="input" value="Quarterly outreach"></div>
+  <div class="field"><label class="lab">Search</label><div class="search">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+    <input class="input" placeholder="Search runs, artifacts…">
+  </div></div>
+  <div class="field"><label class="lab">Model</label>
+    <select class="select"><option>Claude Sonnet 4.5</option><option>GPT-4o</option><option>Local · Llama 3.1 70B</option></select>
+  </div>
+  <div class="field"><label class="lab">Focus (focused state)</label><input class="input focus" value="run_a91f4c"></div>
+  <div class="field" style="grid-column: 1 / -1"><label class="lab">Goal</label><textarea class="ta" rows="2">Find 30 ICP-fit leads in fintech, write a personalized first-touch email for each, and save to a CSV.</textarea></div>
+  <div class="toggle-row" style="grid-column: 1/-1"><span class="lab" style="margin-right:8px">Local mode</span><div class="toggle"></div><span style="font-size:12px;color:var(--text-muted)">on</span><div class="toggle off" style="margin-left:24px"></div><span style="font-size:12px;color:var(--text-muted)">off</span></div>
+</div>
+</body></html>

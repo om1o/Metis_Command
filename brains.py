@@ -79,7 +79,7 @@ def _client():
     """Return the shared Chroma client used by the vault, if available."""
     try:
         import chromadb
-        return chromadb.PersistentClient(path="./metis_db")
+        return chromadb.PersistentClient(path=str(PATHS.metis_db))
     except Exception as e:
         print(f"[Brains] Chroma unavailable: {e}")
         return None
