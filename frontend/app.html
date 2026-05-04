@@ -877,10 +877,13 @@ const MODEL_TIERS = {
   'qwen2.5-coder:1.5b':    { friendly: 'Fast', icon: '⚡', tier: 'fast', direct: true,  desc: '~1s · lightning responses',  priority: 1 },
   'deepseek-r1:1.5b':      { friendly: 'Fast', icon: '⚡', tier: 'fast', direct: true,  desc: '~1s · fast reasoning',       priority: 2 },
   // ── Auto (🔄) — 3-4B, smart routing ──────────────────
-  'llama3.2:3b':            { friendly: 'Auto', icon: '🔄', tier: 'auto', direct: true,  desc: '~3s · smart & balanced',     priority: 3 },
-  'qwen3:4b':               { friendly: 'Auto', icon: '🔄', tier: 'auto', direct: true,  desc: '~3s · well-rounded',         priority: 4 },
-  'qwen3.5:4b':             { friendly: 'Auto', icon: '🔄', tier: 'auto', direct: true,  desc: '~3s · enhanced general',     priority: 5 },
-  'llava:latest':           { friendly: 'Auto', icon: '🔄', tier: 'auto', direct: true,  desc: '~3s · vision capable',       priority: 6 },
+  // llama3.2:3b is the verified best Auto pick (5/5 benchmark, 3-7s warm)
+  'llama3.2:3b':            { friendly: 'Auto', icon: '🔄', tier: 'auto', direct: true,  desc: '~3s · best balanced default', priority: 3 },
+  'llava:latest':           { friendly: 'Auto', icon: '🔄', tier: 'auto', direct: true,  desc: '~5s · vision-capable (images)', priority: 4 },
+  // qwen3:4b returned empty responses in benchmark — moved to mega tier
+  // (where users explicitly opt-in if they want to try it)
+  'qwen3:4b':               { friendly: 'Mega', icon: '💎', tier: 'mega', direct: false, desc: 'experimental · may not respond', priority: 90 },
+  'qwen3.5:4b':             { friendly: 'Mega', icon: '💎', tier: 'mega', direct: false, desc: 'experimental · slow',           priority: 91 },
   // ── Super (🔥) — 7B, full crew orchestrator ───────────
   'qwen2.5-coder:7b':       { friendly: 'Super', icon: '🔥', tier: 'super', direct: false, desc: '~10s · code + complex tasks', priority: 7 },
   'qwen3-coder:latest':     { friendly: 'Super', icon: '🔥', tier: 'super', direct: false, desc: '~10s · advanced coding',      priority: 8 },
@@ -1826,6 +1829,9 @@ async function sendMessage() {
   let reasoningWrap = null;
   let reasoningBody = null;
   let fullReasoning = '';
+  // Strip-state for <think>...</think> blocks (deepseek-r1 emits these inline)
+  let inThinkBlock = false;
+  let thinkBuffer = '';
 
   try {
     const useDirect = isDirectMode();
@@ -1872,21 +1878,62 @@ async function sendMessage() {
         if (stageLabel) stageLabel.textContent = 'Composing answer...';
         synthBanner = makeSynthBanner(activity);
       } else if (ev.type === 'token') {
-        if (!answerStarted) {
+        // Strip <think>...</think> blocks (deepseek-r1) and route to reasoning panel.
+        // We process the delta character-by-character to handle tags split across chunks.
+        let delta = ev.delta || '';
+        let visibleDelta = '';
+        let i = 0;
+        while (i < delta.length) {
+          if (!inThinkBlock) {
+            const openIdx = delta.indexOf('<think>', i);
+            if (openIdx === -1) { visibleDelta += delta.slice(i); break; }
+            visibleDelta += delta.slice(i, openIdx);
+            inThinkBlock = true;
+            i = openIdx + 7;
+          } else {
+            const closeIdx = delta.indexOf('</think>', i);
+            if (closeIdx === -1) {
+              thinkBuffer += delta.slice(i);
+              break;
+            }
+            thinkBuffer += delta.slice(i, closeIdx);
+            inThinkBlock = false;
+            i = closeIdx + 8;
+          }
+        }
+        // Show reasoning if we have any
+        if (thinkBuffer && !reasoningWrap) {
+          reasoningWrap = document.createElement('div');
+          reasoningWrap.className = 'reasoning-wrap';
+          reasoningWrap.innerHTML = `
+            <div class="reasoning-toggle">
+              <svg class="chevron" viewBox="0 0 24 24" stroke-width="2.5"><polyline points="9 6 15 12 9 18"/></svg>
+              <span>Thinking…</span>
+            </div>
+            <div class="reasoning-body"></div>`;
+          reasoningWrap.querySelector('.reasoning-toggle').addEventListener('click', () => {
+            reasoningWrap.classList.toggle('open');
+          });
+          reasoningBody = reasoningWrap.querySelector('.reasoning-body');
+          replyContent.insertBefore(reasoningWrap, replyBubble);
+        }
+        if (reasoningBody && thinkBuffer) {
+          reasoningBody.textContent = thinkBuffer;
+        }
+        if (!answerStarted && visibleDelta) {
           clearInterval(thinkingInterval);
-          // Smooth fade out the thinking timer, fade in the bubble
           replyBubble.innerHTML = '';
           replyBubble.classList.add('md', 'streaming');
           answerStarted = true;
         }
-        fullAnswer += ev.delta || '';
-        // Progressive markdown: render code blocks + headings as they arrive
-        // Only re-render markdown every few tokens to avoid layout thrash
-        if (fullAnswer.length % 6 === 0 || ev.delta?.includes('\n')) {
-          replyBubble.innerHTML = renderMarkdownLive(fullAnswer);
-        } else {
-          // Append plain text for in-between updates (faster)
-          replyBubble.textContent = fullAnswer;
+        fullAnswer += visibleDelta;
+        // Progressive markdown: re-render every few chars or on newlines
+        if (answerStarted) {
+          if (fullAnswer.length % 6 === 0 || visibleDelta.includes('\n')) {
+            replyBubble.innerHTML = renderMarkdownLive(fullAnswer);
+          } else {
+            replyBubble.textContent = fullAnswer;
+          }
         }
         // Auto-scroll only if user is already at the bottom
         const nearBottom = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 120;
