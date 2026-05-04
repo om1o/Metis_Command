@@ -8,9 +8,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/polish/global-polish.v2.css">
-<link rel="stylesheet" href="/static/styles/wordmark.css">
-<script src="/static/js/wordmark.js" defer></script>
+<link rel="stylesheet" href="/static/polish/global-polish.v2.css?v=v17">
+<link rel="stylesheet" href="/static/styles/wordmark.css?v=v17">
+<script src="/static/js/wordmark.js?v=v17" defer></script>
 <style>
 :root{--vi:#7C3AED;--vi2:#A78BFA;--co:#FB7185;--am:#F59E0B;--bg:#07071a;--text:#F8FAFF;--muted:rgba(248,250,255,.55);--subtle:rgba(248,250,255,.28);--grad:linear-gradient(135deg,var(--vi),var(--co) 55%,var(--am))}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -101,7 +101,7 @@ html,body{min-height:100vh;background:var(--bg);color:var(--text);font-family:'I
 </div>
 
 <script type="module">
-import { api, setSession, getToken } from '/static/js/api.js';
+import { api, setSession, getToken } from '/static/js/api.js?v=v17';
 
 if (getToken()) window.location.replace('/splash');
 

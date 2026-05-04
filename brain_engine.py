@@ -221,11 +221,12 @@ def chat_by_role(
         "model": model,
         "messages": messages,
         "stream": False,
+        "keep_alive": -1,
         "options": {"temperature": temperature},
     }
     started = time.time()
     try:
-        r = requests.post(f"{OLLAMA_BASE}/api/chat", json=payload, timeout=300)
+        r = requests.post(f"{OLLAMA_BASE}/api/chat", json=payload, timeout=600)
         r.raise_for_status()
         reply = r.json().get("message", {}).get("content", "")
         _record_usage(role, model, messages, reply, started=started)
@@ -323,6 +324,7 @@ def stream_chat(
         "model": model,
         "messages": messages,
         "stream": True,
+        "keep_alive": -1,   # keep model permanently in VRAM
         "options": {"temperature": temperature},
     }
     started = time.time()
@@ -332,9 +334,9 @@ def stream_chat(
 
     # Read timeout covers "stream wedged mid-response" cases; connect
     # timeout covers Ollama being down.  Either fires -> we raise out.
-    # Defaults are tuned for UI responsiveness. Override via env vars if needed.
-    stream_connect_timeout = float(os.getenv("METIS_CONNECT_TIMEOUT", "5"))
-    stream_read_timeout = float(os.getenv("METIS_STREAM_READ_TIMEOUT", "60"))
+    # Bumped to 180s read so long-form generations don't get cut off mid-stream.
+    stream_connect_timeout = float(os.getenv("METIS_CONNECT_TIMEOUT", "10"))
+    stream_read_timeout = float(os.getenv("METIS_STREAM_READ_TIMEOUT", "180"))
 
     try:
         with requests.post(

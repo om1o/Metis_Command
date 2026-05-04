@@ -30,7 +30,7 @@ p{font-size:14px;color:var(--muted)}
 </div>
 
 <script type="module">
-import { api, setSession } from '/static/js/api.js';
+import { api, setSession } from '/static/js/api.js?v=v17';
 
 const params = new URLSearchParams(window.location.search);
 const code = params.get('code');
@@ -55,7 +55,8 @@ if (errParam) {
 } else {
   (async () => {
     try {
-      const out = await api.oauthComplete(code);
+      const state = params.get('state');
+      const out = await api.oauthComplete(code, state);
       if (!out.session?.access_token) {
         fail('Sign-in completed but no session was returned.');
         return;

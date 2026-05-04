@@ -8,9 +8,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/polish/global-polish.v2.css">
-<link rel="stylesheet" href="/static/styles/wordmark.css">
-<script src="/static/js/wordmark.js" defer></script>
+<link rel="stylesheet" href="/static/polish/global-polish.v2.css?v=v17">
+<link rel="stylesheet" href="/static/styles/wordmark.css?v=v17">
+<script src="/static/js/wordmark.js?v=v17" defer></script>
 <style>
 :root{--vi:#7C3AED;--vi2:#A78BFA;--co:#FB7185;--am:#F59E0B;--bl:#3B82F6;--gr:#22C55E;--bg:#07071a;--text:#F8FAFF;--muted:rgba(248,250,255,.6);--subtle:rgba(248,250,255,.32);--border:rgba(255,255,255,.1);--border-2:rgba(255,255,255,.18);--panel:rgba(255,255,255,.05);--panel-2:rgba(255,255,255,.08);--grad:linear-gradient(135deg,var(--vi),var(--co) 55%,var(--am))}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -151,7 +151,7 @@ body{cursor:auto}
 </div>
 
 <script type="module">
-import { api, ensureAuthed, clearSession } from '/static/js/api.js';
+import { api, ensureAuthed, clearSession } from '/static/js/api.js?v=v17';
 
 const TOTAL_STEPS = 6;
 let stepIdx = 0;
@@ -452,6 +452,6 @@ function currentPersonaText() {
 
 renderStep();
 </script>
-<script src="/static/polish/global-polish.v2.js"></script>
+<script src="/static/polish/global-polish.v2.js?v=v17"></script>
 </body>
 </html>

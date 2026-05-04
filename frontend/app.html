@@ -8,9 +8,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/polish/global-polish.v2.css">
-<link rel="stylesheet" href="/static/styles/wordmark.css">
-<script src="/static/js/wordmark.js" defer></script>
+<link rel="stylesheet" href="/static/polish/global-polish.v2.css?v=v17">
+<link rel="stylesheet" href="/static/styles/wordmark.css?v=v17">
+<script src="/static/js/wordmark.js?v=v17" defer></script>
 <style>
 :root{
   --vi:#7C3AED; --vi2:#A78BFA; --co:#FB7185; --am:#F59E0B; --bl:#3B82F6; --gr:#22C55E;
@@ -261,6 +261,12 @@ pre:hover .code-copy{opacity:1}
 .act-btn:hover{color:var(--text);background:var(--panel);border-color:var(--border)}
 .act-btn svg{width:11px;height:11px;stroke:currentColor;stroke-width:2;fill:none}
 
+/* Streaming caret — blinks at end of generating response */
+.streaming-caret{display:inline-block;width:7px;height:1em;background:var(--vi2);margin-left:2px;vertical-align:-2px;animation:cursor-blink 1.05s steps(2) infinite;border-radius:1px;box-shadow:0 0 6px rgba(167,139,250,.5)}
+@keyframes cursor-blink{50%{opacity:0}}
+.msg-bubble.streaming{position:relative;animation:fade-in .25s ease}
+@keyframes fade-in{from{opacity:.4}to{opacity:1}}
+
 .thinking{display:inline-flex;gap:4px;align-items:center}
 .thinking span{width:6px;height:6px;border-radius:50%;background:var(--vi2);animation:pulse2 1.4s infinite}
 .thinking span:nth-child(2){animation-delay:.2s}
@@ -396,6 +402,43 @@ pre:hover .code-copy{opacity:1}
 .rel-item .rel-del svg{width:11px;height:11px;stroke:currentColor;stroke-width:2.5;fill:none}
 .rel-empty{padding:8px 4px;text-align:center;font-size:11px;color:var(--subtle)}
 
+/* ── Scheduled automations panel ── */
+.sched-panel{border-top:1px solid var(--border);padding:10px 16px 12px}
+.sched-panel .legend{font-family:'Sora',sans-serif;font-size:10.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--subtle);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between}
+.sched-panel .legend::after{display:none}
+.sched-add-btn{background:transparent;border:none;color:var(--accent);cursor:pointer;font-size:16px;padding:0 2px;border-radius:4px;transition:all .15s;flex-shrink:0;line-height:1}
+.sched-add-btn:hover{background:var(--accent-soft)}
+.sched-list{display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto}
+.sched-item{display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:7px;border:1px solid var(--border);background:var(--panel);font-size:11.5px;color:var(--muted);transition:all .15s}
+.sched-item:hover{background:var(--panel-2);color:var(--text)}
+.sched-item.disabled{opacity:.45}
+.sched-item .sched-icon{font-size:13px;flex-shrink:0}
+.sched-item .sched-info{flex:1;min-width:0}
+.sched-item .sched-goal{font-weight:600;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+.sched-item .sched-time{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--subtle);margin-top:1px}
+.sched-toggle{background:transparent;border:none;cursor:pointer;padding:3px;border-radius:4px;font-size:13px;transition:all .15s;flex-shrink:0}
+.sched-del{background:transparent;border:none;cursor:pointer;padding:3px;border-radius:4px;color:var(--subtle);font-size:11px;transition:all .15s;flex-shrink:0;opacity:0}
+.sched-item:hover .sched-del{opacity:1}
+.sched-del:hover{color:var(--co);background:rgba(251,113,133,.1)}
+.sched-empty{padding:8px 4px;text-align:center;font-size:11px;color:var(--subtle)}
+/* Automation add modal */
+.sched-modal-overlay{position:fixed;inset:0;z-index:500;background:rgba(7,7,26,.7);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;animation:fadeIn .2s ease}
+.sched-modal-overlay.show{display:flex}
+.sched-modal{width:420px;max-width:92vw;background:rgba(13,13,36,.97);backdrop-filter:blur(28px);border:1px solid var(--border-2);border-radius:16px;padding:24px;box-shadow:0 24px 64px rgba(0,0,0,.55)}
+.sched-modal h3{font-family:'Sora',sans-serif;font-size:16px;font-weight:700;color:var(--text);margin-bottom:16px}
+.sched-field{margin-bottom:14px}
+.sched-field label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px}
+.sched-field input,.sched-field select,.sched-field textarea{width:100%;background:rgba(255,255,255,.06);border:1px solid var(--border-2);border-radius:9px;padding:9px 12px;color:var(--text);font-family:inherit;font-size:13px;outline:none;transition:border-color .2s}
+.sched-field input:focus,.sched-field select:focus,.sched-field textarea:focus{border-color:color-mix(in srgb, var(--accent) 55%, transparent)}
+.sched-field textarea{resize:vertical;min-height:60px}
+.sched-field select option{background:#17161D;color:var(--text)}
+.sched-modal-btns{display:flex;gap:8px;margin-top:18px}
+.sched-modal-btns button{flex:1;height:40px;border-radius:9px;border:none;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all .18s}
+.sched-modal-btns .btn-cancel{background:var(--panel-2);color:var(--muted)}
+.sched-modal-btns .btn-cancel:hover{color:var(--text)}
+.sched-modal-btns .btn-save{background:var(--grad);color:#fff}
+.sched-modal-btns .btn-save:hover{transform:translateY(-1px);box-shadow:0 4px 14px var(--accent-glow)}
+
 /* ── Session empty state (enhanced) ── */
 .session-empty{padding:20px 12px;font-size:12px;color:var(--subtle);text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px}
 .session-empty svg{width:28px;height:28px;stroke:var(--subtle);stroke-width:1.5;fill:none;opacity:.5}
@@ -483,6 +526,17 @@ pre:hover .code-copy{opacity:1}
     <div class="crew-panel" id="relationshipsPanel">
       <div class="legend" style="cursor:pointer" id="relToggle">Relationships <span id="relCount" style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--subtle);background:var(--panel);padding:1px 5px;border-radius:8px;border:1px solid var(--border);margin-left:auto">0</span></div>
       <div id="relList" style="max-height:140px;overflow-y:auto"></div>
+    </div>
+
+    <!-- Scheduled automations -->
+    <div class="sched-panel" id="schedPanel">
+      <div class="legend">
+        <span>Automations</span>
+        <button class="sched-add-btn" id="schedAddBtn" title="Add automation">＋</button>
+      </div>
+      <div class="sched-list" id="schedList">
+        <div class="sched-empty">No automations yet</div>
+      </div>
     </div>
 
     <div class="crew-panel" id="crewPanel">
@@ -602,6 +656,34 @@ pre:hover .code-copy{opacity:1}
   </div>
 </div>
 
+<!-- Scheduled automation add modal -->
+<div class="sched-modal-overlay" id="schedModalOverlay">
+  <div class="sched-modal">
+    <h3>⚡ New Automation</h3>
+    <div class="sched-field">
+      <label>What should it do?</label>
+      <textarea id="schedGoal" placeholder="e.g. Search for AI news and save a summary" rows="3"></textarea>
+    </div>
+    <div class="sched-field">
+      <label>When to run</label>
+      <select id="schedKind">
+        <option value="daily">Every day at a time</option>
+        <option value="interval">Every N minutes</option>
+        <option value="cron">Custom schedule (cron)</option>
+        <option value="once">Run once at a time</option>
+      </select>
+    </div>
+    <div class="sched-field" id="schedSpecWrap">
+      <label id="schedSpecLabel">Time (HH:MM)</label>
+      <input type="text" id="schedSpec" placeholder="09:00">
+    </div>
+    <div class="sched-modal-btns">
+      <button class="btn-cancel" id="schedCancel">Cancel</button>
+      <button class="btn-save" id="schedSave">Save automation</button>
+    </div>
+  </div>
+</div>
+
 <!-- Settings slide-out panel -->
 <div class="settings-overlay" id="settingsOverlay"></div>
 <div class="settings-panel" id="settingsPanel">
@@ -644,7 +726,7 @@ pre:hover .code-copy{opacity:1}
 </div>
 
 <script type="module">
-import { api, ensureAuthed, clearSession, getUser } from '/static/js/api.js';
+import { api, ensureAuthed, clearSession, getUser } from '/static/js/api.js?v=v17';
 
 window.addEventListener('load', () => {
   const g = document.getElementById('mp-grain');
@@ -1458,11 +1540,19 @@ async function sendMessage() {
     loadSessions();
     return;
   }
-  if (currentMode === 'automations') {
+  // Auto-detect automation intent even in Chat mode
+  const isAutomation = currentMode === 'automations' || detectAutomationIntent(text);
+  if (isAutomation && !text.startsWith('AUTOMATION REQUEST:')) {
     text = 'AUTOMATION REQUEST: ' + text;
+    // If auto-detected, offer to save as scheduled automation
+    if (currentMode !== 'automations') {
+      setTimeout(() => {
+        if (window.toast) toast('info', 'Automation detected', 'Switch to ⚡ Automations mode to schedule this', 4000);
+      }, 500);
+    }
   }
 
-  makeMsg('user').textContent = currentMode === 'automations' ? text.replace('AUTOMATION REQUEST: ', '') : text;
+  makeMsg('user').textContent = text.replace(/^AUTOMATION REQUEST:\s*/i, '');
   const replyBubble = makeMsg('assistant');
   const replyMsg = chatInner.lastChild;
   const replyContent = replyMsg.querySelector('.msg-content');
@@ -1553,13 +1643,23 @@ async function sendMessage() {
       } else if (ev.type === 'token') {
         if (!answerStarted) {
           clearInterval(thinkingInterval);
-          // synthBanner is the missionBox — don't remove it, just clear the composing state
+          // Smooth fade out the thinking timer, fade in the bubble
           replyBubble.innerHTML = '';
+          replyBubble.classList.add('md', 'streaming');
           answerStarted = true;
         }
         fullAnswer += ev.delta || '';
-        replyBubble.textContent = fullAnswer;
-        chat.scrollTop = chat.scrollHeight;
+        // Progressive markdown: render code blocks + headings as they arrive
+        // Only re-render markdown every few tokens to avoid layout thrash
+        if (fullAnswer.length % 6 === 0 || ev.delta?.includes('\n')) {
+          replyBubble.innerHTML = renderMarkdownLive(fullAnswer);
+        } else {
+          // Append plain text for in-between updates (faster)
+          replyBubble.textContent = fullAnswer;
+        }
+        // Auto-scroll only if user is already at the bottom
+        const nearBottom = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 120;
+        if (nearBottom) chat.scrollTop = chat.scrollHeight;
       } else if (ev.type === 'reasoning') {
         clearInterval(thinkingInterval);
         // Show reasoning in a collapsible toggle above the answer
@@ -1606,10 +1706,11 @@ async function sendMessage() {
           missionStatEl.innerHTML = '✓ done';
         }
         if (missionProgressEl) missionProgressEl.style.right = '0%';
-        // Render markdown now that streaming is complete
+        // Render final markdown (no caret)
         if (fullAnswer) {
           replyBubble.innerHTML = renderMarkdown(fullAnswer);
           replyBubble.classList.add('md');
+          replyBubble.classList.remove('streaming');
         }
         // Update reasoning toggle label with final state
         if (reasoningWrap) {
@@ -1788,6 +1889,18 @@ function escapeHtml(s) {
 }
 
 // ── Markdown renderer ──────────────────────────────────────────────────
+// Fast incremental markdown renderer for live streaming.
+// Handles unfinished code blocks gracefully (closes them so layout stays sane).
+function renderMarkdownLive(raw) {
+  let text = raw || '';
+  // Auto-close any unclosed code fence so we render partial code blocks
+  const fenceCount = (text.match(/```/g) || []).length;
+  if (fenceCount % 2 === 1) {
+    text = text + '\n```';
+  }
+  return renderMarkdown(text) + '<span class="streaming-caret"></span>';
+}
+
 function renderMarkdown(raw) {
   let text = raw || '';
   // 1. Extract fenced code blocks before escaping (preserve raw content)
@@ -1935,6 +2048,109 @@ async function loadRelationships() {
 }
 loadRelationships();
 
+// ── Scheduled automations ──────────────────────────────────────────────
+const SCHED_ICONS = { daily:'🕐', interval:'🔄', cron:'⚙️', once:'▶️' };
+const SCHED_KIND_HINTS = {
+  daily: { label: 'Time (HH:MM)', placeholder: '09:00', hint: 'Runs every day at this time' },
+  interval: { label: 'Every N minutes', placeholder: '60', hint: 'Runs every N minutes' },
+  cron: { label: 'Cron expression', placeholder: '0 9 * * mon-fri', hint: '5-field cron (min hr dom mon dow)' },
+  once: { label: 'Run at (HH:MM)', placeholder: '14:30', hint: 'Runs once at this time today' },
+};
+
+async function loadSchedules() {
+  try {
+    const schedules = await api.schedules();
+    const list = document.getElementById('schedList');
+    if (!schedules || !schedules.length) {
+      list.innerHTML = '<div class="sched-empty">No automations yet. Click + to add one.</div>';
+      return;
+    }
+    list.innerHTML = schedules.map(s => {
+      const icon = SCHED_ICONS[s.kind] || '⚡';
+      const goal = s.goal || s.action || 'Unnamed automation';
+      const spec = s.spec || '';
+      const kindLabel = { daily: `Daily ${spec}`, interval: `Every ${spec}m`, cron: spec, once: `Once ${spec}` }[s.kind] || spec;
+      return `<div class="sched-item ${s.enabled ? '' : 'disabled'}" data-id="${escapeHtml(s.id)}">
+        <span class="sched-icon">${icon}</span>
+        <div class="sched-info">
+          <div class="sched-goal" title="${escapeHtml(goal)}">${escapeHtml(goal.substring(0, 40))}${goal.length > 40 ? '…' : ''}</div>
+          <div class="sched-time">${escapeHtml(kindLabel)}${s.last_run ? ' · ran ' + new Date(s.last_run*1000).toLocaleDateString() : ''}</div>
+        </div>
+        <button class="sched-toggle" data-id="${escapeHtml(s.id)}" title="${s.enabled ? 'Disable' : 'Enable'}">${s.enabled ? '🟢' : '⚫'}</button>
+        <button class="sched-del" data-id="${escapeHtml(s.id)}" title="Delete">✕</button>
+      </div>`;
+    }).join('');
+    // Wire toggle + delete
+    list.querySelectorAll('.sched-toggle').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        try {
+          await api.toggleSchedule(btn.dataset.id);
+          loadSchedules();
+        } catch (err) { if (window.toast) toast('error', 'Toggle failed', err.message, 3000); }
+      });
+    });
+    list.querySelectorAll('.sched-del').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        try {
+          await api.deleteSchedule(btn.dataset.id);
+          if (window.toast) toast('info', 'Automation deleted', '', 1500);
+          loadSchedules();
+        } catch (err) { if (window.toast) toast('error', 'Delete failed', err.message, 3000); }
+      });
+    });
+  } catch (e) {
+    console.warn('loadSchedules failed:', e);
+  }
+}
+loadSchedules();
+
+// Scheduled automation modal
+const schedModal = document.getElementById('schedModalOverlay');
+const schedKindSel = document.getElementById('schedKind');
+schedKindSel.addEventListener('change', () => {
+  const h = SCHED_KIND_HINTS[schedKindSel.value] || SCHED_KIND_HINTS.daily;
+  document.getElementById('schedSpecLabel').textContent = h.label;
+  document.getElementById('schedSpec').placeholder = h.placeholder;
+});
+document.getElementById('schedAddBtn').addEventListener('click', () => {
+  schedModal.classList.add('show');
+  document.getElementById('schedGoal').value = '';
+  document.getElementById('schedSpec').value = '';
+  schedKindSel.value = 'daily';
+  document.getElementById('schedSpecLabel').textContent = 'Time (HH:MM)';
+  document.getElementById('schedSpec').placeholder = '09:00';
+  setTimeout(() => document.getElementById('schedGoal').focus(), 100);
+});
+document.getElementById('schedCancel').addEventListener('click', () => schedModal.classList.remove('show'));
+schedModal.addEventListener('click', (e) => { if (e.target === schedModal) schedModal.classList.remove('show'); });
+document.getElementById('schedSave').addEventListener('click', async () => {
+  const goal = document.getElementById('schedGoal').value.trim();
+  const kind = schedKindSel.value;
+  const spec = document.getElementById('schedSpec').value.trim();
+  if (!goal) { if (window.toast) toast('warning', 'Add a goal', 'Tell the automation what to do', 2500); return; }
+  if (!spec) { if (window.toast) toast('warning', 'Set a schedule', 'When should this run?', 2500); return; }
+  try {
+    await api.createSchedule({ goal, kind, spec, auto_approve: true });
+    schedModal.classList.remove('show');
+    if (window.toast) toast('success', 'Automation saved', `Runs ${kind === 'daily' ? 'daily at ' + spec : 'on schedule'}`, 2500);
+    loadSchedules();
+  } catch (err) {
+    if (window.toast) toast('error', 'Save failed', err.message, 3000);
+  }
+});
+
+// ── Auto-detect automation intent in regular chat ──────────────────────
+// When a message looks like an automation request, route it as one
+// without requiring the user to switch to Automation mode.
+const AUTO_KEYWORDS = /\b(every|daily|schedule|automate|monitor|watch|alert|remind|notify|periodically|at \d+:\d+|each (morning|evening|day|week|hour))\b/i;
+const TASK_KEYWORDS = /\b(find and|search and save|research and|scrape|fetch every|run at|check (if|whether|daily)|generate weekly|send (me|a) (daily|weekly))\b/i;
+
+function detectAutomationIntent(text) {
+  return AUTO_KEYWORDS.test(text) || TASK_KEYWORDS.test(text);
+}
+
 // ── Mobile sidebar drawer ──────────────────────────────────────────────
 const sidebar = document.querySelector('.side');
 const sidebarOverlay = document.getElementById('sidebarOverlay');
@@ -1958,6 +2174,6 @@ sidebar.addEventListener('click', (e) => {
   if (btn && window.innerWidth <= 880) setTimeout(closeSidebar, 150);
 });
 </script>
-<script src="/static/polish/global-polish.v2.js"></script>
+<script src="/static/polish/global-polish.v2.js?v=v17"></script>
 </body>
 </html>

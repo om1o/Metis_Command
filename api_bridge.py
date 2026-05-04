@@ -135,14 +135,21 @@ def _boot_services() -> None:
     # Runs in its own thread so it never blocks the app boot.
     try:
         import threading
-        def _warmup():
+        def _warmup_loop():
+            """Load model into VRAM and keep it there with periodic pings.
+
+            Ollama default keep_alive is 5 min — anything past that and the model
+            is unloaded, causing a 30s+ cold start. We send keep_alive=-1 (forever)
+            on the warmup AND on every chat call, plus a heartbeat ping every
+            4 minutes to absolutely guarantee the model stays resident.
+            """
             try:
                 import requests as _req, time as _t
                 from manager_config import get_config
                 cfg = get_config("local-install")
                 model = cfg.manager_model or "qwen2.5-coder:1.5b"
-                # Wait up to 20s for Ollama to be ready
-                for _ in range(20):
+                # Wait up to 30s for Ollama to be ready
+                for _ in range(30):
                     try:
                         r = _req.get("http://127.0.0.1:11434/api/tags", timeout=1)
                         if r.ok:
@@ -150,14 +157,26 @@ def _boot_services() -> None:
                     except Exception:
                         pass
                     _t.sleep(1)
-                # Send an empty generate to load model into VRAM
+                # Initial warm-up: load model permanently into VRAM
                 _req.post("http://127.0.0.1:11434/api/generate",
-                          json={"model": model, "prompt": "", "stream": False},
-                          timeout=60)
-                print(f"[api_bridge] model warm-up complete: {model}")
+                          json={"model": model, "prompt": "", "stream": False, "keep_alive": -1},
+                          timeout=120)
+                print(f"[api_bridge] model warmed up (permanent VRAM): {model}")
+                # Keep-alive ping every 4 min to be doubly sure it stays resident
+                while True:
+                    _t.sleep(240)
+                    try:
+                        # Re-fetch in case user switched models
+                        cfg = get_config("local-install")
+                        active = cfg.manager_model or model
+                        _req.post("http://127.0.0.1:11434/api/generate",
+                                  json={"model": active, "prompt": "", "stream": False, "keep_alive": -1},
+                                  timeout=30)
+                    except Exception:
+                        pass
             except Exception as _e:
                 print(f"[api_bridge] model warm-up skipped: {_e}")
-        threading.Thread(target=_warmup, name="model-warmup", daemon=True).start()
+        threading.Thread(target=_warmup_loop, name="model-warmup-loop", daemon=True).start()
     except Exception as e:
         print(f"[api_bridge] model warm-up thread failed: {e}")
 
@@ -329,7 +348,7 @@ async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
                         "model": model_id,
                         "prompt": req.message,
                         "stream": True,
-                        "keep_alive": "15m",
+                        "keep_alive": -1,
                         "options": {"num_ctx": 4096},
                     },
                     stream=True,
@@ -1124,9 +1143,20 @@ def auth_reset_password(req: ResetPasswordRequest) -> dict:
 # ── Frontend (HTML + static) ─────────────────────────────────────────────────
 
 if (_FRONTEND_DIR / "static").exists():
+    # No-cache for HTML + JS so browsers always pick up the latest UI.
+    # Without this, fetch('/static/js/api.js') returns a stale browser cache
+    # and new methods (e.g. generateImage) appear undefined to the page.
+    class _NoCacheStaticFiles(StaticFiles):
+        async def get_response(self, path, scope):
+            response = await super().get_response(path, scope)
+            ext = path.lower().rsplit(".", 1)[-1] if "." in path else ""
+            if ext in ("js", "css", "html"):
+                response.headers["Cache-Control"] = "no-store, must-revalidate"
+                response.headers["Pragma"] = "no-cache"
+            return response
     app.mount(
         "/static",
-        StaticFiles(directory=str(_FRONTEND_DIR / "static")),
+        _NoCacheStaticFiles(directory=str(_FRONTEND_DIR / "static")),
         name="static",
     )
 
@@ -1280,7 +1310,7 @@ def models_warmup(request: Request) -> dict:
             import requests as _req
             _req.post(
                 "http://127.0.0.1:11434/api/generate",
-                json={"model": model, "prompt": "", "stream": False, "keep_alive": "10m"},
+                json={"model": model, "prompt": "", "stream": False, "keep_alive": -1},
                 timeout=90,
             )
             print(f"[warmup] {model} loaded")
