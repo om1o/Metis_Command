@@ -878,20 +878,21 @@ const MODEL_TIERS = {
   'deepseek-r1:1.5b':      { friendly: 'Fast', icon: '⚡', tier: 'fast', direct: true,  desc: '~1s · fast reasoning',       priority: 2 },
   // ── Auto (🔄) — 3-4B, smart routing ──────────────────
   // llama3.2:3b is the verified best Auto pick (5/5 benchmark, 3-7s warm)
-  'llama3.2:3b':            { friendly: 'Auto', icon: '🔄', tier: 'auto', direct: true,  desc: '~3s · best balanced default', priority: 3 },
+  'llama3.2:3b':            { friendly: 'Auto', icon: '🔄', tier: 'auto', direct: true,  desc: '~7s · best balanced default', priority: 3 },
   'llava:latest':           { friendly: 'Auto', icon: '🔄', tier: 'auto', direct: true,  desc: '~5s · vision-capable (images)', priority: 4 },
-  // qwen3:4b returned empty responses in benchmark — moved to mega tier
-  // (where users explicitly opt-in if they want to try it)
-  'qwen3:4b':               { friendly: 'Mega', icon: '💎', tier: 'mega', direct: false, desc: 'experimental · may not respond', priority: 90 },
-  'qwen3.5:4b':             { friendly: 'Mega', icon: '💎', tier: 'mega', direct: false, desc: 'experimental · slow',           priority: 91 },
   // ── Super (🔥) — 7B, full crew orchestrator ───────────
-  'qwen2.5-coder:7b':       { friendly: 'Super', icon: '🔥', tier: 'super', direct: false, desc: '~10s · code + complex tasks', priority: 7 },
-  'qwen3-coder:latest':     { friendly: 'Super', icon: '🔥', tier: 'super', direct: false, desc: '~10s · advanced coding',      priority: 8 },
+  'qwen2.5-coder:7b':       { friendly: 'Super', icon: '🔥', tier: 'super', direct: false, desc: '~15s · code + complex tasks', priority: 7 },
   // ── Mega (💎) — 9B+, maximum quality ─────────────────
   'glm4:9b':                { friendly: 'Mega', icon: '💎', tier: 'mega', direct: false, desc: '~20s · highest quality',      priority: 9 },
-  'qwen3.6:latest':         { friendly: 'Mega', icon: '💎', tier: 'mega', direct: false, desc: '~20s · latest flagship',      priority: 10 },
-  'qwen3.6-limited:latest': { friendly: 'Mega', icon: '💎', tier: 'mega', direct: false, desc: '~20s · flagship lite',        priority: 11 },
-  'gemma4:latest':          { friendly: 'Mega', icon: '💎', tier: 'mega', direct: false, desc: '~20s · Google Gemma 4',       priority: 12 },
+  'gemma4:latest':          { friendly: 'Mega', icon: '💎', tier: 'mega', direct: false, desc: '~30s · Google Gemma 4',       priority: 10 },
+  // ── Quarantined (broken: returned empty responses in benchmark) ──
+  // These need a custom Modelfile with the right Qwen3 chat template.
+  // Users can still pick them but they're labeled as experimental.
+  'qwen3:4b':               { friendly: 'Experimental', icon: '⚠️', tier: 'experimental', direct: true, desc: 'broken · template mismatch', priority: 90 },
+  'qwen3-coder:latest':     { friendly: 'Experimental', icon: '⚠️', tier: 'experimental', direct: true, desc: 'broken · template mismatch', priority: 91 },
+  'qwen3.5:4b':             { friendly: 'Experimental', icon: '⚠️', tier: 'experimental', direct: true, desc: 'broken · slow + empty',     priority: 92 },
+  'qwen3.6:latest':         { friendly: 'Experimental', icon: '⚠️', tier: 'experimental', direct: true, desc: 'broken · timeouts',          priority: 93 },
+  'qwen3.6-limited:latest': { friendly: 'Experimental', icon: '⚠️', tier: 'experimental', direct: true, desc: 'broken · template issue',    priority: 94 },
 };
 
 // Tier color dots
