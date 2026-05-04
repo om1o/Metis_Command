@@ -116,6 +116,26 @@ export const api = {
     body: JSON.stringify({ model: modelId }),
   }),
 
+  // Web search
+  searchWeb: (query, limit = 5) => _fetch('/search/web', {
+    method: 'POST',
+    body: JSON.stringify({ query, limit }),
+  }),
+
+  // File upload + extract
+  analyzeFile: async (file) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    const token = getToken();
+    const r = await fetch('/files/analyze', {
+      method: 'POST',
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      body: fd,
+    });
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  },
+
   // Media generation
   generateImage: (prompt, opts = {}) => _fetch('/generate/image', {
     method: 'POST',

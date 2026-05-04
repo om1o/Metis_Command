@@ -418,6 +418,95 @@ async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
     return StreamingResponse(sse(), media_type="text/event-stream")
 
 
+# ── Web search ───────────────────────────────────────────────────────────────
+
+class WebSearchRequest(BaseModel):
+    query: str
+    limit: int = 5
+
+
+@app.post("/search/web")
+async def search_web(req: WebSearchRequest) -> dict:
+    """
+    Free web search using DuckDuckGo Instant Answer API + HTML scrape fallback.
+    Returns titles, snippets, and URLs the AI can cite.
+    """
+    import urllib.parse, urllib.request, re as _re, html as _html
+
+    q = req.query.strip()
+    if not q:
+        return {"results": [], "query": ""}
+    results: list[dict] = []
+    # DuckDuckGo HTML lite endpoint — free, no key, simple to scrape
+    try:
+        url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(q)}"
+        request = urllib.request.Request(
+            url,
+            headers={"User-Agent": "Mozilla/5.0 (Metis/0.16)"},
+        )
+        with urllib.request.urlopen(request, timeout=8) as r:
+            body = r.read().decode("utf-8", errors="replace")
+        # Parse result blocks
+        block_re = _re.compile(
+            r'<a rel="nofollow" class="result__a"[^>]*href="([^"]+)"[^>]*>(.*?)</a>'
+            r'.*?<a class="result__snippet"[^>]*>(.*?)</a>',
+            _re.DOTALL,
+        )
+        for m in block_re.finditer(body):
+            href, title_html, snippet_html = m.groups()
+            # DDG wraps URLs in /l/?uddg=...
+            real_url = href
+            if "uddg=" in href:
+                try:
+                    real_url = urllib.parse.unquote(
+                        href.split("uddg=", 1)[1].split("&", 1)[0]
+                    )
+                except Exception:
+                    pass
+            title = _html.unescape(_re.sub(r"<[^>]+>", "", title_html)).strip()
+            snippet = _html.unescape(_re.sub(r"<[^>]+>", "", snippet_html)).strip()
+            results.append({"title": title, "url": real_url, "snippet": snippet})
+            if len(results) >= req.limit:
+                break
+    except Exception as e:
+        return {"results": [], "query": q, "error": str(e)}
+    return {"results": results, "query": q}
+
+
+# ── File analysis (PDF/text → text for AI) ───────────────────────────────────
+
+@app.post("/files/analyze")
+async def files_analyze(request: Request) -> dict:
+    """
+    Accept a file upload, extract text, return so the AI can reason about it.
+    Supports: text/*, .csv, .json, .md, application/pdf (best-effort).
+    """
+    form = await request.form()
+    f = form.get("file")
+    if not f:
+        raise HTTPException(status_code=400, detail="no file")
+    raw = await f.read()
+    name = getattr(f, "filename", "upload")
+    ctype = getattr(f, "content_type", "") or ""
+    text = ""
+    try:
+        if ctype.startswith("text/") or name.lower().endswith((".csv", ".json", ".md", ".txt", ".log")):
+            text = raw.decode("utf-8", errors="replace")
+        elif ctype == "application/pdf" or name.lower().endswith(".pdf"):
+            try:
+                from pypdf import PdfReader
+                from io import BytesIO
+                reader = PdfReader(BytesIO(raw))
+                text = "\n\n".join((page.extract_text() or "") for page in reader.pages)
+            except Exception as e:
+                text = f"[PDF parse failed: {e}]"
+        else:
+            text = f"[Binary file {name} ({ctype}) — {len(raw)} bytes; cannot extract text]"
+    except Exception as e:
+        text = f"[Read failed: {e}]"
+    return {"name": name, "type": ctype, "size": len(raw), "text": text[:50000]}
+
+
 # ── Image + Video generation ─────────────────────────────────────────────────
 
 class ImageGenRequest(BaseModel):
