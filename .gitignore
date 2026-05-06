@@ -43,7 +43,21 @@ identity/personas.json
 identity/.active
 identity/local_auth.token
 identity/brains/*/compact_trash.jsonl
+identity/manager_configs/
+identity/agent_health.json
+identity/local_chat.db
+identity/local_chat.db-shm
+identity/local_chat.db-wal
 logs/locks/
+
+# ── Personal / scratch (not source) ───────────────────────────────────────────
+scratch/
+Metis_Command/
+Workshop_1_Output_Draft_Statements*.md
+launch_*.log
+launch_*.out.log
+launch_*.err.log
+*.zip
 
 # ── Website + build artifacts ────────────────────────────────────────────────
 site/node_modules/
