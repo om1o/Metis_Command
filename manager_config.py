@@ -152,8 +152,19 @@ class ManagerConfig:
     notify_on_complete: bool = True     # ping Director when an automation finishes
     notify_on_question: bool = True     # ping Director when a subagent has a question
 
+    # ── Email sending credentials (used by CommsLink to send mail AS the AI) ─
+    # Stored in identity/manager_configs/{user_id}.json — gitignored.
+    # Plaintext-on-disk: acceptable for a local-only desktop app. Group 6 will
+    # add an option to move these into the encrypted Vault.
+    # Use a Gmail App Password (myaccount.google.com → Security → App passwords),
+    # not your real Google password. Other SMTP providers work the same way.
+    email_username: str = ""            # the address the AI sends FROM
+    email_password: str = ""            # SMTP password / app-specific password
+    email_smtp_host: str = "smtp.gmail.com"
+    email_smtp_port: int = 465
+
     configured_at: str = ""
-    schema_version: int = 2
+    schema_version: int = 3
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

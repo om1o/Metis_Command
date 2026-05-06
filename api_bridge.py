@@ -1583,6 +1583,10 @@ class ManagerConfigUpdate(BaseModel):
     notification_phone: str | None = None
     notify_on_complete: bool | None = None
     notify_on_question: bool | None = None
+    email_username: str | None = None
+    email_password: str | None = None
+    email_smtp_host: str | None = None
+    email_smtp_port: int | None = None
 
 
 @app.post("/manager/config")
