@@ -179,6 +179,26 @@ def run_mission(
     If `cancel` is a CancelToken (or anything with `.cancelled`), the loop
     checks before each step and exits cleanly with status='stopped'.
     """
+    try:
+        from policy_flags import autonomous_disabled
+        if autonomous_disabled():
+            try:
+                from safety import log as _log
+                _log("autonomous_blocked", goal=(goal or "")[:120])
+            except Exception:
+                pass
+            mission = Mission(
+                goal=goal,
+                status="failed",
+                final_answer="Autonomous missions are disabled by policy (METIS_DISABLE_AUTONOMOUS).",
+            )
+            mission.ended_at = time.time()
+            _emit(on_event, {"type": "mission_blocked", "reason": "METIS_DISABLE_AUTONOMOUS"})
+            audit({"event": "mission_blocked_policy", "goal": goal[:120]})
+            return mission
+    except Exception:
+        pass
+
     mission = Mission(goal=goal, status="running")
     audit({"event": "mission_start", "goal": goal, "max_steps": max_steps})
     _emit(on_event, {"type": "mission_start", "goal": goal})
@@ -345,6 +365,7 @@ def _run_tool(
         cancel_token=cancel,
         timeout_s=None,
         max_retries=1,
+        audit_ctx={"session_id": session_id} if session_id else None,
     )
 
     if res.confirm_required:

@@ -21,11 +21,18 @@ from pathlib import Path  # noqa: E402
 
 from fastapi import FastAPI, HTTPException, Query, Request  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
-from fastapi.responses import StreamingResponse, FileResponse, RedirectResponse  # noqa: E402
+from fastapi.responses import StreamingResponse, FileResponse, RedirectResponse, Response  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
-from brain_engine import ROLE_MODELS, list_local_models, stream_chat  # noqa: E402
+from brain_engine import (  # noqa: E402
+    OLLAMA_BASE,
+    ROLE_MODELS,
+    list_local_models,
+    ollama_http_timeouts,
+    ollama_reachable,
+    stream_chat,
+)
 from artifacts import list_artifacts, get_artifact  # noqa: E402
 from metis_version import METIS_VERSION  # noqa: E402
 
@@ -48,6 +55,8 @@ PUBLIC_PATHS = {"/", "/health", "/version", "/status",
                 "/auth/oauth/start", "/auth/oauth/complete",
                 "/auth/me", "/auth/refresh", "/auth/reset_password",
                 "/auth/local-token",
+                # Lightweight probes (mirror /health)
+                "/health/ollama",
                 # Ollama auto-start probes the splash screen calls before login
                 "/ollama/status", "/ollama/start"}
 
@@ -148,30 +157,32 @@ def _boot_services() -> None:
                 from manager_config import get_config
                 cfg = get_config("local-install")
                 model = cfg.manager_model or "qwen2.5-coder:1.5b"
-                # Wait up to 30s for Ollama to be ready
+                conn_to, read_to = ollama_http_timeouts()
+                ping_read = max(read_to, 120.0)
                 for _ in range(30):
                     try:
-                        r = _req.get("http://127.0.0.1:11434/api/tags", timeout=1)
+                        r = _req.get(f"{OLLAMA_BASE}/api/tags", timeout=(min(conn_to, 3.0), 2.0))
                         if r.ok:
                             break
                     except Exception:
                         pass
                     _t.sleep(1)
-                # Initial warm-up: load model permanently into VRAM
-                _req.post("http://127.0.0.1:11434/api/generate",
-                          json={"model": model, "prompt": "", "stream": False, "keep_alive": -1},
-                          timeout=120)
+                _req.post(
+                    f"{OLLAMA_BASE}/api/generate",
+                    json={"model": model, "prompt": "", "stream": False, "keep_alive": -1},
+                    timeout=(conn_to, ping_read),
+                )
                 print(f"[api_bridge] model warmed up (permanent VRAM): {model}")
-                # Keep-alive ping every 4 min to be doubly sure it stays resident
                 while True:
                     _t.sleep(240)
                     try:
-                        # Re-fetch in case user switched models
                         cfg = get_config("local-install")
                         active = cfg.manager_model or model
-                        _req.post("http://127.0.0.1:11434/api/generate",
-                                  json={"model": active, "prompt": "", "stream": False, "keep_alive": -1},
-                                  timeout=30)
+                        _req.post(
+                            f"{OLLAMA_BASE}/api/generate",
+                            json={"model": active, "prompt": "", "stream": False, "keep_alive": -1},
+                            timeout=(conn_to, min(read_to, 60.0)),
+                        )
                     except Exception:
                         pass
             except Exception as _e:
@@ -248,6 +259,17 @@ def health() -> dict:
     return {"ok": True}
 
 
+@app.get("/health/ollama")
+def health_ollama() -> dict:
+    ok = bool(ollama_reachable())
+    return {
+        "ok": ok,
+        "base": OLLAMA_BASE,
+        "degraded": not ok,
+        "reachable": ok,
+    }
+
+
 @app.get("/version")
 def version() -> dict:
     """Stable endpoint the launcher + auto-update polls can read."""
@@ -271,6 +293,19 @@ def status() -> dict:
             return {"error": str(e)[:120]} if default is None else default
 
     ollama_models = _safe(list_local_models, default=[])
+    probe_ok = _safe(ollama_reachable, default=False)
+    no_models = bool(probe_ok) and isinstance(ollama_models, list) and len(ollama_models) == 0
+    ollama_degraded = not bool(probe_ok) or no_models
+    degraded_reason = None
+    if not probe_ok:
+        degraded_reason = (
+            "Cannot reach Ollama at OLLAMA_BASE. Start `ollama serve` or check networking."
+        )
+    elif no_models:
+        degraded_reason = (
+            "Ollama is reachable but reports no models. Pull a model (e.g. ollama pull qwen2.5-coder:7b)."
+        )
+
     wallet_summary = None
     try:
         from wallet import summary as _wallet_summary
@@ -299,15 +334,19 @@ def status() -> dict:
         "version": METIS_VERSION,
         "generated_at_ms": int(_now() * 1000),
         "latency_ms": int((_now() - t0) * 1000),
+        "degraded": bool(ollama_degraded),
+        "degraded_reason": degraded_reason if ollama_degraded else None,
         "ollama": {
-            "reachable": bool(ollama_models),
-            "model_count": len(ollama_models or []),
+            "reachable": bool(probe_ok),
+            "model_count": len(ollama_models or []) if isinstance(ollama_models, list) else 0,
+            "degraded": bool(ollama_degraded),
+            "degraded_reason": degraded_reason if ollama_degraded else None,
+            "no_models": no_models,
         },
-        "wallet":  wallet_summary,
-        "brain":   brain_stats,
+        "wallet": wallet_summary,
+        "brain": brain_stats,
         "mission_pool": pool_stats,
     }
-
 
 # ── Streaming chat ───────────────────────────────────────────────────────────
 
@@ -326,11 +365,11 @@ async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
 
     def sse() -> Any:
         full_answer = ""
-        # Instant heartbeat — browser knows we're alive before model loads
         yield f"data: {json.dumps({'type': 'heartbeat', 'message': 'Processing…'})}\n\n"
 
-        # Direct mode: bypass orchestrator entirely — just stream tokens.
-        # Used for Fast + Auto tiers where speed matters more than crew routing.
+        degraded_chat = not ollama_reachable(read_s=2.0, connect_s=2.0)
+        yield f"data: {json.dumps({'type': 'status', 'degraded': degraded_chat, 'ollama_reachable': not degraded_chat})}\n\n"
+
         use_direct = req.direct or req.role not in ("manager",)
         if use_direct:
             try:
@@ -342,8 +381,9 @@ async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
                 yield f"data: {json.dumps({'type': 'manager_identity', 'name': manager_name, 'model': model_id})}\n\n"
                 import requests as _req
                 t0 = __import__('time').time()
+                conn_to, read_to = ollama_http_timeouts()
                 r = _req.post(
-                    "http://127.0.0.1:11434/api/generate",
+                    f"{OLLAMA_BASE}/api/generate",
                     json={
                         "model": model_id,
                         "prompt": req.message,
@@ -352,7 +392,7 @@ async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
                         "options": {"num_ctx": 4096},
                     },
                     stream=True,
-                    timeout=120,
+                    timeout=(conn_to, read_to),
                 )
                 for line in r.iter_lines():
                     if not line:
@@ -370,7 +410,13 @@ async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
                         yield f"data: {json.dumps({'type': 'done', 'duration_ms': dur_ms, 'agents_used': []})}\n\n"
                         break
             except Exception as e:
-                yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+                import requests as _rq
+                from brain_engine import OLLAMA_TIMEOUT_USER_MESSAGE as _oum
+
+                if isinstance(e, _rq.exceptions.Timeout):
+                    yield f"data: {json.dumps({'type': 'error', 'message': _oum, 'code': 'ollama_timeout'})}\n\n"
+                else:
+                    yield f"data: {json.dumps({'type': 'error', 'message': str(e), 'code': 'generate_error'})}\n\n"
         elif req.role == "manager":
             from manager_orchestrator import orchestrate
             try:
@@ -431,6 +477,16 @@ async def search_web(req: WebSearchRequest) -> dict:
     Free web search using DuckDuckGo Instant Answer API + HTML scrape fallback.
     Returns titles, snippets, and URLs the AI can cite.
     """
+    try:
+        from policy_flags import web_tools_disabled
+        if web_tools_disabled():
+            from safety import log as _log
+
+            _log("web_search_blocked", source="api_bridge")
+            return {"results": [], "query": req.query.strip(), "blocked": True, "reason": "METIS_DISABLE_WEB_TOOLS"}
+    except Exception:
+        pass
+
     import urllib.parse, urllib.request, re as _re, html as _html
 
     q = req.query.strip()
@@ -786,6 +842,47 @@ def sessions_load(session_id: str, request: Request, limit: int = 200) -> list[d
     except Exception as e:
         print(f"[api_bridge] /sessions/{{id}} degraded: {e}")
         return []
+
+
+def _markdown_export(session_id: str, user_id: str, limit: int) -> str:
+    from memory import load_session
+
+    rows = load_session(session_id, limit=limit, user_id=user_id) or []
+    parts: list[str] = [f"# Session `{session_id}`\n\n"]
+    for m in rows:
+        role = (m.get("role") or "").strip() or "message"
+        ts = (m.get("created_at") or "").strip()
+        head = f"## {role}"
+        if ts:
+            head += f" ({ts})"
+        parts.append(head + "\n\n")
+        parts.append((m.get("content") or "").strip())
+        parts.append("\n\n")
+    return "".join(parts).rstrip() + "\n"
+
+
+@app.get("/sessions/{session_id}/export.md")
+def sessions_export_md(session_id: str, request: Request, limit: int = 500) -> Response:
+    user_id = _user_id_from_request(request)
+    try:
+        body = _markdown_export(session_id, user_id, limit)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+    return Response(content=body, media_type="text/markdown; charset=utf-8")
+
+
+@app.get("/sessions/{session_id}/export")
+def sessions_export_format(
+    session_id: str,
+    request: Request,
+    format: str = Query("md"),
+    limit: int = 500,
+) -> Response:
+    if format.strip().lower() != "md":
+        raise HTTPException(status_code=400, detail="unsupported format (use format=md)")
+    user_id = _user_id_from_request(request)
+    body = _markdown_export(session_id, user_id, limit)
+    return Response(content=body, media_type="text/markdown; charset=utf-8")
 
 
 @app.delete("/sessions/{session_id}")
@@ -1397,10 +1494,12 @@ def models_warmup(request: Request) -> dict:
     def _do_warmup(model: str) -> None:
         try:
             import requests as _req
+
+            conn_to, read_to = ollama_http_timeouts()
             _req.post(
-                "http://127.0.0.1:11434/api/generate",
+                f"{OLLAMA_BASE}/api/generate",
                 json={"model": model, "prompt": "", "stream": False, "keep_alive": -1},
-                timeout=90,
+                timeout=(conn_to, max(read_to, 90.0)),
             )
             print(f"[warmup] {model} loaded")
         except Exception as e:

@@ -13,6 +13,16 @@ def internet_search(query: str) -> str:
     Returns the top 5 results with title, link, and snippet.
     """
     try:
+        from policy_flags import web_tools_disabled
+        if web_tools_disabled():
+            from safety import log as _log
+
+            _log("web_search_blocked", source="custom_tools")
+            return "Web search is disabled by policy (METIS_DISABLE_WEB_TOOLS)."
+    except Exception:
+        pass
+
+    try:
         with DDGS() as ddgs:
             results = list(ddgs.text(query, max_results=5))
         if not results:

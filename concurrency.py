@@ -86,6 +86,28 @@ class MissionPool:
         auto_approve: bool = False,
         project_slug: str | None = None,
     ) -> MissionRecord:
+        try:
+            from policy_flags import autonomous_disabled
+            if autonomous_disabled():
+                audit({"event": "mission_blocked_policy", "reason": "METIS_DISABLE_AUTONOMOUS", "goal": goal[:120]})
+                record = MissionRecord(
+                    goal=goal,
+                    tag=tag,
+                    project_slug=project_slug,
+                    auto_approve=auto_approve,
+                    status="failed",
+                    final_answer="Autonomous missions are disabled (METIS_DISABLE_AUTONOMOUS).",
+                )
+                now = time.time()
+                record.started_at = now
+                record.ended_at = now
+                with self._lock:
+                    self._records[record.id] = record
+                self._persist(record)
+                return record
+        except Exception:
+            pass
+
         with self._lock:
             inflight = sum(
                 1 for r in self._records.values()

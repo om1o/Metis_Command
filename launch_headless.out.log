@@ -1,0 +1,5 @@
+[bootstrap] venv already present.
+[bootstrap] deps up-to-date.
+[bootstrap] Ollama reachable.
+[bootstrap] bootstrap complete in 0.3s.
+[launch] starting API + UI -> http://127.0.0.1:17633
