@@ -29,15 +29,37 @@ import socket
 import subprocess
 import sys
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
-sys.path.insert(0, str(ROOT))
+LAUNCH_ROOT = Path(__file__).resolve().parent
+
+
+def _candidate_roots(start: Path) -> list[Path]:
+    roots = [start]
+    parent = start.parent
+    if parent != start:
+        roots.append(parent)
+    return roots
+
+
+for _root in _candidate_roots(LAUNCH_ROOT):
+    if (_root / "scripts" / "bootstrap.py").exists():
+        sys.path.insert(0, str(_root))
+        break
+else:
+    sys.path.insert(0, str(LAUNCH_ROOT))
 
 from scripts import bootstrap  # noqa: E402  stdlib-only
 
+ROOT = bootstrap.ROOT
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 DEFAULT_API_PORT = int(os.getenv("METIS_API_PORT", "7331"))
+DEFAULT_MANAGER_MODEL = "qwen2.5-coder:1.5b"
+OLLAMA_BASE = os.getenv("OLLAMA_BASE", "http://localhost:11434").rstrip("/")
 
 
 def _port_free(port: int, host: str = "127.0.0.1") -> bool:
@@ -104,7 +126,10 @@ def _reexec_in_venv(args: argparse.Namespace) -> None:
         raise RuntimeError("venv python missing after bootstrap.")
     if Path(sys.executable).resolve() == py.resolve():
         return
-    argv = [str(py), str(Path(__file__).resolve()), "--inside-venv"]
+    launcher = ROOT / "launch.py"
+    if not launcher.exists():
+        launcher = Path(__file__).resolve()
+    argv = [str(py), str(launcher), "--inside-venv"]
     for flag in ("tier", "skip_models", "force_deps", "no_window"):
         value = getattr(args, flag, None)
         if value is True:
@@ -115,9 +140,16 @@ def _reexec_in_venv(args: argparse.Namespace) -> None:
     os.execv(str(py), argv)
 
 
+def _service_python() -> str:
+    py = bootstrap.venv_python()
+    if py.exists():
+        return str(py)
+    return sys.executable
+
+
 def _start_api() -> subprocess.Popen:
     return subprocess.Popen(
-        [sys.executable, "-m", "uvicorn", "api_bridge:app",
+        [_service_python(), "-m", "uvicorn", "api_bridge:app",
          "--host", "127.0.0.1", "--port", str(int(os.environ["METIS_API_PORT"])), "--log-level", "warning"],
         cwd=str(ROOT),
     )
@@ -157,6 +189,76 @@ def _wait_for_api(url: str, *, retries: int = 60, delay: float = 1.0) -> bool:
             return True
         time.sleep(delay)
     return False
+
+
+def _is_cloud_model(model: str) -> bool:
+    lowered = (model or "").lower()
+    return (
+        lowered.startswith("groq/")
+        or lowered.startswith("glm-")
+        or lowered.startswith("gpt-")
+        or lowered.startswith("claude")
+    )
+
+
+def _manager_model() -> str:
+    try:
+        from manager_config import get_config
+        return get_config("local-install").manager_model or DEFAULT_MANAGER_MODEL
+    except Exception as e:
+        print(f"[launch] manager model config unavailable; using {DEFAULT_MANAGER_MODEL}: {e}", flush=True)
+        return DEFAULT_MANAGER_MODEL
+
+
+def _local_models() -> list[str]:
+    try:
+        from brain_engine import list_local_models
+        return list_local_models()
+    except Exception as e:
+        print(f"[launch] model inventory skipped: {e}", flush=True)
+        return []
+
+
+def _warm_manager_model(model: str, *, timeout: float = 8.0) -> bool:
+    if not model or _is_cloud_model(model):
+        return True
+    payload = {
+        "model": model,
+        "prompt": "",
+        "stream": False,
+        "keep_alive": -1,
+    }
+    req = urllib.request.Request(
+        f"{OLLAMA_BASE}/api/generate",
+        data=json_dumps(payload),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:  # noqa: S310
+            ok = 200 <= r.status < 400
+        if ok:
+            print(f"[launch] manager model ready in memory -> {model}", flush=True)
+        return ok
+    except (urllib.error.URLError, OSError, TimeoutError):
+        print(f"[launch] manager model warm-up still loading for {model}; opening UI now.", flush=True)
+        return False
+
+
+def json_dumps(payload: dict) -> bytes:
+    import json
+    return json.dumps(payload).encode("utf-8")
+
+
+def _prepare_models_for_ui() -> None:
+    model = _manager_model()
+    local = _local_models()
+    if local:
+        status = "present" if model in local or _is_cloud_model(model) else "missing"
+        print(f"[launch] local models available: {len(local)}; manager model {status}: {model}", flush=True)
+    else:
+        print(f"[launch] no local models reported; manager model: {model}", flush=True)
+    _warm_manager_model(model)
 
 
 def _early_exit(proc: subprocess.Popen) -> tuple[bool, int]:
@@ -213,6 +315,8 @@ def _run_services(args: argparse.Namespace) -> int:
         print(f"[launch] Splash never became reachable at {splash_url}", file=sys.stderr, flush=True)
         _terminate(procs)
         return 1
+
+    _prepare_models_for_ui()
 
     # Non-blocking update probe - result is cached for the UI to read.
     try:

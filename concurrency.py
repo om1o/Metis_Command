@@ -110,18 +110,18 @@ class MissionPool:
         )
         with self._lock:
             self._records[record.id] = record
+        from autonomous_loop import run_mission as mission_runner
 
         def run() -> None:
             # Semaphore gate - serialises beyond max_workers even when tasks
             # spawn other tasks internally.
             with self._semaphore:
-                from autonomous_loop import run_mission
                 with self._lock:
                     record.status = "running"
                     record.started_at = time.time()
                 try:
                     on_event = record.events.append
-                    mission = run_mission(
+                    mission = mission_runner(
                         goal=goal,
                         auto_approve=auto_approve,
                         on_event=on_event,
