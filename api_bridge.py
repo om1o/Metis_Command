@@ -987,6 +987,103 @@ def relationship_get(rid: str) -> dict:
     return json.loads(fp.read_text(encoding="utf-8"))
 
 
+# ── Group 4: relationship updates + notes + conversation log ────────────────
+
+class RelationshipPatch(BaseModel):
+    name: str | None = None
+    role: str | None = None
+    company: str | None = None
+    phone: str | None = None
+    email: str | None = None
+    notes: str | None = None
+    tags: list[str] | None = None
+    folder: str | None = None       # optional folder grouping (Family / Work / etc.)
+    avatar_color: str | None = None  # hex like #7C3AED
+
+
+@app.patch("/relationships/{rid}")
+def relationship_patch(rid: str, req: RelationshipPatch) -> dict:
+    """Partial update — only fields the caller sets are merged."""
+    fp = _RELATIONSHIPS_DIR / f"{rid}.json"
+    if not fp.exists():
+        raise HTTPException(status_code=404, detail="relationship not found")
+    data = json.loads(fp.read_text(encoding="utf-8"))
+    patch = {k: v for k, v in req.model_dump().items() if v is not None}
+    data.update(patch)
+    data["updated_at"] = __import__("datetime").datetime.utcnow().isoformat()
+    fp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    return data
+
+
+class NoteEntry(BaseModel):
+    text: str
+
+
+@app.post("/relationships/{rid}/notes")
+def relationship_add_note(rid: str, req: NoteEntry) -> dict:
+    """Append a timestamped note. Notes live as a list under data['notes_log']."""
+    fp = _RELATIONSHIPS_DIR / f"{rid}.json"
+    if not fp.exists():
+        raise HTTPException(status_code=404, detail="relationship not found")
+    data = json.loads(fp.read_text(encoding="utf-8"))
+    log = data.setdefault("notes_log", [])
+    log.insert(0, {
+        "id": __import__("uuid").uuid4().hex[:8],
+        "ts": __import__("datetime").datetime.utcnow().isoformat(),
+        "text": (req.text or "").strip(),
+    })
+    data["notes_log"] = log[:200]
+    fp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    return {"ok": True, "note": log[0]}
+
+
+class ConversationEntry(BaseModel):
+    channel: str        # "chat" | "email" | "sms" | "phone" | "in-person"
+    direction: str      # "inbound" | "outbound"
+    summary: str        # 1-2 line gist
+    body: str = ""      # full content (optional)
+
+
+@app.post("/relationships/{rid}/conversations")
+def relationship_add_conversation(rid: str, req: ConversationEntry) -> dict:
+    """Log a conversation. Used by the agent when it talks to/about this person."""
+    fp = _RELATIONSHIPS_DIR / f"{rid}.json"
+    if not fp.exists():
+        raise HTTPException(status_code=404, detail="relationship not found")
+    data = json.loads(fp.read_text(encoding="utf-8"))
+    log = data.setdefault("conversations", [])
+    log.insert(0, {
+        "id": __import__("uuid").uuid4().hex[:8],
+        "ts": __import__("datetime").datetime.utcnow().isoformat(),
+        "channel": req.channel,
+        "direction": req.direction,
+        "summary": (req.summary or "").strip()[:240],
+        "body": (req.body or "").strip()[:4000],
+    })
+    data["conversations"] = log[:500]
+    fp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    return {"ok": True, "entry": log[0]}
+
+
+@app.get("/relationships/folders/list")
+def relationship_folders() -> dict:
+    """Aggregate folder + tag counts so the sidebar can render filters."""
+    folders: dict[str, int] = {}
+    tags: dict[str, int] = {}
+    for f in _RELATIONSHIPS_DIR.glob("*.json"):
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        folder = (data.get("folder") or "Unsorted").strip() or "Unsorted"
+        folders[folder] = folders.get(folder, 0) + 1
+        for tag in (data.get("tags") or []):
+            t = str(tag).strip()
+            if t:
+                tags[t] = tags.get(t, 0) + 1
+    return {"folders": folders, "tags": tags}
+
+
 # ── Skills ───────────────────────────────────────────────────────────────────
 
 @app.get("/skills")
