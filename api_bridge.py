@@ -255,6 +255,49 @@ def version() -> dict:
     return {"version": METIS_VERSION}
 
 
+# ── Tool permission policy ───────────────────────────────────────────────────
+# Reports which channels the agent may use without re-asking. Group 1 added
+# Chrome and Google services to this set (default-on per the operator).
+
+@app.get("/policy")
+def policy_get() -> dict:
+    import comms_policy as _p
+    return {
+        "policy":   _p.get_policy(),
+        "enforced": _p.policy_enforced(),
+        "twilio_configured": _p.twilio_configured(),
+        "smtp_configured":   _p.smtp_configured(),
+        "google_oauth_configured": bool(
+            os.getenv("GOOGLE_OAUTH_CLIENT_ID") and os.getenv("GOOGLE_OAUTH_CLIENT_SECRET")
+        ),
+    }
+
+
+class PolicyUpdate(BaseModel):
+    sms: bool | None = None
+    phone: bool | None = None
+    email: bool | None = None
+    calendar: bool | None = None
+    chrome: bool | None = None
+    google_services: bool | None = None
+
+
+@app.post("/policy")
+def policy_set(req: PolicyUpdate) -> dict:
+    """Override the in-memory policy. Persists for the lifetime of this server."""
+    import comms_policy as _p
+    state = {
+        "tool_sms":             req.sms             if req.sms             is not None else _p.is_allowed("sms"),
+        "tool_phone_calls":     req.phone           if req.phone           is not None else _p.is_allowed("phone"),
+        "tool_email":           req.email           if req.email           is not None else _p.is_allowed("email"),
+        "tool_calendar":        req.calendar        if req.calendar        is not None else _p.is_allowed("calendar"),
+        "tool_chrome":          req.chrome          if req.chrome          is not None else _p.is_allowed("chrome"),
+        "tool_google_services": req.google_services if req.google_services is not None else _p.is_allowed("google_services"),
+    }
+    _p.set_from_session(state)
+    return {"policy": _p.get_policy(), "enforced": True}
+
+
 @app.get("/status")
 def status() -> dict:
     """
