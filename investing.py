@@ -45,25 +45,54 @@ from typing import Any
 
 INVEST_FILE = Path("identity") / "investing.json"
 
+# ── Hard safety caps (Group 3) ──────────────────────────────────────────────
+# Even in paper mode, we apply per-trade and per-day spending limits so the
+# behaviour mirrors what the operator wants for real-money mode later.
+# Override with env vars METIS_INVEST_PER_TRADE_CAP_CENTS / METIS_INVEST_DAILY_CAP_CENTS.
+PER_TRADE_CAP_CENTS = int(os.getenv("METIS_INVEST_PER_TRADE_CAP_CENTS", "500000"))   # $5,000
+DAILY_CAP_CENTS     = int(os.getenv("METIS_INVEST_DAILY_CAP_CENTS",     "1000000"))  # $10,000
+
 
 def _now_iso() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
 
+def _today_str() -> str:
+    return time.strftime("%Y-%m-%d", time.gmtime())
+
+
+def _empty_state() -> dict:
+    return {
+        "mode": os.getenv("METIS_INVEST_MODE", "paper"),
+        "cash_cents": 100_000_00,         # $100,000 paper starting cash
+        "holdings": {},                    # ticker -> {qty, avg_cost_cents}
+        "watchlist": [],                   # list[str] tickers
+        "orders": [],                      # list[dict] order history
+        "opportunities": [],               # list[dict] AI-flagged ideas
+        "proposals": [],                   # list[dict] pending AI-proposed trades
+        "spend_history": {},               # date_str -> total_spent_cents (for daily cap)
+        "settings": {                      # safety + scan settings
+            "per_trade_cap_cents": PER_TRADE_CAP_CENTS,
+            "daily_cap_cents":     DAILY_CAP_CENTS,
+            "auto_approve_under_cents": 0,    # 0 = always require approval
+            "scan_interval_min": 60,
+            "notify_on_proposal": True,
+        },
+    }
+
+
 def _read() -> dict:
     if not INVEST_FILE.exists():
-        return {
-            "mode": os.getenv("METIS_INVEST_MODE", "paper"),
-            "cash_cents": 100_000_00,        # $100,000 paper starting cash
-            "holdings": {},                   # ticker -> {qty, avg_cost_cents}
-            "watchlist": [],                  # list[str] tickers
-            "orders": [],                     # list[dict] order history
-            "opportunities": [],              # list[dict] AI ideas (Group 3)
-        }
+        return _empty_state()
     try:
-        return json.loads(INVEST_FILE.read_text(encoding="utf-8"))
+        data = json.loads(INVEST_FILE.read_text(encoding="utf-8"))
+        # Self-heal old files that pre-date Group 3.
+        defaults = _empty_state()
+        for k, v in defaults.items():
+            data.setdefault(k, v)
+        return data
     except Exception:
-        return {"mode": "paper", "cash_cents": 100_000_00, "holdings": {}, "watchlist": [], "orders": [], "opportunities": []}
+        return _empty_state()
 
 
 def _write(d: dict) -> None:
@@ -221,6 +250,23 @@ def submit_order(
     price = float(quote["price"])
     cost_cents = int(round(price * qty * 100))
 
+    # Hard caps — apply to BOTH buy and sell (any trade movement counts).
+    settings = data.get("settings") or {}
+    per_trade_cap = int(settings.get("per_trade_cap_cents") or PER_TRADE_CAP_CENTS)
+    daily_cap     = int(settings.get("daily_cap_cents")     or DAILY_CAP_CENTS)
+    if cost_cents > per_trade_cap:
+        return {
+            "ok": False,
+            "error": f"per-trade cap exceeded (${cost_cents/100:.2f} > ${per_trade_cap/100:.2f})",
+        }
+    today = _today_str()
+    spent_today = int((data.get("spend_history") or {}).get(today, 0))
+    if spent_today + cost_cents > daily_cap:
+        return {
+            "ok": False,
+            "error": f"daily cap exceeded (today ${spent_today/100:.2f} + ${cost_cents/100:.2f} > ${daily_cap/100:.2f})",
+        }
+
     if side == "buy":
         if cost_cents > data["cash_cents"]:
             return {"ok": False, "error": "insufficient paper cash"}
@@ -255,6 +301,9 @@ def submit_order(
     }
     data["orders"].insert(0, order)
     data["orders"] = data["orders"][:200]
+    # Track spend toward the daily cap.
+    sh = data.setdefault("spend_history", {})
+    sh[_today_str()] = int(sh.get(_today_str(), 0)) + cost_cents
     _write(data)
     return {"ok": True, "order": order, "cash_cents": data["cash_cents"]}
 
@@ -263,14 +312,134 @@ def list_orders(limit: int = 50) -> list[dict]:
     return _read().get("orders", [])[:limit]
 
 
-# ── AI-flagged opportunities (populated by Group 3) ─────────────────────────
+# ── AI-flagged opportunities ───────────────────────────────────────────────
 
 def list_opportunities() -> list[dict]:
     return _read().get("opportunities", [])
 
 
 def set_opportunities(items: list[dict]) -> None:
-    """Called by the watchlist scanner once Group 3 ships it."""
+    """Replace the opportunities list (called by the scanner)."""
     data = _read()
     data["opportunities"] = items[:50]
     _write(data)
+
+
+# ── AI-proposed trades (require human approval before execution) ────────────
+
+def list_proposals(limit: int = 50) -> list[dict]:
+    """Return pending AI-proposed trades (status='pending')."""
+    data = _read()
+    return [p for p in data.get("proposals", []) if p.get("status") == "pending"][:limit]
+
+
+def list_all_proposals(limit: int = 100) -> list[dict]:
+    """Return all proposals including approved/rejected, newest first."""
+    return _read().get("proposals", [])[:limit]
+
+
+def propose_trade(
+    ticker: str,
+    side: str,
+    qty: float,
+    *,
+    reason: str = "",
+    confidence: float = 0.5,
+    source: str = "ai",
+) -> dict:
+    """
+    The scanner / AI calls this to suggest a trade. Records the suggestion
+    with status='pending'; the human approves via approve_proposal().
+    """
+    data = _read()
+    t = (ticker or "").strip().upper()
+    side = (side or "").lower()
+    qty = float(qty or 0)
+    if not t or side not in ("buy", "sell") or qty <= 0:
+        return {"ok": False, "error": "invalid proposal"}
+
+    quote = get_quote(t)
+    price = float((quote or {}).get("price") or 0)
+    est_cost_cents = int(round(price * qty * 100))
+
+    proposal = {
+        "id": uuid.uuid4().hex[:10],
+        "ticker": t,
+        "side": side,
+        "qty": qty,
+        "est_price": price,
+        "est_cost_cents": est_cost_cents,
+        "reason": (reason or "").strip()[:600],
+        "confidence": max(0.0, min(1.0, float(confidence or 0.5))),
+        "source": source,
+        "status": "pending",
+        "created_at": _now_iso(),
+    }
+    data.setdefault("proposals", []).insert(0, proposal)
+    data["proposals"] = data["proposals"][:200]
+    _write(data)
+    return {"ok": True, "proposal": proposal}
+
+
+def approve_proposal(proposal_id: str) -> dict:
+    """Execute a proposed trade (still subject to caps + cash check)."""
+    data = _read()
+    target = next((p for p in data.get("proposals", []) if p["id"] == proposal_id), None)
+    if not target:
+        return {"ok": False, "error": "proposal not found"}
+    if target["status"] != "pending":
+        return {"ok": False, "error": f"proposal already {target['status']}"}
+
+    result = submit_order(
+        target["ticker"], target["side"], target["qty"],
+        approval_token=proposal_id,
+    )
+    # submit_order persists; re-read state.
+    data = _read()
+    for p in data.get("proposals", []):
+        if p["id"] == proposal_id:
+            p["status"] = "filled" if result.get("ok") else "failed"
+            p["resolved_at"] = _now_iso()
+            if not result.get("ok"):
+                p["error"] = result.get("error", "")
+            break
+    _write(data)
+    return {"ok": bool(result.get("ok")), "result": result}
+
+
+def reject_proposal(proposal_id: str, *, note: str = "") -> bool:
+    data = _read()
+    found = False
+    for p in data.get("proposals", []):
+        if p["id"] == proposal_id and p["status"] == "pending":
+            p["status"] = "rejected"
+            p["resolved_at"] = _now_iso()
+            if note:
+                p["note"] = note[:240]
+            found = True
+            break
+    _write(data)
+    return found
+
+
+# ── Settings ────────────────────────────────────────────────────────────────
+
+def get_settings() -> dict:
+    return _read().get("settings", {})
+
+
+def update_settings(patch: dict) -> dict:
+    data = _read()
+    s = data.setdefault("settings", {})
+    for k in ("per_trade_cap_cents", "daily_cap_cents",
+              "auto_approve_under_cents", "scan_interval_min",
+              "notify_on_proposal"):
+        if k in patch and patch[k] is not None:
+            s[k] = patch[k]
+    _write(data)
+    return s
+
+
+def daily_spent_cents(date_str: str | None = None) -> int:
+    data = _read()
+    return int((data.get("spend_history") or {}).get(date_str or _today_str(), 0))

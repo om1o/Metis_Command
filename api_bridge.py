@@ -1510,6 +1510,94 @@ def invest_opportunities() -> list[dict]:
     return _inv.list_opportunities()
 
 
+# ── Group 3: AI scanner + proposal flow ─────────────────────────────────────
+
+class InvestScanRequest(BaseModel):
+    max_tickers: int = 10
+    propose: bool = False        # if true, high-confidence picks become proposals
+
+
+class InvestProposeRequest(BaseModel):
+    ticker: str
+    side: str                    # "buy" | "sell"
+    qty: float
+    reason: str = ""
+    confidence: float = 0.5
+    source: str = "manual"
+
+
+class InvestSettingsUpdate(BaseModel):
+    per_trade_cap_cents: int | None = None
+    daily_cap_cents: int | None = None
+    auto_approve_under_cents: int | None = None
+    scan_interval_min: int | None = None
+    notify_on_proposal: bool | None = None
+
+
+@app.post("/invest/scan")
+def invest_scan(req: InvestScanRequest) -> dict:
+    """Run the AI scanner across the current watchlist + holdings."""
+    import investing_scanner as _scan
+    return _scan.scan_watchlist(max_tickers=req.max_tickers, propose=req.propose)
+
+
+@app.get("/invest/proposals")
+def invest_proposals_list(all: bool = False) -> list[dict]:
+    """Pending proposals by default; pass ?all=true to include resolved ones."""
+    import investing as _inv
+    return _inv.list_all_proposals() if all else _inv.list_proposals()
+
+
+@app.post("/invest/proposals")
+def invest_propose(req: InvestProposeRequest) -> dict:
+    """Manual proposal entry (e.g. from the chat — 'propose buy 5 AAPL')."""
+    import investing as _inv
+    r = _inv.propose_trade(
+        req.ticker, req.side, req.qty,
+        reason=req.reason, confidence=req.confidence, source=req.source,
+    )
+    if not r.get("ok"):
+        raise HTTPException(status_code=400, detail=r.get("error", "propose failed"))
+    return r
+
+
+@app.post("/invest/proposals/{proposal_id}/approve")
+def invest_proposal_approve(proposal_id: str) -> dict:
+    import investing as _inv
+    r = _inv.approve_proposal(proposal_id)
+    if not r.get("ok"):
+        raise HTTPException(status_code=400, detail=(r.get("result") or {}).get("error") or r.get("error", "approve failed"))
+    return r
+
+
+@app.post("/invest/proposals/{proposal_id}/reject")
+def invest_proposal_reject(proposal_id: str, note: str = "") -> dict:
+    import investing as _inv
+    return {"ok": _inv.reject_proposal(proposal_id, note=note)}
+
+
+@app.get("/invest/settings")
+def invest_settings_get() -> dict:
+    import investing as _inv
+    return _inv.get_settings()
+
+
+@app.post("/invest/settings")
+def invest_settings_update(req: InvestSettingsUpdate) -> dict:
+    import investing as _inv
+    return _inv.update_settings(req.model_dump(exclude_unset=True))
+
+
+@app.get("/invest/analyze/{ticker}")
+def invest_analyze(ticker: str) -> dict:
+    """One-shot AI analysis on a single ticker (no side effects)."""
+    import investing_scanner as _scan
+    result = _scan.analyze_ticker(ticker)
+    if not result:
+        raise HTTPException(status_code=404, detail="no quote available")
+    return result
+
+
 # ── Money / People / Automations pages (Group 1 scaffolds) ─────────────────
 # Note: /relationships is already a JSON API. The HTML page lives at /people
 # so browsers and API clients don't fight for the same route. The sidebar
