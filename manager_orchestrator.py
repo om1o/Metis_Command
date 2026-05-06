@@ -3,8 +3,8 @@ Manager Orchestrator — the user-facing AI controller.
 
 The user talks ONLY to the Manager. The Manager:
   1. Analyzes the request and produces a plan (which subagents to call).
-  2. Executes the plan: dispatches to Genius / Researcher / Coder / Thinker /
-     Scholar in parallel or sequence as needed.
+  2. Executes the plan: dispatches to Researcher / Coder / Thinker / Scholar
+     in parallel or sequence as needed.
   3. Synthesizes the subagent outputs into a single coherent answer.
 
 The orchestrator emits structured events the UI streams as SSE so the
@@ -27,11 +27,11 @@ import json
 import os
 import re
 import time
+from collections.abc import Generator
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Callable, Generator
+from typing import Any
 
 from brain_engine import chat_by_role, stream_chat
-
 
 # Specialists the Manager can delegate to. Keys are user-friendly names;
 # values are brain_engine role names. "Genius" is intentionally NOT here —
@@ -44,43 +44,76 @@ DELEGATABLE: dict[str, str] = {
     "Scholar":    "scholar",     # knowledge / explanations
 }
 
+_SPECIALIST_DESC: dict[str, str] = {
+    "Researcher": (
+        "  - Researcher : pulls fresh information; use when the answer depends on\n"
+        "                 anything that might have changed recently."
+    ),
+    "Coder": "  - Coder      : write, debug, or explain code.",
+    "Thinker": (
+        "  - Thinker    : multi-step logic, math, or planning that benefits from\n"
+        "                 explicit step-by-step reasoning."
+    ),
+    "Scholar": (
+        "  - Scholar    : explanations of established knowledge, definitions,\n"
+        "                 academic-style answers."
+    ),
+}
 
-_PLAN_PROMPT = """You are the Manager — the orchestrator of a small AI crew.
+_PLAN_ORDER = ["Researcher", "Coder", "Thinker", "Scholar"]
+
+_PLAN_INTRO = """You are the Manager — the orchestrator of a small AI crew.
 
 The user will ask you something. Decide whether you can answer it yourself
 (simple questions, greetings, basic facts you know), or whether to delegate
 to one or more specialists. The specialists available:
 
-  - Researcher : pulls fresh information; use when the answer depends on
-                 anything that might have changed recently.
-  - Coder      : write, debug, or explain code.
-  - Thinker    : multi-step logic, math, or planning that benefits from
-                 explicit step-by-step reasoning.
-  - Scholar    : explanations of established knowledge, definitions,
-                 academic-style answers.
+"""
 
-Output format — STRICT JSON ONLY, no prose, no markdown fences:
 
-{
-  "self_handle": false,
-  "summary": "<1 sentence describing what the user wants>",
-  "agents": [
-    {"name": "Genius",     "task": "<what Genius should do>"},
-    {"name": "Researcher", "task": "<what Researcher should do>"}
-  ]
-}
+def _plan_prompt_for(allowed_specialists: list[str] | None) -> str:
+    """Build the planning system prompt, optionally listing only enabled roles."""
+    if allowed_specialists:
+        allow = set(allowed_specialists)
+        keys = [k for k in _PLAN_ORDER if k in allow and k in DELEGATABLE]
+        if not keys:
+            keys = [k for k in _PLAN_ORDER if k in DELEGATABLE]
+    else:
+        keys = [k for k in _PLAN_ORDER if k in DELEGATABLE]
 
-If you can answer directly without help, return:
+    block = "\n".join(_SPECIALIST_DESC[k] for k in keys)
+    names_csv = ", ".join(keys)
+    if len(keys) >= 2:
+        ex0, ex1 = keys[0], keys[1]
+        example_agents = (
+            f'    {{"name": "{ex0}", "task": "<what {ex0} should do>"}},\n'
+            f'    {{"name": "{ex1}", "task": "<what {ex1} should do>"}}'
+        )
+    else:
+        only = keys[0]
+        example_agents = f'    {{"name": "{only}", "task": "<what {only} should do>"}}'
 
-{
-  "self_handle": true,
-  "summary": "<1 sentence>",
-  "agents": []
-}
-
-Pick the smallest set of agents that covers the question. Most simple
-queries need 0–1 agents. Use at most 2 specialists per turn.
-Don't add agents you don't need."""
+    return (
+        f"{_PLAN_INTRO}{block}\n\n"
+        "Output format — STRICT JSON ONLY, no prose, no markdown fences:\n\n"
+        "{\n"
+        '  "self_handle": false,\n'
+        '  "summary": "<1 sentence describing what the user wants>",\n'
+        '  "agents": [\n'
+        f"{example_agents}\n"
+        "  ]\n"
+        "}\n\n"
+        "If you can answer directly without help, return:\n\n"
+        "{\n"
+        '  "self_handle": true,\n'
+        '  "summary": "<1 sentence>",\n'
+        '  "agents": []\n'
+        "}\n\n"
+        "Pick the smallest set of agents that covers the question. Most simple\n"
+        "queries need 0–1 agents. Use at most 2 specialists per turn.\n"
+        f'Use only these names in "name": {names_csv}.\n'
+        "Don't add agents you don't need."
+    )
 
 
 _SYNTHESIS_PROMPT = """You are the Manager. You delegated parts of the
@@ -122,25 +155,7 @@ def _build_plan(
     context_msgs: list[dict] | None = None,
 ) -> dict[str, Any]:
     """Ask the Manager (small fast model) to produce a delegation plan."""
-    # Trim the planning prompt to only the specialists the user enabled.
-    plan_prompt = _PLAN_PROMPT
-    if allowed_specialists:
-        # Build a filtered specialists block
-        registry = {
-            "Researcher": "Researcher : pulls fresh information; use when the answer depends on anything that might have changed recently.",
-            "Coder":      "Coder      : write, debug, or explain code.",
-            "Thinker":    "Thinker    : multi-step logic, math, or planning that benefits from explicit step-by-step reasoning.",
-            "Scholar":    "Scholar    : explanations of established knowledge, definitions, academic-style answers.",
-        }
-        lines = [f"  - {registry[k]}" for k in allowed_specialists if k in registry]
-        if lines:
-            specialists_block = "\n".join(lines)
-            plan_prompt = (
-                _PLAN_PROMPT.split("The specialists available:")[0]
-                + "The specialists available:\n\n" + specialists_block + "\n\n"
-                + _PLAN_PROMPT.split("Output format")[1].rsplit("Output format", 0)[0]
-                if False else _PLAN_PROMPT  # keep original if rebuilding fails
-            )
+    plan_prompt = _plan_prompt_for(allowed_specialists)
     messages: list[dict] = [
         {"role": "system", "content": plan_prompt},
     ]
@@ -165,7 +180,12 @@ def _build_plan(
     return plan
 
 
-def _run_agent(name: str, task: str, user_msg: str) -> tuple[str, str, int]:
+def _run_agent(
+    name: str,
+    task: str,
+    user_msg: str,
+    context_msgs: list[dict] | None = None,
+) -> tuple[str, str, int]:
     """Run one specialist agent. Returns (name, output, duration_ms)."""
     role = DELEGATABLE[name]
     started = time.time()
@@ -176,10 +196,14 @@ def _run_agent(name: str, task: str, user_msg: str) -> tuple[str, str, int]:
         f"The Manager will synthesize multiple specialist outputs into the "
         f"final answer to the user, so don't address the user directly."
     )
-    messages = [
+    messages: list[dict] = [
         {"role": "system", "content": system},
-        {"role": "user",   "content": f"User's original request: {user_msg}\n\nYour task: {task}"},
     ]
+    if context_msgs:
+        messages.extend(context_msgs)
+    messages.append(
+        {"role": "user", "content": f"User's original request: {user_msg}\n\nYour task: {task}"},
+    )
     out = chat_by_role(role, messages, temperature=0.7)
     dur = int((time.time() - started) * 1000)
     return (name, out, dur)
@@ -267,7 +291,9 @@ def orchestrate(
             # Sequential — predictable, no VRAM thrashing.
             for a in agent_specs:
                 try:
-                    n, out, dur = _run_agent(a["name"], a["task"], user_msg)
+                    n, out, dur = _run_agent(
+                        a["name"], a["task"], user_msg, context_msgs=context_msgs
+                    )
                 except Exception as e:
                     n, out, dur = a["name"], f"[{a['name']} failed: {e}]", 0
                 outputs.append((n, out, dur))
@@ -281,7 +307,13 @@ def orchestrate(
         else:
             with ThreadPoolExecutor(max_workers=min(max_parallel, len(agent_specs))) as pool:
                 futures = {
-                    pool.submit(_run_agent, a["name"], a["task"], user_msg): a["name"]
+                    pool.submit(
+                        _run_agent,
+                        a["name"],
+                        a["task"],
+                        user_msg,
+                        context_msgs=context_msgs,
+                    ): a["name"]
                     for a in agent_specs
                 }
                 for fut in as_completed(futures):
