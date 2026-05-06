@@ -14,6 +14,12 @@ operator sees exactly what is happening:
     {"type": "agent_start",      "agent": str, "task": str}
     {"type": "agent_thought",    "agent": str, "delta": str}
     {"type": "agent_done",       "agent": str, "output": str, "duration_ms": int}
+    {"type": "agent_question",   "agent": str, "task": str, "question": str}
+                                             # Specialist needs more info from
+                                             # the Director. UI renders an
+                                             # inline answer prompt; reply
+                                             # comes back through /chat as
+                                             # the next user message.
     {"type": "manager_synthesis"}            # Manager begins writing final answer
     {"type": "token",            "delta": str}       # Final answer tokens
     {"type": "reasoning",        "delta": str}       # Manager's reasoning (hidden)
@@ -192,9 +198,19 @@ def _run_agent(
     system = (
         f"You are {name}, a specialist working under a Manager. "
         f"Your specific task: {task}. "
-        f"Reply with ONLY your contribution — concise, focused, no preamble. "
-        f"The Manager will synthesize multiple specialist outputs into the "
-        f"final answer to the user, so don't address the user directly."
+        f"\n\n"
+        f"CRITICAL OPERATING RULES:\n"
+        f"1. NEVER ASSUME. If you do not know something with certainty, say so "
+        f"   explicitly. Do not invent facts, numbers, names, dates, code APIs, "
+        f"   or anything else. Mark guesses as guesses.\n"
+        f"2. If the task is ambiguous or you are missing information you need, "
+        f"   begin your reply with the literal token `[QUESTION]:` followed by "
+        f"   one short, specific question for the Manager. The Manager will "
+        f"   relay it to the Director and resume you with an answer.\n"
+        f"3. If you have what you need, reply with ONLY your contribution — "
+        f"   concise, focused, no preamble. The Manager will synthesize "
+        f"   multiple specialist outputs into the final answer to the user, "
+        f"   so don't address the user directly."
     )
     messages: list[dict] = [
         {"role": "system", "content": system},
@@ -304,6 +320,16 @@ def orchestrate(
                     "output": out,
                     "duration_ms": dur,
                 }
+                # If the specialist replied with [QUESTION]:, surface it as a
+                # backchannel event so the UI can render an inline prompt.
+                if out and out.lstrip().startswith("[QUESTION]:"):
+                    q = out.lstrip()[len("[QUESTION]:"):].strip()
+                    yield {
+                        "type": "agent_question",
+                        "agent": n,
+                        "task": next((s["task"] for s in agent_specs if s["name"] == n), ""),
+                        "question": q,
+                    }
         else:
             with ThreadPoolExecutor(max_workers=min(max_parallel, len(agent_specs))) as pool:
                 futures = {
@@ -330,6 +356,14 @@ def orchestrate(
                         "output": out,
                         "duration_ms": dur,
                     }
+                    if out and out.lstrip().startswith("[QUESTION]:"):
+                        q = out.lstrip()[len("[QUESTION]:"):].strip()
+                        yield {
+                            "type": "agent_question",
+                            "agent": n,
+                            "task": next((s["task"] for s in agent_specs if s["name"] == n), ""),
+                            "question": q,
+                        }
 
     # ── 3. Synthesis: Manager streams the final answer ───────────────────
     base_system = (

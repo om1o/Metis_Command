@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Relationships · Metis</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="/static/assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/styles/shell.css?v=v17">
+<link rel="stylesheet" href="/static/styles/wordmark.css?v=v17">
+<script src="/static/js/wordmark.js?v=v17" defer></script>
+</head>
+<body>
+
+<div class="layout">
+  <aside class="side">
+    <div class="side-head">
+      <button class="metis-mark size-sm" type="button" title="Refresh">
+        <img class="mm-glyph" src="/static/assets/metis-logomark-transparent.png" alt="">
+        <span class="mm-stack">
+          <span class="mm-word">Metis</span>
+          <span class="mm-sub">Relationships</span>
+        </span>
+      </button>
+    </div>
+    <nav class="nav" data-active="people"></nav>
+    <div class="side-foot">
+      <div class="avatar" id="userAvatar">M</div>
+      <div class="user-meta">
+        <div class="name" id="userName">Loading…</div>
+        <div class="role">Director</div>
+      </div>
+      <button class="btn" id="signoutBtn" style="height:32px;padding:0 10px;font-size:11px" title="Sign out">Sign out</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="page-head">
+      <h1 class="page-title">Your <em>people</em></h1>
+      <span class="page-sub">Contacts · Conversations · Folders</span>
+      <button class="btn primary">+ Add contact</button>
+    </div>
+    <div class="body">
+      <div class="body-inner">
+        <div class="placeholder">
+          <span class="badge">Group 4 · Coming soon</span>
+          <h2>Everyone the agent <em>knows about</em>.</h2>
+          <p>Contacts, conversation history, folders, tags. When you ask the agent to find someone, call someone, or remember what someone said — it lives here.</p>
+          <div class="feat-list">
+            <div class="feat"><strong>Contacts</strong>Full directory with avatars, last-seen, tags, notes.</div>
+            <div class="feat"><strong>Per-contact history</strong>Every message, call, email the agent has had with this person.</div>
+            <div class="feat"><strong>Folders</strong>Family · Work · Friends · custom tags. Drag to reorganize.</div>
+            <div class="feat"><strong>One-click reach out</strong>Have the manager call, text, or email any contact with AI voice.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script type="module" src="/static/js/nav.js?v=v17"></script>
+</body>
+</html>

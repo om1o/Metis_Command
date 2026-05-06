@@ -43,6 +43,7 @@ PUBLIC_PATHS = {"/", "/health", "/version", "/status",
                 "/webhooks/stripe",
                 # Frontend pages + auth (no bearer token required)
                 "/login", "/app", "/signup", "/setup", "/splash",
+                "/money", "/people", "/automations",
                 "/oauth/callback",
                 "/auth/signup", "/auth/signin", "/auth/signout",
                 "/auth/oauth/start", "/auth/oauth/complete",
@@ -1281,6 +1282,26 @@ def page_splash() -> FileResponse:
     return FileResponse(_FRONTEND_DIR / "splash.html")
 
 
+# ── Money / People / Automations pages (Group 1 scaffolds) ─────────────────
+# Note: /relationships is already a JSON API. The HTML page lives at /people
+# so browsers and API clients don't fight for the same route. The sidebar
+# button still reads "Relationships" — the URL is internal.
+
+@app.get("/money")
+def page_money() -> FileResponse:
+    return FileResponse(_FRONTEND_DIR / "money.html")
+
+
+@app.get("/people")
+def page_people() -> FileResponse:
+    return FileResponse(_FRONTEND_DIR / "people.html")
+
+
+@app.get("/automations")
+def page_automations() -> FileResponse:
+    return FileResponse(_FRONTEND_DIR / "automations.html")
+
+
 @app.get("/logo-test")
 def page_logo_test() -> FileResponse:
     return FileResponse(_FRONTEND_DIR / "logo-test.html")
@@ -1330,6 +1351,10 @@ class ManagerConfigUpdate(BaseModel):
     director_about: str | None = None
     accent_color: str | None = None
     specialists: list[str] | None = None
+    notification_email: str | None = None
+    notification_phone: str | None = None
+    notify_on_complete: bool | None = None
+    notify_on_question: bool | None = None
 
 
 @app.post("/manager/config")

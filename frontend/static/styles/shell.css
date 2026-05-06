@@ -1,0 +1,76 @@
+/* ── Metis shared page shell ──────────────────────────────────────────────
+   Used by money.html, people.html, automations.html.
+   Provides: design tokens, two-column layout, sidebar nav, header bar,
+   mesh-gradient background. Each page slots its own content into <main>. */
+
+:root{
+  --vi:#7C3AED; --vi2:#A78BFA; --co:#FB7185; --am:#F59E0B; --bl:#3B82F6; --gr:#22C55E;
+  --bg:#07071a; --bg-2:#0d0d24; --panel:rgba(255,255,255,.04); --panel-2:rgba(255,255,255,.06);
+  --text:#F8FAFF; --muted:rgba(248,250,255,.6); --subtle:rgba(248,250,255,.32);
+  --border:rgba(255,255,255,.08); --border-2:rgba(255,255,255,.14);
+  --grad:linear-gradient(135deg,var(--vi),var(--co) 55%,var(--am));
+  --accent: #7C3AED;
+  --accent-soft: rgba(124,58,237,.18);
+  --accent-glow: rgba(124,58,237,.35);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden}
+body::before{content:"";position:fixed;inset:0;background:
+  radial-gradient(circle at 12% 8%,rgba(124,58,237,.18),transparent 50%),
+  radial-gradient(circle at 90% 100%,rgba(251,113,133,.10),transparent 55%);
+  z-index:0;pointer-events:none}
+
+/* Layout */
+.layout{position:relative;z-index:1;display:grid;grid-template-columns:240px 1fr;height:100vh}
+
+/* Sidebar nav */
+.side{background:rgba(7,7,26,.7);backdrop-filter:blur(20px);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.side-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;min-height:64px}
+.side-head .metis-mark{flex:1;min-width:0}
+.nav{flex:1;padding:14px 8px;display:flex;flex-direction:column;gap:2px;overflow-y:auto}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;color:var(--muted);text-decoration:none;font-size:13.5px;font-weight:500;cursor:pointer;transition:all .15s;background:transparent;border:none;width:100%;text-align:left;font-family:inherit}
+.nav-item:hover{background:var(--panel);color:var(--text)}
+.nav-item.active{background:var(--accent-soft);color:var(--text);box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent)}
+.nav-item .ico{width:18px;height:18px;flex-shrink:0;stroke:currentColor;stroke-width:2;fill:none}
+.nav-item .lbl{flex:1}
+.nav-section{padding:14px 16px 6px;font-family:'Sora',sans-serif;font-size:10.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--subtle)}
+
+.side-foot{border-top:1px solid var(--border);padding:14px 16px;display:flex;align-items:center;gap:10px}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--grad);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;flex-shrink:0}
+.user-meta{flex:1;min-width:0}
+.user-meta .name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.user-meta .role{font-size:11px;color:var(--subtle);text-transform:uppercase;letter-spacing:.06em}
+
+/* Main */
+.main{display:flex;flex-direction:column;overflow:hidden;position:relative}
+.page-head{padding:18px 32px;border-bottom:1px solid var(--border);background:rgba(7,7,26,.5);backdrop-filter:blur(14px);display:flex;align-items:center;gap:14px}
+.page-title{font-family:'Sora',sans-serif;font-size:22px;font-weight:700;letter-spacing:-.02em}
+.page-title em{font-family:Georgia,serif;font-style:italic;font-weight:400;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.page-sub{color:var(--muted);font-size:13.5px;margin-left:14px;flex:1}
+
+.body{flex:1;overflow-y:auto;padding:32px}
+.body-inner{max-width:980px;margin:0 auto}
+
+/* Empty / coming-soon card */
+.placeholder{padding:48px 32px;text-align:center;border-radius:18px;background:var(--panel);border:1px solid var(--border);box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
+.placeholder .badge{display:inline-block;padding:5px 12px;border-radius:99px;background:var(--accent-soft);border:1px solid color-mix(in srgb, var(--accent) 35%, transparent);color:var(--vi2);font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:18px}
+.placeholder h2{font-family:'Sora',sans-serif;font-size:28px;font-weight:700;letter-spacing:-.02em;margin-bottom:10px}
+.placeholder h2 em{font-family:Georgia,serif;font-style:italic;font-weight:400;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.placeholder p{color:var(--muted);font-size:14.5px;line-height:1.6;max-width:60ch;margin:0 auto 22px}
+.placeholder .feat-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-top:24px;text-align:left}
+.placeholder .feat{padding:14px 16px;border-radius:11px;background:var(--panel-2);border:1px solid var(--border);font-size:13px;color:var(--muted);line-height:1.5}
+.placeholder .feat strong{color:var(--text);display:block;font-weight:600;margin-bottom:4px}
+
+/* Buttons */
+.btn{height:38px;padding:0 16px;border-radius:10px;border:1px solid var(--border-2);background:var(--panel-2);color:var(--text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:8px;transition:all .15s}
+.btn:hover{background:var(--accent-soft);border-color:var(--accent)}
+.btn.primary{background:var(--grad);border-color:transparent;color:#fff}
+.btn.primary:hover{transform:translateY(-1px);box-shadow:0 8px 24px var(--accent-glow)}
+
+/* Mobile */
+@media(max-width:880px){
+  .layout{grid-template-columns:1fr}
+  .side{display:none}
+  .page-head{padding:12px 16px}
+  .body{padding:16px}
+}

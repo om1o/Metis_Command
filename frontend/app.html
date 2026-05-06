@@ -42,6 +42,13 @@ body::before{content:"";position:fixed;inset:0;background:
 .side-head .metis-mark{flex:1;min-width:0}
 .side-head .ver{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--subtle);background:var(--panel);padding:3px 7px;border-radius:5px;border:1px solid var(--border);flex-shrink:0}
 
+/* Top-level page nav (Chat / Money / Relationships / Automations) */
+.page-nav{padding:8px 8px 4px;display:flex;flex-direction:column;gap:1px;border-bottom:1px solid var(--border)}
+.page-nav-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;color:var(--muted);text-decoration:none;font-size:12.5px;font-weight:500;cursor:pointer;transition:all .15s}
+.page-nav-item:hover{background:var(--panel);color:var(--text)}
+.page-nav-item.active{background:var(--accent-soft);color:var(--text);box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent)}
+.page-nav-item svg{width:16px;height:16px;stroke:currentColor;stroke-width:2;fill:none;flex-shrink:0}
+
 .new-btn{margin:14px 16px 8px;height:38px;border-radius:10px;border:1px solid var(--border-2);background:var(--panel-2);color:var(--text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .18s}
 .new-btn:hover{background:var(--accent-soft);border-color:var(--accent)}
 .new-btn svg{width:14px;height:14px;stroke:currentColor;stroke-width:2.5;fill:none}
@@ -349,6 +356,27 @@ pre:hover .code-copy{opacity:1}
 .agent-timeout{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);font-size:12px;color:#FBBF24;font-family:'JetBrains Mono',monospace;margin-top:4px;animation:fadeIn .3s ease}
 .agent-timeout .ico{font-size:14px;flex-shrink:0}
 
+/* Agent question backchannel */
+.agent-question-box{margin-top:8px;padding:12px 14px;border-radius:10px;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.3);animation:fadeIn .35s ease}
+.agent-question-box .aq-label{font-family:'JetBrains Mono',monospace;font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;color:#93C5FD;margin-bottom:6px}
+.agent-question-box .aq-question{font-size:13.5px;line-height:1.5;color:var(--text);margin-bottom:6px}
+.agent-question-box .aq-hint{font-size:11.5px;color:var(--subtle);font-style:italic}
+
+/* AGENTS.md editor modal */
+.agents-md-overlay{position:fixed;inset:0;z-index:300;background:rgba(7,7,26,.72);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;padding:24px;animation:fadeIn .2s ease}
+.agents-md-overlay.show{display:flex}
+.agents-md-modal{width:680px;max-width:100%;max-height:80vh;background:rgba(13,13,36,.96);backdrop-filter:blur(40px);border:1px solid var(--border-2);border-radius:14px;box-shadow:0 32px 80px rgba(0,0,0,.5);display:flex;flex-direction:column;overflow:hidden}
+.agents-md-head{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
+.agents-md-head h3{font-family:'Sora',sans-serif;font-size:17px;font-weight:700;flex:1}
+.agents-md-head .close{background:transparent;border:none;color:var(--subtle);cursor:pointer;font-size:22px;line-height:1;padding:4px 10px}
+.agents-md-head .close:hover{color:var(--text)}
+.agents-md-body{flex:1;padding:18px 22px;overflow-y:auto}
+.agents-md-body textarea{width:100%;min-height:340px;background:rgba(0,0,0,.25);border:1px solid var(--border);border-radius:10px;padding:14px;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--text);resize:vertical;outline:none;line-height:1.55}
+.agents-md-body textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.agents-md-foot{padding:14px 22px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px}
+.agents-md-foot .hint{font-size:11.5px;color:var(--subtle)}
+.agents-md-foot .actions{display:flex;gap:8px}
+
 /* ── Hamburger toggle (mobile only) ── */
 .hamburger{display:none;background:transparent;border:none;color:var(--text);cursor:pointer;padding:6px;border-radius:7px;transition:background .15s;flex-shrink:0}
 .hamburger:hover{background:var(--panel)}
@@ -538,6 +566,26 @@ pre:hover .code-copy{opacity:1}
       <span class="ver">v16.4</span>
     </div>
 
+    <!-- Top-level page nav (Group 1) -->
+    <div class="page-nav" id="pageNav">
+      <a class="page-nav-item active" href="/app" data-id="chat">
+        <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span>Chat</span>
+      </a>
+      <a class="page-nav-item" href="/money" data-id="money">
+        <svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        <span>Money</span>
+      </a>
+      <a class="page-nav-item" href="/people" data-id="people">
+        <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg>
+        <span>Relationships</span>
+      </a>
+      <a class="page-nav-item" href="/automations" data-id="automations">
+        <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        <span>Automations</span>
+      </a>
+    </div>
+
     <button class="new-btn" id="newChatBtn">
       <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       New conversation
@@ -696,6 +744,26 @@ pre:hover .code-copy{opacity:1}
       </div>
     </div>
   </main>
+</div>
+
+<!-- AGENTS.md editor modal -->
+<div class="agents-md-overlay" id="agentsMdOverlay">
+  <div class="agents-md-modal" role="dialog" aria-label="Agent brief editor">
+    <div class="agents-md-head">
+      <h3 id="agentsMdTitle">Agent brief — AGENTS.md</h3>
+      <button class="close" id="agentsMdClose" aria-label="Close">×</button>
+    </div>
+    <div class="agents-md-body">
+      <textarea id="agentsMdText" spellcheck="false"></textarea>
+    </div>
+    <div class="agents-md-foot">
+      <span class="hint">Edits apply to the next time this specialist runs.</span>
+      <div class="actions">
+        <button class="act-btn" id="agentsMdReset">Reset</button>
+        <button class="act-btn" id="agentsMdSave" style="background:var(--grad);color:#fff;border:none">Save</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Command palette -->
@@ -1875,6 +1943,18 @@ async function sendMessage() {
         if (agentCards[ev.agent]) {
           finishAgentCard(agentCards[ev.agent], ev.output || '', ev.duration_ms || 0);
         }
+      } else if (ev.type === 'agent_question') {
+        // Specialist needs more info — render an inline answer prompt.
+        const card = agentCards[ev.agent];
+        if (card) {
+          const qBox = document.createElement('div');
+          qBox.className = 'agent-question-box';
+          qBox.innerHTML = `
+            <div class="aq-label">${escapeHtml(ev.agent)} needs more info:</div>
+            <div class="aq-question">${escapeHtml(ev.question || '')}</div>
+            <div class="aq-hint">Reply in chat with your answer — I'll relay it.</div>`;
+          card.appendChild(qBox);
+        }
       } else if (ev.type === 'manager_synthesis') {
         if (stageLabel) stageLabel.textContent = 'Composing answer...';
         synthBanner = makeSynthBanner(activity);
@@ -2429,6 +2509,84 @@ const TASK_KEYWORDS = /\b(find and|search and save|research and|scrape|fetch eve
 function detectAutomationIntent(text) {
   return AUTO_KEYWORDS.test(text) || TASK_KEYWORDS.test(text);
 }
+
+// ── AGENTS.md editor modal (Group 1) ───────────────────────────────────
+// Per-specialist task brief override. Stored in localStorage by agent name;
+// the orchestrator reads these on the next /chat call (wired in Group 6).
+const _AGENTS_MD_KEY = 'metis.agents_md';
+
+function getAgentsMdOverrides() {
+  try { return JSON.parse(localStorage.getItem(_AGENTS_MD_KEY) || '{}'); }
+  catch { return {}; }
+}
+function setAgentsMdOverride(agent, text) {
+  const all = getAgentsMdOverrides();
+  if (text && text.trim()) all[agent] = text;
+  else delete all[agent];
+  localStorage.setItem(_AGENTS_MD_KEY, JSON.stringify(all));
+}
+function getDefaultAgentsMd(agent) {
+  return [
+    `# AGENTS.md — ${agent}`,
+    ``,
+    `## Operating rules`,
+    `- Never assume. If you don't know something with certainty, ask the Manager.`,
+    `- Reply with only your contribution. The Manager synthesizes the final answer.`,
+    `- Begin with \`[QUESTION]:\` if you need clarification before continuing.`,
+    ``,
+    `## Style`,
+    `- Concise, focused, no preamble.`,
+    `- Cite sources when you state non-obvious facts.`,
+    ``,
+    `## Off-limits`,
+    `- Don't invent APIs, numbers, dates, or names.`,
+    `- Don't speculate beyond what the user asked.`,
+  ].join('\n');
+}
+
+const agentsMdOverlay = document.getElementById('agentsMdOverlay');
+const agentsMdText = document.getElementById('agentsMdText');
+const agentsMdTitle = document.getElementById('agentsMdTitle');
+let _currentAgentEdit = null;
+
+function openAgentsMd(agent) {
+  _currentAgentEdit = agent;
+  agentsMdTitle.textContent = `Agent brief — ${agent} · AGENTS.md`;
+  const over = getAgentsMdOverrides();
+  agentsMdText.value = over[agent] || getDefaultAgentsMd(agent);
+  agentsMdOverlay.classList.add('show');
+  setTimeout(() => agentsMdText.focus(), 80);
+}
+function closeAgentsMd() {
+  agentsMdOverlay.classList.remove('show');
+  _currentAgentEdit = null;
+}
+document.getElementById('agentsMdClose').addEventListener('click', closeAgentsMd);
+agentsMdOverlay.addEventListener('click', (e) => { if (e.target === agentsMdOverlay) closeAgentsMd(); });
+document.getElementById('agentsMdSave').addEventListener('click', () => {
+  if (_currentAgentEdit) {
+    setAgentsMdOverride(_currentAgentEdit, agentsMdText.value);
+    if (window.toast) toast('success', 'Brief saved', `${_currentAgentEdit} will use the new brief next run`, 2200);
+  }
+  closeAgentsMd();
+});
+document.getElementById('agentsMdReset').addEventListener('click', () => {
+  if (_currentAgentEdit) {
+    agentsMdText.value = getDefaultAgentsMd(_currentAgentEdit);
+  }
+});
+
+// Right-click on any agent card opens its AGENTS.md editor.
+document.addEventListener('contextmenu', (e) => {
+  const card = e.target.closest('.agent-card[data-agent]');
+  if (card) {
+    e.preventDefault();
+    openAgentsMd(card.dataset.agent);
+  }
+});
+// Also surface a tiny "edit brief" button on each card head when finished
+// (handled inside finishAgentCard — see addEditBriefButton below).
+window.openAgentsMd = openAgentsMd;  // expose for inline handlers
 
 // ── Mobile sidebar drawer ──────────────────────────────────────────────
 const sidebar = document.querySelector('.side');

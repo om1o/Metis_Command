@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Money · Metis</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="/static/assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/styles/shell.css?v=v17">
+<link rel="stylesheet" href="/static/styles/wordmark.css?v=v17">
+<script src="/static/js/wordmark.js?v=v17" defer></script>
+</head>
+<body>
+
+<div class="layout">
+  <aside class="side">
+    <div class="side-head">
+      <button class="metis-mark size-sm" type="button" title="Refresh">
+        <img class="mm-glyph" src="/static/assets/metis-logomark-transparent.png" alt="">
+        <span class="mm-stack">
+          <span class="mm-word">Metis</span>
+          <span class="mm-sub">Money</span>
+        </span>
+      </button>
+    </div>
+    <nav class="nav" data-active="money"></nav>
+    <div class="side-foot">
+      <div class="avatar" id="userAvatar">M</div>
+      <div class="user-meta">
+        <div class="name" id="userName">Loading…</div>
+        <div class="role">Director</div>
+      </div>
+      <button class="btn" id="signoutBtn" style="height:32px;padding:0 10px;font-size:11px" title="Sign out">Sign out</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="page-head">
+      <h1 class="page-title">Money <em>vault</em></h1>
+      <span class="page-sub">Wallet · Cards · Investing · Vault</span>
+      <button class="btn primary">+ Top up</button>
+    </div>
+    <div class="body">
+      <div class="body-inner">
+        <div class="placeholder">
+          <span class="badge">Group 2 · Coming next</span>
+          <h2>The Manager's <em>wallet</em>.</h2>
+          <p>This is where you'll fund your AI agent, see what it spent, manage payment methods, watch a portfolio, and review every account it ever created — all encrypted, all under your hard caps.</p>
+          <div class="feat-list">
+            <div class="feat"><strong>Wallet</strong>Balance, monthly cap progress, ledger by category, top-up via Stripe.</div>
+            <div class="feat"><strong>Cards</strong>Saved payment methods (last 4 digits only — never raw card numbers).</div>
+            <div class="feat"><strong>Investing</strong>Portfolio view + AI watchlist. Every trade is permission-gated, with hard daily caps.</div>
+            <div class="feat"><strong>Vault</strong>AES-GCM encrypted credentials for every account the agent created or you saved.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script type="module" src="/static/js/nav.js?v=v17"></script>
+</body>
+</html>

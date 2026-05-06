@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Automations · Metis</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="/static/assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/styles/shell.css?v=v17">
+<link rel="stylesheet" href="/static/styles/wordmark.css?v=v17">
+<script src="/static/js/wordmark.js?v=v17" defer></script>
+</head>
+<body>
+
+<div class="layout">
+  <aside class="side">
+    <div class="side-head">
+      <button class="metis-mark size-sm" type="button" title="Refresh">
+        <img class="mm-glyph" src="/static/assets/metis-logomark-transparent.png" alt="">
+        <span class="mm-stack">
+          <span class="mm-word">Metis</span>
+          <span class="mm-sub">Automations</span>
+        </span>
+      </button>
+    </div>
+    <nav class="nav" data-active="automations"></nav>
+    <div class="side-foot">
+      <div class="avatar" id="userAvatar">M</div>
+      <div class="user-meta">
+        <div class="name" id="userName">Loading…</div>
+        <div class="role">Director</div>
+      </div>
+      <button class="btn" id="signoutBtn" style="height:32px;padding:0 10px;font-size:11px" title="Sign out">Sign out</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="page-head">
+      <h1 class="page-title">Automation <em>board</em></h1>
+      <span class="page-sub">Scheduled · Running · History</span>
+      <button class="btn primary">+ Create automation</button>
+    </div>
+    <div class="body">
+      <div class="body-inner">
+        <div class="placeholder">
+          <span class="badge">Group 5 · Coming soon</span>
+          <h2>Tell it once, it runs <em>forever</em>.</h2>
+          <p>Build automations that run on a schedule (every morning, every Monday, once at 3pm) or on demand. The agent always asks clarifying questions before it commits.</p>
+          <div class="feat-list">
+            <div class="feat"><strong>Visual board</strong>Draft → Scheduled → Running → History. Drag to advance.</div>
+            <div class="feat"><strong>Explicit instructions</strong>The wizard forces you to clarify every detail before saving.</div>
+            <div class="feat"><strong>Custom AGENTS.md</strong>Each automation gets its own task brief — editable any time.</div>
+            <div class="feat"><strong>Approval rules</strong>Auto-run, prompt-once, or always-confirm. You control the leash.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script type="module" src="/static/js/nav.js?v=v17"></script>
+</body>
+</html>

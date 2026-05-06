@@ -274,16 +274,28 @@ const STEPS = [
       `).join('')}
     </div>` : `${header('Step 4 of 6', 'Choose your <em>model</em>.', 'No models found yet. Make sure Ollama is running, or set GLM_API_KEY / GROQ_API_KEY in your .env to enable cloud routes.')}<div class="banner show error">No models available. You can finish setup and we'll detect them when they come online.</div>`,
 
-  // Step 5 — Director profile
-  () => `${header('Step 5 of 6', 'Tell <em>' + esc(cfg.manager_name) + '</em> about you.', 'Whatever ' + esc(cfg.manager_name) + ' knows about you can be used to give better answers. Keep it short or write paragraphs — your call.')}
+  // Step 5 — Director profile + notification preferences
+  () => `${header('Step 5 of 6', 'Tell <em>' + esc(cfg.manager_name) + '</em> about you.', 'Whatever ' + esc(cfg.manager_name) + ' knows about you can be used to give better answers. The notification fields are how the manager reaches you when an automation finishes or a subagent has a question.')}
     <div class="field">
       <label>What should ${esc(cfg.manager_name)} call you?</label>
       <input type="text" id="directorName" maxlength="40" value="${esc(cfg.director_name)}" placeholder="Your name">
     </div>
     <div class="field">
       <label>About you <span style="color:var(--subtle)">(role, projects, preferences — anything)</span></label>
-      <textarea id="directorAbout" rows="7" placeholder="e.g. Software engineer building a product company. Prefer concise answers with code samples. Working on Metis (an AI orchestrator). I read fast, ship fast.">${esc(cfg.director_about)}</textarea>
+      <textarea id="directorAbout" rows="6" placeholder="e.g. Software engineer building a product company. Prefer concise answers with code samples. Working on Metis (an AI orchestrator). I read fast, ship fast.">${esc(cfg.director_about)}</textarea>
       <div class="hint">This is added to ${esc(cfg.manager_name)}'s system prompt so it persists across every conversation.</div>
+    </div>
+    <div class="row-2">
+      <div class="field">
+        <label>Notification email <span style="color:var(--subtle)">(optional)</span></label>
+        <input type="email" id="notificationEmail" maxlength="120" value="${esc(cfg.notification_email || '')}" placeholder="you@example.com">
+        <div class="hint">For task-complete pings.</div>
+      </div>
+      <div class="field">
+        <label>Notification phone <span style="color:var(--subtle)">(optional)</span></label>
+        <input type="tel" id="notificationPhone" maxlength="20" value="${esc(cfg.notification_phone || '')}" placeholder="+1 555 555 5555">
+        <div class="hint">SMS / call alerts via Twilio.</div>
+      </div>
     </div>`,
 
   // Step 6 — Specialists / Crew
@@ -409,6 +421,8 @@ function saveStepInputs() {
   } else if (stepIdx === 4) {
     cfg.director_name = (document.getElementById('directorName')?.value || '').trim() || 'Director';
     cfg.director_about = (document.getElementById('directorAbout')?.value || '').trim();
+    cfg.notification_email = (document.getElementById('notificationEmail')?.value || '').trim();
+    cfg.notification_phone = (document.getElementById('notificationPhone')?.value || '').trim();
   }
 }
 
