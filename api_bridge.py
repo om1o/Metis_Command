@@ -868,6 +868,20 @@ class ScheduleAddRequest(BaseModel):
     project_slug: str | None = None
     auto_approve: bool = True
     action: str = ""
+    name: str = ""
+    description: str = ""
+    agents_md: str = ""
+
+
+class SchedulePatchRequest(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    goal: str | None = None
+    kind: str | None = None
+    spec: str | None = None
+    auto_approve: bool | None = None
+    enabled: bool | None = None
+    agents_md: str | None = None
 
 
 @app.get("/schedules")
@@ -886,7 +900,20 @@ def schedules_add(req: ScheduleAddRequest) -> dict:
         project_slug=req.project_slug,
         auto_approve=req.auto_approve,
         action=req.action,
+        name=req.name,
+        description=req.description,
+        agents_md=req.agents_md,
     )
+    return s.to_dict()
+
+
+@app.patch("/schedules/{schedule_id}")
+def schedules_patch(schedule_id: str, req: SchedulePatchRequest) -> dict:
+    from scheduler import patch as _patch
+    updates = {k: v for k, v in req.model_dump().items() if v is not None}
+    s = _patch(schedule_id, updates)
+    if not s:
+        raise HTTPException(status_code=404, detail="schedule not found")
     return s.to_dict()
 
 

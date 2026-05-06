@@ -8,9 +8,78 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/styles/shell.css?v=v17">
-<link rel="stylesheet" href="/static/styles/wordmark.css?v=v17">
-<script src="/static/js/wordmark.js?v=v17" defer></script>
+<link rel="stylesheet" href="/static/styles/shell.css?v=v18">
+<link rel="stylesheet" href="/static/styles/wordmark.css?v=v18">
+<script src="/static/js/wordmark.js?v=v18" defer></script>
+<style>
+/* ── Automation board layout ── */
+.board{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px}
+.column{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;gap:10px;min-height:200px}
+.column-head{display:flex;align-items:center;gap:8px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.column-head h3{font-family:'Sora',sans-serif;font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--subtle);flex:1}
+.column-head .count{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--vi2);background:var(--accent-soft);padding:2px 8px;border-radius:99px;font-weight:600}
+.column.active .count{color:#86EFAC;background:rgba(34,197,94,.15)}
+.column.history .count{color:var(--subtle);background:var(--panel-2)}
+
+/* Automation card */
+.auto-card{padding:13px 14px;border-radius:11px;background:var(--panel-2);border:1px solid var(--border);transition:all .15s;cursor:pointer}
+.auto-card:hover{border-color:var(--border-2);background:rgba(255,255,255,.06)}
+.auto-card.disabled{opacity:.55}
+.auto-card .title{font-family:'Sora',sans-serif;font-size:13.5px;font-weight:700;color:var(--text);margin-bottom:5px;line-height:1.35}
+.auto-card .schedule{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--vi2);margin-bottom:7px;display:flex;align-items:center;gap:6px}
+.auto-card .schedule .kind-pill{padding:1px 7px;border-radius:99px;background:var(--accent-soft);text-transform:uppercase;letter-spacing:.06em;font-size:9px}
+.auto-card .desc{font-size:12px;color:var(--muted);line-height:1.45;margin-bottom:8px}
+.auto-card .meta{display:flex;align-items:center;justify-content:space-between;font-size:10.5px;font-family:'JetBrains Mono',monospace;color:var(--subtle)}
+.auto-card .meta .status{padding:1px 7px;border-radius:99px;text-transform:uppercase;letter-spacing:.06em;font-size:9px;font-weight:600}
+.auto-card .meta .status.ok{background:rgba(34,197,94,.14);color:#86EFAC}
+.auto-card .meta .status.failed{background:rgba(251,113,133,.14);color:#FCA5A5}
+.auto-card .meta .status.pending{background:rgba(245,158,11,.14);color:#FCD34D}
+.auto-card .actions{display:flex;gap:4px;margin-top:9px}
+.auto-card .actions button{height:28px;padding:0 10px;font-size:10.5px;border-radius:6px;background:transparent;border:1px solid var(--border);color:var(--muted);cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:4px}
+.auto-card .actions button:hover{border-color:var(--border-2);color:var(--text);background:var(--panel)}
+.auto-card .actions button.danger:hover{border-color:var(--co);color:var(--co);background:rgba(251,113,133,.08)}
+.auto-card .actions button.primary{background:var(--accent-soft);border-color:color-mix(in srgb, var(--accent) 30%, transparent);color:var(--text)}
+
+/* Wizard modal */
+.modal-overlay{position:fixed;inset:0;z-index:200;background:rgba(7,7,26,.72);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;padding:24px;animation:fadeIn .2s}
+.modal-overlay.show{display:flex}
+.modal{width:560px;max-width:100%;max-height:85vh;background:rgba(13,13,36,.96);backdrop-filter:blur(40px);border:1px solid var(--border-2);border-radius:14px;box-shadow:0 32px 80px rgba(0,0,0,.5);display:flex;flex-direction:column;overflow:hidden}
+.modal-head{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
+.modal-head h3{font-family:'Sora',sans-serif;font-size:17px;font-weight:700;flex:1}
+.modal-head .close{background:transparent;border:none;color:var(--subtle);cursor:pointer;font-size:22px;padding:0 6px;line-height:1}
+.modal-head .close:hover{color:var(--text)}
+.modal-body{padding:18px 22px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:14px}
+.modal-body label{font-size:11px;color:var(--subtle);text-transform:uppercase;letter-spacing:.1em;font-weight:600;margin-bottom:5px;display:block}
+.modal-body label .opt{color:var(--subtle);text-transform:none;letter-spacing:0;font-size:10.5px;font-weight:400;margin-left:6px}
+.modal-body input,.modal-body textarea,.modal-body select{width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:rgba(0,0,0,.25);color:var(--text);font-family:inherit;font-size:13px;outline:none}
+.modal-body textarea{font-family:'JetBrains Mono',monospace;font-size:12px;resize:vertical;line-height:1.55}
+.modal-body input:focus,.modal-body textarea:focus,.modal-body select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.modal-body .hint{font-size:11.5px;color:var(--subtle);margin-top:5px;line-height:1.45}
+.modal-body .row-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+.kind-tabs{display:flex;gap:4px;background:rgba(0,0,0,.25);border-radius:8px;padding:3px}
+.kind-tab{flex:1;padding:9px 6px;border-radius:6px;background:transparent;border:none;color:var(--muted);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;transition:all .12s;text-align:center}
+.kind-tab:hover{color:var(--text)}
+.kind-tab.active{background:var(--accent-soft);color:var(--text)}
+
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-radius:9px;background:var(--panel-2);border:1px solid var(--border)}
+.toggle-row .info{flex:1;padding-right:14px}
+.toggle-row .info .lbl{font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px}
+.toggle-row .info .desc{font-size:11.5px;color:var(--subtle);line-height:1.45}
+.toggle-switch{width:42px;height:24px;border-radius:99px;background:var(--panel);border:1px solid var(--border);position:relative;cursor:pointer;transition:all .2s;flex-shrink:0}
+.toggle-switch::after{content:"";position:absolute;left:2px;top:2px;width:18px;height:18px;border-radius:50%;background:var(--muted);transition:all .2s}
+.toggle-switch.on{background:var(--accent-soft);border-color:var(--accent)}
+.toggle-switch.on::after{left:20px;background:var(--accent)}
+
+.modal-foot{padding:14px 22px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px}
+.modal-foot .step-dots{display:flex;gap:5px}
+.modal-foot .dot{width:8px;height:8px;border-radius:50%;background:var(--border)}
+.modal-foot .dot.active{background:var(--accent)}
+.modal-foot .actions{display:flex;gap:8px}
+
+/* AGENTS.md editor inside modal */
+.md-textarea{min-height:280px}
+</style>
 </head>
 <body>
 
@@ -39,26 +108,387 @@
   <main class="main">
     <div class="page-head">
       <h1 class="page-title">Automation <em>board</em></h1>
-      <span class="page-sub">Scheduled · Running · History</span>
-      <button class="btn primary">+ Create automation</button>
+      <span class="page-sub">Active · Disabled · System</span>
+      <button class="btn primary" id="createBtn">+ Create automation</button>
     </div>
     <div class="body">
-      <div class="body-inner">
-        <div class="placeholder">
-          <span class="badge">Group 5 · Coming soon</span>
-          <h2>Tell it once, it runs <em>forever</em>.</h2>
-          <p>Build automations that run on a schedule (every morning, every Monday, once at 3pm) or on demand. The agent always asks clarifying questions before it commits.</p>
-          <div class="feat-list">
-            <div class="feat"><strong>Visual board</strong>Draft → Scheduled → Running → History. Drag to advance.</div>
-            <div class="feat"><strong>Explicit instructions</strong>The wizard forces you to clarify every detail before saving.</div>
-            <div class="feat"><strong>Custom AGENTS.md</strong>Each automation gets its own task brief — editable any time.</div>
-            <div class="feat"><strong>Approval rules</strong>Auto-run, prompt-once, or always-confirm. You control the leash.</div>
+      <div class="body-inner" style="max-width:1400px">
+        <div class="board">
+          <div class="column active">
+            <div class="column-head">
+              <h3>Active</h3>
+              <span class="count" id="countActive">0</span>
+            </div>
+            <div id="colActive">
+              <div class="empty-row" style="padding:14px 8px;color:var(--subtle);font-size:12.5px;text-align:center">No active automations. Hit <strong>+ Create</strong> to add one.</div>
+            </div>
+          </div>
+          <div class="column">
+            <div class="column-head">
+              <h3>Disabled</h3>
+              <span class="count" id="countDisabled">0</span>
+            </div>
+            <div id="colDisabled">
+              <div class="empty-row" style="padding:14px 8px;color:var(--subtle);font-size:12.5px;text-align:center">Nothing paused.</div>
+            </div>
+          </div>
+          <div class="column history">
+            <div class="column-head">
+              <h3>System defaults</h3>
+              <span class="count" id="countSystem">0</span>
+            </div>
+            <div id="colSystem">
+              <div class="empty-row" style="padding:14px 8px;color:var(--subtle);font-size:12.5px;text-align:center">No system schedules.</div>
+            </div>
           </div>
         </div>
       </div>
     </div>
   </main>
 </div>
+
+<!-- Create / Edit wizard -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" role="dialog">
+    <div class="modal-head">
+      <h3 id="modalTitle">Create an automation</h3>
+      <button class="close" id="modalClose">×</button>
+    </div>
+    <div class="modal-body">
+      <!-- Step 1: Goal -->
+      <div class="step" data-step="1">
+        <label>What should the agent do? <span class="opt">— be specific</span></label>
+        <input type="text" id="wizName" placeholder="Summarize today's emails by 5pm" maxlength="80">
+        <div class="hint">A short label you'll see on the board.</div>
+
+        <div style="height:14px"></div>
+        <label>Full instructions <span class="opt">— what should the AI do, step by step?</span></label>
+        <textarea id="wizGoal" rows="5" style="font-family:inherit" placeholder="Read every email received between 8am and 5pm. For each, summarize the gist in one line, flag anything urgent, group by sender. Email me a digest at 5:05pm with the top 5 urgent items at the top."></textarea>
+        <div class="hint">⚠ <strong>Be explicit.</strong> The agent will refuse to invent details — vague goals get vague results.</div>
+      </div>
+
+      <!-- Step 2: Schedule -->
+      <div class="step" data-step="2" style="display:none">
+        <label>How often should this run?</label>
+        <div class="kind-tabs" role="tablist">
+          <button class="kind-tab active" data-kind="interval">Every N min</button>
+          <button class="kind-tab" data-kind="daily">Daily at HH:MM</button>
+          <button class="kind-tab" data-kind="cron">Cron expression</button>
+          <button class="kind-tab" data-kind="once">Once</button>
+        </div>
+
+        <div style="height:14px"></div>
+        <div id="specInputBlock">
+          <!-- Filled per kind -->
+        </div>
+
+        <div style="height:14px"></div>
+        <div class="hint" id="kindHint">Runs every N minutes. Pick something between 5 and 1440.</div>
+      </div>
+
+      <!-- Step 3: Approval rules + AGENTS.md -->
+      <div class="step" data-step="3" style="display:none">
+        <label>Approval rules</label>
+        <div class="toggle-row">
+          <div class="info">
+            <div class="lbl">Auto-approve</div>
+            <div class="desc">When the agent finishes, just run it — no confirmation needed. Turn this OFF for anything that sends messages, spends money, or modifies files.</div>
+          </div>
+          <div class="toggle-switch on" id="autoApproveToggle"></div>
+        </div>
+
+        <div style="height:14px"></div>
+        <label>AGENTS.md <span class="opt">— per-task brief, edit anything</span></label>
+        <textarea class="md-textarea" id="wizAgentsMd" placeholder="Auto-generated from your goal. Edit to add specific operating rules, sources to consult, output format requirements, etc."></textarea>
+        <div class="hint">This brief is loaded into the spawned subagent's system prompt every time this automation fires. The "never assume / always ask" rule is appended automatically.</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <div class="step-dots">
+        <div class="dot active" data-dot="1"></div>
+        <div class="dot" data-dot="2"></div>
+        <div class="dot" data-dot="3"></div>
+      </div>
+      <div class="actions">
+        <button class="btn" id="wizBack" style="display:none">← Back</button>
+        <button class="btn primary" id="wizNext">Next →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- AGENTS.md editor (standalone, opened from auto-card) -->
+<div class="modal-overlay" id="mdOverlay">
+  <div class="modal" role="dialog">
+    <div class="modal-head">
+      <h3 id="mdTitle">AGENTS.md</h3>
+      <button class="close" id="mdClose">×</button>
+    </div>
+    <div class="modal-body">
+      <textarea class="md-textarea" id="mdText" style="min-height:380px"></textarea>
+      <div class="hint">Changes apply on the next run.</div>
+    </div>
+    <div class="modal-foot">
+      <span style="font-size:11.5px;color:var(--subtle)" id="mdLastSaved">—</span>
+      <div class="actions">
+        <button class="btn" id="mdCancel">Cancel</button>
+        <button class="btn primary" id="mdSave">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { api, ensureAuthed, getUser, clearSession } from '/static/js/api.js?v=v17';
+
+await ensureAuthed();
+const cached = getUser() || { email: 'Operator' };
+document.getElementById('userName').textContent = cached.email || 'Operator';
+document.getElementById('userAvatar').textContent = (cached.email?.[0] || 'M').toUpperCase();
+document.getElementById('signoutBtn').addEventListener('click', async () => {
+  try { await api.signout(); } catch {}
+  clearSession();
+  window.location.replace('/login');
+});
+
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtTime = (ts) => { if (!ts) return '—'; try { return new Date(ts * 1000).toLocaleString(); } catch { return '—'; } };
+const fmtNext = (ts) => {
+  if (!ts) return 'paused';
+  const ms = ts * 1000 - Date.now();
+  if (ms <= 0) return 'now';
+  const min = Math.round(ms / 60000);
+  if (min < 60) return `in ${min}m`;
+  if (min < 1440) return `in ${Math.round(min / 60)}h`;
+  return `in ${Math.round(min / 1440)}d`;
+};
+function authedFetch(path, opts = {}) {
+  return fetch(path, {
+    ...opts,
+    headers: {
+      ...(opts.headers || {}),
+      Authorization: 'Bearer ' + localStorage.getItem('metis.access_token'),
+      'Content-Type': 'application/json',
+    },
+  });
+}
+
+// ── Render board ───────────────────────────────────────────────────────
+async function loadBoard() {
+  const list = await authedFetch('/schedules').then(r => r.json());
+  const active = [], disabled = [], system = [];
+  for (const s of list) {
+    if (s.action) system.push(s);
+    else if (s.enabled) active.push(s);
+    else disabled.push(s);
+  }
+  document.getElementById('countActive').textContent = active.length;
+  document.getElementById('countDisabled').textContent = disabled.length;
+  document.getElementById('countSystem').textContent = system.length;
+
+  document.getElementById('colActive').innerHTML = active.length ? active.map(renderCard).join('') :
+    '<div class="empty-row" style="padding:14px 8px;color:var(--subtle);font-size:12.5px;text-align:center">No active automations. Hit <strong>+ Create</strong> to add one.</div>';
+  document.getElementById('colDisabled').innerHTML = disabled.length ? disabled.map(renderCard).join('') :
+    '<div class="empty-row" style="padding:14px 8px;color:var(--subtle);font-size:12.5px;text-align:center">Nothing paused.</div>';
+  document.getElementById('colSystem').innerHTML = system.length ? system.map(renderCard).join('') :
+    '<div class="empty-row" style="padding:14px 8px;color:var(--subtle);font-size:12.5px;text-align:center">No system schedules.</div>';
+
+  document.querySelectorAll('[data-toggle]').forEach(b => b.addEventListener('click', toggleHandler));
+  document.querySelectorAll('[data-edit-md]').forEach(b => b.addEventListener('click', openMdEditor));
+  document.querySelectorAll('[data-delete]').forEach(b => b.addEventListener('click', deleteHandler));
+}
+
+function renderCard(s) {
+  const status = s.last_status || (s.last_run ? 'ok' : 'pending');
+  const kindLabel = { interval: 'every', daily: 'daily', cron: 'cron', once: 'once' }[s.kind] || s.kind;
+  return `
+    <div class="auto-card ${s.enabled ? '' : 'disabled'}" data-id="${esc(s.id)}">
+      <div class="title">${esc(s.name || s.goal?.slice(0, 60) || 'Untitled')}</div>
+      <div class="schedule">
+        <span class="kind-pill">${esc(kindLabel)}</span>
+        <span>${esc(s.spec)}</span>
+        <span style="margin-left:auto;color:var(--subtle)">next: ${fmtNext(s.next_run)}</span>
+      </div>
+      ${s.description ? `<div class="desc">${esc(s.description.slice(0, 200))}</div>` : ''}
+      <div class="meta">
+        <span>Runs: ${s.run_count || 0}</span>
+        <span class="status ${esc(status)}">${esc(status)}</span>
+      </div>
+      <div class="actions">
+        ${s.action ? '' : `<button data-edit-md="${esc(s.id)}">📝 Brief</button>`}
+        <button data-toggle="${esc(s.id)}">${s.enabled ? '⏸ Pause' : '▶ Resume'}</button>
+        <button class="danger" data-delete="${esc(s.id)}">🗑</button>
+      </div>
+    </div>`;
+}
+
+async function toggleHandler(e) {
+  const id = e.currentTarget.dataset.toggle;
+  await authedFetch(`/schedules/${encodeURIComponent(id)}/toggle`, { method: 'POST' });
+  loadBoard();
+}
+async function deleteHandler(e) {
+  const id = e.currentTarget.dataset.delete;
+  if (!confirm('Delete this automation?')) return;
+  await authedFetch(`/schedules/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  loadBoard();
+}
+
+// ── AGENTS.md editor ─────────────────────────────────────────────────
+const mdOverlay = document.getElementById('mdOverlay');
+let _editingId = null;
+async function openMdEditor(e) {
+  const id = e.currentTarget.dataset.editMd;
+  _editingId = id;
+  // Load the schedule fresh
+  const list = await authedFetch('/schedules').then(r => r.json());
+  const s = list.find(x => x.id === id);
+  if (!s) return;
+  document.getElementById('mdTitle').textContent = `AGENTS.md — ${s.name || 'Untitled'}`;
+  document.getElementById('mdText').value = s.agents_md || defaultAgentsMd(s);
+  document.getElementById('mdLastSaved').textContent = `Run count: ${s.run_count || 0} · Last: ${s.last_run ? new Date(s.last_run * 1000).toLocaleString() : 'never'}`;
+  mdOverlay.classList.add('show');
+  setTimeout(() => document.getElementById('mdText').focus(), 80);
+}
+function closeMd() { mdOverlay.classList.remove('show'); _editingId = null; }
+document.getElementById('mdClose').addEventListener('click', closeMd);
+document.getElementById('mdCancel').addEventListener('click', closeMd);
+mdOverlay.addEventListener('click', (e) => { if (e.target === mdOverlay) closeMd(); });
+document.getElementById('mdSave').addEventListener('click', async () => {
+  if (!_editingId) return;
+  const text = document.getElementById('mdText').value;
+  await authedFetch(`/schedules/${encodeURIComponent(_editingId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ agents_md: text }),
+  });
+  closeMd();
+  loadBoard();
+});
+
+function defaultAgentsMd(s) {
+  return [
+    `# AGENTS.md — ${s.name || 'Automation'}`,
+    ``,
+    `## Goal`,
+    s.goal || '(no goal set)',
+    ``,
+    `## Operating rules`,
+    `- Never assume. If you don't know something, ask the manager (begin reply with [QUESTION]:).`,
+    `- Cite sources when you state non-obvious facts.`,
+    `- Stay focused on the goal — don't wander into unrelated work.`,
+    ``,
+    `## Output format`,
+    `- (describe the format you want — bullet list, table, plain prose, JSON, etc.)`,
+    ``,
+    `## Off-limits`,
+    `- Don't send messages or spend money unless approval is on.`,
+    `- Don't invent data, names, or numbers.`,
+  ].join('\n');
+}
+
+// ── Wizard ─────────────────────────────────────────────────────────
+const modal = document.getElementById('modalOverlay');
+let wizStep = 1;
+let wizKind = 'interval';
+
+function renderSpecInput() {
+  const block = document.getElementById('specInputBlock');
+  const hint = document.getElementById('kindHint');
+  if (wizKind === 'interval') {
+    block.innerHTML = '<input type="number" id="wizSpec" min="1" max="10080" value="60" placeholder="Minutes">';
+    hint.textContent = 'Runs every N minutes. Pick something between 1 and 10080 (one week).';
+  } else if (wizKind === 'daily') {
+    block.innerHTML = '<input type="time" id="wizSpec" value="09:00">';
+    hint.textContent = 'Runs every day at this local time.';
+  } else if (wizKind === 'cron') {
+    block.innerHTML = '<input type="text" id="wizSpec" value="0 9 * * mon-fri" placeholder="m h dom mon dow" style="font-family:JetBrains Mono,monospace">';
+    hint.innerHTML = 'Standard cron. Example: <code>0 9 * * mon-fri</code> = 9 AM weekdays.';
+  } else if (wizKind === 'once') {
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 16);
+    block.innerHTML = `<input type="datetime-local" id="wizSpec" value="${tomorrow}">`;
+    hint.textContent = 'Runs once at this exact moment, then disables itself.';
+  }
+}
+
+function showStep(n) {
+  wizStep = n;
+  document.querySelectorAll('.step').forEach(s => s.style.display = (parseInt(s.dataset.step) === n) ? '' : 'none');
+  document.querySelectorAll('.dot').forEach(d => d.classList.toggle('active', parseInt(d.dataset.dot) <= n));
+  document.getElementById('wizBack').style.display = n > 1 ? '' : 'none';
+  document.getElementById('wizNext').textContent = n === 3 ? '✨ Save automation' : 'Next →';
+}
+
+function openWizard() {
+  ['wizName', 'wizGoal'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('wizAgentsMd').value = '';
+  wizStep = 1; wizKind = 'interval'; renderSpecInput(); showStep(1);
+  document.querySelectorAll('.kind-tab').forEach(t => t.classList.toggle('active', t.dataset.kind === 'interval'));
+  document.getElementById('autoApproveToggle').classList.add('on');
+  modal.classList.add('show');
+  setTimeout(() => document.getElementById('wizName').focus(), 80);
+}
+function closeWizard() { modal.classList.remove('show'); }
+
+document.getElementById('createBtn').addEventListener('click', openWizard);
+document.getElementById('modalClose').addEventListener('click', closeWizard);
+modal.addEventListener('click', (e) => { if (e.target === modal) closeWizard(); });
+
+document.querySelectorAll('.kind-tab').forEach(t => t.addEventListener('click', () => {
+  wizKind = t.dataset.kind;
+  document.querySelectorAll('.kind-tab').forEach(x => x.classList.toggle('active', x === t));
+  renderSpecInput();
+}));
+
+document.getElementById('autoApproveToggle').addEventListener('click', (e) => e.currentTarget.classList.toggle('on'));
+
+document.getElementById('wizBack').addEventListener('click', () => { if (wizStep > 1) showStep(wizStep - 1); });
+document.getElementById('wizNext').addEventListener('click', async () => {
+  if (wizStep === 1) {
+    if (!document.getElementById('wizName').value.trim() || !document.getElementById('wizGoal').value.trim()) {
+      alert('Both a label and full instructions are required.');
+      return;
+    }
+    showStep(2);
+  } else if (wizStep === 2) {
+    if (!document.getElementById('wizSpec').value.trim()) { alert('Pick a schedule.'); return; }
+    // Pre-fill the AGENTS.md from name + goal so step 3 has something to edit.
+    const md = document.getElementById('wizAgentsMd');
+    if (!md.value.trim()) {
+      md.value = defaultAgentsMd({
+        name: document.getElementById('wizName').value.trim(),
+        goal: document.getElementById('wizGoal').value.trim(),
+      });
+    }
+    showStep(3);
+  } else if (wizStep === 3) {
+    const spec = document.getElementById('wizSpec').value.trim();
+    // Convert datetime-local to ISO
+    const finalSpec = wizKind === 'once' ? new Date(spec).toISOString() : spec;
+    const r = await authedFetch('/schedules', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: document.getElementById('wizName').value.trim(),
+        goal: document.getElementById('wizGoal').value.trim(),
+        kind: wizKind,
+        spec: finalSpec,
+        auto_approve: document.getElementById('autoApproveToggle').classList.contains('on'),
+        agents_md: document.getElementById('wizAgentsMd').value,
+      }),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      alert('Save failed: ' + (err.detail || r.statusText));
+      return;
+    }
+    closeWizard();
+    loadBoard();
+  }
+});
+
+// ── Init ──────────────────────────────────────────────────────────────
+loadBoard();
+setInterval(loadBoard, 30000);  // poll every 30s for status updates
+</script>
 
 <script type="module" src="/static/js/nav.js?v=v17"></script>
 </body>

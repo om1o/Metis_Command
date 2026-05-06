@@ -52,6 +52,14 @@ class Schedule:
     next_run: float | None = None
     created_at: float = field(default_factory=time.time)
 
+    # Group 5 additions —
+    name: str = ""              # human-readable label (defaults to a slice of goal)
+    description: str = ""       # longer "why" the user wrote in the wizard
+    agents_md: str = ""         # per-automation AGENTS.md the spawned subagent reads
+    last_status: str = ""       # "ok" | "failed" | "" (never run)
+    last_error: str = ""        # short failure note when last_status == failed
+    run_count: int = 0          # total fires
+
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
@@ -65,7 +73,17 @@ def _load() -> list[Schedule]:
     if not SCHEDULES_FILE.exists():
         return []
     try:
-        return [Schedule(**row) for row in json.loads(SCHEDULES_FILE.read_text(encoding="utf-8"))]
+        rows = json.loads(SCHEDULES_FILE.read_text(encoding="utf-8"))
+        # Self-heal: drop unknown keys, default missing ones (for upgrades).
+        out: list[Schedule] = []
+        valid = {f.name for f in __import__("dataclasses").fields(Schedule)}
+        for row in rows:
+            filtered = {k: v for k, v in (row or {}).items() if k in valid}
+            try:
+                out.append(Schedule(**filtered))
+            except Exception:
+                continue
+        return out
     except Exception:
         return []
 
@@ -89,6 +107,9 @@ def add(
     project_slug: str | None = None,
     auto_approve: bool = True,
     action: str = "",
+    name: str = "",
+    description: str = "",
+    agents_md: str = "",
 ) -> Schedule:
     sched = Schedule(
         kind=kind,
@@ -97,6 +118,9 @@ def add(
         action=action,
         project_slug=project_slug,
         auto_approve=auto_approve,
+        name=name or (goal[:60].strip() or f"Automation @ {time.strftime('%H:%M')}"),
+        description=description,
+        agents_md=agents_md,
     )
     sched.next_run = _compute_next(sched, reference=time.time())
     with file_lock("scheduler"), _lock:
@@ -104,6 +128,26 @@ def add(
         schedules.append(sched)
         _save(schedules)
     return sched
+
+
+@audited("schedule.patch")
+def patch(schedule_id: str, updates: dict) -> Schedule | None:
+    """Partial update — only the keys provided are merged."""
+    with file_lock("scheduler"), _lock:
+        schedules = _load()
+        for s in schedules:
+            if s.id != schedule_id:
+                continue
+            for k in ("name", "description", "agents_md", "goal", "kind",
+                      "spec", "auto_approve", "enabled"):
+                if k in updates and updates[k] is not None:
+                    setattr(s, k, updates[k])
+            # Re-compute next_run if schedule shape changed.
+            if any(k in updates for k in ("kind", "spec", "enabled")):
+                s.next_run = _compute_next(s, reference=time.time()) if s.enabled else None
+            _save(schedules)
+            return s
+    return None
 
 
 def seed_default_schedules() -> list[Schedule]:
