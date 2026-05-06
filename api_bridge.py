@@ -1282,6 +1282,191 @@ def page_splash() -> FileResponse:
     return FileResponse(_FRONTEND_DIR / "splash.html")
 
 
+# ── Vault (Group 2) ──────────────────────────────────────────────────────────
+# Encrypted credential store. The master password never leaves the user's
+# session; every endpoint requires the vault to be unlocked first
+# (init creates + auto-unlocks; unlock confirms the password).
+
+class VaultInitRequest(BaseModel):
+    master_password: str
+
+
+class VaultUnlockRequest(BaseModel):
+    master_password: str
+
+
+class VaultItemRequest(BaseModel):
+    site: str
+    username: str
+    password: str
+    url: str | None = ""
+    notes: str | None = ""
+
+
+class VaultRotateRequest(BaseModel):
+    old_password: str
+    new_password: str
+
+
+@app.get("/vault/status")
+def vault_status() -> dict:
+    import vault as _vault
+    return {
+        "initialized": _vault.is_initialized(),
+        "unlocked":    _vault.is_unlocked(),
+        "idle_lock_s": _vault.IDLE_LOCK_S,
+    }
+
+
+@app.post("/vault/init")
+def vault_init(req: VaultInitRequest) -> dict:
+    import vault as _vault
+    if _vault.is_initialized():
+        raise HTTPException(status_code=409, detail="vault already initialized")
+    try:
+        _vault.init_vault(req.master_password)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"ok": True, "unlocked": True}
+
+
+@app.post("/vault/unlock")
+def vault_unlock(req: VaultUnlockRequest) -> dict:
+    import vault as _vault
+    ok = _vault.unlock(req.master_password)
+    if not ok:
+        raise HTTPException(status_code=401, detail="bad master password")
+    return {"ok": True}
+
+
+@app.post("/vault/lock")
+def vault_lock() -> dict:
+    import vault as _vault
+    _vault.lock()
+    return {"ok": True}
+
+
+@app.get("/vault/items")
+def vault_items_list() -> list[dict]:
+    """Returns non-secret metadata for every stored credential."""
+    import vault as _vault
+    return _vault.list_items()
+
+
+@app.post("/vault/items")
+def vault_items_add(req: VaultItemRequest) -> dict:
+    import vault as _vault
+    try:
+        item_id = _vault.add_item(req.model_dump())
+    except PermissionError:
+        raise HTTPException(status_code=423, detail="vault is locked")
+    return {"ok": True, "id": item_id}
+
+
+@app.get("/vault/items/{item_id}")
+def vault_items_get(item_id: str) -> dict:
+    import vault as _vault
+    try:
+        item = _vault.get_item(item_id)
+    except PermissionError:
+        raise HTTPException(status_code=423, detail="vault is locked")
+    if not item:
+        raise HTTPException(status_code=404, detail="item not found")
+    return item
+
+
+@app.delete("/vault/items/{item_id}")
+def vault_items_delete(item_id: str) -> dict:
+    import vault as _vault
+    try:
+        ok = _vault.delete_item(item_id)
+    except PermissionError:
+        raise HTTPException(status_code=423, detail="vault is locked")
+    return {"ok": ok}
+
+
+@app.post("/vault/rotate")
+def vault_rotate(req: VaultRotateRequest) -> dict:
+    import vault as _vault
+    try:
+        ok = _vault.rotate_master_password(req.old_password, req.new_password)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if not ok:
+        raise HTTPException(status_code=401, detail="old password incorrect")
+    return {"ok": True}
+
+
+# ── Investing (Group 2 — paper trading sandbox, no KYC required) ────────────
+
+class InvestWatchAdd(BaseModel):
+    ticker: str
+
+
+class InvestOrderRequest(BaseModel):
+    ticker: str
+    side: str        # "buy" | "sell"
+    qty: float
+    approval_token: str | None = ""
+
+
+@app.get("/invest/portfolio")
+def invest_portfolio() -> dict:
+    import investing as _inv
+    return _inv.portfolio()
+
+
+@app.get("/invest/watchlist")
+def invest_watchlist() -> list[dict]:
+    import investing as _inv
+    return _inv.get_watchlist()
+
+
+@app.post("/invest/watchlist")
+def invest_watchlist_add(req: InvestWatchAdd) -> dict:
+    import investing as _inv
+    return _inv.add_to_watchlist(req.ticker)
+
+
+@app.delete("/invest/watchlist/{ticker}")
+def invest_watchlist_remove(ticker: str) -> dict:
+    import investing as _inv
+    return {"ok": _inv.remove_from_watchlist(ticker)}
+
+
+@app.get("/invest/quote/{ticker}")
+def invest_quote(ticker: str) -> dict:
+    import investing as _inv
+    q = _inv.get_quote(ticker)
+    if not q:
+        raise HTTPException(status_code=404, detail="no quote")
+    return q
+
+
+@app.get("/invest/orders")
+def invest_orders(limit: int = 50) -> list[dict]:
+    import investing as _inv
+    return _inv.list_orders(limit=limit)
+
+
+@app.post("/invest/order")
+def invest_order(req: InvestOrderRequest) -> dict:
+    import investing as _inv
+    result = _inv.submit_order(
+        req.ticker, req.side, req.qty,
+        approval_token=req.approval_token,
+    )
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=result.get("error", "order failed"))
+    return result
+
+
+@app.get("/invest/opportunities")
+def invest_opportunities() -> list[dict]:
+    import investing as _inv
+    return _inv.list_opportunities()
+
+
 # ── Money / People / Automations pages (Group 1 scaffolds) ─────────────────
 # Note: /relationships is already a JSON API. The HTML page lives at /people
 # so browsers and API clients don't fight for the same route. The sidebar

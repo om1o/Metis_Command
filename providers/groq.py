@@ -60,12 +60,36 @@ def is_groq_model(name: str | None) -> bool:
         return False
     n = name.lower()
     return n.startswith("groq/") or n in (
+        # General-purpose chat
         "llama-3.3-70b-versatile",
         "llama-3.1-8b-instant",
         "gemma2-9b-it",
         "mixtral-8x7b-32768",
         "llama-3.3-70b-specdec",
+        # Newer free-tier models the operator has access to
+        "openai/gpt-oss-120b",
+        "openai/gpt-oss-20b",
+        "qwen/qwen3-32b",
+        "meta-llama/llama-4-scout-17b-16e-instruct",
+        # Speech (Whisper for STT, PlayAI/Orpheus for TTS)
+        "whisper-large-v3",
+        "whisper-large-v3-turbo",
+        "playai-tts",
+        # Safety / moderation
+        "openai/gpt-oss-20b-safety",
     )
+
+
+# Recommended model picks per task — feel free to override per-call.
+GROQ_RECOMMENDED: dict[str, str] = {
+    "reasoning":   "openai/gpt-oss-120b",
+    "tools":       "openai/gpt-oss-120b",
+    "fast_chat":   "llama-3.3-70b-versatile",
+    "vision":      "meta-llama/llama-4-scout-17b-16e-instruct",
+    "stt":         "whisper-large-v3-turbo",
+    "tts":         "playai-tts",
+    "moderation":  "openai/gpt-oss-20b",
+}
 
 
 # ── Non-streaming ────────────────────────────────────────────────────────────
