@@ -1,0 +1,15 @@
+[bootstrap] venv already present.
+[bootstrap] deps up-to-date.
+[bootstrap] Ollama reachable.
+[bootstrap] bootstrap complete in 0.7s.
+[launch] starting API + UI -> http://127.0.0.1:17639
+[launch] local models available: 12; manager model present: qwen2.5-coder:1.5b
+[launch] manager model warm-up still loading for qwen2.5-coder:1.5b; opening UI now.
+
+   __  __      _   _     _____                                          _
+  |  \/  | ___| |_(_)___|  ___|__  _ __ _ __   __ _ _ __ __| | ___  _ __ ___
+  | |\/| |/ _ \ __| / __| |_ / _ \| '__| '_ \ / _` | '__/ _` |/ _ \| '__/ _ \
+  | |  | |  __/ |_| \__ \  _| (_) | |  | | | | (_| | | | (_| | (_) | | |  __/
+  |_|  |_|\___|\__|_|___/_|  \___/|_|  |_| |_|\__,_|_|  \__,_|\___/|_|  \___|
+
+[shell] opening desktop window -> http://127.0.0.1:17639/splash
