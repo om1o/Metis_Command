@@ -147,7 +147,10 @@ export const api = {
   }),
 
   // Streaming chat (Server-Sent Events)
-  chatStream: async function* (sessionId, message, role = 'manager', signal, direct = false) {
+  // `extra` is a Group-6 hook that piggybacks per-call fields onto the
+  // POST body — currently agents_md_overrides + director_answer +
+  // director_answer_for. Existing callers stay backward-compatible.
+  chatStream: async function* (sessionId, message, role = 'manager', signal, direct = false, extra = {}) {
     const token = getToken();
     const r = await fetch('/chat', {
       method: 'POST',
@@ -155,7 +158,7 @@ export const api = {
         'Content-Type': 'application/json',
         ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({ session_id: sessionId, message, role, direct }),
+      body: JSON.stringify({ session_id: sessionId, message, role, direct, ...(extra || {}) }),
       signal,
     });
     if (!r.ok || !r.body) {

@@ -186,40 +186,77 @@ def _build_plan(
     return plan
 
 
+_OPERATING_RULES = (
+    "\n\nCRITICAL OPERATING RULES (always apply, override anything below):\n"
+    "1. NEVER ASSUME. If you do not know something with certainty, say so "
+    "   explicitly. Do not invent facts, numbers, names, dates, code APIs, "
+    "   or anything else. Mark guesses as guesses.\n"
+    "2. If the task is ambiguous or you are missing information you need, "
+    "   begin your reply with the literal token `[QUESTION]:` followed by "
+    "   one short, specific question for the Manager. The Manager will "
+    "   relay it to the Director and resume you with an answer.\n"
+    "3. If you have what you need, reply with ONLY your contribution — "
+    "   concise, focused, no preamble. The Manager will synthesize "
+    "   multiple specialist outputs into the final answer to the user, "
+    "   so don't address the user directly."
+)
+
+
 def _run_agent(
     name: str,
     task: str,
     user_msg: str,
     context_msgs: list[dict] | None = None,
+    *,
+    agents_md_override: str | None = None,
+    director_answer: str | None = None,
 ) -> tuple[str, str, int]:
-    """Run one specialist agent. Returns (name, output, duration_ms)."""
+    """Run one specialist agent. Returns (name, output, duration_ms).
+
+    Group 6 additions:
+      - `agents_md_override`: per-specialist Markdown brief from the user's
+        AGENTS.md editor in chat (right-click an agent card). When set, it
+        REPLACES the default specialist preamble; the operating rules above
+        are appended unconditionally so safety can't be overridden.
+      - `director_answer`: when the Director answered a `[QUESTION]:` from a
+        previous turn, the answer is injected here so the agent picks up
+        where it left off instead of re-asking.
+    """
     role = DELEGATABLE[name]
     started = time.time()
-    system = (
-        f"You are {name}, a specialist working under a Manager. "
-        f"Your specific task: {task}. "
-        f"\n\n"
-        f"CRITICAL OPERATING RULES:\n"
-        f"1. NEVER ASSUME. If you do not know something with certainty, say so "
-        f"   explicitly. Do not invent facts, numbers, names, dates, code APIs, "
-        f"   or anything else. Mark guesses as guesses.\n"
-        f"2. If the task is ambiguous or you are missing information you need, "
-        f"   begin your reply with the literal token `[QUESTION]:` followed by "
-        f"   one short, specific question for the Manager. The Manager will "
-        f"   relay it to the Director and resume you with an answer.\n"
-        f"3. If you have what you need, reply with ONLY your contribution — "
-        f"   concise, focused, no preamble. The Manager will synthesize "
-        f"   multiple specialist outputs into the final answer to the user, "
-        f"   so don't address the user directly."
-    )
+
+    if agents_md_override and agents_md_override.strip():
+        # User-supplied brief takes the lead; safety rules tacked on the end.
+        base = agents_md_override.strip()
+        system = (
+            f"You are {name}, a specialist working under a Manager.\n\n"
+            f"{base}"
+            f"{_OPERATING_RULES}"
+        )
+    else:
+        # Default minimal preamble.
+        system = (
+            f"You are {name}, a specialist working under a Manager. "
+            f"Your specific task: {task}."
+            f"{_OPERATING_RULES}"
+        )
+
     messages: list[dict] = [
         {"role": "system", "content": system},
     ]
     if context_msgs:
         messages.extend(context_msgs)
-    messages.append(
-        {"role": "user", "content": f"User's original request: {user_msg}\n\nYour task: {task}"},
-    )
+
+    user_block = f"User's original request: {user_msg}\n\nYour task: {task}"
+    if director_answer and director_answer.strip():
+        user_block += (
+            f"\n\nThe Director just answered your previous question. "
+            f"Their answer:\n{director_answer.strip()}\n\n"
+            f"Resume the task using this information. Do NOT re-ask. If you still "
+            f"don't have what you need, ask a different `[QUESTION]:`."
+        )
+    messages.append({"role": "user", "content": user_block})
+
     out = chat_by_role(role, messages, temperature=0.7)
     dur = int((time.time() - started) * 1000)
     return (name, out, dur)
@@ -229,6 +266,10 @@ def orchestrate(
     user_msg: str,
     user_id: str = "default",
     session_id: str | None = None,
+    *,
+    agents_md_overrides: dict[str, str] | None = None,
+    director_answer: str | None = None,
+    director_answer_for: str | None = None,
 ) -> Generator[dict, None, None]:
     """
     Run a manager-orchestrated chat turn.  Yields SSE-shaped event dicts.
@@ -236,6 +277,15 @@ def orchestrate(
     Honors the user's saved Manager configuration (persona, model, specialists).
     When ``session_id`` is provided the Manager receives prior turns from the
     conversation so it can give context-aware answers (Phase 2).
+
+    Group 6:
+      - ``agents_md_overrides`` is an optional ``{specialist_name: md_text}``
+        map. When a specialist runs, its custom brief replaces the default
+        preamble. The hard "never-assume / use [QUESTION]:" rules are always
+        appended so safety is non-negotiable.
+      - ``director_answer`` + ``director_answer_for`` resume a paused
+        subagent: the orchestrator routes the answer into the named
+        specialist's input on this turn.
     """
     import manager_config as _mc
     cfg = _mc.get_config(user_id)
@@ -303,12 +353,27 @@ def orchestrate(
         for a in agent_specs:
             yield {"type": "agent_start", "agent": a["name"], "task": a["task"]}
 
+        # Pick out per-specialist override + resumption answer from the kwargs.
+        overrides = agents_md_overrides or {}
+
+        def _override_for(agent_name: str) -> str | None:
+            md = overrides.get(agent_name)
+            return md.strip() if md and md.strip() else None
+
+        def _answer_for(agent_name: str) -> str | None:
+            if director_answer and director_answer_for and director_answer_for == agent_name:
+                return director_answer
+            return None
+
         if max_parallel <= 1 or len(agent_specs) == 1:
             # Sequential — predictable, no VRAM thrashing.
             for a in agent_specs:
                 try:
                     n, out, dur = _run_agent(
-                        a["name"], a["task"], user_msg, context_msgs=context_msgs
+                        a["name"], a["task"], user_msg,
+                        context_msgs=context_msgs,
+                        agents_md_override=_override_for(a["name"]),
+                        director_answer=_answer_for(a["name"]),
                     )
                 except Exception as e:
                     n, out, dur = a["name"], f"[{a['name']} failed: {e}]", 0
@@ -339,6 +404,8 @@ def orchestrate(
                         a["task"],
                         user_msg,
                         context_msgs=context_msgs,
+                        agents_md_override=_override_for(a["name"]),
+                        director_answer=_answer_for(a["name"]),
                     ): a["name"]
                     for a in agent_specs
                 }

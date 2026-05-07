@@ -1719,6 +1719,17 @@ async function sendMessage() {
   msgInput.value = '';
   msgInput.style.height = 'auto';
 
+  // Group 6: if a specialist asked a [QUESTION]: in the previous turn, the
+  // first thing the user types after that is treated as the answer to it.
+  // We arm window._pendingAgentAnswer; the chatStream call below picks it up.
+  if (window._lastAgentQuestion && text) {
+    window._pendingAgentAnswer = {
+      agent: window._lastAgentQuestion.agent,
+      answer: text,
+    };
+    window._lastAgentQuestion = null;
+  }
+
   // Capture attached files for THIS turn (clear after sending)
   const turnFiles = attachedFiles.slice();
   attachedFiles = [];
@@ -1904,7 +1915,17 @@ async function sendMessage() {
 
   try {
     const useDirect = isDirectMode();
-    for await (const ev of api.chatStream(currentSession, text, 'manager', abortController.signal, useDirect)) {
+    // Group 6: pipe per-specialist AGENTS.md overrides + answer-resumption
+    // metadata into the chat call so the orchestrator can apply them.
+    const extra = {
+      agents_md_overrides: getAgentsMdOverrides(),
+    };
+    if (window._pendingAgentAnswer) {
+      extra.director_answer = window._pendingAgentAnswer.answer;
+      extra.director_answer_for = window._pendingAgentAnswer.agent;
+      window._pendingAgentAnswer = null;
+    }
+    for await (const ev of api.chatStream(currentSession, text, 'manager', abortController.signal, useDirect, extra)) {
       if (ev.type === 'heartbeat') {
         // Server received message — update stage to confirm
         if (stageLabel) stageLabel.textContent = 'Connected · Loading model...';
@@ -1952,9 +1973,13 @@ async function sendMessage() {
           qBox.innerHTML = `
             <div class="aq-label">${escapeHtml(ev.agent)} needs more info:</div>
             <div class="aq-question">${escapeHtml(ev.question || '')}</div>
-            <div class="aq-hint">Reply in chat with your answer — I'll relay it.</div>`;
+            <div class="aq-hint">Reply in chat with your answer — I'll resume ${escapeHtml(ev.agent)} with it.</div>`;
           card.appendChild(qBox);
         }
+        // Group 6: arm the answer-resumption — the next /chat call will be
+        // routed to this specialist via director_answer_for. Store on
+        // window so sendMessage() picks it up.
+        window._lastAgentQuestion = { agent: ev.agent, question: ev.question };
       } else if (ev.type === 'manager_synthesis') {
         if (stageLabel) stageLabel.textContent = 'Composing answer...';
         synthBanner = makeSynthBanner(activity);

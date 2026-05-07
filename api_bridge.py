@@ -220,6 +220,14 @@ class ChatRequest(BaseModel):
     session_id: str
     message: str
     role: str = "manager"
+    # Group 6: per-specialist AGENTS.md overrides {name: md_text}.
+    # Sent verbatim from the chat UI's right-click brief editor.
+    agents_md_overrides: dict[str, str] | None = None
+    # When the user is answering a specialist's [QUESTION]: from a previous
+    # turn, the chat UI passes the answer + which specialist asked it so the
+    # orchestrator can resume that subagent instead of starting fresh.
+    director_answer: str | None = None
+    director_answer_for: str | None = None
     direct: bool = False   # True = skip orchestrator, stream directly to model
 
 
@@ -418,7 +426,14 @@ async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
         elif req.role == "manager":
             from manager_orchestrator import orchestrate
             try:
-                for ev in orchestrate(req.message, user_id=user_id, session_id=req.session_id):
+                for ev in orchestrate(
+                    req.message,
+                    user_id=user_id,
+                    session_id=req.session_id,
+                    agents_md_overrides=req.agents_md_overrides,
+                    director_answer=req.director_answer,
+                    director_answer_for=req.director_answer_for,
+                ):
                     if ev.get("type") == "token":
                         full_answer += ev.get("delta", "")
                     yield f"data: {json.dumps(ev)}\n\n"
@@ -1719,6 +1734,147 @@ def invest_analyze(ticker: str) -> dict:
     result = _scan.analyze_ticker(ticker)
     if not result:
         raise HTTPException(status_code=404, detail="no quote available")
+    return result
+
+
+# ── Group 7: Browser control + assisted account creation ───────────────────
+# A single shared session (one Playwright browser at a time). Multi-tab is
+# fine inside the session; multiple sessions would fight over the lock.
+
+_BROWSER_LOCK = asyncio.Lock()
+_BROWSER_SESSION: Any = None
+_BROWSER_PAGE: Any = None
+
+
+class BrowserOpenRequest(BaseModel):
+    headless: bool = False
+
+
+class BrowserNavigateRequest(BaseModel):
+    url: str
+
+
+class BrowserFillRequest(BaseModel):
+    selector: str
+    value: str
+    secret: bool = False
+
+
+class BrowserClickRequest(BaseModel):
+    selector: str
+
+
+class BrowserAccountRequest(BaseModel):
+    service: str             # short name, must be in METIS_BROWSER_ALLOWED_SERVICES
+    username: str = ""
+    email: str
+    password: str
+    signup_url: str = ""
+    selectors: dict[str, str] | None = None
+    submit_selector: str | None = None
+
+
+@app.get("/browser/status")
+def browser_status() -> dict:
+    import browser_runner as _br
+    return {
+        "playwright_installed": _br.is_available(),
+        "session_open":         _BROWSER_SESSION is not None,
+        "allowed_services":     sorted(_br._allowed_services()),
+        "daily_account_cap":    _br.DAILY_ACCOUNT_CAP,
+        "daily_accounts_today": _br.daily_account_count(),
+        "chrome_allowed":       __import__("comms_policy").is_allowed("chrome"),
+    }
+
+
+@app.post("/browser/open")
+async def browser_open(req: BrowserOpenRequest) -> dict:
+    """Spin up a Chromium session. Headful by default so the user sees it."""
+    global _BROWSER_SESSION, _BROWSER_PAGE
+    import browser_runner as _br
+    if not _br.is_available():
+        raise HTTPException(status_code=503,
+            detail="Playwright not installed. Run `python -m playwright install chromium`.")
+    import comms_policy as _cp
+    if not _cp.is_allowed("chrome"):
+        raise HTTPException(status_code=403, detail="Chrome control disabled in policy")
+    async with _BROWSER_LOCK:
+        if _BROWSER_SESSION is not None:
+            return {"ok": True, "reused": True}
+        sess = _br.BrowserSession()
+        try:
+            await sess.open(headless=req.headless)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"browser open failed: {e}")
+        _BROWSER_SESSION = sess
+        _BROWSER_PAGE = await sess.new_page()
+    return {"ok": True, "reused": False}
+
+
+@app.post("/browser/close")
+async def browser_close() -> dict:
+    global _BROWSER_SESSION, _BROWSER_PAGE
+    async with _BROWSER_LOCK:
+        if _BROWSER_SESSION:
+            await _BROWSER_SESSION.close()
+        _BROWSER_SESSION = None
+        _BROWSER_PAGE = None
+    return {"ok": True}
+
+
+def _require_page() -> Any:
+    if _BROWSER_SESSION is None or _BROWSER_PAGE is None:
+        raise HTTPException(status_code=409, detail="no browser session — call /browser/open first")
+    return _BROWSER_PAGE
+
+
+@app.post("/browser/navigate")
+async def browser_navigate(req: BrowserNavigateRequest) -> dict:
+    import browser_runner as _br
+    page = _require_page()
+    return await _br.navigate(page, req.url)
+
+
+@app.get("/browser/screenshot")
+async def browser_screenshot() -> dict:
+    import browser_runner as _br
+    page = _require_page()
+    b64 = await _br.screenshot_b64(page)
+    return {"png_base64": b64}
+
+
+@app.post("/browser/fill")
+async def browser_fill(req: BrowserFillRequest) -> dict:
+    import browser_runner as _br
+    page = _require_page()
+    await _br.fill(page, req.selector, req.value, secret=req.secret)
+    return {"ok": True}
+
+
+@app.post("/browser/click")
+async def browser_click(req: BrowserClickRequest) -> dict:
+    import browser_runner as _br
+    page = _require_page()
+    await _br.click(page, req.selector)
+    return {"ok": True}
+
+
+@app.post("/browser/create_account")
+async def browser_create_account(req: BrowserAccountRequest) -> dict:
+    import browser_runner as _br
+    page = _require_page()
+    result = await _br.create_account_assisted(
+        page,
+        service=req.service,
+        username=req.username,
+        email=req.email,
+        password=req.password,
+        signup_url=req.signup_url,
+        selectors=req.selectors,
+        submit_selector=req.submit_selector,
+    )
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=result.get("error") or "account creation failed")
     return result
 
 
