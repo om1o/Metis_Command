@@ -79,3 +79,4 @@ Thumbs.db
 *.safetensors
 *.gguf
 *.onnx
+identity/notify_log.jsonl

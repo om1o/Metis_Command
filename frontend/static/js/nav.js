@@ -38,6 +38,18 @@ const NAV_ITEMS = [
     label: 'Automations',
     svg: '<svg class="ico" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>',
   },
+  {
+    id: 'inspector',
+    href: '/inspector',
+    label: 'Subagents',
+    svg: '<svg class="ico" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="12" cy="18" r="3"/><line x1="9" y1="7" x2="15" y2="7"/><line x1="8" y1="9" x2="11" y2="15"/><line x1="16" y1="9" x2="13" y2="15"/></svg>',
+  },
+  {
+    id: 'browser',
+    href: '/browser-control',
+    label: 'Browser',
+    svg: '<svg class="ico" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><circle cx="6" cy="6" r=".5" fill="currentColor"/><circle cx="9" cy="6" r=".5" fill="currentColor"/></svg>',
+  },
 ];
 
 export async function mountNav() {

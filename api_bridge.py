@@ -44,6 +44,7 @@ PUBLIC_PATHS = {"/", "/health", "/version", "/status",
                 # Frontend pages + auth (no bearer token required)
                 "/login", "/app", "/signup", "/setup", "/splash",
                 "/money", "/people", "/automations",
+                "/inspector", "/browser-control",
                 "/oauth/callback",
                 "/auth/signup", "/auth/signin", "/auth/signout",
                 "/auth/oauth/start", "/auth/oauth/complete",
@@ -2006,6 +2007,22 @@ def page_people() -> FileResponse:
 @app.get("/automations")
 def page_automations() -> FileResponse:
     return FileResponse(_FRONTEND_DIR / "automations.html")
+
+
+@app.get("/inspector")
+def page_inspector() -> FileResponse:
+    """Subagent inspector — Group 6 visual layer.
+    The URL is /inspector (not /agents) because /agents is a JSON
+    API for the persistent-agent roster."""
+    return FileResponse(_FRONTEND_DIR / "agents.html")
+
+
+@app.get("/browser-control")
+def page_browser_control() -> FileResponse:
+    """Browser control room — Group 7 visual layer.
+    The URL is /browser-control (not /browser) because /browser is the
+    Playwright control namespace (status, open, navigate, click, ...)."""
+    return FileResponse(_FRONTEND_DIR / "browser.html")
 
 
 @app.get("/logo-test")

@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Browser Control — Metis Command</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #07071a;
+  --surface-04: rgba(255,255,255,.04);
+  --surface-06: rgba(255,255,255,.06);
+  --surface-08: rgba(255,255,255,.08);
+  --border-08: rgba(255,255,255,.08);
+  --border-12: rgba(255,255,255,.12);
+  --border-14: rgba(255,255,255,.14);
+  --highlight: inset 0 1px 0 rgba(255,255,255,.08);
+  --text: #F8FAFF;
+  --text-muted: rgba(248,250,255,.6);
+  --text-subtle: rgba(248,250,255,.32);
+  --heritage: linear-gradient(135deg, #7C3AED, #C026D3 55%, #FB7185);
+  --violet: #7C3AED;
+  --coral: #FB7185;
+  --amber: #F59E0B;
+  --green: #34D399;
+  --red: #F87171;
+  --radius-card: 12px;
+  --radius-row: 8px;
+  --radius-btn: 7px;
+  --shadow-card: 0 24px 60px rgba(0,0,0,.35);
+  --font-display: 'Sora', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font-body);font-size:14px;overflow:hidden}
+body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(ellipse 420px 420px at 12% 25%,rgba(124,58,237,.14),transparent),radial-gradient(ellipse 360px 360px at 80% 70%,rgba(251,113,133,.10),transparent),radial-gradient(ellipse 300px 300px at 50% 10%,rgba(245,158,11,.07),transparent)}
+
+/* Topbar */
+.topbar{position:relative;z-index:10;display:flex;align-items:center;gap:16px;padding:0 28px;height:60px;background:var(--surface-04);border-bottom:1px solid var(--border-08);box-shadow:var(--highlight)}
+.metis-mark{display:flex;align-items:center;gap:8px;background:none;border:none;cursor:pointer;color:var(--text)}
+.mm-glyph{width:26px;height:26px;background:var(--heritage);border-radius:6px;display:grid;place-items:center;font-family:var(--font-display);font-weight:800;font-size:13px;color:#fff}
+.mm-word{font-family:var(--font-display);font-weight:800;font-size:15px;letter-spacing:3.5px;text-transform:uppercase}
+.topbar-title{margin-left:20px;font-family:var(--font-display);font-weight:700;font-size:15px}
+.topbar-title em{font-style:italic;color:var(--coral)}
+.topbar-subtitle{font-size:12px;color:var(--text-subtle);letter-spacing:.5px}
+.topbar-spacer{flex:1}
+.btn-primary{display:flex;align-items:center;gap:6px;padding:8px 18px;border:none;border-radius:var(--radius-btn);background:var(--heritage);color:#fff;font-family:var(--font-body);font-weight:600;font-size:13px;cursor:pointer;transition:opacity .15s;box-shadow:0 2px 12px rgba(124,58,237,.3)}
+.btn-primary:hover{opacity:.88}
+.btn-primary.active-session{background:var(--red);box-shadow:0 2px 12px rgba(248,113,113,.3)}
+
+/* Shell */
+.shell{position:relative;z-index:1;display:flex;height:calc(100% - 60px)}
+nav.nav{width:56px;min-width:56px;background:var(--surface-04);border-right:1px solid var(--border-08);display:flex;flex-direction:column;align-items:center;padding-top:16px;gap:12px}
+nav.nav .nav-dot{width:34px;height:34px;border-radius:10px;background:var(--surface-06);border:1px solid var(--border-08);display:grid;place-items:center;cursor:pointer;color:var(--text-subtle);font-size:11px;font-weight:600;transition:background .15s,color .15s}
+nav.nav .nav-dot[data-active]{background:rgba(124,58,237,.18);border-color:rgba(124,58,237,.35);color:var(--violet)}
+
+/* Three-zone layout */
+.zones{flex:1;display:flex;overflow:hidden}
+
+/* Left zone */
+.zone-left{width:240px;min-width:240px;border-right:1px solid var(--border-08);display:flex;flex-direction:column;background:var(--surface-04);overflow-y:auto}
+.zone-left::-webkit-scrollbar{width:4px}
+.zone-left::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:4px}
+.zone-left-header{padding:16px 16px 10px;font-family:var(--font-display);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:var(--text-subtle)}
+.service-row{display:flex;align-items:center;gap:10px;padding:8px 16px;cursor:pointer;transition:background .12s}
+.service-row:hover{background:var(--surface-06)}
+.service-row.capped{opacity:.4;pointer-events:none}
+.service-icon{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;font-family:var(--font-display);font-weight:800;font-size:12px;color:#fff;flex-shrink:0}
+.service-info{flex:1;min-width:0}
+.service-name{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.service-cap{font-family:var(--font-mono);font-size:11px;color:var(--text-subtle)}
+.pill-sm{display:inline-flex;align-items:center;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;flex-shrink:0}
+.pill-sm.permitted{background:rgba(52,211,153,.12);color:var(--green)}
+.pill-sm.pending{background:rgba(245,158,11,.12);color:var(--amber)}
+.btn-add-service{display:flex;align-items:center;gap:6px;margin:12px 16px;padding:8px 12px;border-radius:var(--radius-btn);background:var(--surface-06);border:1px solid var(--border-08);color:var(--text-muted);font-size:12px;font-weight:500;cursor:pointer;transition:background .12s}
+.btn-add-service:hover{background:var(--surface-08);color:var(--text)}
+
+/* Center zone */
+.zone-center{flex:1;display:flex;flex-direction:column;overflow-y:auto;padding:20px 24px;gap:16px}
+.zone-center::-webkit-scrollbar{width:6px}
+.zone-center::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:4px}
+
+.url-bar{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--surface-06);border:1px solid var(--border-12);border-radius:var(--radius-row);box-shadow:var(--highlight)}
+.url-display{flex:1;font-family:var(--font-mono);font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.url-bar button{background:none;border:none;color:var(--text-subtle);cursor:pointer;padding:4px;border-radius:4px;transition:color .12s}
+.url-bar button:hover{color:var(--text)}
+.url-input{flex:1;background:transparent;border:none;outline:none;color:var(--text);font-family:var(--font-mono);font-size:12px;display:none}
+.url-input.visible{display:block}
+
+.live-preview{position:relative;background:rgba(0,0,0,.3);border:1px solid var(--border-12);border-radius:var(--radius-card);overflow:hidden;aspect-ratio:16/10;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-card)}
+.live-preview .placeholder-text{font-family:var(--font-mono);font-size:13px;color:var(--text-subtle);text-align:center;line-height:1.8}
+.live-preview .spinner{position:absolute;top:12px;right:12px;width:16px;height:16px;border:2px solid var(--text-subtle);border-top-color:var(--violet);border-radius:50%;animation:spin .8s linear infinite;display:none}
+.live-preview .spinner.active{display:block}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.action-rows{display:flex;flex-direction:column;gap:8px}
+.action-row{display:flex;flex-wrap:wrap;gap:6px}
+.action-row-label{width:100%;font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-subtle);margin-bottom:2px}
+.action-btn{position:relative;display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:6px;background:var(--surface-06);border:1px solid var(--border-08);color:var(--text-muted);font-family:var(--font-mono);font-size:12px;cursor:pointer;transition:background .12s,color .12s;box-shadow:var(--highlight);white-space:nowrap}
+.action-btn:hover{background:var(--surface-08);color:var(--text)}
+.action-btn .auto-badge{position:absolute;top:-6px;right:-4px;font-size:8px;background:rgba(245,158,11,.2);color:var(--amber);padding:1px 4px;border-radius:4px;font-family:var(--font-body);font-weight:600;letter-spacing:.3px}
+
+.inline-form{display:none;padding:10px 14px;background:var(--surface-04);border:1px solid var(--border-12);border-radius:var(--radius-row);margin-top:6px;gap:8px;flex-direction:column}
+.inline-form.visible{display:flex}
+.inline-form input{background:rgba(0,0,0,.3);border:1px solid var(--border-08);border-radius:6px;padding:6px 10px;color:var(--text);font-family:var(--font-mono);font-size:12px;outline:none;transition:border-color .15s}
+.inline-form input:focus{border-color:var(--violet)}
+.inline-form-actions{display:flex;gap:6px}
+.inline-form .btn-sm{padding:5px 12px;border-radius:5px;font-size:12px;font-weight:500;cursor:pointer;border:none}
+.inline-form .btn-sm.go{background:var(--violet);color:#fff}
+.inline-form .btn-sm.cancel{background:var(--surface-06);color:var(--text-muted);border:1px solid var(--border-08)}
+
+/* Right zone */
+.zone-right{width:300px;min-width:300px;border-left:1px solid var(--border-08);display:flex;flex-direction:column;background:var(--surface-04);overflow-y:auto}
+.zone-right::-webkit-scrollbar{width:4px}
+.zone-right::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:4px}
+.zone-right-header{padding:16px 16px 10px;font-family:var(--font-display);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:var(--text-subtle)}
+.approval-list{flex:1;padding:0 12px 12px;display:flex;flex-direction:column;gap:10px}
+
+.approval-card{padding:14px 16px;background:var(--surface-06);border:1px solid var(--border-12);border-radius:var(--radius-card);box-shadow:var(--highlight);display:flex;flex-direction:column;gap:10px}
+.approval-card.approved{border-color:rgba(52,211,153,.25)}
+.approval-card.denied{border-color:rgba(248,113,113,.25);opacity:.6}
+.approval-top{display:flex;align-items:center;gap:10px}
+.approval-action{font-family:var(--font-mono);font-size:12px;font-weight:500;color:var(--amber);word-break:break-all}
+.approval-card.approved .approval-action{color:var(--green)}
+.approval-card.denied .approval-action{color:var(--red)}
+.approval-why{font-size:12px;color:var(--text-muted);line-height:1.5}
+.approval-buttons{display:flex;gap:6px}
+.approval-buttons button{flex:1;padding:6px 0;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:opacity .12s}
+.approval-buttons button:hover{opacity:.85}
+.btn-approve{background:rgba(52,211,153,.15);color:var(--green);border:1px solid rgba(52,211,153,.25) !important}
+.btn-deny{background:rgba(248,113,113,.12);color:var(--red);border:1px solid rgba(248,113,113,.2) !important}
+.btn-modify{background:var(--surface-08);color:var(--text-muted);border:1px solid var(--border-08) !important}
+
+.empty-approvals{padding:32px 16px;text-align:center;color:var(--text-subtle);font-size:13px;line-height:1.7}
+
+/* Daily limits footer */
+.daily-limits{display:flex;align-items:center;gap:12px;padding:12px 24px;background:var(--surface-04);border-top:1px solid var(--border-08);flex-wrap:wrap;position:relative;z-index:2}
+.daily-limits.paused{background:rgba(248,113,113,.08);border-top-color:rgba(248,113,113,.25)}
+.limit-pill{display:flex;align-items:center;gap:6px;padding:5px 14px;border-radius:20px;background:var(--surface-06);border:1px solid var(--border-08);font-family:var(--font-mono);font-size:12px;color:var(--text-muted)}
+.limit-pill .lp-label{color:var(--text-subtle);font-family:var(--font-body);font-size:11px;font-weight:500}
+.limits-spacer{flex:1}
+.kill-switch{display:flex;align-items:center;gap:6px;padding:6px 16px;border-radius:var(--radius-btn);background:var(--surface-08);border:1px solid var(--border-14);color:var(--text-muted);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;box-shadow:var(--highlight)}
+.kill-switch:hover{background:rgba(248,113,113,.12);color:var(--red);border-color:rgba(248,113,113,.3)}
+.kill-switch.armed{background:rgba(248,113,113,.2);color:var(--red);border-color:rgba(248,113,113,.4);animation:pulse-bg 2s ease-in-out infinite}
+@keyframes pulse-bg{0%,100%{background:rgba(248,113,113,.2)}50%{background:rgba(248,113,113,.12)}}
+
+/* Audit drawer */
+.audit-drawer{border-top:1px solid var(--border-08);background:var(--surface-04);max-height:40px;overflow:hidden;transition:max-height .3s ease}
+.audit-drawer.open{max-height:320px}
+.audit-drawer-toggle{display:flex;align-items:center;gap:8px;padding:10px 24px;cursor:pointer;font-family:var(--font-display);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:var(--text-subtle);user-select:none}
+.audit-drawer-toggle svg{transition:transform .2s}
+.audit-drawer.open .audit-drawer-toggle svg{transform:rotate(180deg)}
+.audit-entries{max-height:260px;overflow-y:auto;padding:0 24px 12px}
+.audit-entries::-webkit-scrollbar{width:4px}
+.audit-entries::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:4px}
+.audit-row{display:flex;align-items:flex-start;gap:14px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:12px}
+.audit-time{font-family:var(--font-mono);color:var(--text-subtle);white-space:nowrap;min-width:72px}
+.audit-event{font-family:var(--font-mono);color:var(--violet);min-width:120px}
+.audit-detail{color:var(--text-muted);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.audit-json-btn{background:none;border:none;color:var(--text-subtle);cursor:pointer;font-size:11px;font-family:var(--font-mono);padding:0 4px}
+.audit-json-btn:hover{color:var(--text)}
+
+/* Modal overlay */
+.modal-overlay{display:none;position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);align-items:center;justify-content:center}
+.modal-overlay.visible{display:flex}
+.modal{background:#12122a;border:1px solid var(--border-14);border-radius:var(--radius-card);padding:28px 32px;max-width:440px;width:90%;box-shadow:var(--shadow-card)}
+.modal h3{font-family:var(--font-display);font-weight:700;font-size:17px;margin-bottom:6px}
+.modal p{font-size:13px;color:var(--text-muted);line-height:1.6;margin-bottom:18px}
+.modal-fields{display:flex;flex-direction:column;gap:10px;margin-bottom:20px}
+.modal-fields label{font-size:12px;color:var(--text-subtle);font-weight:500}
+.modal-fields input{background:rgba(0,0,0,.3);border:1px solid var(--border-08);border-radius:6px;padding:8px 12px;color:var(--text);font-family:var(--font-mono);font-size:13px;outline:none;transition:border-color .15s}
+.modal-fields input:focus{border-color:var(--violet)}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end}
+.modal-actions button{padding:8px 18px;border-radius:var(--radius-btn);font-size:13px;font-weight:600;cursor:pointer;border:none;transition:opacity .12s}
+.modal-actions button:hover{opacity:.85}
+
+/* Warning overlay */
+.warn-overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center}
+.warn-overlay.visible{display:flex}
+.warn-box{background:#1a1020;border:2px solid rgba(248,113,113,.3);border-radius:14px;padding:32px;max-width:500px;width:90%;text-align:center;box-shadow:0 32px 80px rgba(0,0,0,.5)}
+.warn-box svg{margin-bottom:16px}
+.warn-box h3{font-family:var(--font-display);font-weight:700;font-size:19px;margin-bottom:8px;color:var(--coral)}
+.warn-box p{font-size:13px;color:var(--text-muted);line-height:1.65;margin-bottom:22px}
+.warn-box .btn-row{display:flex;gap:8px;justify-content:center}
+
+@media(max-width:960px){
+  nav.nav{display:none}
+  .zones{flex-direction:column}
+  .zone-left,.zone-right{width:100%;min-width:100%;max-height:200px;border:none;border-bottom:1px solid var(--border-08)}
+  .zone-right{border-bottom:none;border-top:1px solid var(--border-08)}
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <button class="metis-mark">
+    <span class="mm-glyph">M</span>
+    <span class="mm-word">Metis</span>
+  </button>
+  <div>
+    <div class="topbar-title">Browser <em>control</em></div>
+    <div class="topbar-subtitle">Live preview · Approvals · Allowed services</div>
+  </div>
+  <div class="topbar-spacer"></div>
+  <button class="btn-primary" id="sessionBtn" onclick="toggleSession()">▶ Open browser</button>
+</header>
+
+<div class="shell">
+  <nav class="nav" data-active="browser">
+    <div class="nav-dot" title="Home">H</div>
+    <div class="nav-dot" title="Money">$</div>
+    <div class="nav-dot" title="Relate">R</div>
+    <div class="nav-dot" title="Auto">A</div>
+    <div class="nav-dot" title="Agents">AG</div>
+    <div class="nav-dot" data-active title="Browser">BR</div>
+  </nav>
+
+  <div class="zones">
+    <!-- LEFT: Allowed services -->
+    <aside class="zone-left">
+      <div class="zone-left-header">Allowed services</div>
+      <div id="servicesList"></div>
+      <button class="btn-add-service" onclick="showModal('addService')">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="6" y1="1" x2="6" y2="11"/><line x1="1" y1="6" x2="11" y2="6"/></svg>
+        Add service
+      </button>
+    </aside>
+
+    <!-- CENTER: Live preview + actions -->
+    <main class="zone-center">
+      <div class="url-bar">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" opacity=".4"><circle cx="7" cy="7" r="5.5"/><path d="M1.5 7h11M7 1.5c-1.5 2-2 3.5-2 5.5s.5 3.5 2 5.5M7 1.5c1.5 2 2 3.5 2 5.5s-.5 3.5-2 5.5"/></svg>
+        <span class="url-display" id="urlDisplay">about:blank</span>
+        <button onclick="promptGoTo()" title="Go to URL"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 7h10M8 3l4 4-4 4"/></svg></button>
+        <button title="Reload"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M11 7A4 4 0 11 3.5 4"/><path d="M3 1v3.5h3.5"/></svg></button>
+      </div>
+
+      <div class="live-preview" id="livePreview">
+        <div class="spinner" id="previewSpinner"></div>
+        <div class="placeholder-text">No active session<br>Click "Open browser" to start<br><span style="font-size:11px;color:var(--text-subtle)">Screenshots stream here at 2 fps</span></div>
+      </div>
+
+      <div class="action-rows">
+        <div class="action-row">
+          <div class="action-row-label">Navigation</div>
+          <button class="action-btn" onclick="showInlineForm('goto')">Go to URL</button>
+          <button class="action-btn">Back</button>
+          <button class="action-btn">Forward</button>
+          <button class="action-btn">Reload</button>
+        </div>
+        <div class="inline-form" id="form-goto">
+          <input type="text" placeholder="https://example.com" id="gotoInput">
+          <div class="inline-form-actions">
+            <button class="btn-sm go" onclick="doNavigate()">Navigate</button>
+            <button class="btn-sm cancel" onclick="hideInlineForm('goto')">Cancel</button>
+          </div>
+        </div>
+
+        <div class="action-row">
+          <div class="action-row-label">Interaction</div>
+          <button class="action-btn" onclick="showInlineForm('click')">Click selector…<span class="auto-badge">auto</span></button>
+          <button class="action-btn" onclick="showInlineForm('fill')">Fill field…</button>
+          <button class="action-btn" onclick="showInlineForm('key')">Press key…</button>
+          <button class="action-btn">Wait for selector…</button>
+        </div>
+        <div class="inline-form" id="form-click">
+          <input type="text" placeholder='button[type="submit"]'>
+          <div class="inline-form-actions">
+            <button class="btn-sm go">Click</button>
+            <button class="btn-sm cancel" onclick="hideInlineForm('click')">Cancel</button>
+          </div>
+        </div>
+        <div class="inline-form" id="form-fill">
+          <input type="text" placeholder='#email' style="margin-bottom:4px">
+          <input type="text" placeholder='Value to fill'>
+          <div class="inline-form-actions">
+            <button class="btn-sm go">Fill</button>
+            <button class="btn-sm cancel" onclick="hideInlineForm('fill')">Cancel</button>
+          </div>
+        </div>
+        <div class="inline-form" id="form-key">
+          <input type="text" placeholder='Enter, Tab, Escape…'>
+          <div class="inline-form-actions">
+            <button class="btn-sm go">Send</button>
+            <button class="btn-sm cancel" onclick="hideInlineForm('key')">Cancel</button>
+          </div>
+        </div>
+
+        <div class="action-row">
+          <div class="action-row-label">Capture</div>
+          <button class="action-btn">Save credentials to vault</button>
+          <button class="action-btn">Save cookies</button>
+          <button class="action-btn">Take screenshot</button>
+        </div>
+      </div>
+    </main>
+
+    <!-- RIGHT: Approval queue -->
+    <aside class="zone-right">
+      <div class="zone-right-header">Approval queue</div>
+      <div class="approval-list" id="approvalList"></div>
+    </aside>
+  </div>
+</div>
+
+<!-- Daily limits footer -->
+<div class="daily-limits" id="dailyLimits">
+  <div class="limit-pill"><span class="lp-label">Accounts</span> 1 / 3</div>
+  <div class="limit-pill"><span class="lp-label">Submits</span> 4 / ∞</div>
+  <div class="limit-pill"><span class="lp-label">Screenshots</span> 12</div>
+  <div class="limits-spacer"></div>
+  <button class="kill-switch" id="killSwitch" onclick="toggleKillSwitch()">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="8" r="4.5"/><line x1="7" y1="1" x2="7" y2="3.5"/></svg>
+    Pause all
+  </button>
+</div>
+
+<!-- Audit drawer -->
+<div class="audit-drawer" id="auditDrawer">
+  <div class="audit-drawer-toggle" onclick="toggleAudit()">
+    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 4l3 3 3-3"/></svg>
+    Audit log — last 50 browser.* events
+  </div>
+  <div class="audit-entries" id="auditEntries"></div>
+</div>
+
+<!-- Add service modal -->
+<div class="modal-overlay" id="modal-addService">
+  <div class="modal">
+    <h3>Add allowed service</h3>
+    <p>Specify the domain and an optional daily action cap.</p>
+    <div class="modal-fields">
+      <label>Domain</label>
+      <input type="text" placeholder="github.com">
+      <label>Daily cap (0 = unlimited)</label>
+      <input type="number" value="5" min="0">
+    </div>
+    <div class="modal-actions">
+      <button style="background:var(--surface-06);color:var(--text-muted)" onclick="hideModal('addService')">Cancel</button>
+      <button style="background:var(--violet);color:#fff" onclick="hideModal('addService')">Add service</button>
+    </div>
+  </div>
+</div>
+
+<!-- First-time warning overlay -->
+<div class="warn-overlay" id="warnOverlay">
+  <div class="warn-box">
+    <svg width="40" height="40" viewBox="0 0 40 40" fill="none"><circle cx="20" cy="20" r="18" stroke="#FB7185" stroke-width="2"/><line x1="20" y1="12" x2="20" y2="22" stroke="#FB7185" stroke-width="2.5" stroke-linecap="round"/><circle cx="20" cy="27" r="1.5" fill="#FB7185"/></svg>
+    <h3>Automated browsing notice</h3>
+    <p>Automated browsing on services that prohibit it — including Google, Twitter/X, and Meta — may violate their Terms of Service and could result in account suspension or ban. Metis is not responsible for any consequences.</p>
+    <div class="btn-row">
+      <button class="btn-sm cancel" style="padding:8px 20px;background:var(--surface-08);color:var(--text-muted);border:1px solid var(--border-08);border-radius:7px;cursor:pointer" onclick="dismissWarn(false)">Cancel</button>
+      <button class="btn-sm go" style="padding:8px 20px;background:var(--coral);color:#fff;border-radius:7px;cursor:pointer;border:none" onclick="dismissWarn(true)">I understand, proceed</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Mock data ──
+const SERVICES = [
+  { name: 'GitHub', domain: 'github.com', status: 'permitted', cap: '2/5', color: '#7C3AED' },
+  { name: 'Linear', domain: 'linear.app', status: 'permitted', cap: '0/3', color: '#C026D3' },
+  { name: 'Stripe', domain: 'stripe.com', status: 'permitted', cap: '1/5', color: '#FB7185' },
+  { name: 'Notion', domain: 'notion.so', status: 'pending', cap: '—', color: '#F59E0B' },
+  { name: 'Vercel', domain: 'vercel.com', status: 'permitted', cap: '0/2', color: '#34D399' },
+  { name: 'AWS Console', domain: 'console.aws.amazon.com', status: 'permitted', cap: '5/5', color: '#64748B', capped: true },
+];
+
+const APPROVALS = [
+  { id: 1, service: 'GitHub', icon: 'G', color: '#7C3AED', action: 'FILL email field with "ops@metis.ai"', why: 'Setting up the service account for CI/CD pipeline access.', status: 'pending' },
+  { id: 2, service: 'GitHub', icon: 'G', color: '#7C3AED', action: 'CLICK [Create account]', why: 'Completing account registration after filling credentials.', status: 'pending' },
+  { id: 3, service: 'Stripe', icon: 'S', color: '#FB7185', action: 'CREATE API KEY on stripe.com', why: 'Agent needs a restricted API key for payment webhooks.', status: 'pending' },
+];
+
+const AUDIT_LOG = [
+  { time: '14:38:12', event: 'browser.navigate', detail: 'https://github.com/signup' },
+  { time: '14:38:14', event: 'browser.screenshot', detail: 'Captured 1920×1080 PNG (284 KB)' },
+  { time: '14:38:16', event: 'browser.fill', detail: '#email → ops@metis.ai' },
+  { time: '14:38:17', event: 'browser.fill', detail: '#password → ••••••••' },
+  { time: '14:38:19', event: 'browser.click', detail: 'button[type="submit"]' },
+  { time: '14:38:22', event: 'browser.wait', detail: '.dashboard-header (found in 1.2s)' },
+  { time: '14:38:24', event: 'browser.credential_save', detail: 'github.com → vault (encrypted)' },
+  { time: '14:37:01', event: 'browser.session_start', detail: 'Chrome 125.0 headless' },
+  { time: '14:36:50', event: 'browser.navigate', detail: 'https://stripe.com/login' },
+  { time: '14:36:45', event: 'browser.screenshot', detail: 'Captured 1920×1080 PNG (312 KB)' },
+];
+
+// ── Render ──
+function renderServices() {
+  document.getElementById('servicesList').innerHTML = SERVICES.map(s => `
+    <div class="service-row${s.capped ? ' capped' : ''}">
+      <div class="service-icon" style="background:${s.color}">${s.name[0]}</div>
+      <div class="service-info">
+        <div class="service-name">${s.name}</div>
+        <div class="service-cap">${s.capped ? s.cap + ' reached' : s.cap}</div>
+      </div>
+      <span class="pill-sm ${s.status}">${s.status === 'permitted' ? 'Permitted' : 'Pending'}</span>
+    </div>
+  `).join('');
+}
+
+function renderApprovals() {
+  const list = document.getElementById('approvalList');
+  if (APPROVALS.length === 0) {
+    list.innerHTML = '<div class="empty-approvals">Nothing pending. The agent will queue every consequential action here for your green light.</div>';
+    return;
+  }
+  list.innerHTML = APPROVALS.map(a => `
+    <div class="approval-card ${a.status}" data-id="${a.id}">
+      <div class="approval-top">
+        <div class="service-icon" style="background:${a.color};width:24px;height:24px;border-radius:6px;font-size:10px">${a.icon}</div>
+        <span style="font-size:12px;font-weight:600">${a.service}</span>
+      </div>
+      <div class="approval-action">${a.action}</div>
+      <div class="approval-why">${a.why}</div>
+      ${a.status === 'pending' ? `
+      <div class="approval-buttons">
+        <button class="btn-approve" onclick="resolveApproval(${a.id},'approved')">Approve</button>
+        <button class="btn-deny" onclick="resolveApproval(${a.id},'denied')">Deny</button>
+        <button class="btn-modify">Modify</button>
+      </div>` : ''}
+    </div>
+  `).join('');
+}
+
+function renderAudit() {
+  document.getElementById('auditEntries').innerHTML = AUDIT_LOG.map(e => `
+    <div class="audit-row">
+      <span class="audit-time">${e.time}</span>
+      <span class="audit-event">${e.event}</span>
+      <span class="audit-detail">${e.detail}</span>
+      <button class="audit-json-btn" title="Expand JSON">{…}</button>
+    </div>
+  `).join('');
+}
+
+// ── Interactions ──
+let sessionActive = false;
+let warnShown = localStorage.getItem('metis_browser_warn_shown') === '1';
+
+function toggleSession() {
+  if (!sessionActive && !warnShown) {
+    document.getElementById('warnOverlay').classList.add('visible');
+    return;
+  }
+  sessionActive = !sessionActive;
+  const btn = document.getElementById('sessionBtn');
+  btn.textContent = sessionActive ? '■ Close browser' : '▶ Open browser';
+  btn.classList.toggle('active-session', sessionActive);
+  document.getElementById('previewSpinner').classList.toggle('active', sessionActive);
+  if (sessionActive) {
+    document.getElementById('urlDisplay').textContent = 'https://github.com/signup';
+  } else {
+    document.getElementById('urlDisplay').textContent = 'about:blank';
+  }
+}
+
+function dismissWarn(proceed) {
+  document.getElementById('warnOverlay').classList.remove('visible');
+  if (proceed) {
+    warnShown = true;
+    localStorage.setItem('metis_browser_warn_shown', '1');
+    toggleSession();
+  }
+}
+
+function resolveApproval(id, status) {
+  const a = APPROVALS.find(x => x.id === id);
+  if (a) a.status = status;
+  renderApprovals();
+}
+
+function showModal(id) { document.getElementById('modal-' + id).classList.add('visible'); }
+function hideModal(id) { document.getElementById('modal-' + id).classList.remove('visible'); }
+
+function showInlineForm(id) {
+  document.querySelectorAll('.inline-form').forEach(f => f.classList.remove('visible'));
+  document.getElementById('form-' + id).classList.add('visible');
+  const inp = document.getElementById('form-' + id).querySelector('input');
+  if (inp) inp.focus();
+}
+function hideInlineForm(id) { document.getElementById('form-' + id).classList.remove('visible'); }
+
+function doNavigate() {
+  const url = document.getElementById('gotoInput').value;
+  if (url) document.getElementById('urlDisplay').textContent = url;
+  hideInlineForm('goto');
+}
+function promptGoTo() { showInlineForm('goto'); }
+
+function toggleKillSwitch() {
+  const ks = document.getElementById('killSwitch');
+  const dl = document.getElementById('dailyLimits');
+  ks.classList.toggle('armed');
+  dl.classList.toggle('paused');
+  ks.textContent = ks.classList.contains('armed') ? '⏸ Paused — resume' : 'Pause all';
+}
+
+function toggleAudit() {
+  document.getElementById('auditDrawer').classList.toggle('open');
+}
+
+// Init
+renderServices();
+renderApprovals();
+renderAudit();
+</script>
+</body>
+</html>

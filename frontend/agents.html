@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Subagent Inspector — Metis Command</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ── Design Tokens ── */
+:root {
+  --bg: #07071a;
+  --surface-04: rgba(255,255,255,.04);
+  --surface-06: rgba(255,255,255,.06);
+  --surface-08: rgba(255,255,255,.08);
+  --border-08: rgba(255,255,255,.08);
+  --border-12: rgba(255,255,255,.12);
+  --border-14: rgba(255,255,255,.14);
+  --highlight: inset 0 1px 0 rgba(255,255,255,.08);
+  --text: #F8FAFF;
+  --text-muted: rgba(248,250,255,.6);
+  --text-subtle: rgba(248,250,255,.32);
+  --heritage: linear-gradient(135deg, #7C3AED, #C026D3 55%, #FB7185);
+  --violet: #7C3AED;
+  --coral: #FB7185;
+  --amber: #F59E0B;
+  --green: #34D399;
+  --red: #F87171;
+  --radius-card: 12px;
+  --radius-row: 8px;
+  --radius-btn: 7px;
+  --shadow-card: 0 24px 60px rgba(0,0,0,.35);
+  --font-display: 'Sora', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-body); font-size: 14px; overflow: hidden; }
+
+/* ── Mesh gradient background ── */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 420px 420px at 15% 20%, rgba(124,58,237,.14), transparent),
+    radial-gradient(ellipse 360px 360px at 75% 65%, rgba(251,113,133,.10), transparent),
+    radial-gradient(ellipse 300px 300px at 55% 15%, rgba(245,158,11,.07), transparent);
+}
+
+/* ── Topbar ── */
+.topbar {
+  position: relative; z-index: 10;
+  display: flex; align-items: center; gap: 16px;
+  padding: 0 28px; height: 60px;
+  background: var(--surface-04);
+  border-bottom: 1px solid var(--border-08);
+  box-shadow: var(--highlight);
+}
+.metis-mark {
+  display: flex; align-items: center; gap: 8px;
+  background: none; border: none; cursor: pointer; color: var(--text);
+}
+.mm-glyph {
+  width: 26px; height: 26px;
+  background: var(--heritage); border-radius: 6px;
+  display: grid; place-items: center;
+  font-family: var(--font-display); font-weight: 800; font-size: 13px; color: #fff;
+}
+.mm-word {
+  font-family: var(--font-display); font-weight: 800; font-size: 15px;
+  letter-spacing: 3.5px; text-transform: uppercase;
+}
+.topbar-title {
+  margin-left: 20px; font-family: var(--font-display); font-weight: 700; font-size: 15px;
+}
+.topbar-title em { font-style: italic; color: var(--coral); }
+.topbar-subtitle {
+  font-size: 12px; color: var(--text-subtle); letter-spacing: .5px;
+}
+.topbar-spacer { flex: 1; }
+.btn-primary {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 18px; border: none; border-radius: var(--radius-btn);
+  background: var(--heritage); color: #fff;
+  font-family: var(--font-body); font-weight: 600; font-size: 13px;
+  cursor: pointer; transition: opacity .15s;
+  box-shadow: 0 2px 12px rgba(124,58,237,.3);
+}
+.btn-primary:hover { opacity: .88; }
+
+/* ── Shell layout ── */
+.shell {
+  position: relative; z-index: 1;
+  display: flex; height: calc(100% - 60px);
+}
+
+/* ── Sidebar nav placeholder ── */
+nav.nav {
+  width: 56px; min-width: 56px;
+  background: var(--surface-04);
+  border-right: 1px solid var(--border-08);
+  display: flex; flex-direction: column; align-items: center;
+  padding-top: 16px; gap: 12px;
+}
+nav.nav .nav-dot {
+  width: 34px; height: 34px; border-radius: 10px;
+  background: var(--surface-06); border: 1px solid var(--border-08);
+  display: grid; place-items: center; cursor: pointer;
+  color: var(--text-subtle); font-size: 11px; font-weight: 600;
+  transition: background .15s, color .15s;
+}
+nav.nav .nav-dot[data-active] {
+  background: rgba(124,58,237,.18); border-color: rgba(124,58,237,.35); color: var(--violet);
+}
+
+/* ── Left Rail ── */
+.left-rail {
+  width: 300px; min-width: 300px;
+  border-right: 1px solid var(--border-08);
+  display: flex; flex-direction: column; gap: 0;
+  overflow-y: auto;
+  background: var(--surface-04);
+}
+.left-rail::-webkit-scrollbar { width: 4px; }
+.left-rail::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 4px; }
+
+.filter-card {
+  padding: 16px 18px 14px;
+  border-bottom: 1px solid var(--border-08);
+}
+.filter-card h3 {
+  font-family: var(--font-display); font-weight: 700; font-size: 11px;
+  text-transform: uppercase; letter-spacing: 1.2px;
+  color: var(--text-subtle); margin-bottom: 10px;
+}
+.filter-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 10px; border-radius: var(--radius-row); cursor: pointer;
+  transition: background .12s; font-size: 13px; font-weight: 500;
+}
+.filter-row:hover { background: var(--surface-06); }
+.filter-row.active { background: rgba(124,58,237,.12); color: #fff; }
+.filter-count {
+  font-family: var(--font-mono); font-size: 12px; color: var(--text-subtle);
+  min-width: 22px; text-align: right;
+}
+.filter-row.active .filter-count { color: var(--text-muted); }
+
+/* Recent runs */
+.recent-runs-header {
+  padding: 16px 18px 8px;
+  font-family: var(--font-display); font-weight: 700; font-size: 11px;
+  text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-subtle);
+}
+.recent-runs { flex: 1; overflow-y: auto; padding: 0 10px 12px; }
+.recent-runs::-webkit-scrollbar { width: 4px; }
+.recent-runs::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 4px; }
+
+.run-entry {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px; border-radius: var(--radius-row);
+  cursor: pointer; transition: background .12s;
+}
+.run-entry:hover { background: var(--surface-06); }
+.run-entry.selected { background: rgba(124,58,237,.12); }
+
+.status-dot {
+  width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0;
+}
+.status-dot.ok { background: var(--green); }
+.status-dot.waiting { background: var(--amber); animation: pulse-dot 1.8s ease-in-out infinite; }
+.status-dot.failed { background: var(--red); }
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: .5; transform: scale(.8); }
+}
+
+.run-entry-info { flex: 1; min-width: 0; }
+.run-entry-name { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.run-entry-task { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+.run-entry-time { font-family: var(--font-mono); font-size: 11px; color: var(--text-subtle); margin-top: 3px; }
+
+/* ── Main pane ── */
+.main-pane {
+  flex: 1; overflow-y: auto; padding: 28px 32px;
+  display: flex; flex-direction: column; gap: 20px;
+}
+.main-pane::-webkit-scrollbar { width: 6px; }
+.main-pane::-webkit-scrollbar-thumb { background: rgba(255,255,255,.08); border-radius: 4px; }
+
+/* Cards */
+.card {
+  background: var(--surface-06);
+  border: 1px solid var(--border-12);
+  border-radius: var(--radius-card);
+  box-shadow: var(--highlight), var(--shadow-card);
+  padding: 22px 24px;
+}
+
+/* Header card */
+.header-card {
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+}
+.avatar {
+  width: 52px; height: 52px; border-radius: 50%;
+  background: var(--heritage);
+  display: grid; place-items: center;
+  font-family: var(--font-display); font-weight: 800; font-size: 18px; color: #fff;
+  flex-shrink: 0;
+}
+.header-meta { flex: 1; min-width: 160px; }
+.header-meta h2 { font-family: var(--font-display); font-weight: 700; font-size: 20px; }
+.header-meta-row { display: flex; align-items: center; gap: 10px; margin-top: 6px; flex-wrap: wrap; }
+.status-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px 3px 8px; border-radius: 20px;
+  font-size: 12px; font-weight: 600;
+}
+.status-pill .pill-dot { width: 6px; height: 6px; border-radius: 50%; }
+.status-pill.ok { background: rgba(52,211,153,.12); color: var(--green); }
+.status-pill.ok .pill-dot { background: var(--green); }
+.status-pill.waiting { background: rgba(245,158,11,.12); color: var(--amber); }
+.status-pill.waiting .pill-dot { background: var(--amber); animation: pulse-dot 1.8s ease-in-out infinite; }
+.status-pill.failed { background: rgba(248,113,113,.12); color: var(--red); }
+.status-pill.failed .pill-dot { background: var(--red); }
+.duration {
+  font-family: var(--font-mono); font-size: 13px; color: var(--text-muted);
+}
+.btn-secondary {
+  margin-left: auto;
+  padding: 8px 16px; border-radius: var(--radius-btn);
+  background: var(--surface-08); border: 1px solid var(--border-14);
+  color: var(--text); font-family: var(--font-body); font-weight: 600; font-size: 13px;
+  cursor: pointer; transition: background .12s; box-shadow: var(--highlight);
+}
+.btn-secondary:hover { background: rgba(255,255,255,.12); }
+
+/* AGENTS.md card */
+.agents-card-header {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;
+}
+.agents-card-header h3 {
+  font-family: var(--font-mono); font-weight: 500; font-size: 13px; color: var(--text-muted);
+}
+.agents-card-actions { display: flex; gap: 6px; }
+.agents-card-actions button {
+  padding: 4px 10px; border-radius: 5px;
+  background: var(--surface-06); border: 1px solid var(--border-08);
+  color: var(--text-muted); font-size: 12px; font-weight: 500; cursor: pointer;
+  transition: background .12s, color .12s;
+}
+.agents-card-actions button:hover { background: var(--surface-08); color: var(--text); }
+.agents-md-content {
+  background: rgba(0,0,0,.25); border-radius: 8px; padding: 16px;
+  font-family: var(--font-mono); font-size: 12.5px; line-height: 1.65;
+  color: var(--text-muted); white-space: pre-wrap; word-break: break-word;
+  min-height: 80px; max-height: 240px; overflow-y: auto;
+  outline: none; border: 1px solid transparent; transition: border-color .15s;
+}
+.agents-md-content:focus { border-color: var(--violet); }
+.agents-md-content::-webkit-scrollbar { width: 4px; }
+.agents-md-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 4px; }
+.agents-card .collapsed-hint {
+  font-size: 12px; color: var(--text-subtle); cursor: pointer; padding: 8px 0 0;
+}
+.agents-card .collapsed-hint:hover { color: var(--text-muted); }
+
+/* Question backchannel */
+.backchannel-card h3 {
+  font-family: var(--font-display); font-weight: 700; font-size: 12px;
+  text-transform: uppercase; letter-spacing: 1px; color: var(--text-subtle); margin-bottom: 16px;
+}
+.backchannel-timeline { display: flex; flex-direction: column; gap: 12px; }
+.bubble-row { display: flex; }
+.bubble-row.left { justify-content: flex-start; }
+.bubble-row.right { justify-content: flex-end; }
+.bubble {
+  max-width: 72%; padding: 12px 16px; border-radius: 12px;
+  font-size: 13px; line-height: 1.55;
+}
+.bubble-row.left .bubble {
+  background: rgba(124,58,237,.12); border: 1px solid rgba(124,58,237,.2);
+  border-bottom-left-radius: 4px;
+}
+.bubble-row.right .bubble {
+  background: var(--surface-08); border: 1px solid var(--border-12);
+  border-bottom-right-radius: 4px;
+}
+.bubble-sender { font-weight: 600; font-size: 11px; color: var(--text-subtle); margin-bottom: 4px; }
+.bubble-time { font-family: var(--font-mono); font-size: 10px; color: var(--text-subtle); margin-top: 6px; }
+.empty-backchannel {
+  text-align: center; padding: 28px 16px;
+  color: var(--text-subtle); font-size: 13px; font-style: italic;
+}
+
+/* Output card */
+.output-card-header {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;
+}
+.output-card-header h3 {
+  font-family: var(--font-display); font-weight: 700; font-size: 12px;
+  text-transform: uppercase; letter-spacing: 1px; color: var(--text-subtle);
+}
+.btn-copy {
+  display: flex; align-items: center; gap: 5px;
+  padding: 5px 12px; border-radius: 5px;
+  background: var(--surface-06); border: 1px solid var(--border-08);
+  color: var(--text-muted); font-size: 12px; cursor: pointer;
+  transition: background .12s; font-weight: 500;
+}
+.btn-copy:hover { background: var(--surface-08); color: var(--text); }
+.output-text {
+  font-size: 13.5px; line-height: 1.7; color: var(--text-muted);
+}
+
+/* Token stats footer */
+.stats-row {
+  display: flex; gap: 24px; flex-wrap: wrap;
+  padding: 16px 20px;
+  background: var(--surface-04); border: 1px solid var(--border-08);
+  border-radius: var(--radius-card); box-shadow: var(--highlight);
+}
+.stat-item { display: flex; flex-direction: column; gap: 2px; }
+.stat-label { font-size: 11px; color: var(--text-subtle); text-transform: uppercase; letter-spacing: .8px; }
+.stat-value { font-family: var(--font-mono); font-size: 13px; font-weight: 500; color: var(--text-muted); }
+
+/* ── Empty state ── */
+.empty-state {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 16px; padding: 40px; text-align: center;
+}
+.empty-state svg { opacity: .25; }
+.empty-state h2 { font-family: var(--font-display); font-weight: 700; font-size: 20px; }
+.empty-state p { color: var(--text-muted); font-size: 14px; max-width: 340px; line-height: 1.6; }
+
+/* ── Mobile ≤880px ── */
+@media (max-width: 880px) {
+  nav.nav { display: none; }
+  .shell { flex-direction: column; }
+  .left-rail {
+    width: 100%; min-width: 100%; flex-direction: column;
+    max-height: 260px; border-right: none; border-bottom: 1px solid var(--border-08);
+  }
+  .filter-cards-row {
+    display: flex; overflow-x: auto; gap: 0;
+    border-bottom: 1px solid var(--border-08);
+  }
+  .filter-cards-row::-webkit-scrollbar { height: 0; }
+  .filter-card { min-width: 200px; border-bottom: none; border-right: 1px solid var(--border-08); }
+  .recent-runs { max-height: 140px; }
+  .main-pane { padding: 20px 16px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── Topbar ── -->
+<header class="topbar">
+  <button class="metis-mark">
+    <span class="mm-glyph">M</span>
+    <span class="mm-word">Metis</span>
+  </button>
+  <div>
+    <div class="topbar-title">Subagent <em>inspector</em></div>
+    <div class="topbar-subtitle">Briefs · Questions · Outputs</div>
+  </div>
+  <div class="topbar-spacer"></div>
+  <button class="btn-primary" data-action="spawn-agent">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="7" y1="2" x2="7" y2="12"/><line x1="2" y1="7" x2="12" y2="7"/></svg>
+    Spawn ad-hoc agent
+  </button>
+</header>
+
+<!-- ── Shell ── -->
+<div class="shell">
+
+  <!-- Sidebar nav (filled by nav.js) -->
+  <nav class="nav" data-active="agents">
+    <div class="nav-dot" title="Home">H</div>
+    <div class="nav-dot" title="Money">$</div>
+    <div class="nav-dot" title="Relate">R</div>
+    <div class="nav-dot" title="Auto">A</div>
+    <div class="nav-dot" data-active title="Agents">AG</div>
+  </nav>
+
+  <!-- Left rail -->
+  <aside class="left-rail" id="leftRail">
+    <div class="filter-cards-row">
+      <!-- Status filter -->
+      <div class="filter-card">
+        <h3>Status</h3>
+        <div class="filter-row active" data-filter="status" data-value="all"><span>All</span><span class="filter-count">12</span></div>
+        <div class="filter-row" data-filter="status" data-value="running"><span>Running</span><span class="filter-count">2</span></div>
+        <div class="filter-row" data-filter="status" data-value="waiting"><span>Waiting on Director</span><span class="filter-count">1</span></div>
+        <div class="filter-row" data-filter="status" data-value="done"><span>Done</span><span class="filter-count">8</span></div>
+        <div class="filter-row" data-filter="status" data-value="failed"><span>Failed</span><span class="filter-count">1</span></div>
+      </div>
+      <!-- Specialist filter -->
+      <div class="filter-card">
+        <h3>Specialist</h3>
+        <div class="filter-row active" data-filter="specialist" data-value="all"><span>All</span><span class="filter-count">12</span></div>
+        <div class="filter-row" data-filter="specialist" data-value="researcher"><span>Researcher</span><span class="filter-count">4</span></div>
+        <div class="filter-row" data-filter="specialist" data-value="coder"><span>Coder</span><span class="filter-count">3</span></div>
+        <div class="filter-row" data-filter="specialist" data-value="thinker"><span>Thinker</span><span class="filter-count">3</span></div>
+        <div class="filter-row" data-filter="specialist" data-value="scholar"><span>Scholar</span><span class="filter-count">2</span></div>
+      </div>
+    </div>
+    <!-- Recent runs -->
+    <div class="recent-runs-header">Recent runs</div>
+    <div class="recent-runs" id="recentRuns"></div>
+  </aside>
+
+  <!-- Main pane -->
+  <main class="main-pane" id="mainPane"></main>
+
+</div>
+
+<script>
+// ── Mock Data ──
+const RUNS = [
+  { id: 'run_8a3f', specialist: 'Researcher', initials: 'RE', status: 'ok', task: 'Summarize Q3 competitive landscape for EU fintech sector', duration: '14.2s', time: '2m ago',
+    agentsMd: `# Researcher Agent\n\nYou are a research specialist. Your job is to find and synthesize information from multiple sources.\n\n## Constraints\n- Always cite sources\n- Prefer primary sources over secondary\n- Flag confidence level (high/medium/low) for each finding\n- Maximum 2000 words per output`,
+    questions: [
+      { from: 'agent', text: 'The brief mentions "EU fintech sector" — should I include UK post-Brexit or strictly EU-27?', time: '14:32:01' },
+      { from: 'director', text: 'Include UK as a comparator but focus on EU-27 for the core analysis.', time: '14:32:04' },
+    ],
+    output: 'The EU fintech sector in Q3 2025 saw a 12% increase in Series B+ rounds compared to Q2, driven primarily by embedded finance and open-banking infrastructure plays. Key movers include Adyen (NL), expanding into SMB lending, and N26 (DE), which closed a $900M round at a $12B valuation. The UK comparator shows stronger AI-native fintech formation but lower median round sizes. Regulatory tailwinds from PSD3 drafts are accelerating cross-border payment innovation. Confidence: High for funding data, Medium for regulatory impact projections.',
+    stats: { tokensIn: '3,847', tokensOut: '1,204', latency: '14,218', model: 'claude-sonnet-4-20250514' }
+  },
+  { id: 'run_7b2e', specialist: 'Coder', initials: 'CO', status: 'ok', task: 'Generate TypeScript migration for accounts schema v4', duration: '8.7s', time: '5m ago',
+    agentsMd: `# Coder Agent\n\nYou write production-grade code. Follow the project's style guide.\n\n## Rules\n- TypeScript strict mode\n- No any types\n- Add JSDoc for public interfaces\n- Include unit test stubs`,
+    questions: [],
+    output: 'Generated migration file: 20250506_accounts_v4.ts\n\nAdded columns: risk_score (float), compliance_tier (enum), last_audit_at (timestamp).\nDropped: legacy_flag (boolean).\nAll existing data preserved with default values. Rollback migration included.',
+    stats: { tokensIn: '2,190', tokensOut: '847', latency: '8,714', model: 'claude-sonnet-4-20250514' }
+  },
+  { id: 'run_6c1d', specialist: 'Thinker', initials: 'TH', status: 'waiting', task: 'Evaluate trade-offs for event-sourcing vs CRUD in payments', duration: '—', time: '8m ago',
+    agentsMd: `# Thinker Agent\n\nYou reason deeply about architecture and strategy.\n\n## Approach\n- Consider at least 3 perspectives\n- Use structured pros/cons\n- Quantify where possible`,
+    questions: [
+      { from: 'agent', text: 'What is the expected write throughput for the payments service? This significantly affects the event-sourcing cost model.', time: '14:28:11' },
+    ],
+    output: '',
+    stats: { tokensIn: '1,430', tokensOut: '—', latency: '—', model: 'claude-sonnet-4-20250514' }
+  },
+  { id: 'run_5d0a', specialist: 'Scholar', initials: 'SC', status: 'ok', task: 'Extract key findings from Basel IV implementation paper', duration: '22.1s', time: '12m ago',
+    agentsMd: `# Scholar Agent\n\nYou parse and synthesize academic and regulatory documents.`,
+    questions: [],
+    output: 'Basel IV implementation timeline analysis complete. Key finding: standardized approach for credit risk now mandates a 72.5% output floor, effective Jan 2028. Impact on EU banks estimated at €120B additional capital requirements.',
+    stats: { tokensIn: '8,210', tokensOut: '2,105', latency: '22,087', model: 'claude-sonnet-4-20250514' }
+  },
+  { id: 'run_4e9b', specialist: 'Researcher', initials: 'RE', status: 'failed', task: 'Pull real-time FX rates from Bloomberg terminal API', duration: '3.1s', time: '18m ago',
+    agentsMd: `# Researcher Agent\n\nYou are a research specialist.`,
+    questions: [],
+    output: 'Error: Connection to Bloomberg terminal timed out after 3000ms. The API endpoint returned HTTP 503. Suggest retrying with fallback to ECB reference rates.',
+    stats: { tokensIn: '412', tokensOut: '89', latency: '3,102', model: 'claude-sonnet-4-20250514' }
+  },
+  { id: 'run_3f8c', specialist: 'Coder', initials: 'CO', status: 'ok', task: 'Refactor notification service to use pub/sub pattern', duration: '11.4s', time: '25m ago',
+    agentsMd: `# Coder Agent\n\nYou write production-grade code.`,
+    questions: [
+      { from: 'agent', text: 'Should I use Redis Streams or NATS for the pub/sub layer? Both are in the stack.', time: '14:12:30' },
+      { from: 'director', text: 'Use NATS — we're standardizing on it for new services.', time: '14:12:33' },
+    ],
+    output: 'Refactored notification-service to use NATS JetStream. Replaced 4 direct HTTP calls with publish events. Consumer groups configured for email, push, and in-app channels. Tests passing.',
+    stats: { tokensIn: '3,100', tokensOut: '1,580', latency: '11,402', model: 'claude-sonnet-4-20250514' }
+  },
+];
+
+// ── Render functions ──
+function renderRecentRuns() {
+  const container = document.getElementById('recentRuns');
+  container.innerHTML = RUNS.map((r, i) => `
+    <div class="run-entry${i === 0 ? ' selected' : ''}" data-run-id="${r.id}" onclick="selectRun('${r.id}')">
+      <span class="status-dot ${r.status === 'ok' ? 'ok' : r.status === 'waiting' ? 'waiting' : 'failed'}"></span>
+      <div class="run-entry-info">
+        <div class="run-entry-name">${r.specialist}</div>
+        <div class="run-entry-task">${r.task}</div>
+        <div class="run-entry-time">${r.time}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderEmptyState() {
+  return `
+    <div class="empty-state">
+      <svg width="72" height="72" viewBox="0 0 72 72" fill="none" stroke="#F8FAFF" stroke-width="1.5">
+        <circle cx="20" cy="20" r="8"/><circle cx="52" cy="20" r="8"/><circle cx="36" cy="52" r="8"/>
+        <line x1="27" y1="23" x2="45" y2="23" stroke-dasharray="3 3"/>
+        <line x1="24" y1="27" x2="33" y2="45" stroke-dasharray="3 3"/>
+        <line x1="48" y1="27" x2="39" y2="45" stroke-dasharray="3 3"/>
+      </svg>
+      <h2>No subagent selected</h2>
+      <p>Subagents spawn whenever the Manager delegates a task. Select a run from the left, or view the latest one.</p>
+      <button class="btn-primary" onclick="selectRun('${RUNS[0]?.id}')">View latest run</button>
+    </div>
+  `;
+}
+
+function renderRunDetail(run) {
+  const questionsHTML = run.questions.length === 0
+    ? `<div class="empty-backchannel">No questions — the brief was clear enough on first run.</div>`
+    : run.questions.map(q => `
+      <div class="bubble-row ${q.from === 'agent' ? 'left' : 'right'}">
+        <div class="bubble">
+          <div class="bubble-sender">${q.from === 'agent' ? run.specialist : 'Director'}</div>
+          ${q.text}
+          <div class="bubble-time">${q.time}</div>
+        </div>
+      </div>
+    `).join('');
+
+  return `
+    <!-- Header -->
+    <div class="card header-card">
+      <div class="avatar">${run.initials}</div>
+      <div class="header-meta">
+        <h2>${run.specialist}</h2>
+        <div class="header-meta-row">
+          <span class="status-pill ${run.status}"><span class="pill-dot"></span>${run.status === 'ok' ? 'Done' : run.status === 'waiting' ? 'Waiting on Director' : 'Failed'}</span>
+          <span class="duration">${run.duration}</span>
+        </div>
+      </div>
+      <button class="btn-secondary" data-action="rerun" data-run-id="${run.id}">Re-run with edits</button>
+    </div>
+
+    <!-- AGENTS.md -->
+    <div class="card agents-card">
+      <div class="agents-card-header">
+        <h3>AGENTS.md</h3>
+        <div class="agents-card-actions">
+          <button onclick="toggleAgentsMd()">Expand</button>
+          <button>Edit</button>
+          <button>Reset to default</button>
+        </div>
+      </div>
+      <div class="agents-md-content" contenteditable="true" spellcheck="false" data-run-id="${run.id}">${run.agentsMd}</div>
+    </div>
+
+    <!-- Question backchannel -->
+    <div class="card backchannel-card">
+      <h3>Question backchannel</h3>
+      <div class="backchannel-timeline">${questionsHTML}</div>
+    </div>
+
+    <!-- Output -->
+    <div class="card">
+      <div class="output-card-header">
+        <h3>Output</h3>
+        <button class="btn-copy" onclick="copyOutput(this)">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="7" height="7" rx="1.5"/><path d="M3 9H2.5A1.5 1.5 0 011 7.5v-5A1.5 1.5 0 012.5 1h5A1.5 1.5 0 019 2.5V3"/></svg>
+          Copy
+        </button>
+      </div>
+      <div class="output-text" id="outputText">${run.output || '<span style="color:var(--text-subtle);font-style:italic">Awaiting output…</span>'}</div>
+    </div>
+
+    <!-- Token stats -->
+    <div class="stats-row">
+      <div class="stat-item"><span class="stat-label">Tokens in</span><span class="stat-value">${run.stats.tokensIn}</span></div>
+      <div class="stat-item"><span class="stat-label">Tokens out</span><span class="stat-value">${run.stats.tokensOut}</span></div>
+      <div class="stat-item"><span class="stat-label">Latency</span><span class="stat-value">${run.stats.latency} ms</span></div>
+      <div class="stat-item"><span class="stat-label">Model</span><span class="stat-value">${run.stats.model}</span></div>
+    </div>
+  `;
+}
+
+let selectedRunId = null;
+
+function selectRun(id) {
+  selectedRunId = id;
+  const run = RUNS.find(r => r.id === id);
+  document.getElementById('mainPane').innerHTML = run ? renderRunDetail(run) : renderEmptyState();
+  document.querySelectorAll('.run-entry').forEach(el => {
+    el.classList.toggle('selected', el.dataset.runId === id);
+  });
+}
+
+function copyOutput(btn) {
+  const text = document.getElementById('outputText')?.textContent || '';
+  navigator.clipboard.writeText(text).then(() => {
+    btn.innerHTML = '✓ Copied';
+    setTimeout(() => {
+      btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="7" height="7" rx="1.5"/><path d="M3 9H2.5A1.5 1.5 0 011 7.5v-5A1.5 1.5 0 012.5 1h5A1.5 1.5 0 019 2.5V3"/></svg> Copy`;
+    }, 1500);
+  });
+}
+
+function toggleAgentsMd() {
+  const el = document.querySelector('.agents-md-content');
+  if (!el) return;
+  const isExpanded = el.style.maxHeight === 'none';
+  el.style.maxHeight = isExpanded ? '240px' : 'none';
+  el.previousElementSibling?.querySelector('button').textContent = isExpanded ? 'Expand' : 'Collapse';
+}
+
+// Filter interactions
+document.querySelectorAll('.filter-row').forEach(row => {
+  row.addEventListener('click', () => {
+    const group = row.dataset.filter;
+    document.querySelectorAll(`.filter-row[data-filter="${group}"]`).forEach(r => r.classList.remove('active'));
+    row.classList.add('active');
+  });
+});
+
+// Init
+renderRecentRuns();
+document.getElementById('mainPane').innerHTML = renderEmptyState();
+</script>
+
+</body>
+</html>
