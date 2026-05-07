@@ -50,7 +50,11 @@ PUBLIC_PATHS = {"/", "/health", "/version", "/status",
                 "/auth/me", "/auth/refresh", "/auth/reset_password",
                 "/auth/local-token",
                 # Ollama auto-start probes the splash screen calls before login
-                "/ollama/status", "/ollama/start"}
+                "/ollama/status", "/ollama/start",
+                # Playwright auto-install probes — same rationale (splash polls
+                # them while the user is still on /login or /splash with no
+                # session yet).
+                "/playwright/status", "/playwright/install"}
 
 PUBLIC_PREFIXES = ("/static/",)
 
@@ -116,6 +120,14 @@ def _boot_services() -> None:
         ).start()
     except Exception as e:
         print(f"[api_bridge] ollama auto-start skipped: {e}")
+    # Auto-install Playwright Chromium on first launch so customers never
+    # need to run `python -m playwright install chromium` themselves.
+    # ensure_chromium_async() is a no-op when the binary is already present.
+    try:
+        import playwright_installer as _pwi
+        _pwi.ensure_chromium_async()
+    except Exception as e:
+        print(f"[api_bridge] playwright auto-install skipped: {e}")
     try:
         from scheduler import seed_default_schedules, start_scheduler
         seed_default_schedules()
@@ -1985,6 +1997,27 @@ def ollama_status() -> dict:
         "installed": binary is not None,
         "binary": str(binary) if binary else None,
     }
+
+
+# ── Playwright auto-install ─────────────────────────────────────────────────
+# Surfaced through the splash screen so the customer sees "Installing browser
+# engine — first launch only" without ever opening a terminal.
+
+@app.get("/playwright/status")
+def playwright_status() -> dict:
+    """
+    Live state of the Chromium auto-install. The splash polls this every
+    second on first launch; once state == 'ready' it moves on.
+    """
+    import playwright_installer as _pwi
+    return _pwi.install_status()
+
+
+@app.post("/playwright/install")
+def playwright_install() -> dict:
+    """Manual trigger — useful if the auto-start was skipped."""
+    import playwright_installer as _pwi
+    return _pwi.ensure_chromium_async()
 
 
 @app.post("/ollama/start")
