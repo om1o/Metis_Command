@@ -1749,6 +1749,104 @@ def invest_analyze(ticker: str) -> dict:
     return result
 
 
+# ── Group 8: Notifier + voice ───────────────────────────────────────────────
+
+class NotifyRequest(BaseModel):
+    subject: str
+    body: str
+    urgency: str = "normal"     # low | normal | high | critical
+    user_id: str | None = None
+
+
+@app.post("/notify")
+def notify_send(req: NotifyRequest, request: Request) -> dict:
+    """
+    Send a notification through the Director's preferred channels.
+    Used internally (proposal scanner, automation completion hooks) and
+    exposed for the chat UI's "send me a reminder" command.
+    """
+    import notifier as _n
+    uid = req.user_id or _user_id_from_request(request)
+    return _n.notify(req.subject, req.body, urgency=req.urgency, user_id=uid)
+
+
+@app.get("/notify/status")
+def notify_status() -> dict:
+    """Today's notification usage + remaining caps."""
+    import notifier as _n
+    return _n.status()
+
+
+class VoiceCallRequest(BaseModel):
+    to: str | None = None       # E.164; defaults to Director's notification_phone
+    twiml_url: str | None = None
+
+
+@app.post("/voice/call")
+def voice_call(req: VoiceCallRequest, request: Request) -> dict:
+    """
+    Place an outbound voice call via Twilio.
+    By default the Manager calls the Director's notification_phone, but the
+    caller can override `to` to reach anyone (e.g. an agent calling a
+    contact on the Director's behalf — gated by comms_policy('phone')).
+    """
+    import comms_policy as _cp
+    if not _cp.is_allowed("phone"):
+        raise HTTPException(status_code=403, detail="phone calls disabled in policy")
+
+    target = (req.to or "").strip()
+    if not target:
+        # Default to the Director's notification phone
+        try:
+            import manager_config as _mc
+            uid = _user_id_from_request(request)
+            target = (_mc.get_config(uid).notification_phone or "").strip()
+        except Exception:
+            target = ""
+    if not target:
+        raise HTTPException(status_code=400, detail="no phone number — set notification_phone or pass `to`")
+
+    try:
+        from comms_link import CommsLink
+        ok = CommsLink().place_outbound_call(target, twiml_url=req.twiml_url)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"call failed: {e}")
+    return {"ok": bool(ok), "to": target}
+
+
+class VoiceTwimlRequest(BaseModel):
+    say: str                    # text the manager should speak
+    voice: str = "Polly.Joanna" # any Twilio TTS voice; defaults to Polly.Joanna
+
+
+@app.post("/voice/twiml")
+def voice_twiml(req: VoiceTwimlRequest) -> dict:
+    """
+    Generate a TwiML <Response><Say> blob that Twilio will speak when it
+    calls the recipient. Twilio fetches the TwiML URL during the call —
+    operators host this somewhere reachable, or use the inline data: URL.
+
+    Returns the raw XML string + a data URL the caller can plug into
+    /voice/call's `twiml_url` field for one-shot announcements.
+    """
+    safe = (req.say or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    voice = req.voice or "Polly.Joanna"
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        f'<Response><Say voice="{voice}">'
+        '<prosody rate="medium">'
+        # Required disclosure for AI-initiated calls (US 2-party consent
+        # states + general best practice). Group 1's safety suggestions
+        # called this out as mandatory.
+        'This is an AI-generated call from your Metis assistant. '
+        f'{safe}'
+        '</prosody></Say></Response>'
+    )
+    import base64 as _b64
+    data_url = "data:application/xml;base64," + _b64.b64encode(xml.encode("utf-8")).decode("ascii")
+    return {"xml": xml, "data_url": data_url}
+
+
 # ── Group 7: Browser control + assisted account creation ───────────────────
 # A single shared session (one Playwright browser at a time). Multi-tab is
 # fine inside the session; multiple sessions would fight over the lock.

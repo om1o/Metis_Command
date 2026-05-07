@@ -340,6 +340,27 @@ def start_scheduler(runner: Callable[[Schedule], None] | None = None) -> None:
 
     if runner is None:
         def runner(s: Schedule) -> None:
+            # Helper: notify the Director per their notification preferences
+            # whenever a scheduled job completes. notifier handles channel
+            # routing + daily caps so we don't have to think about it here.
+            def _notify_done(status: str, error: str = "") -> None:
+                try:
+                    from notifier import notify as _n
+                    label = s.name or (s.goal or s.action)[:60]
+                    if status == "ok":
+                        _n(f"Automation done — {label}",
+                           f"Schedule '{label}' just finished successfully.\n\n"
+                           f"Goal: {s.goal or '(no goal)'}\n"
+                           f"Schedule: {s.kind} {s.spec}",
+                           urgency="low")
+                    else:
+                        _n(f"Automation FAILED — {label}",
+                           f"Schedule '{label}' failed.\n\nError: {error}\n\n"
+                           f"Goal: {s.goal or '(no goal)'}",
+                           urgency="high")
+                except Exception:
+                    pass
+
             # Action schedules call directly into daily_tasks — no mission loop.
             if s.action:
                 try:
@@ -352,9 +373,11 @@ def start_scheduler(runner: Callable[[Schedule], None] | None = None) -> None:
                     status = handler()
                     audit({"event": "scheduler_action_ran",
                            "action": s.action, "schedule_id": s.id, "status": status})
+                    _notify_done("ok")
                 except Exception as e:
                     audit({"event": "scheduler_action_failed",
                            "action": s.action, "schedule_id": s.id, "error": str(e)})
+                    _notify_done("failed", error=str(e)[:300])
                 return
 
             try:
@@ -365,8 +388,13 @@ def start_scheduler(runner: Callable[[Schedule], None] | None = None) -> None:
                     auto_approve=s.auto_approve,
                     project_slug=s.project_slug,
                 )
+                # We don't have a sync result from submit_mission (it's async),
+                # so we notify "kicked off". Per-mission completion notifications
+                # belong on the mission pool side.
+                _notify_done("ok")
             except Exception as e:
                 audit({"event": "scheduler_submit_failed", "schedule_id": s.id, "error": str(e)})
+                _notify_done("failed", error=str(e)[:300])
 
     _running.set()
 

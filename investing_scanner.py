@@ -209,18 +209,8 @@ def scan_watchlist(*, max_tickers: int = 10, propose: bool = False) -> dict:
 
 
 def _maybe_notify_proposal(proposal: dict) -> None:
-    """
-    Send a notification when the AI proposes a trade. Honors the Director's
-    notification prefs (email > sms > voice from .env METIS_NOTIFY_PREFER).
-    """
-    try:
-        import manager_config as _mc
-        cfg = _mc.get_config("default")
-    except Exception:
-        cfg = None
-    if not cfg or not cfg.notify_on_complete:
-        return
-
+    """Notify the Director when the AI proposes a trade. Routed through
+    notifier.notify() so it respects daily caps + urgency rules."""
     body = (
         f"AI proposed a trade:\n"
         f"  {proposal['side'].upper()} {proposal['qty']} {proposal['ticker']} "
@@ -229,18 +219,8 @@ def _maybe_notify_proposal(proposal: dict) -> None:
         f"Open the Money tab → Investing to approve or reject."
     )
     subject = f"Metis: AI proposed {proposal['side'].upper()} {proposal['ticker']}"
-
-    pref = (os.getenv("METIS_NOTIFY_PREFER") or "email,sms,voice").lower()
-    channels = [c.strip() for c in pref.split(",") if c.strip()]
     try:
-        from comms_link import CommsLink
-        link = CommsLink()
-        for ch in channels:
-            if ch == "email" and cfg.notification_email:
-                if link.send_human_email(cfg.notification_email, subject, body, user_id="default"):
-                    return
-            elif ch == "sms" and cfg.notification_phone:
-                if link.send_text_message(cfg.notification_phone, subject + "\n\n" + body[:300]):
-                    return
+        from notifier import notify as _notify
+        _notify(subject, body, urgency="normal", user_id="default")
     except Exception:
         return

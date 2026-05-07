@@ -113,6 +113,14 @@ html,body{min-height:100vh;background:var(--bg);color:var(--text);font-family:'I
 .feat-body .d{font-size:12px;color:var(--muted);line-height:1.5}
 
 @media(max-width:1100px){.left-panel,.right-panel{display:none}.layout{grid-template-columns:1fr;justify-items:center}.card-col{grid-column:1;width:100%;max-width:480px}}
+
+/* Background-warmup status pill — fixed bottom-center while auto-installers run */
+.warmup-pill{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(20px);padding:9px 16px;border-radius:99px;background:rgba(13,13,36,.85);backdrop-filter:blur(20px);border:1px solid rgba(167,139,250,.3);color:#A78BFA;font-family:'JetBrains Mono',monospace;font-size:11.5px;letter-spacing:.04em;opacity:0;pointer-events:none;transition:opacity .35s ease,transform .35s ease;z-index:50;box-shadow:0 12px 36px rgba(0,0,0,.4)}
+.warmup-pill.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.warmup-pill::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:#A78BFA;margin-right:8px;vertical-align:middle;animation:warmup-pulse 1.4s ease-in-out infinite;box-shadow:0 0 8px rgba(167,139,250,.7)}
+.warmup-pill.ready{border-color:rgba(34,197,94,.4);color:#86EFAC}
+.warmup-pill.ready::before{background:#86EFAC;animation:none;box-shadow:0 0 8px rgba(34,197,94,.7)}
+@keyframes warmup-pulse{0%,100%{opacity:.6;transform:scale(.85)}50%{opacity:1;transform:scale(1.1)}}
 </style>
 </head>
 <body>
@@ -238,6 +246,9 @@ html,body{min-height:100vh;background:var(--bg);color:var(--text);font-family:'I
   </div>
 </div>
 
+<!-- Background warmup pill — shows while auto-installers are still finishing -->
+<div id="warmupPill" class="warmup-pill"></div>
+
 <script type="module">
 import { api, setSession, getToken } from '/static/js/api.js?v=v17';
 
@@ -256,6 +267,58 @@ if (getToken()) window.location.replace('/splash');
       }
     }
   } catch {}
+})();
+
+// ── Background warmers ──────────────────────────────────────────────────
+// Fire the auto-installers the moment the login page loads. By the time
+// the user finishes typing their email + password, Ollama is starting up
+// and the Chromium install (if needed) is already in flight. Both are
+// idempotent on the server so it's safe to call them every page load.
+// We also re-poll for status and surface a tiny "Preparing your AI…" pill
+// at the bottom of the form so the user knows things are moving.
+(function warmAutoInstallers() {
+  const ping = (path) => fetch(path, { method: 'POST' }).catch(() => {});
+  ping('/ollama/start');
+  ping('/playwright/install');
+
+  const pill = document.getElementById('warmupPill');
+  if (!pill) return;
+
+  let activeChecks = 0;
+  const tick = async () => {
+    activeChecks++;
+    let pwState = null, ollamaRunning = null;
+    try {
+      const r = await fetch('/playwright/status');
+      if (r.ok) pwState = (await r.json()).state;
+    } catch {}
+    try {
+      const r = await fetch('/ollama/status');
+      if (r.ok) ollamaRunning = (await r.json()).running;
+    } catch {}
+
+    const stillSetup = pwState === 'installing' || ollamaRunning === false;
+    if (stillSetup) {
+      let msg = 'Preparing your AI…';
+      if (pwState === 'installing' && ollamaRunning === false)
+        msg = 'Installing browser engine + starting AI brain…';
+      else if (pwState === 'installing')
+        msg = 'Installing browser engine (first launch only)…';
+      else if (ollamaRunning === false)
+        msg = 'Starting your AI brain…';
+      pill.textContent = msg;
+      pill.classList.add('show');
+    } else {
+      pill.textContent = 'AI ready';
+      pill.classList.add('ready');
+      // Hide ready pill after 2s of stability
+      setTimeout(() => pill.classList.remove('show'), 2000);
+      return;
+    }
+    if (activeChecks < 200)  // ~5 min ceiling
+      setTimeout(tick, 1500);
+  };
+  tick();
 })();
 
 const errBanner = document.getElementById('errBanner');
