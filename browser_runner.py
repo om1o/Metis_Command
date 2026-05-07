@@ -240,6 +240,23 @@ async def click(page: Any, selector: str) -> None:
     await page.locator(selector).click(timeout=10_000)
 
 
+async def wait_for(page: Any, selector: str, timeout_ms: int = 10_000) -> dict:
+    timeout_ms = max(250, int(timeout_ms or 10_000))
+    started = time.time()
+    try:
+        from safety import audit
+        audit({
+            "event": "browser.wait",
+            "selector": selector[:120],
+            "timeout_ms": timeout_ms,
+        })
+    except Exception:
+        pass
+    await page.locator(selector).wait_for(state="visible", timeout=timeout_ms)
+    elapsed_ms = int((time.time() - started) * 1000)
+    return {"selector": selector, "elapsed_ms": elapsed_ms}
+
+
 async def create_account_assisted(
     page: Any,
     *,

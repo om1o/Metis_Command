@@ -163,8 +163,19 @@ class ManagerConfig:
     email_smtp_host: str = "smtp.gmail.com"
     email_smtp_port: int = 465
 
+    # Browser-control policy for the desktop-first operator MVP.
+    default_safe_mode: bool = True
+    allow_per_job_auto_mode: bool = True
+    allowed_services: list[dict[str, Any]] = field(default_factory=list)
+    daily_caps: dict[str, int] = field(default_factory=lambda: {
+        "accounts": 3,
+        "screenshots": 250,
+        "actions": 500,
+    })
+    browser_warning_acknowledged: bool = False
+
     configured_at: str = ""
-    schema_version: int = 3
+    schema_version: int = 4
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

@@ -29,6 +29,7 @@ def test_shell_pages_are_public_html(_sandbox_paths):
         ("/automation-inbox", "Automation"),
         ("/money", "Money"),
         ("/manager", "Manager"),
+        ("/browser-control", "Browser"),
         ("/code", "Code"),
         ("/plugins", "Plugin"),
     ):

@@ -8,9 +8,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/styles/shell.css?v=v19">
-<link rel="stylesheet" href="/static/styles/wordmark.css?v=v19">
-<script src="/static/js/wordmark.js?v=v19" defer></script>
+<link rel="stylesheet" href="/static/styles/shell.css?v=v20">
+<link rel="stylesheet" href="/static/styles/wordmark.css?v=v20">
+<script src="/static/js/wordmark.js?v=v20" defer></script>
 <style>
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
 .panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:18px 20px}
@@ -53,7 +53,7 @@
   <main class="main">
     <div class="page-head">
       <h1 class="page-title">Manager <em>console</em></h1>
-      <span class="page-sub">Model, persona, notifications, voice, media</span>
+      <span class="page-sub">Browser policy, approvals, runtime, and operator notifications</span>
       <a class="btn" href="/setup">Setup wizard</a>
     </div>
     <div class="body">
@@ -68,14 +68,14 @@
             <div class="kv" id="runtimeKv"><div class="k">State</div><div class="v">Loading...</div></div>
           </section>
           <section class="panel">
-            <h3>Voice and media</h3>
-            <div class="status-list">
-              <div class="status-row"><span>Speech input</span><span class="pill ok">Browser</span></div>
-              <div class="status-row"><span>Speech output</span><span class="pill wait">Step 5</span></div>
-              <div class="status-row"><span>Image provider</span><span class="pill wait">Step 3</span></div>
-              <div class="status-row"><span>Video provider</span><span class="pill wait">Step 4</span></div>
+            <h3>Browser policy</h3>
+            <div class="form-grid">
+              <label class="check"><input type="checkbox" id="defaultSafeMode"> Default browser sessions to safe mode</label>
+              <label class="check"><input type="checkbox" id="allowAutoMode"> Allow per-job auto mode</label>
+              <div class="field"><label for="dailyAccounts">Daily account creation cap</label><input id="dailyAccounts" type="number" min="0"></div>
+              <div class="field"><label for="dailyActions">Daily browser action cap</label><input id="dailyActions" type="number" min="0"></div>
             </div>
-            <p class="note">No paid media provider is required. Local/free connectors are added in later steps without auto-downloading large models.</p>
+            <p class="note">Service allowlists and block rules live in the browser cockpit. This panel controls the global default mode and caps that apply before a browser job runs.</p>
           </section>
           <section class="panel">
             <h3>Notification settings</h3>
@@ -93,7 +93,7 @@
   </main>
 </div>
 <script type="module">
-import { api, ensureAuthed } from '/static/js/api.js?v=v19';
+import { api, ensureAuthed } from '/static/js/api.js?v=v20';
 
 await ensureAuthed();
 
@@ -129,6 +129,10 @@ async function load() {
   document.getElementById('phone').value = config.notification_phone || '';
   document.getElementById('notifyComplete').checked = config.notify_on_complete !== false;
   document.getElementById('notifyQuestion').checked = config.notify_on_question !== false;
+  document.getElementById('defaultSafeMode').checked = config.default_safe_mode !== false;
+  document.getElementById('allowAutoMode').checked = config.allow_per_job_auto_mode !== false;
+  document.getElementById('dailyAccounts').value = config.daily_caps?.accounts ?? 3;
+  document.getElementById('dailyActions').value = config.daily_caps?.actions ?? 500;
 }
 
 document.getElementById('saveBtn').addEventListener('click', async () => {
@@ -140,6 +144,13 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
       notification_phone: document.getElementById('phone').value.trim(),
       notify_on_complete: document.getElementById('notifyComplete').checked,
       notify_on_question: document.getElementById('notifyQuestion').checked,
+      default_safe_mode: document.getElementById('defaultSafeMode').checked,
+      allow_per_job_auto_mode: document.getElementById('allowAutoMode').checked,
+      daily_caps: {
+        ...(currentConfig?.daily_caps || {}),
+        accounts: Number(document.getElementById('dailyAccounts').value || 0),
+        actions: Number(document.getElementById('dailyActions').value || 0),
+      },
     });
     currentConfig = result.config;
     state.textContent = 'Saved.';
@@ -153,6 +164,6 @@ load().catch(err => {
   document.getElementById('identityKv').innerHTML = `<div class="k">Error</div><div class="v">${esc(err.message)}</div>`;
 });
 </script>
-<script type="module" src="/static/js/nav.js?v=v19"></script>
+<script type="module" src="/static/js/nav.js?v=v20"></script>
 </body>
 </html>

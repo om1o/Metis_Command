@@ -21,6 +21,7 @@ const ICONS = {
   recent: '<svg class="ico" viewBox="0 0 24 24"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 5.64 5.64L3 8"/><polyline points="12 7 12 12 15 15"/></svg>',
   money: '<svg class="ico" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
   manager: '<svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+  browser: '<svg class="ico" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 20h8"/><path d="M12 18v2"/><path d="M3 8h18"/></svg>',
   code: '<svg class="ico" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>',
   files: '<svg class="ico" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
   plugins: '<svg class="ico" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4v5l3 2.5v5h5l2.5-3H20v-5L17 9V4h-2.5z"/></svg>',
@@ -40,6 +41,7 @@ const NAV_GROUPS = [
     id: 'work',
     label: 'Work',
     items: [
+      { id: 'browser', href: '/browser-control', label: 'Browser', icon: ICONS.browser },
       { id: 'automations', href: '/automations', label: 'Automations', icon: ICONS.automations },
       { id: 'automation-inbox', href: '/automation-inbox', label: 'Automation Inbox', icon: ICONS.inbox },
       { id: 'money', href: '/money', label: 'Money', icon: ICONS.money },
@@ -75,7 +77,7 @@ export async function mountNav() {
         </a>
       `).join('');
       return `
-        <details class="nav-group" ${groupActive || group.id === 'chat' ? 'open' : ''}>
+        <details class="nav-group" ${groupActive || group.id === 'work' ? 'open' : ''}>
           <summary class="nav-heading">${group.label}</summary>
           <div class="nav-items">${items}</div>
         </details>

@@ -8,9 +8,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/styles/shell.css?v=v19">
-<link rel="stylesheet" href="/static/styles/wordmark.css?v=v18">
-<script src="/static/js/wordmark.js?v=v18" defer></script>
+<link rel="stylesheet" href="/static/styles/shell.css?v=v20">
+<link rel="stylesheet" href="/static/styles/wordmark.css?v=v20">
+<script src="/static/js/wordmark.js?v=v20" defer></script>
 <style>
 /* ── Automation board layout ── */
 .board{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px}
@@ -108,7 +108,7 @@
   <main class="main">
     <div class="page-head">
       <h1 class="page-title">Automation <em>board</em></h1>
-      <span class="page-sub">Active · Disabled · System</span>
+      <span class="page-sub">Schedules, browser-backed runs, pause/resume, and manual execution</span>
       <button class="btn primary" id="createBtn">+ Create automation</button>
     </div>
     <div class="body">
@@ -239,7 +239,7 @@
 </div>
 
 <script type="module">
-import { api, ensureAuthed, getUser, clearSession } from '/static/js/api.js?v=v19';
+import { api, ensureAuthed, getUser, clearSession } from '/static/js/api.js?v=v20';
 
 await ensureAuthed();
 const cached = getUser() || { email: 'Operator' };
@@ -293,6 +293,7 @@ async function loadBoard() {
   document.getElementById('colSystem').innerHTML = system.length ? system.map(renderCard).join('') :
     '<div class="empty-row" style="padding:14px 8px;color:var(--subtle);font-size:12.5px;text-align:center">No system schedules.</div>';
 
+  document.querySelectorAll('[data-run]').forEach(b => b.addEventListener('click', runNowHandler));
   document.querySelectorAll('[data-toggle]').forEach(b => b.addEventListener('click', toggleHandler));
   document.querySelectorAll('[data-edit-md]').forEach(b => b.addEventListener('click', openMdEditor));
   document.querySelectorAll('[data-delete]').forEach(b => b.addEventListener('click', deleteHandler));
@@ -315,11 +316,26 @@ function renderCard(s) {
         <span class="status ${esc(status)}">${esc(status)}</span>
       </div>
       <div class="actions">
+        <button class="primary" data-run="${esc(s.id)}">Run now</button>
         ${s.action ? '' : `<button data-edit-md="${esc(s.id)}">📝 Brief</button>`}
         <button data-toggle="${esc(s.id)}">${s.enabled ? '⏸ Pause' : '▶ Resume'}</button>
         <button class="danger" data-delete="${esc(s.id)}">🗑</button>
       </div>
     </div>`;
+}
+
+async function runNowHandler(e) {
+  const id = e.currentTarget.dataset.run;
+  e.currentTarget.disabled = true;
+  try {
+    const response = await authedFetch(`/schedules/${encodeURIComponent(id)}/run`, { method: 'POST' });
+    const result = await response.json();
+    if (!result.ok) {
+      alert('Run failed: ' + (result.error || result.status || 'unknown error'));
+    }
+  } finally {
+    loadBoard();
+  }
 }
 
 async function toggleHandler(e) {
@@ -490,6 +506,6 @@ loadBoard();
 setInterval(loadBoard, 30000);  // poll every 30s for status updates
 </script>
 
-<script type="module" src="/static/js/nav.js?v=v19"></script>
+<script type="module" src="/static/js/nav.js?v=v20"></script>
 </body>
 </html>

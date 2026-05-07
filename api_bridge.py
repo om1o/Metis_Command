@@ -11,6 +11,7 @@ import asyncio
 import json
 import os
 from typing import Any
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -958,6 +959,24 @@ def schedules_toggle(schedule_id: str) -> dict:
     return {"enabled": _toggle(schedule_id), "id": schedule_id}
 
 
+@app.post("/schedules/{schedule_id}/run")
+def schedules_run_now(schedule_id: str) -> dict:
+    from scheduler import run_now as _run_now
+    try:
+        return _run_now(schedule_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="schedule not found")
+
+
+@app.get("/automation-events")
+def automation_events_list(
+    limit: int = Query(default=100, ge=1, le=500),
+    schedule_id: str | None = None,
+) -> dict:
+    from scheduler import list_events
+    return {"events": list_events(limit=limit, schedule_id=schedule_id)}
+
+
 # ── Marketplace ──────────────────────────────────────────────────────────────
 
 @app.get("/marketplace")
@@ -1856,6 +1875,11 @@ def voice_twiml(req: VoiceTwimlRequest) -> dict:
 _BROWSER_LOCK = asyncio.Lock()
 _BROWSER_SESSION: Any = None
 _BROWSER_PAGE: Any = None
+_BROWSER_MODE = "safe"
+_BROWSER_JOB_LABEL = "Manual browser session"
+_BROWSER_APPROVALS: list[dict[str, Any]] = []
+_BROWSER_APPROVAL_SEQ = 0
+_BROWSER_LAST_CAPTURED_AT = 0.0
 
 
 class BrowserOpenRequest(BaseModel):
@@ -1876,6 +1900,31 @@ class BrowserClickRequest(BaseModel):
     selector: str
 
 
+class BrowserWaitRequest(BaseModel):
+    selector: str
+    timeout_ms: int = 10_000
+
+
+class BrowserSessionModeRequest(BaseModel):
+    mode: str
+    job_label: str | None = None
+
+
+class BrowserServiceUpsertRequest(BaseModel):
+    domain: str
+    label: str | None = None
+    enabled: bool = True
+    trusted: bool = True
+    daily_cap: int | None = None
+
+
+class BrowserServicePatchRequest(BaseModel):
+    label: str | None = None
+    enabled: bool | None = None
+    trusted: bool | None = None
+    daily_cap: int | None = None
+
+
 class BrowserAccountRequest(BaseModel):
     service: str             # short name, must be in METIS_BROWSER_ALLOWED_SERVICES
     username: str = ""
@@ -1886,24 +1935,227 @@ class BrowserAccountRequest(BaseModel):
     submit_selector: str | None = None
 
 
-@app.get("/browser/status")
-def browser_status() -> dict:
+def _browser_user_id(request: Request | None) -> str:
+    return _user_id_from_request(request) if request is not None else "default"
+
+
+def _normalize_domain(raw: str) -> str:
+    text = (raw or "").strip().lower()
+    if not text:
+        return ""
+    if "://" not in text:
+        text = "https://" + text
+    parsed = urlparse(text)
+    host = (parsed.netloc or parsed.path or "").lower().strip()
+    if host.startswith("www."):
+        host = host[4:]
+    return host
+
+
+def _service_label(domain: str) -> str:
+    host = _normalize_domain(domain)
+    if not host:
+        return "Unknown"
+    base = host.split(".")[0].replace("-", " ").replace("_", " ").strip()
+    return base.title() or host
+
+
+def _manager_browser_config(user_id: str):
+    import manager_config as _mc
+
+    cfg = _mc.get_config(user_id)
+    if not isinstance(cfg.allowed_services, list):
+        cfg.allowed_services = []
+    if not isinstance(cfg.daily_caps, dict):
+        cfg.daily_caps = {}
+    return cfg
+
+
+def _save_manager_browser_config(user_id: str, updates: dict[str, Any]):
+    import manager_config as _mc
+    return _mc.save_config(user_id, updates)
+
+
+def _browser_today_action_count(domain: str) -> int:
+    try:
+        from datetime import datetime
+        from safety import tail_audit
+
+        day = datetime.now().date().isoformat()
+        target = _normalize_domain(domain)
+        total = 0
+        for row in tail_audit(2000):
+            event = str(row.get("event") or "")
+            if event not in {"browser.click", "browser.fill", "browser.approval_executed"}:
+                continue
+            row_domain = _normalize_domain(str(row.get("domain") or ""))
+            if row_domain != target:
+                continue
+            ts = row.get("ts")
+            if not ts:
+                continue
+            if datetime.fromtimestamp(float(ts) / 1000.0).date().isoformat() == day:
+                total += 1
+        return total
+    except Exception:
+        return 0
+
+
+def _service_rows(cfg) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for raw in cfg.allowed_services or []:
+        if not isinstance(raw, dict):
+            continue
+        domain = _normalize_domain(str(raw.get("domain") or ""))
+        if not domain:
+            continue
+        actions_today = _browser_today_action_count(domain)
+        daily_cap = raw.get("daily_cap")
+        enabled = raw.get("enabled", True) is not False
+        rows.append({
+            "id": domain,
+            "domain": domain,
+            "label": raw.get("label") or _service_label(domain),
+            "enabled": enabled,
+            "trusted": raw.get("trusted", True) is not False,
+            "daily_cap": daily_cap,
+            "actions_today": actions_today,
+            "status": "blocked" if not enabled else ("capped" if daily_cap and actions_today >= int(daily_cap) else "allowed"),
+        })
+    rows.sort(key=lambda row: (row["status"] != "allowed", row["label"].lower()))
+    return rows
+
+
+def _service_for_domain(cfg, domain: str) -> dict[str, Any] | None:
+    target = _normalize_domain(domain)
+    for row in _service_rows(cfg):
+        if row["domain"] == target:
+            return row
+    return None
+
+
+def _browser_audit(limit: int = 50) -> list[dict[str, Any]]:
+    try:
+        from safety import tail_audit
+
+        rows = []
+        for row in reversed(tail_audit(limit * 6)):
+            event = str(row.get("event") or "")
+            if event.startswith("browser."):
+                rows.append(row)
+            if len(rows) >= limit:
+                break
+        return rows
+    except Exception:
+        return []
+
+
+def _current_browser_domain() -> str:
+    if _BROWSER_PAGE is None:
+        return ""
+    try:
+        return _normalize_domain(getattr(_BROWSER_PAGE, "url", ""))
+    except Exception:
+        return ""
+
+
+def _check_browser_policy(user_id: str, domain: str) -> dict[str, Any] | None:
+    cfg = _manager_browser_config(user_id)
+    service = _service_for_domain(cfg, domain)
+    if service and not service.get("enabled", True):
+        raise HTTPException(status_code=403, detail=f"browser policy blocks {service['domain']}")
+    if service and service.get("daily_cap") and service["actions_today"] >= int(service["daily_cap"]):
+        raise HTTPException(status_code=429, detail=f"daily action cap reached for {service['domain']}")
+    return service
+
+
+def _next_approval_id() -> str:
+    global _BROWSER_APPROVAL_SEQ
+    _BROWSER_APPROVAL_SEQ += 1
+    return f"appr-{_BROWSER_APPROVAL_SEQ}"
+
+
+def _queue_browser_approval(kind: str, payload: dict[str, Any], *, why: str) -> dict[str, Any]:
+    approval = {
+        "id": _next_approval_id(),
+        "kind": kind,
+        "payload": payload,
+        "why": why,
+        "status": "pending",
+        "created_at": int(__import__("time").time() * 1000),
+        "mode": _BROWSER_MODE,
+        "domain": _normalize_domain(payload.get("domain") or _current_browser_domain()),
+        "job_label": _BROWSER_JOB_LABEL,
+        "result": None,
+        "error": "",
+    }
+    _BROWSER_APPROVALS.insert(0, approval)
+    try:
+        from safety import audit
+        audit({
+            "event": "browser.approval_queued",
+            "approval_id": approval["id"],
+            "kind": kind,
+            "domain": approval["domain"],
+        })
+    except Exception:
+        pass
+    return approval
+
+
+async def _execute_browser_action(kind: str, payload: dict[str, Any]) -> dict[str, Any]:
     import browser_runner as _br
+
+    page = _require_page()
+    if kind == "click":
+        await _br.click(page, payload["selector"])
+        return {"ok": True}
+    if kind == "fill":
+        await _br.fill(page, payload["selector"], payload["value"], secret=bool(payload.get("secret")))
+        return {"ok": True}
+    if kind == "wait":
+        return await _br.wait_for(page, payload["selector"], int(payload.get("timeout_ms") or 10_000))
+    raise HTTPException(status_code=400, detail=f"unknown browser action: {kind}")
+
+
+def _browser_status_payload(user_id: str) -> dict[str, Any]:
+    import browser_runner as _br
+
+    cfg = _manager_browser_config(user_id)
+    services = _service_rows(cfg)
+    current_url = getattr(_BROWSER_PAGE, "url", "about:blank") if _BROWSER_PAGE is not None else "about:blank"
     return {
         "playwright_installed": _br.is_available(),
-        "session_open":         _BROWSER_SESSION is not None,
-        "allowed_services":     sorted(_br._allowed_services()),
-        "daily_account_cap":    _br.DAILY_ACCOUNT_CAP,
+        "session_open": _BROWSER_SESSION is not None,
+        "mode": _BROWSER_MODE,
+        "job_label": _BROWSER_JOB_LABEL,
+        "current_url": current_url,
+        "current_domain": _normalize_domain(current_url),
+        "allowed_services": services,
+        "daily_caps": cfg.daily_caps,
+        "default_safe_mode": cfg.default_safe_mode,
+        "allow_per_job_auto_mode": cfg.allow_per_job_auto_mode,
+        "browser_warning_acknowledged": cfg.browser_warning_acknowledged,
+        "daily_account_cap": _br.DAILY_ACCOUNT_CAP,
         "daily_accounts_today": _br.daily_account_count(),
-        "chrome_allowed":       __import__("comms_policy").is_allowed("chrome"),
+        "chrome_allowed": __import__("comms_policy").is_allowed("chrome"),
+        "approvals": _BROWSER_APPROVALS[:20],
+        "audit": _browser_audit(50),
+        "last_captured_at": _BROWSER_LAST_CAPTURED_AT,
     }
 
 
+@app.get("/browser/status")
+def browser_status(request: Request) -> dict:
+    return _browser_status_payload(_browser_user_id(request))
+
+
 @app.post("/browser/open")
-async def browser_open(req: BrowserOpenRequest) -> dict:
+async def browser_open(req: BrowserOpenRequest, request: Request) -> dict:
     """Spin up a Chromium session. Headful by default so the user sees it."""
-    global _BROWSER_SESSION, _BROWSER_PAGE
+    global _BROWSER_SESSION, _BROWSER_PAGE, _BROWSER_MODE
     import browser_runner as _br
+    user_id = _browser_user_id(request)
     if not _br.is_available():
         raise HTTPException(status_code=503,
             detail="Playwright not installed. Run `python -m playwright install chromium`.")
@@ -1912,7 +2164,7 @@ async def browser_open(req: BrowserOpenRequest) -> dict:
         raise HTTPException(status_code=403, detail="Chrome control disabled in policy")
     async with _BROWSER_LOCK:
         if _BROWSER_SESSION is not None:
-            return {"ok": True, "reused": True}
+            return {"ok": True, "reused": True, **_browser_status_payload(user_id)}
         sess = _br.BrowserSession()
         try:
             await sess.open(headless=req.headless)
@@ -1920,7 +2172,14 @@ async def browser_open(req: BrowserOpenRequest) -> dict:
             raise HTTPException(status_code=500, detail=f"browser open failed: {e}")
         _BROWSER_SESSION = sess
         _BROWSER_PAGE = await sess.new_page()
-    return {"ok": True, "reused": False}
+        cfg = _manager_browser_config(user_id)
+        _BROWSER_MODE = "safe" if cfg.default_safe_mode else "auto"
+        try:
+            from safety import audit
+            audit({"event": "browser.session_start", "mode": _BROWSER_MODE, "headless": req.headless})
+        except Exception:
+            pass
+    return {"ok": True, "reused": False, **_browser_status_payload(user_id)}
 
 
 @app.post("/browser/close")
@@ -1931,6 +2190,11 @@ async def browser_close() -> dict:
             await _BROWSER_SESSION.close()
         _BROWSER_SESSION = None
         _BROWSER_PAGE = None
+    try:
+        from safety import audit
+        audit({"event": "browser.session_stop"})
+    except Exception:
+        pass
     return {"ok": True}
 
 
@@ -1941,40 +2205,218 @@ def _require_page() -> Any:
 
 
 @app.post("/browser/navigate")
-async def browser_navigate(req: BrowserNavigateRequest) -> dict:
+async def browser_navigate(req: BrowserNavigateRequest, request: Request) -> dict:
     import browser_runner as _br
     page = _require_page()
-    return await _br.navigate(page, req.url)
+    domain = _normalize_domain(req.url)
+    if domain:
+        _check_browser_policy(_browser_user_id(request), domain)
+    result = await _br.navigate(page, req.url)
+    return result
 
 
 @app.get("/browser/screenshot")
 async def browser_screenshot() -> dict:
+    global _BROWSER_LAST_CAPTURED_AT
     import browser_runner as _br
     page = _require_page()
     b64 = await _br.screenshot_b64(page)
-    return {"png_base64": b64}
+    _BROWSER_LAST_CAPTURED_AT = int(__import__("time").time() * 1000)
+    try:
+        from safety import audit
+        audit({
+            "event": "browser.screenshot",
+            "domain": _current_browser_domain(),
+            "captured_at": _BROWSER_LAST_CAPTURED_AT,
+        })
+    except Exception:
+        pass
+    return {"png_base64": b64, "captured_at": _BROWSER_LAST_CAPTURED_AT}
 
 
 @app.post("/browser/fill")
-async def browser_fill(req: BrowserFillRequest) -> dict:
-    import browser_runner as _br
-    page = _require_page()
-    await _br.fill(page, req.selector, req.value, secret=req.secret)
-    return {"ok": True}
+async def browser_fill(req: BrowserFillRequest, request: Request) -> dict:
+    _require_page()
+    domain = _current_browser_domain()
+    _check_browser_policy(_browser_user_id(request), domain)
+    if _BROWSER_MODE == "safe" and req.secret:
+        approval = _queue_browser_approval(
+            "fill",
+            {
+                "selector": req.selector,
+                "value": req.value,
+                "secret": req.secret,
+                "domain": domain,
+            },
+            why="Secret input is gated in safe mode.",
+        )
+        return {"ok": True, "queued": True, "approval": approval}
+    result = await _execute_browser_action("fill", req.model_dump())
+    return {"ok": True, "queued": False, "result": result}
 
 
 @app.post("/browser/click")
-async def browser_click(req: BrowserClickRequest) -> dict:
-    import browser_runner as _br
-    page = _require_page()
-    await _br.click(page, req.selector)
-    return {"ok": True}
+async def browser_click(req: BrowserClickRequest, request: Request) -> dict:
+    _require_page()
+    domain = _current_browser_domain()
+    _check_browser_policy(_browser_user_id(request), domain)
+    if _BROWSER_MODE == "safe":
+        approval = _queue_browser_approval(
+            "click",
+            {"selector": req.selector, "domain": domain},
+            why="Clicks are approval-gated in safe mode.",
+        )
+        return {"ok": True, "queued": True, "approval": approval}
+    result = await _execute_browser_action("click", req.model_dump())
+    return {"ok": True, "queued": False, "result": result}
+
+
+@app.post("/browser/wait")
+async def browser_wait(req: BrowserWaitRequest) -> dict:
+    result = await _execute_browser_action("wait", req.model_dump())
+    return {"ok": True, "result": result}
+
+
+@app.get("/browser/audit")
+def browser_audit(limit: int = Query(default=50, ge=1, le=200)) -> dict:
+    return {"events": _browser_audit(limit)}
+
+
+@app.get("/browser/approvals")
+def browser_approvals() -> dict:
+    return {"approvals": _BROWSER_APPROVALS[:50]}
+
+
+@app.post("/browser/approvals/{approval_id}/approve")
+async def browser_approval_approve(approval_id: str) -> dict:
+    for approval in _BROWSER_APPROVALS:
+        if approval["id"] != approval_id:
+            continue
+        if approval["status"] != "pending":
+            return {"approval": approval}
+        try:
+            result = await _execute_browser_action(approval["kind"], approval["payload"])
+            approval["status"] = "approved"
+            approval["result"] = result
+            approval["error"] = ""
+            try:
+                from safety import audit
+                audit({
+                    "event": "browser.approval_executed",
+                    "approval_id": approval_id,
+                    "kind": approval["kind"],
+                    "domain": approval["domain"],
+                })
+            except Exception:
+                pass
+        except Exception as e:
+            approval["status"] = "failed"
+            approval["error"] = str(e)
+        return {"approval": approval}
+    raise HTTPException(status_code=404, detail="approval not found")
+
+
+@app.post("/browser/approvals/{approval_id}/deny")
+def browser_approval_deny(approval_id: str) -> dict:
+    for approval in _BROWSER_APPROVALS:
+        if approval["id"] != approval_id:
+            continue
+        approval["status"] = "denied"
+        try:
+            from safety import audit
+            audit({
+                "event": "browser.approval_denied",
+                "approval_id": approval_id,
+                "kind": approval["kind"],
+                "domain": approval["domain"],
+            })
+        except Exception:
+            pass
+        return {"approval": approval}
+    raise HTTPException(status_code=404, detail="approval not found")
+
+
+@app.post("/browser/session-mode")
+def browser_session_mode(req: BrowserSessionModeRequest, request: Request) -> dict:
+    global _BROWSER_MODE, _BROWSER_JOB_LABEL
+    user_id = _browser_user_id(request)
+    cfg = _manager_browser_config(user_id)
+    mode = (req.mode or "").strip().lower()
+    if mode not in {"safe", "auto"}:
+        raise HTTPException(status_code=400, detail="mode must be 'safe' or 'auto'")
+    if mode == "auto" and not cfg.allow_per_job_auto_mode:
+        raise HTTPException(status_code=403, detail="per-job auto mode disabled in manager policy")
+    _BROWSER_MODE = mode
+    if req.job_label:
+        _BROWSER_JOB_LABEL = req.job_label.strip()[:120] or _BROWSER_JOB_LABEL
+    try:
+        from safety import audit
+        audit({"event": "browser.session_mode", "mode": mode, "job_label": _BROWSER_JOB_LABEL})
+    except Exception:
+        pass
+    return {"ok": True, **_browser_status_payload(user_id)}
+
+
+@app.get("/browser/services")
+def browser_services(request: Request) -> dict:
+    cfg = _manager_browser_config(_browser_user_id(request))
+    return {"services": _service_rows(cfg)}
+
+
+@app.post("/browser/services")
+def browser_services_add(req: BrowserServiceUpsertRequest, request: Request) -> dict:
+    user_id = _browser_user_id(request)
+    cfg = _manager_browser_config(user_id)
+    domain = _normalize_domain(req.domain)
+    if not domain:
+        raise HTTPException(status_code=400, detail="domain required")
+    rows = [row for row in (cfg.allowed_services or []) if _normalize_domain(str(row.get("domain") or "")) != domain]
+    rows.append({
+        "domain": domain,
+        "label": req.label or _service_label(domain),
+        "enabled": req.enabled,
+        "trusted": req.trusted,
+        "daily_cap": req.daily_cap,
+    })
+    cfg = _save_manager_browser_config(user_id, {"allowed_services": rows})
+    return {"service": _service_for_domain(cfg, domain), "services": _service_rows(cfg)}
+
+
+@app.patch("/browser/services/{service_id}")
+def browser_services_patch(service_id: str, req: BrowserServicePatchRequest, request: Request) -> dict:
+    user_id = _browser_user_id(request)
+    cfg = _manager_browser_config(user_id)
+    target = _normalize_domain(service_id)
+    found = False
+    rows = []
+    for row in (cfg.allowed_services or []):
+        domain = _normalize_domain(str(row.get("domain") or ""))
+        if domain != target:
+            rows.append(row)
+            continue
+        found = True
+        updated = dict(row)
+        patch = req.model_dump()
+        for key, value in patch.items():
+            if value is not None:
+                updated[key] = value
+        updated["domain"] = target
+        rows.append(updated)
+    if not found:
+        raise HTTPException(status_code=404, detail="service not found")
+    cfg = _save_manager_browser_config(user_id, {"allowed_services": rows})
+    return {"service": _service_for_domain(cfg, target), "services": _service_rows(cfg)}
 
 
 @app.post("/browser/create_account")
-async def browser_create_account(req: BrowserAccountRequest) -> dict:
+async def browser_create_account(req: BrowserAccountRequest, request: Request) -> dict:
     import browser_runner as _br
     page = _require_page()
+    user_id = _browser_user_id(request)
+    cfg = _manager_browser_config(user_id)
+    if not _service_for_domain(cfg, req.service):
+        raise HTTPException(status_code=403, detail=f"{req.service} is not in the allowed services list")
+    _check_browser_policy(user_id, req.service)
     result = await _br.create_account_assisted(
         page,
         service=req.service,
@@ -2193,6 +2635,11 @@ class ManagerConfigUpdate(BaseModel):
     email_password: str | None = None
     email_smtp_host: str | None = None
     email_smtp_port: int | None = None
+    default_safe_mode: bool | None = None
+    allow_per_job_auto_mode: bool | None = None
+    allowed_services: list[dict[str, Any]] | None = None
+    daily_caps: dict[str, int] | None = None
+    browser_warning_acknowledged: bool | None = None
 
 
 @app.post("/manager/config")
