@@ -80,3 +80,4 @@ Thumbs.db
 *.gguf
 *.onnx
 identity/notify_log.jsonl
+identity/code_workspaces.json

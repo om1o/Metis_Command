@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Plugin Store - Metis</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="/static/assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/styles/shell.css?v=v19">
+<link rel="stylesheet" href="/static/styles/wordmark.css?v=v19">
+<script src="/static/js/wordmark.js?v=v19" defer></script>
+<style>
+.store-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.plugin-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:12px;min-height:220px}
+.plugin-top{display:flex;align-items:flex-start;gap:12px}
+.plugin-icon{width:42px;height:42px;border-radius:10px;background:var(--accent-soft);border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);display:grid;place-items:center;font-family:'Sora',sans-serif;font-weight:800;color:var(--vi2)}
+.plugin-title{font-family:'Sora',sans-serif;font-size:15px;font-weight:700;color:var(--text);line-height:1.25}
+.plugin-slug{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--subtle);margin-top:3px}
+.plugin-desc{font-size:13px;line-height:1.55;color:var(--muted);flex:1}
+.plugin-meta{display:flex;gap:6px;flex-wrap:wrap}
+.pill{font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.08em;border:1px solid var(--border);border-radius:99px;padding:3px 8px;color:var(--muted)}
+.pill.free{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.3);color:#86EFAC}
+.status{font-size:12px;color:var(--subtle);min-height:18px}
+.empty{padding:32px;text-align:center;color:var(--subtle)}
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="side">
+    <div class="side-head">
+      <button class="metis-mark size-sm" type="button" title="Refresh">
+        <img class="mm-glyph" src="/static/assets/metis-mark.svg?v=v19" alt="">
+        <span class="mm-stack"><span class="mm-word">Metis</span><span class="mm-sub">Plugins</span></span>
+      </button>
+    </div>
+    <nav class="nav" data-active="plugins"></nav>
+    <div class="side-foot">
+      <div class="avatar" id="userAvatar">M</div>
+      <div class="user-meta"><div class="name" id="userName">Loading...</div><div class="role">Director</div></div>
+      <button class="btn" id="signoutBtn" style="height:32px;padding:0 10px;font-size:11px">Sign out</button>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="page-head">
+      <h1 class="page-title">Plugin <em>store</em></h1>
+      <span class="page-sub">Catalog, install state, and local plugin actions</span>
+      <button class="btn" id="reloadBtn">Reload</button>
+    </div>
+    <div class="body">
+      <div class="body-inner" style="max-width:1280px">
+        <div class="store-grid" id="storeGrid"><div class="empty">Loading plugins...</div></div>
+      </div>
+    </div>
+  </main>
+</div>
+<script type="module">
+import { api, ensureAuthed } from '/static/js/api.js?v=v19';
+
+await ensureAuthed();
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const cents = (v) => Number(v || 0);
+const priceLabel = (v) => cents(v) <= 0 ? 'Free' : '$' + (cents(v) / 100).toFixed(2);
+
+async function loadStore() {
+  const grid = document.getElementById('storeGrid');
+  grid.innerHTML = '<div class="empty">Loading plugins...</div>';
+  const plugins = await api.marketplace();
+  if (!plugins.length) {
+    grid.innerHTML = '<div class="empty">No plugins are available.</div>';
+    return;
+  }
+  grid.innerHTML = plugins.map(p => `
+    <article class="plugin-card" data-slug="${esc(p.slug || '')}">
+      <div class="plugin-top">
+        <div class="plugin-icon">${esc((p.icon || p.name || '?').slice(0, 2))}</div>
+        <div>
+          <div class="plugin-title">${esc(p.name || p.slug || 'Untitled plugin')}</div>
+          <div class="plugin-slug">${esc(p.slug || '')}</div>
+        </div>
+      </div>
+      <div class="plugin-desc">${esc(p.description || 'No description provided.')}</div>
+      <div class="plugin-meta">
+        <span class="pill ${cents(p.price_cents) <= 0 ? 'free' : ''}">${esc(priceLabel(p.price_cents))}</span>
+        <span class="pill">${esc(p.tier_required || 'Free')}</span>
+      </div>
+      <div class="status" data-status="${esc(p.slug || '')}"></div>
+      <button class="btn primary" data-install="${esc(p.slug || '')}">${cents(p.price_cents) <= 0 ? 'Install' : 'Install / buy'}</button>
+    </article>
+  `).join('');
+  grid.querySelectorAll('[data-install]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const slug = btn.dataset.install;
+      const status = document.querySelector(`[data-status="${CSS.escape(slug)}"]`);
+      status.textContent = 'Installing...';
+      btn.disabled = true;
+      try {
+        const result = await api.installPlugin(slug);
+        status.textContent = result.ok ? 'Installed locally.' : 'Install returned false.';
+      } catch (err) {
+        status.textContent = 'Install failed: ' + err.message;
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  });
+}
+
+document.getElementById('reloadBtn').addEventListener('click', () => loadStore().catch(err => {
+  document.getElementById('storeGrid').innerHTML = `<div class="empty">Load failed: ${esc(err.message)}</div>`;
+}));
+
+loadStore().catch(err => {
+  document.getElementById('storeGrid').innerHTML = `<div class="empty">Load failed: ${esc(err.message)}</div>`;
+});
+</script>
+<script type="module" src="/static/js/nav.js?v=v19"></script>
+</body>
+</html>

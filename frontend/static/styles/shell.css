@@ -27,7 +27,13 @@ body::before{content:"";position:fixed;inset:0;background:
 .side{background:rgba(7,7,26,.7);backdrop-filter:blur(20px);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
 .side-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;min-height:64px}
 .side-head .metis-mark{flex:1;min-width:0}
-.nav{flex:1;padding:14px 8px;display:flex;flex-direction:column;gap:2px;overflow-y:auto}
+.nav{flex:1;padding:12px 8px;display:flex;flex-direction:column;gap:8px;overflow-y:auto}
+.nav-group{border:1px solid var(--border);border-radius:10px;background:rgba(255,255,255,.025);overflow:hidden}
+.nav-heading{list-style:none;display:flex;align-items:center;justify-content:space-between;padding:9px 11px;font-family:'Sora',sans-serif;font-size:10.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--subtle);cursor:pointer;user-select:none}
+.nav-heading::-webkit-details-marker{display:none}
+.nav-heading::after{content:"";width:7px;height:7px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg);transition:transform .15s;opacity:.75}
+.nav-group[open] .nav-heading::after{transform:rotate(225deg)}
+.nav-items{display:flex;flex-direction:column;gap:2px;padding:0 5px 6px}
 .nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;color:var(--muted);text-decoration:none;font-size:13.5px;font-weight:500;cursor:pointer;transition:all .15s;background:transparent;border:none;width:100%;text-align:left;font-family:inherit}
 .nav-item:hover{background:var(--panel);color:var(--text)}
 .nav-item.active{background:var(--accent-soft);color:var(--text);box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent)}

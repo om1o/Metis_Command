@@ -42,8 +42,14 @@ body::before{content:"";position:fixed;inset:0;background:
 .side-head .metis-mark{flex:1;min-width:0}
 .side-head .ver{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--subtle);background:var(--panel);padding:3px 7px;border-radius:5px;border:1px solid var(--border);flex-shrink:0}
 
-/* Top-level page nav (Chat / Money / Relationships / Automations) */
-.page-nav{padding:8px 8px 4px;display:flex;flex-direction:column;gap:1px;border-bottom:1px solid var(--border)}
+/* Top-level page nav: exactly three expandable groups */
+.page-nav{padding:8px 8px 6px;display:flex;flex-direction:column;gap:8px;border-bottom:1px solid var(--border)}
+.page-nav-group{border:1px solid var(--border);border-radius:10px;background:rgba(255,255,255,.025);overflow:hidden}
+.page-nav-group summary{list-style:none;display:flex;align-items:center;justify-content:space-between;padding:9px 11px;font-family:'Sora',sans-serif;font-size:10.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--subtle);cursor:pointer;user-select:none}
+.page-nav-group summary::-webkit-details-marker{display:none}
+.page-nav-group summary::after{content:"";width:7px;height:7px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg);transition:transform .15s;opacity:.75}
+.page-nav-group[open] summary::after{transform:rotate(225deg)}
+.page-nav-items{display:flex;flex-direction:column;gap:2px;padding:0 5px 6px}
 .page-nav-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;color:var(--muted);text-decoration:none;font-size:12.5px;font-weight:500;cursor:pointer;transition:all .15s}
 .page-nav-item:hover{background:var(--panel);color:var(--text)}
 .page-nav-item.active{background:var(--accent-soft);color:var(--text);box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent)}
@@ -566,32 +572,63 @@ pre:hover .code-copy{opacity:1}
       <span class="ver">v16.4</span>
     </div>
 
-    <!-- Top-level page nav (Group 1) -->
+    <!-- Top-level page nav: Chat, Work, Code -->
     <div class="page-nav" id="pageNav">
-      <a class="page-nav-item active" href="/app" data-id="chat">
-        <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        <span>Chat</span>
-      </a>
-      <a class="page-nav-item" href="/money" data-id="money">
-        <svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-        <span>Money</span>
-      </a>
-      <a class="page-nav-item" href="/people" data-id="people">
-        <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg>
-        <span>Relationships</span>
-      </a>
-      <a class="page-nav-item" href="/automations" data-id="automations">
-        <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-        <span>Automations</span>
-      </a>
-      <a class="page-nav-item" href="/inspector" data-id="inspector">
-        <svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="12" cy="18" r="3"/><line x1="9" y1="7" x2="15" y2="7"/><line x1="8" y1="9" x2="11" y2="15"/><line x1="16" y1="9" x2="13" y2="15"/></svg>
-        <span>Subagents</span>
-      </a>
-      <a class="page-nav-item" href="/browser-control" data-id="browser">
-        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/></svg>
-        <span>Browser</span>
-      </a>
+      <details class="page-nav-group" open>
+        <summary>Chat</summary>
+        <div class="page-nav-items">
+          <a class="page-nav-item active" href="/app" data-id="chat">
+            <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <span>All chats</span>
+          </a>
+          <a class="page-nav-item" href="/app?new=1" data-id="new-chat" data-action="new-chat">
+            <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span>New chat</span>
+          </a>
+          <a class="page-nav-item" href="/app#recent" data-id="recent-chats" data-action="recent-chats">
+            <svg viewBox="0 0 24 24"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 5.64 5.64L3 8"/><polyline points="12 7 12 12 15 15"/></svg>
+            <span>Recent chats</span>
+          </a>
+        </div>
+      </details>
+      <details class="page-nav-group">
+        <summary>Work</summary>
+        <div class="page-nav-items">
+          <a class="page-nav-item" href="/automations" data-id="automations">
+            <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            <span>Automations</span>
+          </a>
+          <a class="page-nav-item" href="/automation-inbox" data-id="automation-inbox">
+            <svg viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+            <span>Automation Inbox</span>
+          </a>
+          <a class="page-nav-item" href="/money" data-id="money">
+            <svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            <span>Money</span>
+          </a>
+          <a class="page-nav-item" href="/manager" data-id="manager">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33"/></svg>
+            <span>Manager</span>
+          </a>
+        </div>
+      </details>
+      <details class="page-nav-group">
+        <summary>Code</summary>
+        <div class="page-nav-items">
+          <a class="page-nav-item" href="/code" data-id="code">
+            <svg viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            <span>Coding chats</span>
+          </a>
+          <a class="page-nav-item" href="/code#artifacts" data-id="generated-files">
+            <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <span>Generated files</span>
+          </a>
+          <a class="page-nav-item" href="/plugins" data-id="plugins">
+            <svg viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4v5l3 2.5v5h5l2.5-3H20v-5L17 9V4h-2.5z"/></svg>
+            <span>Plugin Store</span>
+          </a>
+        </div>
+      </details>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -599,7 +636,7 @@ pre:hover .code-copy{opacity:1}
       New conversation
     </button>
 
-    <div class="side-section"><span>Recent</span><span class="session-count" id="sessionCount">0</span></div>
+    <div class="side-section" id="recent"><span>Recent</span><span class="session-count" id="sessionCount">0</span></div>
     <div class="session-search">
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       <input type="text" id="sessionSearchInput" placeholder="Search sessions..." autocomplete="off">
@@ -852,7 +889,7 @@ pre:hover .code-copy{opacity:1}
 </div>
 
 <script type="module">
-import { api, ensureAuthed, clearSession, getUser } from '/static/js/api.js?v=v17';
+import { api, ensureAuthed, clearSession, getUser } from '/static/js/api.js?v=v19';
 
 window.addEventListener('load', () => {
   const g = document.getElementById('mp-grain');
@@ -2205,6 +2242,22 @@ function newChat() {
 document.getElementById('signoutBtn').addEventListener('click', signOut);
 document.getElementById('settingsBtn').addEventListener('click', openSettings);
 document.getElementById('newChatBtn').addEventListener('click', newChat);
+document.querySelector('[data-action="new-chat"]')?.addEventListener('click', (event) => {
+  event.preventDefault();
+  newChat();
+  history.replaceState(null, '', '/app');
+});
+document.querySelector('[data-action="recent-chats"]')?.addEventListener('click', (event) => {
+  event.preventDefault();
+  document.getElementById('sessionSearchInput')?.focus();
+  document.getElementById('sessionList')?.scrollIntoView({ block: 'nearest' });
+});
+if (new URLSearchParams(location.search).get('new') === '1') {
+  newChat();
+  history.replaceState(null, '', '/app');
+} else if (location.hash === '#recent') {
+  setTimeout(() => document.getElementById('sessionSearchInput')?.focus(), 0);
+}
 
 // ── Command palette ─────────────────────────────────────────────────────
 const COMMANDS = [

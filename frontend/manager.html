@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Manager - Metis</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="/static/assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/styles/shell.css?v=v19">
+<link rel="stylesheet" href="/static/styles/wordmark.css?v=v19">
+<script src="/static/js/wordmark.js?v=v19" defer></script>
+<style>
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:18px 20px}
+.panel h3{font-family:'Sora',sans-serif;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--subtle);margin-bottom:12px}
+.kv{display:grid;grid-template-columns:120px 1fr;gap:8px 12px;font-size:13px}
+.kv .k{font-family:'JetBrains Mono',monospace;color:var(--subtle);font-size:11px;text-transform:uppercase}
+.kv .v{color:var(--text);word-break:break-word}
+.form-grid{display:grid;gap:12px}
+.field label{display:block;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--subtle);margin-bottom:6px}
+.field input{width:100%;height:38px;border-radius:9px;border:1px solid var(--border);background:rgba(0,0,0,.25);color:var(--text);font-family:inherit;padding:0 12px;outline:none}
+.field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.check{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px}
+.check input{width:16px;height:16px;accent-color:var(--accent)}
+.status-list{display:flex;flex-direction:column;gap:10px}
+.status-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border-radius:10px;background:var(--panel-2);border:1px solid var(--border)}
+.status-row span:first-child{font-weight:600}
+.pill{font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.08em;border:1px solid var(--border);border-radius:99px;padding:3px 8px;color:var(--muted)}
+.pill.ok{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.3);color:#86EFAC}
+.pill.wait{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.3);color:#FCD34D}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.note{font-size:12.5px;line-height:1.55;color:var(--muted);margin-top:10px}
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="side">
+    <div class="side-head">
+      <button class="metis-mark size-sm" type="button" title="Refresh">
+        <img class="mm-glyph" src="/static/assets/metis-mark.svg?v=v19" alt="">
+        <span class="mm-stack"><span class="mm-word">Metis</span><span class="mm-sub">Manager</span></span>
+      </button>
+    </div>
+    <nav class="nav" data-active="manager"></nav>
+    <div class="side-foot">
+      <div class="avatar" id="userAvatar">M</div>
+      <div class="user-meta"><div class="name" id="userName">Loading...</div><div class="role">Director</div></div>
+      <button class="btn" id="signoutBtn" style="height:32px;padding:0 10px;font-size:11px">Sign out</button>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="page-head">
+      <h1 class="page-title">Manager <em>console</em></h1>
+      <span class="page-sub">Model, persona, notifications, voice, media</span>
+      <a class="btn" href="/setup">Setup wizard</a>
+    </div>
+    <div class="body">
+      <div class="body-inner" style="max-width:1180px">
+        <div class="grid">
+          <section class="panel">
+            <h3>Identity</h3>
+            <div class="kv" id="identityKv"><div class="k">State</div><div class="v">Loading...</div></div>
+          </section>
+          <section class="panel">
+            <h3>Runtime</h3>
+            <div class="kv" id="runtimeKv"><div class="k">State</div><div class="v">Loading...</div></div>
+          </section>
+          <section class="panel">
+            <h3>Voice and media</h3>
+            <div class="status-list">
+              <div class="status-row"><span>Speech input</span><span class="pill ok">Browser</span></div>
+              <div class="status-row"><span>Speech output</span><span class="pill wait">Step 5</span></div>
+              <div class="status-row"><span>Image provider</span><span class="pill wait">Step 3</span></div>
+              <div class="status-row"><span>Video provider</span><span class="pill wait">Step 4</span></div>
+            </div>
+            <p class="note">No paid media provider is required. Local/free connectors are added in later steps without auto-downloading large models.</p>
+          </section>
+          <section class="panel">
+            <h3>Notification settings</h3>
+            <div class="form-grid">
+              <div class="field"><label for="email">Notification email</label><input id="email" autocomplete="email"></div>
+              <div class="field"><label for="phone">Notification phone</label><input id="phone" placeholder="+15555550123"></div>
+              <label class="check"><input type="checkbox" id="notifyComplete"> Notify when tasks finish</label>
+              <label class="check"><input type="checkbox" id="notifyQuestion"> Notify when agents need an answer</label>
+            </div>
+            <div class="actions"><button class="btn primary" id="saveBtn">Save settings</button><span class="note" id="saveState"></span></div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<script type="module">
+import { api, ensureAuthed } from '/static/js/api.js?v=v19';
+
+await ensureAuthed();
+
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let currentConfig = null;
+
+function renderKv(el, rows) {
+  el.innerHTML = rows.map(([k, v]) => `<div class="k">${esc(k)}</div><div class="v">${esc(v || '-')}</div>`).join('');
+}
+
+async function load() {
+  const [{ config, is_configured }, status, models, notify] = await Promise.all([
+    api.managerConfig(),
+    api.status().catch(() => null),
+    api.models().catch(() => ({ models: [] })),
+    api.notifyStatus().catch(() => null),
+  ]);
+  currentConfig = config;
+  renderKv(document.getElementById('identityKv'), [
+    ['Manager', config.manager_name],
+    ['Director', config.director_name],
+    ['Company', config.company_name],
+    ['Configured', is_configured ? 'yes' : 'not yet'],
+    ['Persona', config.persona_key],
+  ]);
+  renderKv(document.getElementById('runtimeKv'), [
+    ['Model', config.manager_model || 'default local model'],
+    ['API', status?.ok ? `v${status.version}` : 'offline'],
+    ['Models', `${models.models?.length || 0} discovered`],
+    ['Notify used', notify ? JSON.stringify(notify.used || {}) : 'unavailable'],
+  ]);
+  document.getElementById('email').value = config.notification_email || '';
+  document.getElementById('phone').value = config.notification_phone || '';
+  document.getElementById('notifyComplete').checked = config.notify_on_complete !== false;
+  document.getElementById('notifyQuestion').checked = config.notify_on_question !== false;
+}
+
+document.getElementById('saveBtn').addEventListener('click', async () => {
+  const state = document.getElementById('saveState');
+  state.textContent = 'Saving...';
+  try {
+    const result = await api.saveManagerConfig({
+      notification_email: document.getElementById('email').value.trim(),
+      notification_phone: document.getElementById('phone').value.trim(),
+      notify_on_complete: document.getElementById('notifyComplete').checked,
+      notify_on_question: document.getElementById('notifyQuestion').checked,
+    });
+    currentConfig = result.config;
+    state.textContent = 'Saved.';
+    setTimeout(() => state.textContent = '', 1800);
+  } catch (err) {
+    state.textContent = 'Save failed: ' + err.message;
+  }
+});
+
+load().catch(err => {
+  document.getElementById('identityKv').innerHTML = `<div class="k">Error</div><div class="v">${esc(err.message)}</div>`;
+});
+</script>
+<script type="module" src="/static/js/nav.js?v=v19"></script>
+</body>
+</html>

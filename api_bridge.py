@@ -43,7 +43,8 @@ PUBLIC_PATHS = {"/", "/health", "/version", "/status",
                 "/webhooks/stripe",
                 # Frontend pages + auth (no bearer token required)
                 "/login", "/app", "/signup", "/setup", "/splash",
-                "/money", "/people", "/automations",
+                "/money", "/people", "/automations", "/automation-inbox",
+                "/manager", "/code", "/plugins",
                 "/inspector", "/browser-control",
                 "/oauth/callback",
                 "/auth/signup", "/auth/signin", "/auth/signout",
@@ -1989,6 +1990,96 @@ async def browser_create_account(req: BrowserAccountRequest) -> dict:
     return result
 
 
+# Code workspace shell
+# Owns ~/MetisProjects/. Every coding chat operates against a workspace
+# (an open folder OR a cloned GitHub repo). The /code page gates everything
+# behind picking one of these so the AI can never write to a path outside
+# the projects root.
+
+class WorkspaceCreateRequest(BaseModel):
+    name: str
+
+
+class WorkspaceCloneRequest(BaseModel):
+    git_url: str
+    name: str | None = None
+
+
+@app.get("/code/workspaces")
+def code_workspaces_list() -> dict:
+    import code_workspace as _cw
+    return {
+        "workspaces": _cw.list_workspaces(),
+        "active":     _cw.active_workspace(),
+        "root":       str(_cw.root_dir()),
+    }
+
+
+@app.post("/code/workspaces")
+def code_workspace_create(req: WorkspaceCreateRequest) -> dict:
+    import code_workspace as _cw
+    try:
+        return _cw.create_workspace(req.name)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/code/workspaces/clone")
+def code_workspace_clone(req: WorkspaceCloneRequest) -> dict:
+    import code_workspace as _cw
+    try:
+        return _cw.clone_workspace(req.git_url, name=req.name)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/code/workspaces/{slug}/open")
+def code_workspace_open(slug: str) -> dict:
+    import code_workspace as _cw
+    try:
+        return _cw.open_workspace(slug)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="workspace not found")
+
+
+@app.delete("/code/workspaces/{slug}")
+def code_workspace_delete(slug: str, remove_files: bool = False) -> dict:
+    import code_workspace as _cw
+    return {"ok": _cw.delete_workspace(slug, remove_files=remove_files)}
+
+
+@app.get("/code/tree")
+def code_tree(slug: str | None = None) -> dict:
+    """File tree of the active workspace (or the one specified by ?slug=)."""
+    import code_workspace as _cw
+    target = slug or ((_cw.active_workspace() or {}).get("slug"))
+    if not target:
+        raise HTTPException(status_code=400, detail="no active workspace")
+    try:
+        return {"slug": target, "tree": _cw.read_tree(target)}
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="workspace not found")
+
+
+@app.get("/code/file")
+def code_file(path: str, slug: str | None = None) -> dict:
+    """Read a single file from the workspace. Path is relative to the root."""
+    import code_workspace as _cw
+    target = slug or ((_cw.active_workspace() or {}).get("slug"))
+    if not target:
+        raise HTTPException(status_code=400, detail="no active workspace")
+    try:
+        return {"slug": target, "path": path, "content": _cw.read_file(target, path)}
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="file not found")
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=413, detail=str(e))
+
+
 # ── Money / People / Automations pages (Group 1 scaffolds) ─────────────────
 # Note: /relationships is already a JSON API. The HTML page lives at /people
 # so browsers and API clients don't fight for the same route. The sidebar
@@ -2007,6 +2098,26 @@ def page_people() -> FileResponse:
 @app.get("/automations")
 def page_automations() -> FileResponse:
     return FileResponse(_FRONTEND_DIR / "automations.html")
+
+
+@app.get("/automation-inbox")
+def page_automation_inbox() -> FileResponse:
+    return FileResponse(_FRONTEND_DIR / "automation-inbox.html")
+
+
+@app.get("/manager")
+def page_manager() -> FileResponse:
+    return FileResponse(_FRONTEND_DIR / "manager.html")
+
+
+@app.get("/code")
+def page_code() -> FileResponse:
+    return FileResponse(_FRONTEND_DIR / "code.html")
+
+
+@app.get("/plugins")
+def page_plugins() -> FileResponse:
+    return FileResponse(_FRONTEND_DIR / "plugins.html")
 
 
 @app.get("/inspector")

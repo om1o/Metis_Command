@@ -1,54 +1,59 @@
 /**
- * Shared sidebar nav for Money / People / Automations / Chat pages.
+ * Shared sidebar nav for Metis shell pages.
  * Renders the same navigation block in each page's <aside class="side">.
  *
  * Usage in HTML:
  *   <aside class="side">
  *     <div class="side-head"> ... wordmark ... </div>
- *     <nav class="nav" data-active="money|people|automations|chat"></nav>
+ *     <nav class="nav" data-active="chat|automations|manager|code|plugins"></nav>
  *     <div class="side-foot"> ... user info ... </div>
  *   </aside>
- *   <script type="module" src="/static/js/nav.js?v=v17"></script>
+ *   <script type="module" src="/static/js/nav.js?v=v19"></script>
  */
 
-import { ensureAuthed, getUser, clearSession, api } from '/static/js/api.js?v=v17';
+import { ensureAuthed, getUser, clearSession, api } from '/static/js/api.js?v=v19';
 
-const NAV_ITEMS = [
+const ICONS = {
+  chat: '<svg class="ico" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+  automations: '<svg class="ico" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>',
+  inbox: '<svg class="ico" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>',
+  plus: '<svg class="ico" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+  recent: '<svg class="ico" viewBox="0 0 24 24"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 5.64 5.64L3 8"/><polyline points="12 7 12 12 15 15"/></svg>',
+  money: '<svg class="ico" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
+  manager: '<svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+  code: '<svg class="ico" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>',
+  files: '<svg class="ico" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
+  plugins: '<svg class="ico" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4v5l3 2.5v5h5l2.5-3H20v-5L17 9V4h-2.5z"/></svg>',
+};
+
+const NAV_GROUPS = [
   {
     id: 'chat',
-    href: '/app',
     label: 'Chat',
-    svg: '<svg class="ico" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+    items: [
+      { id: 'chat', href: '/app', label: 'All chats', icon: ICONS.chat },
+      { id: 'new-chat', href: '/app?new=1', label: 'New chat', icon: ICONS.plus },
+      { id: 'recent-chats', href: '/app#recent', label: 'Recent chats', icon: ICONS.recent },
+    ],
   },
   {
-    id: 'money',
-    href: '/money',
-    label: 'Money',
-    svg: '<svg class="ico" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
+    id: 'work',
+    label: 'Work',
+    items: [
+      { id: 'automations', href: '/automations', label: 'Automations', icon: ICONS.automations },
+      { id: 'automation-inbox', href: '/automation-inbox', label: 'Automation Inbox', icon: ICONS.inbox },
+      { id: 'money', href: '/money', label: 'Money', icon: ICONS.money },
+      { id: 'manager', href: '/manager', label: 'Manager', icon: ICONS.manager },
+    ],
   },
   {
-    id: 'people',
-    href: '/people',
-    label: 'Relationships',
-    svg: '<svg class="ico" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
-  },
-  {
-    id: 'automations',
-    href: '/automations',
-    label: 'Automations',
-    svg: '<svg class="ico" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>',
-  },
-  {
-    id: 'inspector',
-    href: '/inspector',
-    label: 'Subagents',
-    svg: '<svg class="ico" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="12" cy="18" r="3"/><line x1="9" y1="7" x2="15" y2="7"/><line x1="8" y1="9" x2="11" y2="15"/><line x1="16" y1="9" x2="13" y2="15"/></svg>',
-  },
-  {
-    id: 'browser',
-    href: '/browser-control',
-    label: 'Browser',
-    svg: '<svg class="ico" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><circle cx="6" cy="6" r=".5" fill="currentColor"/><circle cx="9" cy="6" r=".5" fill="currentColor"/></svg>',
+    id: 'code',
+    label: 'Code',
+    items: [
+      { id: 'code', href: '/code', label: 'Coding chats', icon: ICONS.code },
+      { id: 'generated-files', href: '/code#artifacts', label: 'Generated files', icon: ICONS.files },
+      { id: 'plugins', href: '/plugins', label: 'Plugin Store', icon: ICONS.plugins },
+    ],
   },
 ];
 
@@ -61,12 +66,21 @@ export async function mountNav() {
   const navEl = document.querySelector('.nav');
   if (navEl) {
     const active = navEl.dataset.active || '';
-    navEl.innerHTML = NAV_ITEMS.map(item => `
-      <a class="nav-item ${item.id === active ? 'active' : ''}" href="${item.href}">
-        ${item.svg}
-        <span class="lbl">${item.label}</span>
-      </a>
-    `).join('');
+    navEl.innerHTML = NAV_GROUPS.map(group => {
+      const groupActive = group.items.some(item => item.id === active);
+      const items = group.items.map(item => `
+        <a class="nav-item ${item.id === active ? 'active' : ''}" href="${item.href}">
+          ${item.icon}
+          <span class="lbl">${item.label}</span>
+        </a>
+      `).join('');
+      return `
+        <details class="nav-group" ${groupActive || group.id === 'chat' ? 'open' : ''}>
+          <summary class="nav-heading">${group.label}</summary>
+          <div class="nav-items">${items}</div>
+        </details>
+      `;
+    }).join('');
   }
 
   const userName = document.getElementById('userName');

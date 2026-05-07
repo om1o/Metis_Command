@@ -85,7 +85,12 @@ export const api = {
   deleteSchedule: (id) => _fetch(`/schedules/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   toggleSchedule: (id) => _fetch(`/schedules/${encodeURIComponent(id)}/toggle`, { method: 'POST' }),
   marketplace: () => _fetch('/marketplace'),
+  installPlugin: (slug) => _fetch('/marketplace/install', {
+    method: 'POST',
+    body: JSON.stringify({ slug }),
+  }),
   skills: () => _fetch('/skills'),
+  artifacts: (limit = 50) => _fetch(`/artifacts?limit=${limit}`),
   sessions: () => _fetch('/sessions'),
   sessionMessages: (id) => _fetch(`/sessions/${encodeURIComponent(id)}`),
   deleteSession: (id) => _fetch(`/sessions/${encodeURIComponent(id)}`, { method: 'DELETE' }),
@@ -102,6 +107,7 @@ export const api = {
 
   // Agent health
   agentHealth: () => _fetch('/agents/health'),
+  notifyStatus: () => _fetch('/notify/status'),
 
   // Relationships
   relationships: () => _fetch('/relationships'),
