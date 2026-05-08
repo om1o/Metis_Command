@@ -950,6 +950,11 @@ function EmptyHero({ onPick }: { onPick: (s: string) => void }) {
         aria-hidden
       />
       <div className="relative">
+        <div className="mb-5 flex items-center gap-2 text-[var(--metis-fg-dim)]">
+          <Mark size={20} />
+          <Wordmark size="md" />
+          <span className="ml-1 text-[11px] uppercase tracking-[0.18em] text-[var(--metis-fg-dim)]">Agent</span>
+        </div>
         <h1 className="text-balance text-3xl font-light tracking-[-0.02em] text-[var(--metis-hero-title)] sm:text-5xl sm:leading-[1.05]">
           What can your agent do for you today?
         </h1>
@@ -962,6 +967,7 @@ function EmptyHero({ onPick }: { onPick: (s: string) => void }) {
               key={label}
               type="button"
               onClick={() => onPick(prompt)}
+              suppressHydrationWarning
               className="group relative flex items-start gap-3 rounded-2xl border border-[var(--metis-sugg-border)] bg-[var(--metis-sugg-bg)] p-4 text-left shadow-[var(--metis-sugg-shadow)] transition hover:scale-[1.005] hover:border-violet-500/30"
             >
               <span className="rounded-lg border border-[var(--metis-border)] bg-[var(--metis-bg)] p-2 text-violet-400">
@@ -1092,7 +1098,8 @@ function Modal({
         transition={{ duration: 0.18 }}
         className="metis-glow-border w-full max-w-lg rounded-2xl border border-[var(--metis-border)] bg-[var(--metis-elevated-2)] p-4 shadow-2xl backdrop-blur"
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
+          <Mark size={18} />
           <div className="text-sm font-semibold text-[var(--metis-foreground)]">{title}</div>
           <button type="button" onClick={onClose} className="ml-auto metis-icon-btn" aria-label="Close">
             <X className="h-4 w-4" />
