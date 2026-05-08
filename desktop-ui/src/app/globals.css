@@ -395,85 +395,21 @@ form.metis-composer:focus-within {
   }
 }
 
-/* ── Custom Metis wordmark ──────────────────────────────────────────────────
-   Hand-tuned lowercase wordmark. The "i" is replaced with a custom stem +
-   violet-glow tittle so the brand has a signature element instead of a font. */
+/* ── Metis brand wordmark ──────────────────────────────────────────────────
+   Bold uppercase wordmark matching the printed logo: tight tracking,
+   strong weight, color follows the foreground theme. Pairs with the SVG
+   <Mark/> component (the gradient peaks + sparkle). */
 .metis-wordmark {
   display: inline-flex;
-  align-items: baseline;
-  gap: 0;
+  align-items: center;
   color: var(--metis-foreground);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
-  font-weight: 600;
-  letter-spacing: -0.045em;
-  font-feature-settings: "ss01", "ss02", "cv11";
+  font-weight: 800;
+  letter-spacing: 0.06em;
   user-select: none;
   white-space: nowrap;
   line-height: 1;
 }
-.metis-wordmark > .mw-letters {
-  display: inline-flex;
-  align-items: baseline;
-}
-.metis-wordmark .mw-i {
-  position: relative;
-  display: inline-block;
-  width: 0.18em;
-  height: 0.66em;
-  margin: 0 0.04em 0 0.07em;
-  background: currentColor;
-  border-radius: 0.06em 0.06em 0.04em 0.04em;
-  transform: translateY(-0.025em);
-}
-.metis-wordmark .mw-i::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: -0.45em;
-  transform: translateX(-50%);
-  width: 0.32em;
-  height: 0.32em;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #c4b5fd 0%, #7c3aed 80%);
-  box-shadow:
-    0 0 0.5em rgba(167, 139, 250, 0.55),
-    0 0 1.2em rgba(124, 58, 237, 0.35);
-}
-.metis-wordmark.mw-large {
-  font-size: 2.25rem;
-  letter-spacing: -0.055em;
-}
-.metis-wordmark.mw-md {
-  font-size: 1.125rem;
-}
-.metis-wordmark.mw-sm {
-  font-size: 0.95rem;
-}
-
-/* Optional small geometric mark used alongside the wordmark.
-   A rounded square containing a stylized "M" stroke. Kept compact so
-   it can replace the previous PNG icon at small sizes. */
-.metis-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.6em;
-  height: 1.6em;
-  border-radius: 0.45em;
-  background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
-  border: 1px solid var(--metis-border);
-  position: relative;
-  flex-shrink: 0;
-}
-[data-theme="light"] .metis-mark {
-  background: linear-gradient(135deg, #f5f5f7 0%, #ffffff 100%);
-}
-.metis-mark::before {
-  content: "";
-  position: absolute;
-  inset: 22%;
-  background:
-    linear-gradient(135deg, #c4b5fd, #7c3aed);
-  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%23000' d='M3 19V5h3l5 8 5-8h3v14h-3v-8.5l-4 6.4h-2L6 10.5V19z'/></svg>") center/contain no-repeat;
-          mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%23000' d='M3 19V5h3l5 8 5-8h3v14h-3v-8.5l-4 6.4h-2L6 10.5V19z'/></svg>") center/contain no-repeat;
-}
+.metis-wordmark.mw-large { font-size: 1.75rem; letter-spacing: 0.08em; }
+.metis-wordmark.mw-md    { font-size: 0.95rem; }
+.metis-wordmark.mw-sm    { font-size: 0.78rem; letter-spacing: 0.10em; }

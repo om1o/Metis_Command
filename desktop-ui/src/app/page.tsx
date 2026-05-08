@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -35,6 +36,9 @@ import {
   Mail,
   Calendar,
   Code,
+  ShieldCheck,
+  ShieldAlert,
+  Eye,
 } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { createLocalClient, MetisClient } from '@/lib/metis-client';
@@ -43,6 +47,7 @@ import { createLocalClient, MetisClient } from '@/lib/metis-client';
 
 type Theme = 'dark' | 'light';
 type AgentStatus = 'idle' | 'thinking' | 'working' | 'done' | 'error';
+type Permission = 'full' | 'balanced' | 'read';
 
 interface Message {
   id: string;
@@ -59,6 +64,41 @@ interface Session {
   updatedAt: number;
   messages: Message[];
 }
+
+// ── Permission tiers ──────────────────────────────────────────────────────
+
+const PERMISSION_META: Record<
+  Permission,
+  { label: string; short: string; tone: string; chip: string; icon: typeof ShieldCheck; system: string }
+> = {
+  full: {
+    label: 'Full',
+    short: 'Full access',
+    tone: 'rose',
+    chip: 'border-rose-500/40 bg-rose-500/10 text-rose-200',
+    icon: ShieldAlert,
+    system:
+      'Permission level: FULL. You may read and write files, run shell commands, install dependencies, and browse the web. Confirm only for destructive actions (delete, force-push, payments).',
+  },
+  balanced: {
+    label: 'Balanced',
+    short: 'Ask before changes',
+    tone: 'violet',
+    chip: 'border-violet-500/40 bg-violet-500/10 text-violet-200',
+    icon: ShieldCheck,
+    system:
+      'Permission level: BALANCED. You may read files and browse the web freely. Ask the user before writing files, running commands, installing packages, or making any external changes.',
+  },
+  read: {
+    label: 'Read-only',
+    short: 'Research and explain',
+    tone: 'emerald',
+    chip: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200',
+    icon: Eye,
+    system:
+      'Permission level: READ-ONLY. You may answer questions, research, and explain. Do not write files, run commands, or perform any action that changes the user\'s system.',
+  },
+};
 
 // ── Suggestions (customer-facing) ──────────────────────────────────────────
 
@@ -281,23 +321,76 @@ function extractActivity(content: string, max = 6): { kind: 'heading' | 'step'; 
 function Wordmark({ size = 'md', className = '' }: { size?: 'sm' | 'md' | 'large'; className?: string }) {
   const cls = size === 'large' ? 'mw-large' : size === 'sm' ? 'mw-sm' : 'mw-md';
   return (
-    <span className={`metis-wordmark ${cls} ${className}`} aria-label="metis">
-      <span className="mw-letters">
-        <span aria-hidden>met</span>
-        <span aria-hidden className="mw-i" />
-        <span aria-hidden>s</span>
-      </span>
+    <span className={`metis-wordmark ${cls} ${className}`} aria-label="METIS">
+      METIS
     </span>
   );
 }
 
 function Mark({ size = 24 }: { size?: number }) {
+  // Inline SVG version of the brand logo: two purple peaks with orange-pink
+  // sun-set highlights at the top, and a 7-pointed sparkle in the valley.
+  const id = useId().replace(/:/g, '-');
   return (
-    <span
-      className="metis-mark"
-      aria-hidden
-      style={{ fontSize: `${size}px`, width: '1.6em', height: '1.6em' }}
-    />
+    <svg
+      viewBox="0 0 100 100"
+      width={size}
+      height={size}
+      role="img"
+      aria-label="Metis"
+      className="shrink-0"
+    >
+      <defs>
+        <linearGradient id={`${id}-deep`} x1="50%" y1="0%" x2="50%" y2="100%">
+          <stop offset="0%" stopColor="#a78bfa" />
+          <stop offset="40%" stopColor="#7c3aed" />
+          <stop offset="100%" stopColor="#3b0764" />
+        </linearGradient>
+        <linearGradient id={`${id}-mid`} x1="50%" y1="0%" x2="50%" y2="100%">
+          <stop offset="0%" stopColor="#f0abfc" />
+          <stop offset="50%" stopColor="#a855f7" />
+          <stop offset="100%" stopColor="#5b21b6" />
+        </linearGradient>
+        <linearGradient id={`${id}-top`} x1="50%" y1="0%" x2="50%" y2="100%">
+          <stop offset="0%" stopColor="#fb923c" />
+          <stop offset="60%" stopColor="#f472b6" />
+          <stop offset="100%" stopColor="#a855f7" stopOpacity="0" />
+        </linearGradient>
+        <linearGradient id={`${id}-star`} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#f5d0fe" />
+          <stop offset="100%" stopColor="#7c3aed" />
+        </linearGradient>
+      </defs>
+      {/* Outer M peaks (deep purple) */}
+      <path
+        d="M 8 95 C 8 32, 22 8, 35 8 C 44 8, 49 28, 50 55 C 51 28, 56 8, 65 8 C 78 8, 92 32, 92 95 L 75 95 C 75 55, 68 32, 63 32 C 58 32, 53 55, 50 78 C 47 55, 42 32, 37 32 C 32 32, 25 55, 25 95 Z"
+        fill={`url(#${id}-deep)`}
+      />
+      {/* Inner band (lighter mid purple) */}
+      <path
+        d="M 18 95 C 18 38, 28 18, 36 18 C 43 18, 48 35, 50 60 C 52 35, 57 18, 64 18 C 72 18, 82 38, 82 95 L 75 95 C 75 55, 68 32, 63 32 C 58 32, 53 55, 50 78 C 47 55, 42 32, 37 32 C 32 32, 25 55, 25 95 Z"
+        fill={`url(#${id}-mid)`}
+        opacity="0.85"
+      />
+      {/* Top peak highlights (orange→pink sunset) */}
+      <path
+        d="M 22 22 C 24 12, 30 8, 35 8 C 42 8, 47 22, 47 32 C 38 24, 28 22, 22 22 Z"
+        fill={`url(#${id}-top)`}
+        opacity="0.9"
+      />
+      <path
+        d="M 78 22 C 76 12, 70 8, 65 8 C 58 8, 53 22, 53 32 C 62 24, 72 22, 78 22 Z"
+        fill={`url(#${id}-top)`}
+        opacity="0.9"
+      />
+      {/* 7-point sparkle star in the valley */}
+      <g transform="translate(50 72)">
+        <path
+          d="M 0 -14 L 3 -3 L 13 -2 L 4.5 3 L 8 13 L 0 6 L -8 13 L -4.5 3 L -13 -2 L -3 -3 Z"
+          fill={`url(#${id}-star)`}
+        />
+      </g>
+    </svg>
   );
 }
 
@@ -319,6 +412,7 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [permission, setPermission] = useState<Permission>('balanced');
 
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
@@ -358,15 +452,43 @@ export default function App() {
         setActiveId(parsed[0]?.id ?? null);
       }
     } catch {}
-    // Silently restore the saved connection — no splash screen.
     try {
-      const tok = localStorage.getItem('metis-token');
-      if (tok) {
-        setClient(createLocalClient(tok));
-        setTokenInput(tok);
-      }
+      const p = localStorage.getItem('metis-permission');
+      if (p === 'full' || p === 'balanced' || p === 'read') setPermission(p);
     } catch {}
+    // First try the saved token (instant), then ask the local bridge to
+    // hand us one — this is what eliminates the manual paste step for
+    // anyone running Metis on their own machine.
+    let cancelled = false;
+    (async () => {
+      try {
+        const saved = localStorage.getItem('metis-token');
+        if (saved) {
+          setClient(createLocalClient(saved));
+          setTokenInput(saved);
+          return;
+        }
+      } catch {}
+      try {
+        const res = await fetch('http://127.0.0.1:7331/auth/local-token', {
+          headers: { Accept: 'application/json' },
+        });
+        if (cancelled) return;
+        if (res.ok) {
+          const data: { token?: string } = await res.json();
+          if (data.token) {
+            setClient(createLocalClient(data.token));
+            setTokenInput(data.token);
+            try { localStorage.setItem('metis-token', data.token); } catch {}
+          }
+        }
+      } catch { /* bridge offline — user will see "Setup needed" pill */ }
+    })();
+    return () => { cancelled = true; };
   }, []);
+  useEffect(() => {
+    try { localStorage.setItem('metis-permission', permission); } catch {}
+  }, [permission]);
   useEffect(() => {
     try { localStorage.setItem('metis-sessions', JSON.stringify(sessions.slice(0, 30))); } catch {}
   }, [sessions]);
@@ -456,7 +578,10 @@ export default function App() {
     (async () => {
       let acc = '';
       try {
-        const stream = client.chat('manager', text, sId);
+        // Prepend the permission contract so the agent respects scope
+        // without surfacing the directive in the user-visible chat bubble.
+        const wireMessage = `${PERMISSION_META[permission].system}\n\n${text}`;
+        const stream = client.chat('manager', wireMessage, sId);
         for await (const ev of stream) {
           if (ac.signal.aborted) break;
           if (ev.type === 'token' && ev.delta) {
@@ -728,9 +853,10 @@ export default function App() {
               className="max-h-[220px] min-h-[44px] w-full resize-none bg-transparent px-3 py-3 text-[14.5px] text-[var(--metis-foreground)] placeholder:text-[var(--metis-fg-dim)] outline-none"
               aria-label="Message"
             />
-            <div className="flex items-center gap-1.5 px-1.5 pb-1.5">
+            <div className="flex flex-wrap items-center gap-1.5 px-1.5 pb-1.5">
+              <PermissionSelector value={permission} onChange={setPermission} />
               <span className="hidden text-[11px] text-[var(--metis-fg-dim)] sm:inline">
-                <kbd className="rounded border border-[var(--metis-border)] bg-[var(--metis-code-bg)] px-1.5 py-0.5 text-[10px] text-[var(--metis-code-fg)]">↵</kbd> to send · <kbd className="rounded border border-[var(--metis-border)] bg-[var(--metis-code-bg)] px-1.5 py-0.5 text-[10px] text-[var(--metis-code-fg)]">⇧↵</kbd> for newline
+                <kbd className="rounded border border-[var(--metis-border)] bg-[var(--metis-code-bg)] px-1.5 py-0.5 text-[10px] text-[var(--metis-code-fg)]">↵</kbd> send · <kbd className="rounded border border-[var(--metis-border)] bg-[var(--metis-code-bg)] px-1.5 py-0.5 text-[10px] text-[var(--metis-code-fg)]">⇧↵</kbd> newline
               </span>
               <div className="ml-auto">
                 {streaming ? (
@@ -1066,6 +1192,43 @@ function MessageBubble({
         )}
       </div>
     </motion.div>
+  );
+}
+
+// ── Permission selector (under composer) ──────────────────────────────────
+
+function PermissionSelector({ value, onChange }: { value: Permission; onChange: (v: Permission) => void }) {
+  const order: Permission[] = ['read', 'balanced', 'full'];
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Agent permission level"
+      className="inline-flex items-center gap-0.5 rounded-full border border-[var(--metis-border)] bg-[var(--metis-bg)] p-0.5"
+    >
+      {order.map((p) => {
+        const meta = PERMISSION_META[p];
+        const Icon = meta.icon;
+        const selected = value === p;
+        return (
+          <button
+            key={p}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            onClick={() => onChange(p)}
+            title={meta.short}
+            className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] transition ${
+              selected
+                ? `${meta.chip} border`
+                : 'border border-transparent text-[var(--metis-fg-muted)] hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]'
+            }`}
+          >
+            <Icon className="h-3 w-3" />
+            {meta.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
