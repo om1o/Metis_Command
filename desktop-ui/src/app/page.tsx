@@ -38,12 +38,14 @@ import {
   ShieldCheck,
   ShieldAlert,
   Eye,
+  CalendarClock,
 } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { createLocalClient, MetisClient, AuthUser, Schedule } from '@/lib/metis-client';
 import { Mark, Wordmark } from '@/components/brand';
 import LoginScreen, { AuthSuccess } from '@/components/login-screen';
 import JobPlanner from '@/components/job-planner';
+import JobsPanel from '@/components/jobs-panel';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -349,6 +351,7 @@ export default function App() {
   const [permission, setPermission] = useState<Permission>('balanced');
   const [mode, setMode] = useState<Mode>('task');
   const [jobPlanner, setJobPlanner] = useState<{ goal: string } | null>(null);
+  const [jobsOpen, setJobsOpen] = useState(false);
 
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
@@ -458,6 +461,7 @@ export default function App() {
       else if (k === 'b')   { e.preventDefault(); setSidebarOpen((v) => !v); }
       else if (k === '/')   { e.preventDefault(); setWorkspaceOpen((v) => !v); }
       else if (k === 'n')   { e.preventDefault(); newSession(); }
+      else if (k === 'j')   { e.preventDefault(); setJobsOpen((v) => !v); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -774,6 +778,20 @@ export default function App() {
             Signed in as <span className="text-[var(--metis-fg-muted)]">{user.email}</span>
           </div>
         )}
+        {sidebarOpen && (
+          <div className="px-2 pt-1.5">
+            <button
+              type="button"
+              onClick={() => setJobsOpen(true)}
+              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] text-[var(--metis-fg-muted)] transition hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]"
+              title="Jobs (⌘J)"
+            >
+              <CalendarClock className="h-4 w-4 shrink-0 text-violet-400" />
+              <span>Jobs</span>
+              <span className="ml-auto text-[10px] text-[var(--metis-fg-dim)]">⌘J</span>
+            </button>
+          </div>
+        )}
         <div className="flex gap-1 border-t border-[var(--metis-border)] p-2">
           <button
             type="button"
@@ -786,6 +804,17 @@ export default function App() {
             <LogOut className="h-4 w-4" />
             {sidebarOpen && 'Sign out'}
           </button>
+          {!sidebarOpen && (
+            <button
+              type="button"
+              onClick={() => setJobsOpen(true)}
+              className="metis-icon-btn"
+              aria-label="Jobs"
+              title="Jobs (⌘J)"
+            >
+              <CalendarClock className="h-4 w-4" />
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
@@ -1012,6 +1041,17 @@ export default function App() {
             reduceMotion={!!reduceMotion}
             onClose={() => setJobPlanner(null)}
             onCreated={handleJobCreated}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Jobs panel — list of all schedules with pause / delete */}
+      <AnimatePresence>
+        {jobsOpen && client && (
+          <JobsPanel
+            client={client}
+            reduceMotion={!!reduceMotion}
+            onClose={() => setJobsOpen(false)}
           />
         )}
       </AnimatePresence>
