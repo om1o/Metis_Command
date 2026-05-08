@@ -91,6 +91,27 @@ export interface StreamEvent {
   tokens?: number;
 }
 
+export interface AuthUser {
+  id: string;
+  email: string;
+  created_at?: string;
+  user_metadata?: Record<string, unknown>;
+}
+
+export interface AuthSession {
+  access_token: string;
+  refresh_token?: string;
+  expires_at?: number;
+  token_type?: string;
+}
+
+export interface AuthResult {
+  user: AuthUser | null;
+  session: AuthSession | null;
+}
+
+export type OAuthProvider = 'google' | 'github';
+
 // ── Client ──────────────────────────────────────────────────────────────────
 
 export class MetisClient {
@@ -260,6 +281,54 @@ export class MetisClient {
     missing_gb: number;
   }> {
     return this.get(`/tiers/plan?tier=${tier}`);
+  }
+
+  // ── Auth ────────────────────────────────────────────────────────────────
+  // These do NOT include the bearer token (sign-in is the bearer-issuer).
+  // The bridge serves the local-install token endpoint at 127.0.0.1 only.
+
+  private async postNoAuth<T>(path: string, body: unknown): Promise<T> {
+    const res = await fetch(`${this.baseUrl}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const detail = await res.json().catch(() => ({}));
+      const msg = (detail && (detail.detail || detail.message)) || `${res.status} ${res.statusText}`;
+      throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
+    }
+    return res.json();
+  }
+
+  async getLocalToken(): Promise<{ token: string; type: string }> {
+    const res = await fetch(`${this.baseUrl}/auth/local-token`, { headers: { Accept: 'application/json' } });
+    if (!res.ok) throw new Error(`local-token: ${res.status}`);
+    return res.json();
+  }
+
+  async signIn(email: string, password: string): Promise<AuthResult> {
+    return this.postNoAuth('/auth/signin', { email, password });
+  }
+
+  async signUp(email: string, password: string): Promise<AuthResult> {
+    return this.postNoAuth('/auth/signup', { email, password });
+  }
+
+  async oauthStart(provider: OAuthProvider, redirectTo: string): Promise<{ url: string }> {
+    return this.postNoAuth('/auth/oauth/start', { provider, redirect_to: redirectTo });
+  }
+
+  async oauthComplete(code: string, state?: string): Promise<AuthResult> {
+    return this.postNoAuth('/auth/oauth/complete', { code, state });
+  }
+
+  async getMe(): Promise<{ user: AuthUser }> {
+    return this.get('/auth/me');
+  }
+
+  async signOut(): Promise<{ ok: boolean }> {
+    return this.post('/auth/signout', {});
   }
 }
 

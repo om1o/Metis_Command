@@ -2,7 +2,6 @@
 
 import {
   useEffect,
-  useId,
   useMemo,
   useRef,
   useState,
@@ -41,7 +40,9 @@ import {
   Eye,
 } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { createLocalClient, MetisClient } from '@/lib/metis-client';
+import { createLocalClient, MetisClient, AuthUser } from '@/lib/metis-client';
+import { Mark, Wordmark } from '@/components/brand';
+import LoginScreen, { AuthSuccess } from '@/components/login-screen';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -316,91 +317,14 @@ function extractActivity(content: string, max = 6): { kind: 'heading' | 'step'; 
   return out.slice(0, max);
 }
 
-// ── Brand: custom wordmark + mark ──────────────────────────────────────────
-
-function Wordmark({ size = 'md', className = '' }: { size?: 'sm' | 'md' | 'large'; className?: string }) {
-  const cls = size === 'large' ? 'mw-large' : size === 'sm' ? 'mw-sm' : 'mw-md';
-  return (
-    <span className={`metis-wordmark ${cls} ${className}`} aria-label="METIS">
-      METIS
-    </span>
-  );
-}
-
-function Mark({ size = 24 }: { size?: number }) {
-  // Inline SVG version of the brand logo: two purple peaks with orange-pink
-  // sun-set highlights at the top, and a 7-pointed sparkle in the valley.
-  const id = useId().replace(/:/g, '-');
-  return (
-    <svg
-      viewBox="0 0 100 100"
-      width={size}
-      height={size}
-      role="img"
-      aria-label="Metis"
-      className="shrink-0"
-    >
-      <defs>
-        <linearGradient id={`${id}-deep`} x1="50%" y1="0%" x2="50%" y2="100%">
-          <stop offset="0%" stopColor="#a78bfa" />
-          <stop offset="40%" stopColor="#7c3aed" />
-          <stop offset="100%" stopColor="#3b0764" />
-        </linearGradient>
-        <linearGradient id={`${id}-mid`} x1="50%" y1="0%" x2="50%" y2="100%">
-          <stop offset="0%" stopColor="#f0abfc" />
-          <stop offset="50%" stopColor="#a855f7" />
-          <stop offset="100%" stopColor="#5b21b6" />
-        </linearGradient>
-        <linearGradient id={`${id}-top`} x1="50%" y1="0%" x2="50%" y2="100%">
-          <stop offset="0%" stopColor="#fb923c" />
-          <stop offset="60%" stopColor="#f472b6" />
-          <stop offset="100%" stopColor="#a855f7" stopOpacity="0" />
-        </linearGradient>
-        <linearGradient id={`${id}-star`} x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#f5d0fe" />
-          <stop offset="100%" stopColor="#7c3aed" />
-        </linearGradient>
-      </defs>
-      {/* Outer M peaks (deep purple) */}
-      <path
-        d="M 8 95 C 8 32, 22 8, 35 8 C 44 8, 49 28, 50 55 C 51 28, 56 8, 65 8 C 78 8, 92 32, 92 95 L 75 95 C 75 55, 68 32, 63 32 C 58 32, 53 55, 50 78 C 47 55, 42 32, 37 32 C 32 32, 25 55, 25 95 Z"
-        fill={`url(#${id}-deep)`}
-      />
-      {/* Inner band (lighter mid purple) */}
-      <path
-        d="M 18 95 C 18 38, 28 18, 36 18 C 43 18, 48 35, 50 60 C 52 35, 57 18, 64 18 C 72 18, 82 38, 82 95 L 75 95 C 75 55, 68 32, 63 32 C 58 32, 53 55, 50 78 C 47 55, 42 32, 37 32 C 32 32, 25 55, 25 95 Z"
-        fill={`url(#${id}-mid)`}
-        opacity="0.85"
-      />
-      {/* Top peak highlights (orange→pink sunset) */}
-      <path
-        d="M 22 22 C 24 12, 30 8, 35 8 C 42 8, 47 22, 47 32 C 38 24, 28 22, 22 22 Z"
-        fill={`url(#${id}-top)`}
-        opacity="0.9"
-      />
-      <path
-        d="M 78 22 C 76 12, 70 8, 65 8 C 58 8, 53 22, 53 32 C 62 24, 72 22, 78 22 Z"
-        fill={`url(#${id}-top)`}
-        opacity="0.9"
-      />
-      {/* 7-point sparkle star in the valley */}
-      <g transform="translate(50 72)">
-        <path
-          d="M 0 -14 L 3 -3 L 13 -2 L 4.5 3 L 8 13 L 0 6 L -8 13 L -4.5 3 L -13 -2 L -3 -3 Z"
-          fill={`url(#${id}-star)`}
-        />
-      </g>
-    </svg>
-  );
-}
-
 // ── Main ───────────────────────────────────────────────────────────────────
 
 export default function App() {
   const [theme, setTheme] = useState<Theme>('dark');
   const [themeReady, setThemeReady] = useState(false);
   const [client, setClient] = useState<MetisClient | null>(null);
-  const [tokenInput, setTokenInput] = useState('');
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [authResolved, setAuthResolved] = useState(false);
 
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -410,7 +334,6 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [workspaceOpen, setWorkspaceOpen] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [connectOpen, setConnectOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [permission, setPermission] = useState<Permission>('balanced');
 
@@ -442,7 +365,10 @@ export default function App() {
     if (themeReady) try { localStorage.setItem('metis-theme', theme); } catch {}
   }, [theme, themeReady]);
 
-  // ── persistence + auto-connect ─────────────────────────────────────────
+  // ── persistence + saved-session check ──────────────────────────────────
+  // We restore a saved session if it still validates against /auth/me.
+  // If validation fails (token expired or revoked), we drop it and show
+  // the LoginScreen — no silent auto-login.
   useEffect(() => {
     try {
       const raw = localStorage.getItem('metis-sessions');
@@ -456,33 +382,37 @@ export default function App() {
       const p = localStorage.getItem('metis-permission');
       if (p === 'full' || p === 'balanced' || p === 'read') setPermission(p);
     } catch {}
-    // First try the saved token (instant), then ask the local bridge to
-    // hand us one — this is what eliminates the manual paste step for
-    // anyone running Metis on their own machine.
+
     let cancelled = false;
     (async () => {
+      let token: string | null = null;
+      let savedUser: AuthUser | null = null;
       try {
-        const saved = localStorage.getItem('metis-token');
-        if (saved) {
-          setClient(createLocalClient(saved));
-          setTokenInput(saved);
-          return;
-        }
+        token = localStorage.getItem('metis-token');
+        const u = localStorage.getItem('metis-user');
+        if (u) savedUser = JSON.parse(u) as AuthUser;
       } catch {}
+      if (!token) {
+        if (!cancelled) setAuthResolved(true);
+        return;
+      }
       try {
-        const res = await fetch('http://127.0.0.1:7331/auth/local-token', {
-          headers: { Accept: 'application/json' },
-        });
+        const probe = createLocalClient(token);
+        const me = await probe.getMe();
         if (cancelled) return;
-        if (res.ok) {
-          const data: { token?: string } = await res.json();
-          if (data.token) {
-            setClient(createLocalClient(data.token));
-            setTokenInput(data.token);
-            try { localStorage.setItem('metis-token', data.token); } catch {}
-          }
-        }
-      } catch { /* bridge offline — user will see "Setup needed" pill */ }
+        setClient(probe);
+        setUser(me.user || savedUser);
+        try { localStorage.setItem('metis-user', JSON.stringify(me.user || savedUser)); } catch {}
+      } catch {
+        // Saved token no longer works — clear it and ask the user to sign in.
+        try {
+          localStorage.removeItem('metis-token');
+          localStorage.removeItem('metis-user');
+          localStorage.removeItem('metis-auth-mode');
+        } catch {}
+      } finally {
+        if (!cancelled) setAuthResolved(true);
+      }
     })();
     return () => { cancelled = true; };
   }, []);
@@ -513,19 +443,28 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  // ── connect ─────────────────────────────────────────────────────────────
-  const handleConnect = () => {
-    const tok = tokenInput.trim();
-    if (!tok) return;
-    setClient(createLocalClient(tok));
-    setConnectOpen(false);
-    try { localStorage.setItem('metis-token', tok); } catch {}
+  // ── auth ────────────────────────────────────────────────────────────────
+  const handleAuth = ({ token, user, mode }: AuthSuccess) => {
+    setClient(createLocalClient(token));
+    setUser(user);
+    try {
+      localStorage.setItem('metis-token', token);
+      localStorage.setItem('metis-user', JSON.stringify(user));
+      localStorage.setItem('metis-auth-mode', mode);
+    } catch {}
   };
-  const handleDisconnect = () => {
+  const handleSignOut = async () => {
     abortRef.current?.abort();
+    // Best-effort server-side sign-out for Supabase sessions; ignore failure.
+    if (client) { try { await client.signOut(); } catch {} }
     setClient(null);
+    setUser(null);
     setStreaming(false);
-    try { localStorage.removeItem('metis-token'); } catch {}
+    try {
+      localStorage.removeItem('metis-token');
+      localStorage.removeItem('metis-user');
+      localStorage.removeItem('metis-auth-mode');
+    } catch {}
   };
 
   // ── sessions ────────────────────────────────────────────────────────────
@@ -543,7 +482,7 @@ export default function App() {
   const send = (overrideText?: string) => {
     const text = (overrideText ?? input).trim();
     if (!text || streaming) return;
-    if (!client) { setConnectOpen(true); return; }
+    if (!client) return; // gated by LoginScreen above
 
     let session = active;
     if (!session) {
@@ -649,6 +588,25 @@ export default function App() {
   // ── App ────────────────────────────────────────────────────────────────
   const hasMessages = !!active && active.messages.length > 0;
 
+  // While the saved-session probe is in flight, show a tiny splash so we
+  // don't flash the LoginScreen for users who are about to be auto-restored.
+  if (!authResolved) {
+    return (
+      <div className="metis-app-bg flex min-h-screen w-full items-center justify-center text-[var(--metis-fg-muted)]">
+        <div className="flex items-center gap-2.5">
+          <Mark size={22} />
+          <Loader2 className="h-4 w-4 animate-spin text-violet-400" />
+        </div>
+      </div>
+    );
+  }
+
+  // No client / user → gate behind the LoginScreen. Until auth succeeds,
+  // we don't render any of the chat surface (and never auto-fetch a token).
+  if (!client || !user) {
+    return <LoginScreen onAuth={handleAuth} />;
+  }
+
   return (
     <div className="metis-app-bg flex h-full w-full min-h-0 text-[var(--metis-fg)]">
       {/* Sessions rail */}
@@ -738,17 +696,22 @@ export default function App() {
           )}
         </div>
 
+        {sidebarOpen && user && (
+          <div className="px-3 pt-2 pb-1 text-[11px] text-[var(--metis-fg-dim)] truncate" title={user.email}>
+            Signed in as <span className="text-[var(--metis-fg-muted)]">{user.email}</span>
+          </div>
+        )}
         <div className="flex gap-1 border-t border-[var(--metis-border)] p-2">
           <button
             type="button"
-            onClick={() => (client ? handleDisconnect() : setConnectOpen(true))}
+            onClick={handleSignOut}
             className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-sm text-[var(--metis-fg-muted)] hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)] ${
               sidebarOpen ? '' : 'px-0'
             }`}
-            title={client ? 'Sign out' : 'Connect'}
+            title="Sign out"
           >
             <LogOut className="h-4 w-4" />
-            {sidebarOpen && (client ? 'Sign out' : 'Connect')}
+            {sidebarOpen && 'Sign out'}
           </button>
           <button
             type="button"
@@ -782,16 +745,6 @@ export default function App() {
                 <Loader2 className="h-3 w-3 animate-spin" />
                 {lastAgentMsg ? deriveStatus(lastAgentMsg.content) : 'Thinking'}
               </span>
-            )}
-            {!client && (
-              <button
-                type="button"
-                onClick={() => setConnectOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] text-amber-300 hover:bg-amber-500/20"
-                title="Connect to your local agent"
-              >
-                <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-400" /> Setup needed
-              </button>
             )}
           </div>
           <div className="ml-auto flex items-center gap-1">
@@ -973,48 +926,6 @@ export default function App() {
               </div>
             </div>
           </motion.aside>
-        )}
-      </AnimatePresence>
-
-      {/* Connect (one-time setup) */}
-      <AnimatePresence>
-        {connectOpen && (
-          <Modal title="Connect to your agent" onClose={() => setConnectOpen(false)} reduceMotion={!!reduceMotion}>
-            <form onSubmit={(e) => { e.preventDefault(); handleConnect(); }} className="grid gap-3">
-              <p className="text-[13px] text-[var(--metis-fg-muted)]">
-                Your agent runs privately on your device. Paste the connection token from your local Metis app to link them.
-              </p>
-              <label className="grid gap-1">
-                <span className="text-xs text-[var(--metis-fg-dim)]">Token</span>
-                <input
-                  autoFocus
-                  type="password"
-                  autoComplete="off"
-                  placeholder="Paste here"
-                  value={tokenInput}
-                  onChange={(e) => setTokenInput(e.target.value)}
-                  className="rounded-lg border border-[var(--metis-border)] bg-[var(--metis-input-bg)] px-3 py-2 text-sm outline-none focus:border-violet-500/50 focus:ring-2 focus:ring-[var(--metis-focus)]"
-                />
-              </label>
-              <div className="flex justify-end gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setConnectOpen(false)}
-                  className="rounded-lg px-3 py-2 text-sm text-[var(--metis-fg-muted)] hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]"
-                >
-                  Not now
-                </button>
-                <button
-                  type="submit"
-                  disabled={!tokenInput.trim()}
-                  className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-white transition hover:brightness-110 disabled:opacity-40"
-                  style={{ background: 'var(--metis-accent)' }}
-                >
-                  Connect
-                </button>
-              </div>
-            </form>
-          </Modal>
         )}
       </AnimatePresence>
 
