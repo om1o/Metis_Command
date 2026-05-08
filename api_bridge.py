@@ -225,7 +225,7 @@ def _resolve_cors_origins() -> list[str]:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_resolve_cors_origins(),
-    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
     max_age=600,
 )
@@ -2060,13 +2060,54 @@ def _current_browser_domain() -> str:
 
 
 def _check_browser_policy(user_id: str, domain: str) -> dict[str, Any] | None:
+    """
+    When the user has configured one or more allowed services, only those
+    domains may receive navigations and actions (strict allowlist). An empty
+    list means open mode for first-run / local hacking — add a service to
+    turn enforcement on.
+    """
     cfg = _manager_browser_config(user_id)
-    service = _service_for_domain(cfg, domain)
+    rows = [r for r in (cfg.allowed_services or []) if isinstance(r, dict)]
+    dom = (domain or "").strip()
+    if rows and dom:
+        service = _service_for_domain(cfg, dom)
+        if not service:
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    f"domain '{dom}' is not in your browser allowlist — "
+                    "add it under Allowed services in the cockpit first"
+                ),
+            )
+    else:
+        service = _service_for_domain(cfg, dom) if dom else None
     if service and not service.get("enabled", True):
         raise HTTPException(status_code=403, detail=f"browser policy blocks {service['domain']}")
     if service and service.get("daily_cap") and service["actions_today"] >= int(service["daily_cap"]):
         raise HTTPException(status_code=429, detail=f"daily action cap reached for {service['domain']}")
     return service
+
+
+def _browser_inbox_log(
+    action: str,
+    title: str,
+    *,
+    detail: str = "",
+    status: str = "ok",
+    error: str = "",
+) -> None:
+    try:
+        from scheduler import log_operator_event
+
+        log_operator_event(
+            action=action,
+            title=title,
+            detail=detail,
+            status=status,
+            error=error,
+        )
+    except Exception:
+        pass
 
 
 def _next_approval_id() -> str:
@@ -2179,6 +2220,11 @@ async def browser_open(req: BrowserOpenRequest, request: Request) -> dict:
             audit({"event": "browser.session_start", "mode": _BROWSER_MODE, "headless": req.headless})
         except Exception:
             pass
+        _browser_inbox_log(
+            "browser.session_start",
+            "Browser session started",
+            detail=f"mode={_BROWSER_MODE} headless={bool(req.headless)}",
+        )
     return {"ok": True, "reused": False, **_browser_status_payload(user_id)}
 
 
@@ -2195,6 +2241,7 @@ async def browser_close() -> dict:
         audit({"event": "browser.session_stop"})
     except Exception:
         pass
+    _browser_inbox_log("browser.session_stop", "Browser session closed")
     return {"ok": True}
 
 
@@ -2312,6 +2359,19 @@ async def browser_approval_approve(approval_id: str) -> dict:
         except Exception as e:
             approval["status"] = "failed"
             approval["error"] = str(e)
+            _browser_inbox_log(
+                "browser.approval_executed",
+                "Browser action failed after approval",
+                detail=f"{approval['kind']} {approval.get('domain') or ''}",
+                status="failed",
+                error=str(e)[:300],
+            )
+            return {"approval": approval}
+        _browser_inbox_log(
+            "browser.approval_executed",
+            f"Approved {approval['kind']}",
+            detail=f"{approval.get('payload', {}).get('selector') or approval.get('domain') or ''}",
+        )
         return {"approval": approval}
     raise HTTPException(status_code=404, detail="approval not found")
 
@@ -2332,6 +2392,13 @@ def browser_approval_deny(approval_id: str) -> dict:
             })
         except Exception:
             pass
+        _browser_inbox_log(
+            "browser.approval_denied",
+            f"Denied {approval['kind']}",
+            detail=f"{approval.get('payload', {}).get('selector') or approval.get('domain') or ''}",
+            status="failed",
+            error="denied by operator",
+        )
         return {"approval": approval}
     raise HTTPException(status_code=404, detail="approval not found")
 

@@ -254,6 +254,36 @@ def list_events(limit: int = 100, schedule_id: str | None = None) -> list[dict[s
     return out
 
 
+def log_operator_event(
+    *,
+    action: str,
+    title: str,
+    detail: str = "",
+    status: str = "ok",
+    error: str = "",
+) -> dict[str, Any]:
+    """Append one row to the automation inbox for browser/operator work (no schedule)."""
+    finished_at = time.time()
+    event: dict[str, Any] = {
+        "id": uuid.uuid4().hex[:12],
+        "schedule_id": "",
+        "schedule_name": (title or action)[:200],
+        "goal": "",
+        "action": (action or "operator")[:120],
+        "status": status,
+        "trigger": "browser",
+        "detail": detail[:500],
+        "error": error[:300],
+        "kind": "operator",
+        "spec": "",
+        "enabled": True,
+        "run_count": 0,
+        "created_at": finished_at,
+    }
+    _append_event(event)
+    return event
+
+
 def _record_run(
     schedule_id: str,
     *,

@@ -2,95 +2,135 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Automations · Metis</title>
+<title>Automation - Metis</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="icon" href="/static/assets/favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/styles/shell.css?v=v20">
-<link rel="stylesheet" href="/static/styles/wordmark.css?v=v20">
+<link rel="stylesheet" href="/static/styles/shell.css?v=v21">
+<link rel="stylesheet" href="/static/styles/wordmark.css?v=v21">
 <script src="/static/js/wordmark.js?v=v20" defer></script>
 <style>
-/* ── Automation board layout ── */
-.board{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px}
-.column{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;gap:10px;min-height:200px}
-.column-head{display:flex;align-items:center;gap:8px;padding-bottom:10px;border-bottom:1px solid var(--border)}
-.column-head h3{font-family:'Sora',sans-serif;font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--subtle);flex:1}
-.column-head .count{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--vi2);background:var(--accent-soft);padding:2px 8px;border-radius:99px;font-weight:600}
-.column.active .count{color:#86EFAC;background:rgba(34,197,94,.15)}
-.column.history .count{color:var(--subtle);background:var(--panel-2)}
-
-/* Automation card */
-.auto-card{padding:13px 14px;border-radius:11px;background:var(--panel-2);border:1px solid var(--border);transition:all .15s;cursor:pointer}
-.auto-card:hover{border-color:var(--border-2);background:rgba(255,255,255,.06)}
-.auto-card.disabled{opacity:.55}
-.auto-card .title{font-family:'Sora',sans-serif;font-size:13.5px;font-weight:700;color:var(--text);margin-bottom:5px;line-height:1.35}
-.auto-card .schedule{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--vi2);margin-bottom:7px;display:flex;align-items:center;gap:6px}
-.auto-card .schedule .kind-pill{padding:1px 7px;border-radius:99px;background:var(--accent-soft);text-transform:uppercase;letter-spacing:.06em;font-size:9px}
-.auto-card .desc{font-size:12px;color:var(--muted);line-height:1.45;margin-bottom:8px}
-.auto-card .meta{display:flex;align-items:center;justify-content:space-between;font-size:10.5px;font-family:'JetBrains Mono',monospace;color:var(--subtle)}
-.auto-card .meta .status{padding:1px 7px;border-radius:99px;text-transform:uppercase;letter-spacing:.06em;font-size:9px;font-weight:600}
-.auto-card .meta .status.ok{background:rgba(34,197,94,.14);color:#86EFAC}
-.auto-card .meta .status.failed{background:rgba(251,113,133,.14);color:#FCA5A5}
-.auto-card .meta .status.pending{background:rgba(245,158,11,.14);color:#FCD34D}
-.auto-card .actions{display:flex;gap:4px;margin-top:9px}
-.auto-card .actions button{height:28px;padding:0 10px;font-size:10.5px;border-radius:6px;background:transparent;border:1px solid var(--border);color:var(--muted);cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:4px}
-.auto-card .actions button:hover{border-color:var(--border-2);color:var(--text);background:var(--panel)}
-.auto-card .actions button.danger:hover{border-color:var(--co);color:var(--co);background:rgba(251,113,133,.08)}
-.auto-card .actions button.primary{background:var(--accent-soft);border-color:color-mix(in srgb, var(--accent) 30%, transparent);color:var(--text)}
-
-/* Wizard modal */
-.modal-overlay{position:fixed;inset:0;z-index:200;background:rgba(7,7,26,.72);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;padding:24px;animation:fadeIn .2s}
-.modal-overlay.show{display:flex}
-.modal{width:560px;max-width:100%;max-height:85vh;background:rgba(13,13,36,.96);backdrop-filter:blur(40px);border:1px solid var(--border-2);border-radius:14px;box-shadow:0 32px 80px rgba(0,0,0,.5);display:flex;flex-direction:column;overflow:hidden}
-.modal-head{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
-.modal-head h3{font-family:'Sora',sans-serif;font-size:17px;font-weight:700;flex:1}
-.modal-head .close{background:transparent;border:none;color:var(--subtle);cursor:pointer;font-size:22px;padding:0 6px;line-height:1}
-.modal-head .close:hover{color:var(--text)}
-.modal-body{padding:18px 22px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:14px}
-.modal-body label{font-size:11px;color:var(--subtle);text-transform:uppercase;letter-spacing:.1em;font-weight:600;margin-bottom:5px;display:block}
-.modal-body label .opt{color:var(--subtle);text-transform:none;letter-spacing:0;font-size:10.5px;font-weight:400;margin-left:6px}
-.modal-body input,.modal-body textarea,.modal-body select{width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:rgba(0,0,0,.25);color:var(--text);font-family:inherit;font-size:13px;outline:none}
-.modal-body textarea{font-family:'JetBrains Mono',monospace;font-size:12px;resize:vertical;line-height:1.55}
-.modal-body input:focus,.modal-body textarea:focus,.modal-body select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
-.modal-body .hint{font-size:11.5px;color:var(--subtle);margin-top:5px;line-height:1.45}
-.modal-body .row-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-
-.kind-tabs{display:flex;gap:4px;background:rgba(0,0,0,.25);border-radius:8px;padding:3px}
-.kind-tab{flex:1;padding:9px 6px;border-radius:6px;background:transparent;border:none;color:var(--muted);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;transition:all .12s;text-align:center}
-.kind-tab:hover{color:var(--text)}
-.kind-tab.active{background:var(--accent-soft);color:var(--text)}
-
-.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-radius:9px;background:var(--panel-2);border:1px solid var(--border)}
-.toggle-row .info{flex:1;padding-right:14px}
-.toggle-row .info .lbl{font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px}
-.toggle-row .info .desc{font-size:11.5px;color:var(--subtle);line-height:1.45}
-.toggle-switch{width:42px;height:24px;border-radius:99px;background:var(--panel);border:1px solid var(--border);position:relative;cursor:pointer;transition:all .2s;flex-shrink:0}
-.toggle-switch::after{content:"";position:absolute;left:2px;top:2px;width:18px;height:18px;border-radius:50%;background:var(--muted);transition:all .2s}
-.toggle-switch.on{background:var(--accent-soft);border-color:var(--accent)}
-.toggle-switch.on::after{left:20px;background:var(--accent)}
-
-.modal-foot{padding:14px 22px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px}
-.modal-foot .step-dots{display:flex;gap:5px}
-.modal-foot .dot{width:8px;height:8px;border-radius:50%;background:var(--border)}
-.modal-foot .dot.active{background:var(--accent)}
-.modal-foot .actions{display:flex;gap:8px}
-
-/* AGENTS.md editor inside modal */
-.md-textarea{min-height:280px}
+:root{
+  --bg:#eef2f7;
+  --bg-2:#f7f9fc;
+  --panel:#ffffff;
+  --panel-2:#f4f6fb;
+  --text:#111827;
+  --muted:#5d6778;
+  --subtle:#8a94a6;
+  --border:rgba(15,23,42,.10);
+  --border-2:rgba(15,23,42,.16);
+  --accent:#7257ff;
+  --accent-soft:rgba(114,87,255,.10);
+  --accent-glow:rgba(114,87,255,.16);
+  --grad:linear-gradient(135deg,#6f59ff,#9b69ff 55%,#f6926b);
+}
+html,body{background:var(--bg);color:var(--text)}
+body::before{display:none}
+.layout{grid-template-columns:236px 1fr}
+.side{background:rgba(255,255,255,.92);border-right:1px solid var(--border);backdrop-filter:blur(16px)}
+.side-head,.side-foot,.page-head{border-color:var(--border)}
+.page-head{background:rgba(255,255,255,.92);backdrop-filter:blur(14px)}
+.page-title{font-size:24px}
+.page-sub{color:var(--muted)}
+.workspace{display:grid;grid-template-columns:minmax(0,1.45fr) 380px;gap:18px}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:18px;box-shadow:0 18px 40px rgba(15,23,42,.06)}
+.chat-shell{display:flex;flex-direction:column;min-height:calc(100vh - 180px)}
+.chat-head{padding:18px 20px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:18px}
+.chat-head h2,.rail-title,.drawer-label,.bubble-title{font-family:'Sora',sans-serif}
+.chat-head h2{font-size:20px;font-weight:700;letter-spacing:-.02em}
+.chat-head p{margin-top:6px;font-size:13px;line-height:1.6;color:var(--muted);max-width:65ch}
+.head-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.status-pill{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 12px;border-radius:999px;border:1px solid var(--border);background:var(--panel-2);font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.status-pill strong{font-weight:600;color:var(--text)}
+.thread{flex:1;overflow:auto;padding:22px 20px 12px;display:flex;flex-direction:column;gap:16px;background:linear-gradient(180deg,#ffffff,#fbfcff)}
+.message{display:flex;gap:12px;align-items:flex-start}
+.message.user{justify-content:flex-end}
+.message-avatar{width:34px;height:34px;border-radius:12px;background:#eceffe;color:#4c43c2;display:flex;align-items:center;justify-content:center;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;flex-shrink:0}
+.message.user .message-avatar{order:2;background:#111827;color:#f8fafc}
+.bubble{max-width:min(720px,86%);padding:14px 16px;border-radius:18px;border:1px solid var(--border);background:var(--panel-2)}
+.message.user .bubble{background:#111827;color:#f8fafc;border-color:#111827}
+.bubble-title{font-size:13px;font-weight:700;letter-spacing:-.01em}
+.bubble-meta{margin-top:4px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--subtle)}
+.message.user .bubble-meta{color:rgba(248,250,252,.7)}
+.bubble-body{margin-top:10px;font-size:14px;line-height:1.7;white-space:pre-wrap;color:inherit}
+.summary-block{margin-top:12px;padding:12px 13px;border-radius:14px;background:rgba(114,87,255,.08);border:1px solid rgba(114,87,255,.14)}
+.summary-row{display:flex;justify-content:space-between;gap:16px;padding:7px 0;font-size:13px}
+.summary-row + .summary-row{border-top:1px solid rgba(114,87,255,.10)}
+.summary-row span:first-child{color:var(--muted)}
+.summary-row strong{font-weight:600;color:var(--text)}
+.message.user .summary-row span:first-child,.message.user .summary-row strong{color:inherit}
+.composer{padding:18px 20px 20px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:14px;background:rgba(255,255,255,.96)}
+.composer textarea{width:100%;min-height:132px;padding:14px 16px;border-radius:16px;border:1px solid var(--border);background:#fff;color:var(--text);font:inherit;line-height:1.65;resize:vertical;outline:none}
+.composer textarea:focus,.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(114,87,255,.12)}
+.composer-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.chip-row{display:flex;flex-wrap:wrap;gap:8px}
+.chip{height:30px;padding:0 11px;border-radius:999px;border:1px solid var(--border);background:#fff;color:var(--muted);font:inherit;font-size:12px;cursor:pointer}
+.chip:hover{border-color:var(--accent);background:var(--accent-soft);color:#302b7a}
+.composer-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.status-line{min-height:18px;font-size:12px;color:var(--muted)}
+.status-line.ok{color:#166534}
+.status-line.error{color:#b42318}
+.rail{display:flex;flex-direction:column;gap:18px}
+.rail-card{padding:18px}
+.rail-title{font-size:16px;font-weight:700;letter-spacing:-.02em}
+.rail-copy{margin-top:6px;font-size:12px;line-height:1.6;color:var(--muted)}
+.detail-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:16px}
+.summary-tile{padding:12px;border-radius:14px;background:var(--panel-2);border:1px solid var(--border)}
+.summary-kicker{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--subtle)}
+.summary-value{margin-top:8px;font-size:14px;font-weight:600;line-height:1.4;color:var(--text)}
+.field-stack{display:flex;flex-direction:column;gap:14px;margin-top:16px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label,.drawer-label{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--subtle)}
+.field input,.field select,.field textarea{width:100%;border-radius:12px;border:1px solid var(--border);background:#fff;color:var(--text);padding:11px 12px;font:inherit;outline:none}
+.field textarea{min-height:160px;resize:vertical;line-height:1.6}
+.hint{font-size:12px;line-height:1.55;color:var(--muted)}
+.check-row{display:flex;align-items:flex-start;gap:10px;padding:12px;border-radius:14px;background:var(--panel-2);border:1px solid var(--border);font-size:13px;line-height:1.55;color:var(--muted)}
+.check-row input{margin-top:2px}
+details.advanced{margin-top:4px;border:1px solid var(--border);border-radius:14px;background:var(--panel-2);overflow:hidden}
+details.advanced summary{list-style:none;cursor:pointer;padding:12px 13px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--subtle)}
+details.advanced summary::-webkit-details-marker{display:none}
+.advanced-body{padding:0 13px 13px}
+.section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
+.section-head p{font-size:12px;line-height:1.6;color:var(--muted)}
+.list{display:flex;flex-direction:column;gap:10px}
+.schedule-row,.event-row{padding:13px 14px;border-radius:16px;background:var(--panel-2);border:1px solid var(--border)}
+.schedule-row.active{border-color:rgba(114,87,255,.26);background:rgba(114,87,255,.08)}
+.schedule-top,.event-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.schedule-name,.event-name{font-size:14px;font-weight:700;line-height:1.45;color:var(--text)}
+.schedule-meta,.event-meta{margin-top:4px;font-size:12px;line-height:1.55;color:var(--muted)}
+.schedule-sub,.event-sub{margin-top:5px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--subtle)}
+.schedule-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.schedule-actions button{height:30px;padding:0 10px;border-radius:9px;border:1px solid var(--border);background:#fff;color:var(--muted);font:inherit;font-size:11px;cursor:pointer}
+.schedule-actions button:hover{border-color:var(--accent);background:var(--accent-soft);color:#302b7a}
+.schedule-actions button.primary{background:#111827;border-color:#111827;color:#f8fafc}
+.schedule-actions button.danger:hover{border-color:#ef4444;color:#991b1b;background:#fff0f0}
+.pill{display:inline-flex;align-items:center;padding:4px 9px;border-radius:999px;border:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--subtle);background:#fff}
+.pill.ok{border-color:rgba(34,197,94,.24);color:#166534;background:#effbf3}
+.pill.failed{border-color:rgba(239,68,68,.18);color:#991b1b;background:#fff0f0}
+.pill.pending{border-color:rgba(245,158,11,.26);color:#92400e;background:#fff7e8}
+.empty-block{padding:18px;border-radius:14px;border:1px dashed var(--border);text-align:center;font-size:12px;line-height:1.65;color:var(--subtle);background:#fafbfd}
+@media(max-width:1240px){
+  .workspace{grid-template-columns:1fr}
+  .chat-shell{min-height:auto}
+}
+@media(max-width:860px){
+  .detail-summary{grid-template-columns:1fr}
+  .composer-bar{align-items:flex-start}
+}
 </style>
 </head>
 <body>
-
 <div class="layout">
   <aside class="side">
     <div class="side-head">
       <button class="metis-mark size-sm" type="button" title="Refresh">
-        <img class="mm-glyph" src="/static/assets/metis-mark.svg?v=v18" alt="">
+        <img class="mm-glyph" src="/static/assets/metis-mark.svg?v=v21" alt="">
         <span class="mm-stack">
           <span class="mm-word">Metis</span>
-          <span class="mm-sub">Automations</span>
+          <span class="mm-sub">Automation</span>
         </span>
       </button>
     </div>
@@ -98,148 +138,149 @@
     <div class="side-foot">
       <div class="avatar" id="userAvatar">M</div>
       <div class="user-meta">
-        <div class="name" id="userName">Loading…</div>
+        <div class="name" id="userName">Loading...</div>
         <div class="role">Director</div>
       </div>
-      <button class="btn" id="signoutBtn" style="height:32px;padding:0 10px;font-size:11px" title="Sign out">Sign out</button>
+      <button class="btn" id="signoutBtn" type="button" style="height:32px;padding:0 10px;font-size:11px">Sign out</button>
     </div>
   </aside>
 
   <main class="main">
     <div class="page-head">
-      <h1 class="page-title">Automation <em>board</em></h1>
-      <span class="page-sub">Schedules, browser-backed runs, pause/resume, and manual execution</span>
-      <button class="btn primary" id="createBtn">+ Create automation</button>
+      <h1 class="page-title">Automation <em>desk</em></h1>
+      <span class="page-sub">Describe the work in plain language. Metis drafts the automation, then you save it or run it now.</span>
+      <button class="btn" id="refreshBtn" type="button">Refresh</button>
+      <button class="btn primary" id="newDraftBtn" type="button">New draft</button>
     </div>
+
     <div class="body">
-      <div class="body-inner" style="max-width:1400px">
-        <div class="board">
-          <div class="column active">
-            <div class="column-head">
-              <h3>Active</h3>
-              <span class="count" id="countActive">0</span>
+      <div class="body-inner" style="max-width:1540px">
+        <div class="workspace">
+          <section class="panel chat-shell">
+            <div class="chat-head">
+              <div>
+                <h2>Automation chat</h2>
+                <p>This page is for real work, not a setup wizard. Tell Metis the outcome, cadence, and approval boundary in one message. The draft settings stay visible on the right so you can save with control.</p>
+              </div>
+              <div class="head-actions">
+                <span class="status-pill"><span>draft</span><strong id="draftMode">New</strong></span>
+                <span class="status-pill"><span>selected</span><strong id="selectedName">None</strong></span>
+              </div>
             </div>
-            <div id="colActive">
-              <div class="empty-row" style="padding:14px 8px;color:var(--subtle);font-size:12.5px;text-align:center">No active automations. Hit <strong>+ Create</strong> to add one.</div>
+
+            <div class="thread" id="threadList"></div>
+
+            <div class="composer">
+              <textarea id="goalInput" placeholder="Example: Every weekday at 8:30am, review browser approvals from the last day, flag failures, and post a short operator summary with the highest-risk items first."></textarea>
+              <div class="composer-bar">
+                <div class="chip-row">
+                  <button class="chip" type="button" data-example="browser">Browser approvals digest</button>
+                  <button class="chip" type="button" data-example="failures">Failure triage report</button>
+                  <button class="chip" type="button" data-example="research">Vendor research sweep</button>
+                  <button class="chip" type="button" data-example="followups">Follow-up reminder</button>
+                </div>
+                <div class="composer-actions">
+                  <button class="btn" id="analyzeBtn" type="button">Draft from prompt</button>
+                  <button class="btn primary" id="saveBtn" type="button">Save automation</button>
+                  <button class="btn" id="saveRunBtn" type="button">Save and run now</button>
+                  <button class="btn" id="clearBtn" type="button">Clear</button>
+                </div>
+              </div>
+              <div class="status-line" id="statusLine"></div>
             </div>
-          </div>
-          <div class="column">
-            <div class="column-head">
-              <h3>Disabled</h3>
-              <span class="count" id="countDisabled">0</span>
-            </div>
-            <div id="colDisabled">
-              <div class="empty-row" style="padding:14px 8px;color:var(--subtle);font-size:12.5px;text-align:center">Nothing paused.</div>
-            </div>
-          </div>
-          <div class="column history">
-            <div class="column-head">
-              <h3>System defaults</h3>
-              <span class="count" id="countSystem">0</span>
-            </div>
-            <div id="colSystem">
-              <div class="empty-row" style="padding:14px 8px;color:var(--subtle);font-size:12.5px;text-align:center">No system schedules.</div>
-            </div>
-          </div>
+          </section>
+
+          <aside class="rail">
+            <section class="panel rail-card">
+              <div class="rail-title">Draft settings</div>
+              <div class="rail-copy">The chat writes the brief. The controls here keep the automation explicit before it becomes live.</div>
+              <div class="detail-summary">
+                <div class="summary-tile">
+                  <div class="summary-kicker">Cadence</div>
+                  <div class="summary-value" id="summaryCadence">Every 60 minutes</div>
+                </div>
+                <div class="summary-tile">
+                  <div class="summary-kicker">Approval</div>
+                  <div class="summary-value" id="summaryApproval">Auto</div>
+                </div>
+                <div class="summary-tile">
+                  <div class="summary-kicker">Runs logged</div>
+                  <div class="summary-value" id="eventCount">0</div>
+                </div>
+              </div>
+
+              <div class="field-stack">
+                <div class="field">
+                  <label for="nameInput">Label</label>
+                  <input id="nameInput" maxlength="80" placeholder="Daily approvals digest">
+                </div>
+
+                <div class="field">
+                  <label for="kindInput">Schedule type</label>
+                  <select id="kindInput">
+                    <option value="interval">Every N minutes</option>
+                    <option value="daily">Daily at HH:MM</option>
+                    <option value="cron">Cron</option>
+                    <option value="once">Run once</option>
+                  </select>
+                </div>
+
+                <div class="field">
+                  <label for="specInput">When</label>
+                  <input id="specInput" placeholder="60">
+                  <div class="hint" id="kindHint">Runs every N minutes. Use a plain number between 1 and 10080.</div>
+                </div>
+
+                <label class="check-row">
+                  <input type="checkbox" id="autoApproveInput" checked>
+                  <span>Auto-approve after the run. Turn this off for anything that sends messages, spends money, or touches risky systems.</span>
+                </label>
+
+                <details class="advanced">
+                  <summary>Advanced brief (AGENTS.md override)</summary>
+                  <div class="advanced-body">
+                    <div class="field">
+                      <label for="agentsMdInput">Per-run operating rules</label>
+                      <textarea id="agentsMdInput" placeholder="Optional. Leave blank to auto-generate from the prompt."></textarea>
+                    </div>
+                  </div>
+                </details>
+              </div>
+            </section>
+
+            <section class="panel rail-card">
+              <div class="section-head">
+                <div>
+                  <div class="rail-title">Saved automations</div>
+                  <p>Load one, run it immediately, pause it, or delete it.</p>
+                </div>
+                <span class="pill" id="savedCount">0 saved</span>
+              </div>
+              <div class="list" id="scheduleList">
+                <div class="empty-block">No automations yet. Draft one in the chat and save it.</div>
+              </div>
+            </section>
+
+            <section class="panel rail-card">
+              <div class="section-head">
+                <div>
+                  <div class="rail-title">Recent runs</div>
+                  <p id="eventScope">Latest activity across all automations.</p>
+                </div>
+              </div>
+              <div class="list" id="eventList">
+                <div class="empty-block">No automation events yet.</div>
+              </div>
+            </section>
+          </aside>
         </div>
       </div>
     </div>
   </main>
 </div>
 
-<!-- Create / Edit wizard -->
-<div class="modal-overlay" id="modalOverlay">
-  <div class="modal" role="dialog">
-    <div class="modal-head">
-      <h3 id="modalTitle">Create an automation</h3>
-      <button class="close" id="modalClose">×</button>
-    </div>
-    <div class="modal-body">
-      <!-- Step 1: Goal -->
-      <div class="step" data-step="1">
-        <label>What should the agent do? <span class="opt">— be specific</span></label>
-        <input type="text" id="wizName" placeholder="Summarize today's emails by 5pm" maxlength="80">
-        <div class="hint">A short label you'll see on the board.</div>
-
-        <div style="height:14px"></div>
-        <label>Full instructions <span class="opt">— what should the AI do, step by step?</span></label>
-        <textarea id="wizGoal" rows="5" style="font-family:inherit" placeholder="Read every email received between 8am and 5pm. For each, summarize the gist in one line, flag anything urgent, group by sender. Email me a digest at 5:05pm with the top 5 urgent items at the top."></textarea>
-        <div class="hint">⚠ <strong>Be explicit.</strong> The agent will refuse to invent details — vague goals get vague results.</div>
-      </div>
-
-      <!-- Step 2: Schedule -->
-      <div class="step" data-step="2" style="display:none">
-        <label>How often should this run?</label>
-        <div class="kind-tabs" role="tablist">
-          <button class="kind-tab active" data-kind="interval">Every N min</button>
-          <button class="kind-tab" data-kind="daily">Daily at HH:MM</button>
-          <button class="kind-tab" data-kind="cron">Cron expression</button>
-          <button class="kind-tab" data-kind="once">Once</button>
-        </div>
-
-        <div style="height:14px"></div>
-        <div id="specInputBlock">
-          <!-- Filled per kind -->
-        </div>
-
-        <div style="height:14px"></div>
-        <div class="hint" id="kindHint">Runs every N minutes. Pick something between 5 and 1440.</div>
-      </div>
-
-      <!-- Step 3: Approval rules + AGENTS.md -->
-      <div class="step" data-step="3" style="display:none">
-        <label>Approval rules</label>
-        <div class="toggle-row">
-          <div class="info">
-            <div class="lbl">Auto-approve</div>
-            <div class="desc">When the agent finishes, just run it — no confirmation needed. Turn this OFF for anything that sends messages, spends money, or modifies files.</div>
-          </div>
-          <div class="toggle-switch on" id="autoApproveToggle"></div>
-        </div>
-
-        <div style="height:14px"></div>
-        <label>AGENTS.md <span class="opt">— per-task brief, edit anything</span></label>
-        <textarea class="md-textarea" id="wizAgentsMd" placeholder="Auto-generated from your goal. Edit to add specific operating rules, sources to consult, output format requirements, etc."></textarea>
-        <div class="hint">This brief is loaded into the spawned subagent's system prompt every time this automation fires. The "never assume / always ask" rule is appended automatically.</div>
-      </div>
-    </div>
-    <div class="modal-foot">
-      <div class="step-dots">
-        <div class="dot active" data-dot="1"></div>
-        <div class="dot" data-dot="2"></div>
-        <div class="dot" data-dot="3"></div>
-      </div>
-      <div class="actions">
-        <button class="btn" id="wizBack" style="display:none">← Back</button>
-        <button class="btn primary" id="wizNext">Next →</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- AGENTS.md editor (standalone, opened from auto-card) -->
-<div class="modal-overlay" id="mdOverlay">
-  <div class="modal" role="dialog">
-    <div class="modal-head">
-      <h3 id="mdTitle">AGENTS.md</h3>
-      <button class="close" id="mdClose">×</button>
-    </div>
-    <div class="modal-body">
-      <textarea class="md-textarea" id="mdText" style="min-height:380px"></textarea>
-      <div class="hint">Changes apply on the next run.</div>
-    </div>
-    <div class="modal-foot">
-      <span style="font-size:11.5px;color:var(--subtle)" id="mdLastSaved">—</span>
-      <div class="actions">
-        <button class="btn" id="mdCancel">Cancel</button>
-        <button class="btn primary" id="mdSave">Save</button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <script type="module">
-import { api, ensureAuthed, getUser, clearSession } from '/static/js/api.js?v=v20';
+import { api, ensureAuthed, getUser, clearSession } from '/static/js/api.js?v=v21';
 
 await ensureAuthed();
 const cached = getUser() || { email: 'Operator' };
@@ -251,261 +292,603 @@ document.getElementById('signoutBtn').addEventListener('click', async () => {
   window.location.replace('/login');
 });
 
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const fmtTime = (ts) => { if (!ts) return '—'; try { return new Date(ts * 1000).toLocaleString(); } catch { return '—'; } };
-const fmtNext = (ts) => {
-  if (!ts) return 'paused';
-  const ms = ts * 1000 - Date.now();
-  if (ms <= 0) return 'now';
-  const min = Math.round(ms / 60000);
-  if (min < 60) return `in ${min}m`;
-  if (min < 1440) return `in ${Math.round(min / 60)}h`;
-  return `in ${Math.round(min / 1440)}d`;
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const titleCase = (value) => String(value || '').replace(/\w\S*/g, (part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase());
+
+const state = {
+  schedules: [],
+  events: [],
+  editingId: '',
+  messages: [],
 };
-function authedFetch(path, opts = {}) {
-  return fetch(path, {
-    ...opts,
-    headers: {
-      ...(opts.headers || {}),
-      Authorization: 'Bearer ' + localStorage.getItem('metis.access_token'),
-      'Content-Type': 'application/json',
-    },
-  });
+
+function tokenHeader() {
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${localStorage.getItem('metis.access_token') || ''}`,
+  };
 }
 
-// ── Render board ───────────────────────────────────────────────────────
-async function loadBoard() {
-  const list = await authedFetch('/schedules').then(r => r.json());
-  const active = [], disabled = [], system = [];
-  for (const s of list) {
-    if (s.action) system.push(s);
-    else if (s.enabled) active.push(s);
-    else disabled.push(s);
-  }
-  document.getElementById('countActive').textContent = active.length;
-  document.getElementById('countDisabled').textContent = disabled.length;
-  document.getElementById('countSystem').textContent = system.length;
-
-  document.getElementById('colActive').innerHTML = active.length ? active.map(renderCard).join('') :
-    '<div class="empty-row" style="padding:14px 8px;color:var(--subtle);font-size:12.5px;text-align:center">No active automations. Hit <strong>+ Create</strong> to add one.</div>';
-  document.getElementById('colDisabled').innerHTML = disabled.length ? disabled.map(renderCard).join('') :
-    '<div class="empty-row" style="padding:14px 8px;color:var(--subtle);font-size:12.5px;text-align:center">Nothing paused.</div>';
-  document.getElementById('colSystem').innerHTML = system.length ? system.map(renderCard).join('') :
-    '<div class="empty-row" style="padding:14px 8px;color:var(--subtle);font-size:12.5px;text-align:center">No system schedules.</div>';
-
-  document.querySelectorAll('[data-run]').forEach(b => b.addEventListener('click', runNowHandler));
-  document.querySelectorAll('[data-toggle]').forEach(b => b.addEventListener('click', toggleHandler));
-  document.querySelectorAll('[data-edit-md]').forEach(b => b.addEventListener('click', openMdEditor));
-  document.querySelectorAll('[data-delete]').forEach(b => b.addEventListener('click', deleteHandler));
-}
-
-function renderCard(s) {
-  const status = s.last_status || (s.last_run ? 'ok' : 'pending');
-  const kindLabel = { interval: 'every', daily: 'daily', cron: 'cron', once: 'once' }[s.kind] || s.kind;
-  return `
-    <div class="auto-card ${s.enabled ? '' : 'disabled'}" data-id="${esc(s.id)}">
-      <div class="title">${esc(s.name || s.goal?.slice(0, 60) || 'Untitled')}</div>
-      <div class="schedule">
-        <span class="kind-pill">${esc(kindLabel)}</span>
-        <span>${esc(s.spec)}</span>
-        <span style="margin-left:auto;color:var(--subtle)">next: ${fmtNext(s.next_run)}</span>
-      </div>
-      ${s.description ? `<div class="desc">${esc(s.description.slice(0, 200))}</div>` : ''}
-      <div class="meta">
-        <span>Runs: ${s.run_count || 0}</span>
-        <span class="status ${esc(status)}">${esc(status)}</span>
-      </div>
-      <div class="actions">
-        <button class="primary" data-run="${esc(s.id)}">Run now</button>
-        ${s.action ? '' : `<button data-edit-md="${esc(s.id)}">📝 Brief</button>`}
-        <button data-toggle="${esc(s.id)}">${s.enabled ? '⏸ Pause' : '▶ Resume'}</button>
-        <button class="danger" data-delete="${esc(s.id)}">🗑</button>
-      </div>
-    </div>`;
-}
-
-async function runNowHandler(e) {
-  const id = e.currentTarget.dataset.run;
-  e.currentTarget.disabled = true;
-  try {
-    const response = await authedFetch(`/schedules/${encodeURIComponent(id)}/run`, { method: 'POST' });
-    const result = await response.json();
-    if (!result.ok) {
-      alert('Run failed: ' + (result.error || result.status || 'unknown error'));
-    }
-  } finally {
-    loadBoard();
-  }
-}
-
-async function toggleHandler(e) {
-  const id = e.currentTarget.dataset.toggle;
-  await authedFetch(`/schedules/${encodeURIComponent(id)}/toggle`, { method: 'POST' });
-  loadBoard();
-}
-async function deleteHandler(e) {
-  const id = e.currentTarget.dataset.delete;
-  if (!confirm('Delete this automation?')) return;
-  await authedFetch(`/schedules/${encodeURIComponent(id)}`, { method: 'DELETE' });
-  loadBoard();
-}
-
-// ── AGENTS.md editor ─────────────────────────────────────────────────
-const mdOverlay = document.getElementById('mdOverlay');
-let _editingId = null;
-async function openMdEditor(e) {
-  const id = e.currentTarget.dataset.editMd;
-  _editingId = id;
-  // Load the schedule fresh
-  const list = await authedFetch('/schedules').then(r => r.json());
-  const s = list.find(x => x.id === id);
-  if (!s) return;
-  document.getElementById('mdTitle').textContent = `AGENTS.md — ${s.name || 'Untitled'}`;
-  document.getElementById('mdText').value = s.agents_md || defaultAgentsMd(s);
-  document.getElementById('mdLastSaved').textContent = `Run count: ${s.run_count || 0} · Last: ${s.last_run ? new Date(s.last_run * 1000).toLocaleString() : 'never'}`;
-  mdOverlay.classList.add('show');
-  setTimeout(() => document.getElementById('mdText').focus(), 80);
-}
-function closeMd() { mdOverlay.classList.remove('show'); _editingId = null; }
-document.getElementById('mdClose').addEventListener('click', closeMd);
-document.getElementById('mdCancel').addEventListener('click', closeMd);
-mdOverlay.addEventListener('click', (e) => { if (e.target === mdOverlay) closeMd(); });
-document.getElementById('mdSave').addEventListener('click', async () => {
-  if (!_editingId) return;
-  const text = document.getElementById('mdText').value;
-  await authedFetch(`/schedules/${encodeURIComponent(_editingId)}`, {
+async function patchSchedule(id, payload) {
+  const response = await fetch(`/schedules/${encodeURIComponent(id)}`, {
     method: 'PATCH',
-    body: JSON.stringify({ agents_md: text }),
+    headers: tokenHeader(),
+    body: JSON.stringify(payload),
   });
-  closeMd();
-  loadBoard();
-});
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || 'Failed to update schedule.');
+  }
+  return response.json();
+}
 
-function defaultAgentsMd(s) {
+function describeCadence(kind, spec) {
+  if (kind === 'interval') return `Every ${spec} minute${Number(spec) === 1 ? '' : 's'}`;
+  if (kind === 'daily') return `Daily at ${spec}`;
+  if (kind === 'once') return `Run once on ${spec}`;
+  const match = /^(\d{1,2})\s+(\d{1,2})\s+\*\s+\*\s+mon-fri$/i.exec(spec || '');
+  if (match) {
+    const hour = String(match[2]).padStart(2, '0');
+    const minute = String(match[1]).padStart(2, '0');
+    return `Weekdays at ${hour}:${minute}`;
+  }
+  return `Cron ${spec}`;
+}
+
+function setStatus(message, kind = '') {
+  const host = document.getElementById('statusLine');
+  host.textContent = message || '';
+  host.className = `status-line${kind ? ` ${kind}` : ''}`;
+}
+
+function kindHint(kind) {
+  if (kind === 'daily') return 'Use 24-hour time like 08:30 or 16:45.';
+  if (kind === 'cron') return 'Use cron syntax like 30 8 * * mon-fri.';
+  if (kind === 'once') return 'Use YYYY-MM-DD HH:MM or ISO time.';
+  return 'Runs every N minutes. Use a plain number between 1 and 10080.';
+}
+
+function applyKind(kind, preserve = '') {
+  const specInput = document.getElementById('specInput');
+  const hint = document.getElementById('kindHint');
+  document.getElementById('kindInput').value = kind;
+  specInput.placeholder = kind === 'daily'
+    ? '08:30'
+    : kind === 'cron'
+      ? '30 8 * * mon-fri'
+      : kind === 'once'
+        ? '2026-05-08 09:00'
+        : '60';
+  if (!preserve) {
+    specInput.value = kind === 'daily' ? '08:30' : kind === 'cron' ? '30 8 * * mon-fri' : kind === 'once' ? '' : '60';
+  } else {
+    specInput.value = preserve;
+  }
+  hint.textContent = kindHint(kind);
+  updateSummary();
+}
+
+function parseTimeToken(token) {
+  const cleaned = String(token || '').trim().toLowerCase();
+  const match = cleaned.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/);
+  if (!match) return null;
+  let hour = Number(match[1]);
+  const minute = Number(match[2] || '0');
+  const suffix = match[3] || '';
+  if (suffix === 'pm' && hour < 12) hour += 12;
+  if (suffix === 'am' && hour === 12) hour = 0;
+  if (hour > 23 || minute > 59) return null;
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+function normalizeOnce(raw) {
+  const trimmed = String(raw || '').trim();
+  if (!trimmed) throw new Error('Choose when this automation should run.');
+  const maybeDateTime = trimmed.replace('T', ' ');
+  const match = maybeDateTime.match(/^(\d{4}-\d{2}-\d{2})(?:\s+(\d{1,2}:\d{2}))?$/);
+  if (match) {
+    return `${match[1]}T${match[2] || '09:00'}:00`;
+  }
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) throw new Error('Run once needs YYYY-MM-DD HH:MM or ISO time.');
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, '0');
+  const day = String(parsed.getDate()).padStart(2, '0');
+  const hour = String(parsed.getHours()).padStart(2, '0');
+  const minute = String(parsed.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hour}:${minute}:00`;
+}
+
+function formatOneShotForEditor(value) {
+  return String(value || '').replace('T', ' ').replace(/:\d{2}$/, '');
+}
+
+function normalizeSpec(kind, raw) {
+  const trimmed = String(raw || '').trim();
+  if (kind === 'interval') {
+    const minutes = Number(trimmed);
+    if (!Number.isFinite(minutes) || minutes < 1 || minutes > 10080) throw new Error('Interval must be between 1 and 10080 minutes.');
+    return String(Math.round(minutes));
+  }
+  if (kind === 'daily') {
+    const parsed = parseTimeToken(trimmed);
+    if (!parsed) throw new Error('Daily schedule must look like 08:30 or 4:30pm.');
+    return parsed;
+  }
+  if (kind === 'once') return normalizeOnce(trimmed);
+  if (!trimmed) throw new Error('Cron schedule cannot be blank.');
+  return trimmed;
+}
+
+function defaultAgentsMd(name, goal) {
+  const label = name || 'Automation';
   return [
-    `# AGENTS.md — ${s.name || 'Automation'}`,
-    ``,
-    `## Goal`,
-    s.goal || '(no goal set)',
-    ``,
-    `## Operating rules`,
-    `- Never assume. If you don't know something, ask the manager (begin reply with [QUESTION]:).`,
-    `- Cite sources when you state non-obvious facts.`,
-    `- Stay focused on the goal — don't wander into unrelated work.`,
-    ``,
-    `## Output format`,
-    `- (describe the format you want — bullet list, table, plain prose, JSON, etc.)`,
-    ``,
-    `## Off-limits`,
-    `- Don't send messages or spend money unless approval is on.`,
-    `- Don't invent data, names, or numbers.`,
+    `# ${label}`,
+    '',
+    'You are running a scheduled automation for Metis.',
+    'Stay inside the goal, keep the output concise, and return clear status.',
+    '',
+    '## Goal',
+    goal || '(not provided)',
+    '',
+    '## Rules',
+    '- Do the requested work only.',
+    '- Escalate uncertainty instead of guessing.',
+    '- Summarize what happened and any failures.',
   ].join('\n');
 }
 
-// ── Wizard ─────────────────────────────────────────────────────────
-const modal = document.getElementById('modalOverlay');
-let wizStep = 1;
-let wizKind = 'interval';
+function inferLabel(prompt) {
+  const lower = prompt.toLowerCase();
+  if (lower.includes('approval')) return 'Approvals digest';
+  if (lower.includes('failure')) return 'Failure triage';
+  if (lower.includes('vendor') || lower.includes('research')) return 'Vendor research sweep';
+  if (lower.includes('follow-up') || lower.includes('follow up')) return 'Follow-up reminder';
+  const words = prompt
+    .replace(/\bevery\b.+$/i, '')
+    .replace(/[^\w\s-]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 5);
+  return titleCase(words.join(' ')) || 'Automation task';
+}
 
-function renderSpecInput() {
-  const block = document.getElementById('specInputBlock');
-  const hint = document.getElementById('kindHint');
-  if (wizKind === 'interval') {
-    block.innerHTML = '<input type="number" id="wizSpec" min="1" max="10080" value="60" placeholder="Minutes">';
-    hint.textContent = 'Runs every N minutes. Pick something between 1 and 10080 (one week).';
-  } else if (wizKind === 'daily') {
-    block.innerHTML = '<input type="time" id="wizSpec" value="09:00">';
-    hint.textContent = 'Runs every day at this local time.';
-  } else if (wizKind === 'cron') {
-    block.innerHTML = '<input type="text" id="wizSpec" value="0 9 * * mon-fri" placeholder="m h dom mon dow" style="font-family:JetBrains Mono,monospace">';
-    hint.innerHTML = 'Standard cron. Example: <code>0 9 * * mon-fri</code> = 9 AM weekdays.';
-  } else if (wizKind === 'once') {
-    const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 16);
-    block.innerHTML = `<input type="datetime-local" id="wizSpec" value="${tomorrow}">`;
-    hint.textContent = 'Runs once at this exact moment, then disables itself.';
+function inferApproval(prompt) {
+  const risky = /\b(send|email|message|text|call|purchase|pay|checkout|contact|outreach|delete|submit|publish|post|book)\b/i;
+  return !risky.test(prompt);
+}
+
+function inferSchedule(prompt) {
+  const lower = prompt.toLowerCase();
+  let match = lower.match(/\bevery\s+(\d+)\s*(minute|minutes|min)\b/);
+  if (match) return { kind: 'interval', spec: String(Number(match[1])), note: '' };
+
+  match = lower.match(/\bevery\s+(\d+)\s*(hour|hours|hr|hrs)\b/);
+  if (match) return { kind: 'interval', spec: String(Number(match[1]) * 60), note: '' };
+
+  if (/\bhourly\b/.test(lower)) return { kind: 'interval', spec: '60', note: '' };
+
+  match = prompt.match(/\b(?:every weekday|weekdays?)\s+at\s+([0-9: ]+(?:am|pm)?)/i);
+  if (match) {
+    const parsed = parseTimeToken(match[1]);
+    if (parsed) {
+      const [hour, minute] = parsed.split(':');
+      return { kind: 'cron', spec: `${Number(minute)} ${Number(hour)} * * mon-fri`, note: '' };
+    }
+  }
+
+  match = prompt.match(/\b(?:every day|daily)\s+at\s+([0-9: ]+(?:am|pm)?)/i);
+  if (match) {
+    const parsed = parseTimeToken(match[1]);
+    if (parsed) return { kind: 'daily', spec: parsed, note: '' };
+  }
+
+  match = prompt.match(/\bon\s+(\d{4}-\d{2}-\d{2})\s+at\s+([0-9: ]+(?:am|pm)?)/i);
+  if (match) {
+    const parsed = parseTimeToken(match[2]);
+    if (parsed) return { kind: 'once', spec: `${match[1]}T${parsed}:00`, note: '' };
+  }
+
+  match = prompt.match(/\b(?:once|one time)\s+(?:on\s+)?(\d{4}-\d{2}-\d{2})(?:\s+([0-9: ]+(?:am|pm)?))?/i);
+  if (match) {
+    const parsed = parseTimeToken(match[2] || '09:00') || '09:00';
+    return { kind: 'once', spec: `${match[1]}T${parsed}:00`, note: '' };
+  }
+
+  return {
+    kind: 'interval',
+    spec: '60',
+    note: 'No clear cadence was found in the prompt. I set a draft default of every 60 minutes. Change it on the right before saving.',
+  };
+}
+
+function renderThread() {
+  const host = document.getElementById('threadList');
+  host.innerHTML = state.messages.map((message) => {
+    const summary = Array.isArray(message.summary) && message.summary.length
+      ? `
+        <div class="summary-block">
+          ${message.summary.map((item) => `
+            <div class="summary-row">
+              <span>${esc(item.label)}</span>
+              <strong>${esc(item.value)}</strong>
+            </div>
+          `).join('')}
+        </div>
+      `
+      : '';
+    return `
+      <article class="message ${esc(message.role)}">
+        <div class="message-avatar">${esc(message.role === 'assistant' ? 'M' : 'You')}</div>
+        <div class="bubble">
+          <div class="bubble-title">${esc(message.title)}</div>
+          <div class="bubble-meta">${esc(message.meta || (message.role === 'assistant' ? 'Metis draft' : 'Operator request'))}</div>
+          <div class="bubble-body">${esc(message.body || '')}</div>
+          ${summary}
+        </div>
+      </article>
+    `;
+  }).join('');
+  host.scrollTop = host.scrollHeight;
+}
+
+function resetMessages() {
+  state.messages = [
+    {
+      role: 'assistant',
+      title: 'Start with one message',
+      meta: 'Metis automation desk',
+      body: 'Describe the task the way you would brief an operator. Include the outcome, how often it should run, and anything that should stay manual.',
+      summary: [
+        { label: 'Example', value: 'Every weekday at 8:30am, review browser approvals and summarize failures.' },
+        { label: 'Result', value: 'Metis drafts the label, cadence, and approval mode for you.' },
+      ],
+    },
+  ];
+}
+
+function updateSummary() {
+  const name = document.getElementById('nameInput').value.trim() || 'Untitled draft';
+  const kind = document.getElementById('kindInput').value;
+  const spec = document.getElementById('specInput').value.trim() || (kind === 'interval' ? '60' : '');
+  document.getElementById('selectedName').textContent = name.length > 22 ? `${name.slice(0, 22)}...` : name;
+  document.getElementById('summaryCadence').textContent = spec ? describeCadence(kind, kind === 'once' ? formatOneShotForEditor(spec) : spec) : 'Not set';
+  document.getElementById('summaryApproval').textContent = document.getElementById('autoApproveInput').checked ? 'Auto' : 'Manual';
+  document.getElementById('draftMode').textContent = state.editingId ? 'Editing' : 'New';
+}
+
+function clearDraft() {
+  state.editingId = '';
+  document.getElementById('nameInput').value = '';
+  document.getElementById('goalInput').value = '';
+  document.getElementById('agentsMdInput').value = '';
+  document.getElementById('autoApproveInput').checked = true;
+  applyKind('interval');
+  document.getElementById('eventScope').textContent = 'Latest activity across all automations.';
+  resetMessages();
+  renderThread();
+  renderSchedules();
+  renderEvents();
+  updateSummary();
+  setStatus('');
+}
+
+function createDraftFromPrompt() {
+  const prompt = document.getElementById('goalInput').value.trim();
+  if (!prompt) throw new Error('Write the automation request first.');
+  const inferred = inferSchedule(prompt);
+  const label = inferLabel(prompt);
+  document.getElementById('nameInput').value = label;
+  document.getElementById('autoApproveInput').checked = inferApproval(prompt);
+  document.getElementById('agentsMdInput').value = defaultAgentsMd(label, prompt);
+  applyKind(inferred.kind, inferred.kind === 'once' ? formatOneShotForEditor(inferred.spec) : inferred.spec);
+  state.messages = [
+    state.messages[0],
+    {
+      role: 'user',
+      title: 'Automation request',
+      meta: 'Plain-language brief',
+      body: prompt,
+    },
+    {
+      role: 'assistant',
+      title: 'Draft ready',
+      meta: inferred.note ? 'Metis draft with fallback' : 'Metis draft',
+      body: inferred.note || 'I converted that request into a live automation draft. Review the right-side settings, then save it or run it now.',
+      summary: [
+        { label: 'Label', value: label },
+        { label: 'Cadence', value: describeCadence(inferred.kind, inferred.kind === 'once' ? formatOneShotForEditor(inferred.spec) : inferred.spec) },
+        { label: 'Approval', value: document.getElementById('autoApproveInput').checked ? 'Auto' : 'Manual' },
+      ],
+    },
+  ];
+  renderThread();
+  updateSummary();
+}
+
+function pillClass(status) {
+  if (status === 'ok') return 'ok';
+  if (status === 'failed') return 'failed';
+  if (status === 'pending') return 'pending';
+  return '';
+}
+
+function nextRunText(schedule) {
+  if (!schedule.enabled) return 'paused';
+  if (!schedule.next_run) return 'manual';
+  const delta = schedule.next_run * 1000 - Date.now();
+  if (delta <= 0) return 'now';
+  const minutes = Math.round(delta / 60000);
+  if (minutes < 60) return `in ${minutes}m`;
+  if (minutes < 1440) return `in ${Math.round(minutes / 60)}h`;
+  return `in ${Math.round(minutes / 1440)}d`;
+}
+
+function renderSchedules() {
+  const host = document.getElementById('scheduleList');
+  document.getElementById('savedCount').textContent = `${state.schedules.length} saved`;
+  if (!state.schedules.length) {
+    host.innerHTML = '<div class="empty-block">No automations yet. Draft one in the chat and save it.</div>';
+    return;
+  }
+  host.innerHTML = state.schedules.map((schedule) => {
+    const status = schedule.last_status || (schedule.last_run ? 'ok' : 'idle');
+    return `
+      <article class="schedule-row ${state.editingId === schedule.id ? 'active' : ''}">
+        <div class="schedule-top">
+          <div>
+            <div class="schedule-name">${esc(schedule.name || 'Untitled automation')}</div>
+            <div class="schedule-meta">${esc(schedule.goal || '')}</div>
+            <div class="schedule-sub">${esc(describeCadence(schedule.kind, schedule.kind === 'once' ? formatOneShotForEditor(schedule.spec) : schedule.spec))} - next ${esc(nextRunText(schedule))}</div>
+          </div>
+          <span class="pill ${pillClass(status)}">${esc(status || 'idle')}</span>
+        </div>
+        <div class="schedule-actions">
+          <button class="primary" data-load="${esc(schedule.id)}">Load</button>
+          <button data-run="${esc(schedule.id)}">Run now</button>
+          <button data-toggle="${esc(schedule.id)}">${schedule.enabled ? 'Pause' : 'Resume'}</button>
+          <button class="danger" data-delete="${esc(schedule.id)}">Delete</button>
+        </div>
+      </article>
+    `;
+  }).join('');
+
+  host.querySelectorAll('[data-load]').forEach((button) => button.addEventListener('click', () => loadIntoEditor(button.dataset.load)));
+  host.querySelectorAll('[data-run]').forEach((button) => button.addEventListener('click', () => runSchedule(button.dataset.run)));
+  host.querySelectorAll('[data-toggle]').forEach((button) => button.addEventListener('click', () => toggleSchedule(button.dataset.toggle)));
+  host.querySelectorAll('[data-delete]').forEach((button) => button.addEventListener('click', () => deleteSchedule(button.dataset.delete)));
+}
+
+function renderEvents() {
+  const selectedId = state.editingId;
+  const relevant = selectedId ? state.events.filter((event) => event.schedule_id === selectedId) : state.events;
+  document.getElementById('eventCount').textContent = String(relevant.length);
+  const host = document.getElementById('eventList');
+  if (!relevant.length) {
+    host.innerHTML = '<div class="empty-block">No automation events yet.</div>';
+    return;
+  }
+  host.innerHTML = relevant.slice(0, 10).map((event) => {
+    const title = event.schedule_name || event.schedule_id || 'Automation run';
+    const time = event.created_at ? new Date(event.created_at * 1000).toLocaleString() : '--';
+    const detail = event.detail || event.error || 'No details recorded.';
+    return `
+      <article class="event-row">
+        <div class="event-top">
+          <div>
+            <div class="event-name">${esc(title)}</div>
+            <div class="event-meta">${esc(detail)}</div>
+            <div class="event-sub">${esc(event.trigger || 'unknown')} - ${esc(time)}</div>
+          </div>
+          <span class="pill ${pillClass(event.status || '')}">${esc(event.status || 'idle')}</span>
+        </div>
+      </article>
+    `;
+  }).join('');
+}
+
+async function refreshData() {
+  const [schedules, eventsResponse] = await Promise.all([
+    api.schedules(),
+    api.automationEvents(40),
+  ]);
+  state.schedules = Array.isArray(schedules) ? schedules : [];
+  state.events = Array.isArray(eventsResponse?.events) ? eventsResponse.events : [];
+  renderSchedules();
+  renderEvents();
+}
+
+function loadIntoEditor(scheduleId) {
+  const schedule = state.schedules.find((item) => item.id === scheduleId);
+  if (!schedule) return;
+  state.editingId = schedule.id;
+  document.getElementById('nameInput').value = schedule.name || '';
+  document.getElementById('goalInput').value = schedule.goal || '';
+  document.getElementById('autoApproveInput').checked = Boolean(schedule.auto_approve);
+  document.getElementById('agentsMdInput').value = schedule.agents_md || defaultAgentsMd(schedule.name || 'Automation', schedule.goal || '');
+  applyKind(schedule.kind || 'interval', schedule.kind === 'once' ? formatOneShotForEditor(schedule.spec) : schedule.spec || '');
+  document.getElementById('eventScope').textContent = `Latest activity for "${schedule.name || 'selected automation'}".`;
+  state.messages = [
+    state.messages[0],
+    {
+      role: 'assistant',
+      title: 'Loaded saved automation',
+      meta: 'Existing schedule',
+      body: `I loaded "${schedule.name || 'automation'}" into the draft editor so you can update it without leaving this page.`,
+      summary: [
+        { label: 'Cadence', value: describeCadence(schedule.kind, schedule.kind === 'once' ? formatOneShotForEditor(schedule.spec) : schedule.spec) },
+        { label: 'Approval', value: schedule.auto_approve ? 'Auto' : 'Manual' },
+        { label: 'Runs', value: String(schedule.run_count || 0) },
+      ],
+    },
+    {
+      role: 'user',
+      title: 'Current automation brief',
+      meta: 'Loaded from saved automation',
+      body: schedule.goal || '',
+    },
+  ];
+  renderThread();
+  renderSchedules();
+  renderEvents();
+  updateSummary();
+  setStatus(`Loaded "${schedule.name || 'automation'}".`, 'ok');
+}
+
+async function runSchedule(id) {
+  setStatus('Running automation now...');
+  try {
+    const response = await api.runScheduleNow(id);
+    if (!response.ok) throw new Error(response.error || response.status || 'Run failed');
+    await refreshData();
+    setStatus('Automation run submitted.', 'ok');
+  } catch (error) {
+    setStatus(error.message, 'error');
   }
 }
 
-function showStep(n) {
-  wizStep = n;
-  document.querySelectorAll('.step').forEach(s => s.style.display = (parseInt(s.dataset.step) === n) ? '' : 'none');
-  document.querySelectorAll('.dot').forEach(d => d.classList.toggle('active', parseInt(d.dataset.dot) <= n));
-  document.getElementById('wizBack').style.display = n > 1 ? '' : 'none';
-  document.getElementById('wizNext').textContent = n === 3 ? '✨ Save automation' : 'Next →';
+async function toggleSchedule(id) {
+  setStatus('Updating schedule...');
+  try {
+    await api.toggleSchedule(id);
+    await refreshData();
+    setStatus('Schedule updated.', 'ok');
+  } catch (error) {
+    setStatus(error.message, 'error');
+  }
 }
 
-function openWizard() {
-  ['wizName', 'wizGoal'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('wizAgentsMd').value = '';
-  wizStep = 1; wizKind = 'interval'; renderSpecInput(); showStep(1);
-  document.querySelectorAll('.kind-tab').forEach(t => t.classList.toggle('active', t.dataset.kind === 'interval'));
-  document.getElementById('autoApproveToggle').classList.add('on');
-  modal.classList.add('show');
-  setTimeout(() => document.getElementById('wizName').focus(), 80);
+async function deleteSchedule(id) {
+  if (!confirm('Delete this automation?')) return;
+  setStatus('Deleting automation...');
+  try {
+    await api.deleteSchedule(id);
+    if (state.editingId === id) clearDraft();
+    await refreshData();
+    setStatus('Automation deleted.', 'ok');
+  } catch (error) {
+    setStatus(error.message, 'error');
+  }
 }
-function closeWizard() { modal.classList.remove('show'); }
 
-document.getElementById('createBtn').addEventListener('click', openWizard);
-document.getElementById('modalClose').addEventListener('click', closeWizard);
-modal.addEventListener('click', (e) => { if (e.target === modal) closeWizard(); });
+function buildPayload() {
+  const name = document.getElementById('nameInput').value.trim();
+  const goal = document.getElementById('goalInput').value.trim();
+  const kind = document.getElementById('kindInput').value;
+  const rawSpec = document.getElementById('specInput').value.trim();
+  if (!goal) throw new Error('Write the automation brief first.');
+  if (!name) throw new Error('Give the automation a label.');
+  return {
+    name,
+    goal,
+    kind,
+    spec: normalizeSpec(kind, rawSpec),
+    auto_approve: document.getElementById('autoApproveInput').checked,
+    agents_md: document.getElementById('agentsMdInput').value.trim() || defaultAgentsMd(name, goal),
+  };
+}
 
-document.querySelectorAll('.kind-tab').forEach(t => t.addEventListener('click', () => {
-  wizKind = t.dataset.kind;
-  document.querySelectorAll('.kind-tab').forEach(x => x.classList.toggle('active', x === t));
-  renderSpecInput();
-}));
-
-document.getElementById('autoApproveToggle').addEventListener('click', (e) => e.currentTarget.classList.toggle('on'));
-
-document.getElementById('wizBack').addEventListener('click', () => { if (wizStep > 1) showStep(wizStep - 1); });
-document.getElementById('wizNext').addEventListener('click', async () => {
-  if (wizStep === 1) {
-    if (!document.getElementById('wizName').value.trim() || !document.getElementById('wizGoal').value.trim()) {
-      alert('Both a label and full instructions are required.');
+async function saveDraft(runAfter = false) {
+  setStatus(runAfter ? 'Saving automation and starting a run...' : 'Saving automation...');
+  try {
+    const payload = buildPayload();
+    let scheduleId = state.editingId;
+    if (scheduleId) {
+      await patchSchedule(scheduleId, payload);
+    } else {
+      const created = await api.createSchedule(payload);
+      scheduleId = created.id;
+      state.editingId = scheduleId;
+    }
+    await refreshData();
+    if (scheduleId) loadIntoEditor(scheduleId);
+    if (runAfter && scheduleId) {
+      await runSchedule(scheduleId);
       return;
     }
-    showStep(2);
-  } else if (wizStep === 2) {
-    if (!document.getElementById('wizSpec').value.trim()) { alert('Pick a schedule.'); return; }
-    // Pre-fill the AGENTS.md from name + goal so step 3 has something to edit.
-    const md = document.getElementById('wizAgentsMd');
-    if (!md.value.trim()) {
-      md.value = defaultAgentsMd({
-        name: document.getElementById('wizName').value.trim(),
-        goal: document.getElementById('wizGoal').value.trim(),
-      });
-    }
-    showStep(3);
-  } else if (wizStep === 3) {
-    const spec = document.getElementById('wizSpec').value.trim();
-    // Convert datetime-local to ISO
-    const finalSpec = wizKind === 'once' ? new Date(spec).toISOString() : spec;
-    const r = await authedFetch('/schedules', {
-      method: 'POST',
-      body: JSON.stringify({
-        name: document.getElementById('wizName').value.trim(),
-        goal: document.getElementById('wizGoal').value.trim(),
-        kind: wizKind,
-        spec: finalSpec,
-        auto_approve: document.getElementById('autoApproveToggle').classList.contains('on'),
-        agents_md: document.getElementById('wizAgentsMd').value,
-      }),
-    });
-    if (!r.ok) {
-      const err = await r.json().catch(() => ({}));
-      alert('Save failed: ' + (err.detail || r.statusText));
-      return;
-    }
-    closeWizard();
-    loadBoard();
+    setStatus('Automation saved.', 'ok');
+  } catch (error) {
+    setStatus(error.message, 'error');
+  }
+}
+
+function applyExample(name, goal, kind, spec, autoApprove = true) {
+  state.editingId = '';
+  document.getElementById('nameInput').value = name;
+  document.getElementById('goalInput').value = goal;
+  document.getElementById('autoApproveInput').checked = autoApprove;
+  document.getElementById('agentsMdInput').value = defaultAgentsMd(name, goal);
+  applyKind(kind, kind === 'once' ? formatOneShotForEditor(spec) : spec);
+  resetMessages();
+  renderThread();
+  updateSummary();
+  setStatus('Example loaded. Draft it or save it.', 'ok');
+}
+
+document.getElementById('kindInput').addEventListener('change', (event) => applyKind(event.currentTarget.value, document.getElementById('specInput').value.trim()));
+document.getElementById('nameInput').addEventListener('input', updateSummary);
+document.getElementById('specInput').addEventListener('input', updateSummary);
+document.getElementById('autoApproveInput').addEventListener('change', updateSummary);
+document.getElementById('analyzeBtn').addEventListener('click', () => {
+  try {
+    createDraftFromPrompt();
+    setStatus('Draft updated from the prompt.', 'ok');
+  } catch (error) {
+    setStatus(error.message, 'error');
   }
 });
+document.getElementById('saveBtn').addEventListener('click', () => saveDraft(false));
+document.getElementById('saveRunBtn').addEventListener('click', () => saveDraft(true));
+document.getElementById('clearBtn').addEventListener('click', clearDraft);
+document.getElementById('refreshBtn').addEventListener('click', () => refreshData().then(() => setStatus('Automation data refreshed.', 'ok')).catch((error) => setStatus(error.message, 'error')));
+document.getElementById('newDraftBtn').addEventListener('click', clearDraft);
 
-// ── Init ──────────────────────────────────────────────────────────────
-loadBoard();
-setInterval(loadBoard, 30000);  // poll every 30s for status updates
+document.querySelectorAll('[data-example]').forEach((button) => {
+  button.addEventListener('click', () => {
+    const example = button.dataset.example;
+    if (example === 'browser') {
+      applyExample(
+        'Browser approvals digest',
+        'Every weekday at 8:30am, review browser approvals from the last day, flag failures, and write a short operator summary with the highest-risk items first.',
+        'cron',
+        '30 8 * * mon-fri'
+      );
+      return;
+    }
+    if (example === 'failures') {
+      applyExample(
+        'Failure triage report',
+        'Every 60 minutes, review recent automation failures, group them by root cause, and create a short report with the most urgent breakages first.',
+        'interval',
+        '60'
+      );
+      return;
+    }
+    if (example === 'research') {
+      applyExample(
+        'Vendor research sweep',
+        'Every weekday at 10:00am, research three possible local vendors for the active request, record pricing or contact details when available, and return a ranked shortlist with cited sources.',
+        'cron',
+        '0 10 * * mon-fri',
+        false
+      );
+      return;
+    }
+    applyExample(
+      'Follow-up reminder',
+      'Every day at 4:30pm, scan active relationships and open tasks, identify follow-ups that have been idle for more than three business days, and write a short reminder list for the inbox.',
+      'daily',
+      '16:30'
+    );
+  });
+});
+
+resetMessages();
+renderThread();
+applyKind('interval');
+await refreshData();
+clearDraft();
 </script>
-
-<script type="module" src="/static/js/nav.js?v=v20"></script>
+<script type="module" src="/static/js/nav.js?v=v21"></script>
 </body>
 </html>

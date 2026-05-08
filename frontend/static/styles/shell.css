@@ -4,27 +4,29 @@
    mesh-gradient background. Each page slots its own content into <main>. */
 
 :root{
-  --vi:#7C3AED; --vi2:#A78BFA; --co:#FB7185; --am:#F59E0B; --bl:#3B82F6; --gr:#22C55E;
-  --bg:#07071a; --bg-2:#0d0d24; --panel:rgba(255,255,255,.04); --panel-2:rgba(255,255,255,.06);
-  --text:#F8FAFF; --muted:rgba(248,250,255,.6); --subtle:rgba(248,250,255,.32);
-  --border:rgba(255,255,255,.08); --border-2:rgba(255,255,255,.14);
-  --grad:linear-gradient(135deg,var(--vi),var(--co) 55%,var(--am));
-  --accent: #7C3AED;
-  --accent-soft: rgba(124,58,237,.18);
-  --accent-glow: rgba(124,58,237,.35);
+  --vi:#7857FF; --vi2:#C1B6FF; --co:#F6926B; --am:#D5A156; --bl:#4B82F8; --gr:#39BA78;
+  --bg:#0A0D14; --bg-2:#121926; --panel:rgba(255,255,255,.035); --panel-2:rgba(255,255,255,.055);
+  --text:#F4F7FB; --muted:rgba(244,247,251,.66); --subtle:rgba(244,247,251,.42);
+  --border:rgba(255,255,255,.085); --border-2:rgba(255,255,255,.15);
+  --grad:linear-gradient(135deg,var(--vi),#B94CE4 60%,var(--co));
+  --accent:#7857FF;
+  --accent-soft:rgba(120,87,255,.16);
+  --accent-glow:rgba(120,87,255,.28);
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden}
 body::before{content:"";position:fixed;inset:0;background:
-  radial-gradient(circle at 12% 8%,rgba(124,58,237,.18),transparent 50%),
-  radial-gradient(circle at 90% 100%,rgba(251,113,133,.10),transparent 55%);
+  linear-gradient(180deg,rgba(255,255,255,.015),transparent 30%),
+  radial-gradient(circle at 14% 8%,rgba(120,87,255,.14),transparent 44%),
+  radial-gradient(circle at 84% 0%,rgba(246,146,107,.08),transparent 28%),
+  radial-gradient(circle at 94% 100%,rgba(75,130,248,.06),transparent 30%);
   z-index:0;pointer-events:none}
 
 /* Layout */
 .layout{position:relative;z-index:1;display:grid;grid-template-columns:240px 1fr;height:100vh}
 
 /* Sidebar nav */
-.side{background:rgba(7,7,26,.7);backdrop-filter:blur(20px);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.side{background:rgba(10,13,20,.84);backdrop-filter:blur(22px);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
 .side-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;min-height:64px}
 .side-head .metis-mark{flex:1;min-width:0}
 .nav{flex:1;padding:12px 8px;display:flex;flex-direction:column;gap:8px;overflow-y:auto}
@@ -36,7 +38,7 @@ body::before{content:"";position:fixed;inset:0;background:
 .nav-items{display:flex;flex-direction:column;gap:2px;padding:0 5px 6px}
 .nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;color:var(--muted);text-decoration:none;font-size:13.5px;font-weight:500;cursor:pointer;transition:all .15s;background:transparent;border:none;width:100%;text-align:left;font-family:inherit}
 .nav-item:hover{background:var(--panel);color:var(--text)}
-.nav-item.active{background:var(--accent-soft);color:var(--text);box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent)}
+.nav-item.active{background:var(--accent-soft);color:var(--text);box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--accent) 34%, transparent)}
 .nav-item .ico{width:18px;height:18px;flex-shrink:0;stroke:currentColor;stroke-width:2;fill:none}
 .nav-item .lbl{flex:1}
 .nav-section{padding:14px 16px 6px;font-family:'Sora',sans-serif;font-size:10.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--subtle)}
@@ -49,7 +51,7 @@ body::before{content:"";position:fixed;inset:0;background:
 
 /* Main */
 .main{display:flex;flex-direction:column;overflow:hidden;position:relative}
-.page-head{padding:18px 32px;border-bottom:1px solid var(--border);background:rgba(7,7,26,.5);backdrop-filter:blur(14px);display:flex;align-items:center;gap:14px}
+.page-head{padding:18px 32px;border-bottom:1px solid var(--border);background:rgba(10,13,20,.72);backdrop-filter:blur(18px);display:flex;align-items:center;gap:14px}
 .page-title{font-family:'Sora',sans-serif;font-size:22px;font-weight:700;letter-spacing:-.02em}
 .page-title em{font-family:Georgia,serif;font-style:italic;font-weight:400;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 .page-sub{color:var(--muted);font-size:13.5px;margin-left:14px;flex:1}
@@ -58,7 +60,7 @@ body::before{content:"";position:fixed;inset:0;background:
 .body-inner{max-width:980px;margin:0 auto}
 
 /* Empty / coming-soon card */
-.placeholder{padding:48px 32px;text-align:center;border-radius:18px;background:var(--panel);border:1px solid var(--border);box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
+.placeholder{padding:48px 32px;text-align:center;border-radius:18px;background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.02));border:1px solid var(--border);box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 18px 48px rgba(0,0,0,.22)}
 .placeholder .badge{display:inline-block;padding:5px 12px;border-radius:99px;background:var(--accent-soft);border:1px solid color-mix(in srgb, var(--accent) 35%, transparent);color:var(--vi2);font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:18px}
 .placeholder h2{font-family:'Sora',sans-serif;font-size:28px;font-weight:700;letter-spacing:-.02em;margin-bottom:10px}
 .placeholder h2 em{font-family:Georgia,serif;font-style:italic;font-weight:400;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}

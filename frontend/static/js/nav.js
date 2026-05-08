@@ -11,7 +11,7 @@
  *   <script type="module" src="/static/js/nav.js?v=v19"></script>
  */
 
-import { ensureAuthed, getUser, clearSession, api } from '/static/js/api.js?v=v19';
+import { ensureAuthed, getUser, clearSession, api } from '/static/js/api.js?v=v21';
 
 const ICONS = {
   chat: '<svg class="ico" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',

@@ -81,6 +81,12 @@ def test_browser_mvp_safe_mode_queue_and_approval(_sandbox_paths, monkeypatch):
     client = TestClient(api_bridge.app)
     headers = api_bridge.auth_local.bearer_header()
 
+    # manager_config reads cwd-relative identity/ — not the safety sandbox — so
+    # force open-mode allowlist for this test regardless of local disk state.
+    assert client.post("/manager/config", headers=headers, json={
+        "allowed_services": [],
+    }).status_code == 200
+
     status = client.get("/browser/status", headers=headers)
     assert status.status_code == 200
     body = status.json()

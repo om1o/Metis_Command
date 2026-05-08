@@ -81,3 +81,4 @@ Thumbs.db
 *.onnx
 identity/notify_log.jsonl
 identity/code_workspaces.json
+identity/automation_events.jsonl

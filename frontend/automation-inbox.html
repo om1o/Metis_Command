@@ -8,8 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/styles/shell.css?v=v20">
-<link rel="stylesheet" href="/static/styles/wordmark.css?v=v20">
+<link rel="stylesheet" href="/static/styles/shell.css?v=v21">
+<link rel="stylesheet" href="/static/styles/wordmark.css?v=v21">
 <script src="/static/js/wordmark.js?v=v20" defer></script>
 <style>
 .inbox{display:flex;flex-direction:column;gap:10px}
@@ -67,7 +67,7 @@
   </main>
 </div>
 <script type="module">
-import { api, ensureAuthed } from '/static/js/api.js?v=v20';
+import { api, ensureAuthed } from '/static/js/api.js?v=v21';
 
 await ensureAuthed();
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -113,6 +113,6 @@ loadInbox().catch(err => {
 });
 setInterval(loadInbox, 30000);
 </script>
-<script type="module" src="/static/js/nav.js?v=v20"></script>
+<script type="module" src="/static/js/nav.js?v=v21"></script>
 </body>
 </html>

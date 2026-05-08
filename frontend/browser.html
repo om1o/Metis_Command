@@ -8,8 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/styles/shell.css?v=v20">
-<link rel="stylesheet" href="/static/styles/wordmark.css?v=v20">
+<link rel="stylesheet" href="/static/styles/shell.css?v=v21">
+<link rel="stylesheet" href="/static/styles/wordmark.css?v=v21">
 <style>
 .browser-shell{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(320px,.9fr);gap:18px}
 .stack{display:flex;flex-direction:column;gap:16px}
@@ -42,6 +42,19 @@
 .segmented{display:inline-flex;padding:4px;border-radius:12px;background:rgba(0,0,0,.25);border:1px solid var(--border)}
 .segmented button{height:34px;padding:0 14px;border:none;border-radius:8px;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:700;cursor:pointer}
 .segmented button.active{background:var(--accent-soft);color:var(--text)}
+.quickstart{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(320px,.95fr);gap:14px}
+.quickstart-copy{display:flex;flex-direction:column;gap:12px}
+.quickstart-copy p{font-size:13px;color:var(--muted);line-height:1.65}
+.quickstart-actions{display:flex;flex-wrap:wrap;gap:8px}
+.quickstart-steps{display:flex;flex-direction:column;gap:10px}
+.quickstep{display:grid;grid-template-columns:1fr auto;gap:12px;padding:12px 14px;border-radius:12px;background:var(--panel-2);border:1px solid var(--border);align-items:start}
+.quickstep-title{font-size:13px;font-weight:700;color:var(--text)}
+.quickstep-copy{margin-top:4px;font-size:12px;color:var(--muted);line-height:1.55}
+.step-state{display:inline-flex;align-items:center;justify-content:center;min-width:88px;padding:5px 10px;border-radius:999px;border:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--subtle)}
+.step-state.pending{background:rgba(245,158,11,.14);border-color:rgba(245,158,11,.26);color:#FCD34D}
+.step-state.ready{background:rgba(59,130,246,.14);border-color:rgba(59,130,246,.24);color:#93C5FD}
+.step-state.done{background:rgba(34,197,94,.14);border-color:rgba(34,197,94,.24);color:#86EFAC}
+.step-state.blocked{background:rgba(251,113,133,.14);border-color:rgba(251,113,133,.24);color:#FCA5A5}
 .preview-wrap{position:relative;overflow:hidden;border-radius:14px;border:1px solid var(--border);background:rgba(0,0,0,.36);aspect-ratio:16/10;display:flex;align-items:center;justify-content:center}
 .preview-wrap img{width:100%;height:100%;object-fit:contain;background:#050512}
 .preview-empty{padding:28px;text-align:center;color:var(--subtle);font-size:13px;line-height:1.7}
@@ -81,16 +94,24 @@
 .modal h2{font-family:'Sora',sans-serif;font-size:18px}
 .modal p{margin-top:8px;font-size:13px;color:var(--muted);line-height:1.6}
 .modal .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
-@media(max-width:1180px){.browser-shell{grid-template-columns:1fr}.status-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:1180px){.browser-shell,.quickstart{grid-template-columns:1fr}.status-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:720px){.status-grid,.action-grid{grid-template-columns:1fr}.inline-form{grid-template-columns:1fr}.inline-form .grow2{grid-column:auto}.banner-head{flex-direction:column;align-items:flex-start}.pill-row{margin-left:0}}
 </style>
+<script>
+if (window.location.hash.includes('figmacapture=')) {
+  const figmaCaptureScript = document.createElement('script');
+  figmaCaptureScript.src = 'https://mcp.figma.com/mcp/html-to-design/capture.js';
+  figmaCaptureScript.async = true;
+  document.head.appendChild(figmaCaptureScript);
+}
+</script>
 </head>
 <body>
 <div class="layout">
   <aside class="side">
     <div class="side-head">
       <button class="metis-mark size-sm" type="button" title="Refresh">
-        <img class="mm-glyph" src="/static/assets/metis-mark.svg?v=v20" alt="">
+        <img class="mm-glyph" src="/static/assets/metis-mark.svg?v=v21" alt="">
         <span class="mm-stack"><span class="mm-word">Metis</span><span class="mm-sub">Browser</span></span>
       </button>
     </div>
@@ -115,7 +136,7 @@
             <div class="panel banner" id="liveBanner">
               <div class="banner-head">
                 <div class="brand-lockup">
-                  <img src="/static/assets/metis-logo-full.png?v=v20" alt="Metis logo">
+                  <img src="/static/assets/metis-logo-full.png?v=v21" alt="Metis logo">
                   <div class="brand-meta">
                     <div class="eyebrow">Desktop operator</div>
                     <div class="title">Metis controlling the browser</div>
@@ -132,6 +153,49 @@
                 <div class="stat"><div class="k">Pending approvals</div><div class="v" id="statApprovals">0</div></div>
                 <div class="stat"><div class="k">Allowed services</div><div class="v" id="statServices">0</div></div>
                 <div class="stat"><div class="k">Account cap today</div><div class="v" id="statAccounts">0 / 0</div></div>
+              </div>
+            </div>
+
+            <div class="panel quickstart">
+              <div class="quickstart-copy">
+                <h3>Guided MVP check</h3>
+                <p>Use the stable <code>example.com</code> path to prove the browser MVP. Until you add allowed services, navigation stays open; after the first service is saved, only allowlisted domains can be driven — so add <code>example.com</code> here to turn on real policy gates.</p>
+                <div class="quickstart-actions">
+                  <button class="btn primary" id="loadRecipeBtn">Load test recipe</button>
+                  <button class="btn" id="addExampleServiceBtn">Add example.com</button>
+                  <button class="btn" id="queueExampleClickBtn">Queue test click</button>
+                </div>
+                <div class="helper" id="quickstartHint">Load the recipe, add the allowed service, then open the browser in safe mode.</div>
+              </div>
+              <div class="quickstart-steps">
+                <div class="quickstep">
+                  <div>
+                    <div class="quickstep-title">1. Allowed service</div>
+                    <div class="quickstep-copy">Enable <code>example.com</code> so policy enforcement is active before navigation.</div>
+                  </div>
+                  <span class="step-state blocked" id="qsService">missing</span>
+                </div>
+                <div class="quickstep">
+                  <div>
+                    <div class="quickstep-title">2. Browser session</div>
+                    <div class="quickstep-copy">Open a live Chromium session from this desktop app.</div>
+                  </div>
+                  <span class="step-state blocked" id="qsSession">closed</span>
+                </div>
+                <div class="quickstep">
+                  <div>
+                    <div class="quickstep-title">3. Preview and navigation</div>
+                    <div class="quickstep-copy">Navigate to <code>https://example.com</code> and confirm the preview updated.</div>
+                  </div>
+                  <span class="step-state blocked" id="qsPreview">idle</span>
+                </div>
+                <div class="quickstep">
+                  <div>
+                    <div class="quickstep-title">4. Approval and audit</div>
+                    <div class="quickstep-copy">Queue selector <code>a</code>, approve it, and verify the audit event landed.</div>
+                  </div>
+                  <span class="step-state blocked" id="qsApproval">waiting</span>
+                </div>
               </div>
             </div>
 
@@ -238,7 +302,7 @@
 </div>
 
 <script type="module">
-import { api, ensureAuthed } from '/static/js/api.js?v=v20';
+import { api, ensureAuthed } from '/static/js/api.js?v=v21';
 
 await ensureAuthed();
 
@@ -255,6 +319,56 @@ const fmtAuditTime = (ts) => {
 
 let state = null;
 let previewTimer = null;
+
+function setStepState(id, kind, label) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.className = `step-state ${kind}`;
+  el.textContent = label;
+}
+
+function loadTestRecipe() {
+  document.getElementById('urlInput').value = 'https://example.com';
+  document.getElementById('jobLabelInput').value = 'MVP browser check';
+  document.getElementById('serviceDomain').value = 'example.com';
+  document.getElementById('serviceLabel').value = 'Example.com';
+  document.getElementById('serviceCap').value = '10';
+  document.getElementById('clickSelector').value = 'a';
+  document.getElementById('waitSelector').value = 'h1';
+  document.getElementById('waitTimeout').value = '10000';
+  document.getElementById('quickstartHint').textContent = 'Recipe loaded. Add the service, open the browser, navigate to example.com, then queue the click.';
+}
+
+function updateQuickstart(data) {
+  const services = data.allowed_services || [];
+  const approvals = data.approvals || [];
+  const audit = data.audit || [];
+  const hasExampleService = services.some(item => item.domain === 'example.com' && item.enabled);
+  const onExample = String(data.current_url || '').includes('example.com');
+  const previewReady = Boolean(data.last_captured_at) && onExample;
+  const pendingApproval = approvals.some(item => item.status === 'pending');
+  const executedApproval = audit.some(item => item.event === 'browser.approval_executed');
+
+  setStepState('qsService', hasExampleService ? 'done' : 'blocked', hasExampleService ? 'ready' : 'missing');
+  setStepState('qsSession', data.session_open ? 'done' : 'blocked', data.session_open ? 'live' : 'closed');
+  setStepState('qsPreview', previewReady ? 'done' : onExample ? 'ready' : 'blocked', previewReady ? 'verified' : onExample ? 'loading' : 'idle');
+  setStepState('qsApproval', executedApproval ? 'done' : pendingApproval ? 'pending' : 'blocked', executedApproval ? 'complete' : pendingApproval ? 'approve' : 'waiting');
+
+  const hint = document.getElementById('quickstartHint');
+  if (!hasExampleService) {
+    hint.textContent = 'Load the recipe, then add example.com as an allowed service.';
+  } else if (!data.session_open) {
+    hint.textContent = 'The service is ready. Open the browser session next.';
+  } else if (!onExample) {
+    hint.textContent = 'Navigate to https://example.com so the preview and policy flow can be verified.';
+  } else if (!pendingApproval && !executedApproval) {
+    hint.textContent = 'Queue selector a to create a safe-mode approval.';
+  } else if (pendingApproval) {
+    hint.textContent = 'Approve the queued click from the approval panel, then confirm the preview and audit updated.';
+  } else {
+    hint.textContent = 'Browser MVP proven: the service policy, preview, approval flow, and audit trail are all live.';
+  }
+}
 
 function setPreviewBusy(busy, text = 'Working...') {
   document.getElementById('previewSpinner').classList.toggle('show', busy);
@@ -289,6 +403,7 @@ function renderState(data) {
   renderApprovals(data.approvals || []);
   renderServices(data.allowed_services || []);
   renderAudit(data.audit || []);
+  updateQuickstart(data);
   document.getElementById('capturedAt').textContent = fmtDate(data.last_captured_at);
 
   if (!open) {
@@ -459,6 +574,28 @@ async function addService() {
   await refreshStatus();
 }
 
+async function ensureExampleService() {
+  const existing = (state?.allowed_services || []).find(item => item.domain === 'example.com');
+  if (!existing) {
+    document.getElementById('serviceDomain').value = 'example.com';
+    document.getElementById('serviceLabel').value = 'Example.com';
+    document.getElementById('serviceCap').value = '10';
+    await addService();
+    return;
+  }
+  await api.patchBrowserService(existing.id, { enabled: true, trusted: true, daily_cap: existing.daily_cap || 10 });
+  await refreshStatus();
+}
+
+async function queueExampleClick() {
+  if (!state?.session_open) throw new Error('Open the browser first.');
+  if (!String(state.current_url || '').includes('example.com')) throw new Error('Navigate to https://example.com first.');
+  document.getElementById('clickSelector').value = 'a';
+  const result = await api.browserClick('a');
+  await refreshStatus();
+  if (!result.queued) await capturePreview();
+}
+
 document.getElementById('sessionBtn').addEventListener('click', () => openOrCloseSession().catch(err => alert(err.message)));
 document.getElementById('refreshBtn').addEventListener('click', () => refreshStatus().then(capturePreview).catch(err => alert(err.message)));
 document.getElementById('navigateBtn').addEventListener('click', async () => {
@@ -501,6 +638,9 @@ document.querySelectorAll('#modeToggle button').forEach(btn => btn.addEventListe
   document.querySelectorAll('#modeToggle button').forEach(other => other.classList.toggle('active', other === btn));
 }));
 document.getElementById('addServiceBtn').addEventListener('click', () => addService().catch(err => alert(err.message)));
+document.getElementById('loadRecipeBtn').addEventListener('click', loadTestRecipe);
+document.getElementById('addExampleServiceBtn').addEventListener('click', () => ensureExampleService().catch(err => alert(err.message)));
+document.getElementById('queueExampleClickBtn').addEventListener('click', () => queueExampleClick().catch(err => alert(err.message)));
 
 document.getElementById('warningCancel').addEventListener('click', () => {
   document.getElementById('warningModal').classList.remove('show');
@@ -517,6 +657,6 @@ if (state?.session_open) {
   await capturePreview();
 }
 </script>
-<script type="module" src="/static/js/nav.js?v=v20"></script>
+<script type="module" src="/static/js/nav.js?v=v21"></script>
 </body>
 </html>

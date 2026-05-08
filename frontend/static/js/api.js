@@ -244,6 +244,18 @@ export const api = {
 };
 
 export async function ensureAuthed() {
+  // Local installs: same-origin /auth/local-token works before any cloud session.
+  if (!getToken()) {
+    try {
+      const res = await fetch('/auth/local-token');
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.token) localStorage.setItem(TOKEN_KEY, data.token);
+      }
+    } catch {
+      /* ignore */
+    }
+  }
   if (!getToken()) {
     window.location.href = '/login';
     return null;
