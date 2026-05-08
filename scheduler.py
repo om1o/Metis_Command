@@ -35,6 +35,7 @@ from safety import audit, audited
 from safety import PATHS, file_lock  # noqa: E402
 
 SCHEDULES_FILE = PATHS.identity / "schedules.json"
+EVENTS_FILE = PATHS.identity / "automation_events.jsonl"
 _CHECK_INTERVAL = 30.0
 
 
@@ -52,6 +53,14 @@ class Schedule:
     next_run: float | None = None
     created_at: float = field(default_factory=time.time)
 
+    # Group 5 additions —
+    name: str = ""              # human-readable label (defaults to a slice of goal)
+    description: str = ""       # longer "why" the user wrote in the wizard
+    agents_md: str = ""         # per-automation AGENTS.md the spawned subagent reads
+    last_status: str = ""       # "ok" | "failed" | "" (never run)
+    last_error: str = ""        # short failure note when last_status == failed
+    run_count: int = 0          # total fires
+
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
@@ -65,7 +74,17 @@ def _load() -> list[Schedule]:
     if not SCHEDULES_FILE.exists():
         return []
     try:
-        return [Schedule(**row) for row in json.loads(SCHEDULES_FILE.read_text(encoding="utf-8"))]
+        rows = json.loads(SCHEDULES_FILE.read_text(encoding="utf-8"))
+        # Self-heal: drop unknown keys, default missing ones (for upgrades).
+        out: list[Schedule] = []
+        valid = {f.name for f in __import__("dataclasses").fields(Schedule)}
+        for row in rows:
+            filtered = {k: v for k, v in (row or {}).items() if k in valid}
+            try:
+                out.append(Schedule(**filtered))
+            except Exception:
+                continue
+        return out
     except Exception:
         return []
 
@@ -76,6 +95,13 @@ def _save(schedules: list[Schedule]) -> None:
         json.dumps([s.to_dict() for s in schedules], indent=2),
         encoding="utf-8",
     )
+
+
+def _append_event(event: dict[str, Any]) -> None:
+    EVENTS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with file_lock("scheduler_events"):
+        with EVENTS_FILE.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(event) + "\n")
 
 
 # ── Public API ───────────────────────────────────────────────────────────────
@@ -89,6 +115,9 @@ def add(
     project_slug: str | None = None,
     auto_approve: bool = True,
     action: str = "",
+    name: str = "",
+    description: str = "",
+    agents_md: str = "",
 ) -> Schedule:
     sched = Schedule(
         kind=kind,
@@ -97,6 +126,9 @@ def add(
         action=action,
         project_slug=project_slug,
         auto_approve=auto_approve,
+        name=name or (goal[:60].strip() or f"Automation @ {time.strftime('%H:%M')}"),
+        description=description,
+        agents_md=agents_md,
     )
     sched.next_run = _compute_next(sched, reference=time.time())
     with file_lock("scheduler"), _lock:
@@ -104,6 +136,26 @@ def add(
         schedules.append(sched)
         _save(schedules)
     return sched
+
+
+@audited("schedule.patch")
+def patch(schedule_id: str, updates: dict) -> Schedule | None:
+    """Partial update — only the keys provided are merged."""
+    with file_lock("scheduler"), _lock:
+        schedules = _load()
+        for s in schedules:
+            if s.id != schedule_id:
+                continue
+            for k in ("name", "description", "agents_md", "goal", "kind",
+                      "spec", "auto_approve", "enabled"):
+                if k in updates and updates[k] is not None:
+                    setattr(s, k, updates[k])
+            # Re-compute next_run if schedule shape changed.
+            if any(k in updates for k in ("kind", "spec", "enabled")):
+                s.next_run = _compute_next(s, reference=time.time()) if s.enabled else None
+            _save(schedules)
+            return s
+    return None
 
 
 def seed_default_schedules() -> list[Schedule]:
@@ -162,6 +214,7 @@ def toggle(schedule_id: str) -> bool:
         for s in schedules:
             if s.id == schedule_id:
                 s.enabled = not s.enabled
+                s.next_run = _compute_next(s, reference=time.time()) if s.enabled else None
                 _save(schedules)
                 return s.enabled
     return False
@@ -170,6 +223,215 @@ def toggle(schedule_id: str) -> bool:
 def list_schedules() -> list[Schedule]:
     with _lock:
         return _load()
+
+
+def get_schedule(schedule_id: str) -> Schedule | None:
+    with _lock:
+        for schedule in _load():
+            if schedule.id == schedule_id:
+                return schedule
+    return None
+
+
+def list_events(limit: int = 100, schedule_id: str | None = None) -> list[dict[str, Any]]:
+    if limit <= 0 or not EVENTS_FILE.exists():
+        return []
+    try:
+        rows = EVENTS_FILE.read_text(encoding="utf-8").splitlines()
+    except Exception:
+        return []
+    out: list[dict[str, Any]] = []
+    for line in reversed(rows):
+        try:
+            row = json.loads(line)
+        except Exception:
+            continue
+        if schedule_id and row.get("schedule_id") != schedule_id:
+            continue
+        out.append(row)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def log_operator_event(
+    *,
+    action: str,
+    title: str,
+    detail: str = "",
+    status: str = "ok",
+    error: str = "",
+) -> dict[str, Any]:
+    """Append one row to the automation inbox for browser/operator work (no schedule)."""
+    finished_at = time.time()
+    event: dict[str, Any] = {
+        "id": uuid.uuid4().hex[:12],
+        "schedule_id": "",
+        "schedule_name": (title or action)[:200],
+        "goal": "",
+        "action": (action or "operator")[:120],
+        "status": status,
+        "trigger": "browser",
+        "detail": detail[:500],
+        "error": error[:300],
+        "kind": "operator",
+        "spec": "",
+        "enabled": True,
+        "run_count": 0,
+        "created_at": finished_at,
+    }
+    _append_event(event)
+    return event
+
+
+def _record_run(
+    schedule_id: str,
+    *,
+    status: str,
+    trigger: str,
+    detail: str = "",
+    error: str = "",
+    finished_at: float | None = None,
+    advance_schedule: bool = False,
+) -> dict[str, Any] | None:
+    finished_at = finished_at or time.time()
+    with file_lock("scheduler"), _lock:
+        schedules = _load()
+        for schedule in schedules:
+            if schedule.id != schedule_id:
+                continue
+            schedule.last_run = finished_at
+            schedule.last_status = status
+            schedule.last_error = error[:300]
+            schedule.run_count = int(schedule.run_count or 0) + 1
+            if advance_schedule:
+                schedule.next_run = _compute_next(schedule, reference=finished_at)
+                if schedule.kind == "once":
+                    schedule.enabled = False
+            _save(schedules)
+            event = {
+                "id": uuid.uuid4().hex[:12],
+                "schedule_id": schedule.id,
+                "schedule_name": schedule.name or (schedule.goal[:60].strip() or "Untitled automation"),
+                "goal": schedule.goal,
+                "action": schedule.action,
+                "status": status,
+                "trigger": trigger,
+                "detail": detail[:500],
+                "error": error[:300],
+                "kind": schedule.kind,
+                "spec": schedule.spec,
+                "enabled": schedule.enabled,
+                "run_count": schedule.run_count,
+                "created_at": finished_at,
+            }
+            _append_event(event)
+            return event
+    return None
+
+
+def _default_runner() -> Callable[[Schedule], dict[str, Any]]:
+    def runner(s: Schedule) -> dict[str, Any]:
+        def _notify_done(status: str, error: str = "") -> None:
+            try:
+                from notifier import notify as _n
+                label = s.name or (s.goal or s.action)[:60]
+                if status == "ok":
+                    _n(
+                        f"Automation done - {label}",
+                        f"Schedule '{label}' just finished successfully.\n\n"
+                        f"Goal: {s.goal or '(no goal)'}\n"
+                        f"Schedule: {s.kind} {s.spec}",
+                        urgency="low",
+                    )
+                else:
+                    _n(
+                        f"Automation FAILED - {label}",
+                        f"Schedule '{label}' failed.\n\nError: {error}\n\n"
+                        f"Goal: {s.goal or '(no goal)'}",
+                        urgency="high",
+                    )
+            except Exception:
+                pass
+
+        if s.action:
+            try:
+                from daily_tasks import ACTIONS
+                handler = ACTIONS.get(s.action)
+                if not handler:
+                    msg = f"unknown action: {s.action}"
+                    audit({"event": "scheduler_unknown_action", "action": s.action, "schedule_id": s.id})
+                    _notify_done("failed", error=msg)
+                    return {"status": "failed", "error": msg}
+                detail = handler()
+                audit({
+                    "event": "scheduler_action_ran",
+                    "action": s.action,
+                    "schedule_id": s.id,
+                    "status": detail,
+                })
+                _notify_done("ok")
+                return {"status": "ok", "detail": str(detail or f"action {s.action} ran")}
+            except Exception as e:
+                audit({
+                    "event": "scheduler_action_failed",
+                    "action": s.action,
+                    "schedule_id": s.id,
+                    "error": str(e),
+                })
+                _notify_done("failed", error=str(e)[:300])
+                return {"status": "failed", "error": str(e)}
+
+        try:
+            from concurrency import submit_mission
+            submit_mission(
+                goal=s.goal,
+                tag=f"scheduled:{s.id}",
+                auto_approve=s.auto_approve,
+                project_slug=s.project_slug,
+            )
+            _notify_done("ok")
+            return {"status": "ok", "detail": "mission submitted"}
+        except Exception as e:
+            audit({"event": "scheduler_submit_failed", "schedule_id": s.id, "error": str(e)})
+            _notify_done("failed", error=str(e)[:300])
+            return {"status": "failed", "error": str(e)}
+
+    return runner
+
+
+def run_now(schedule_id: str, runner: Callable[[Schedule], dict[str, Any]] | None = None) -> dict[str, Any]:
+    schedule = get_schedule(schedule_id)
+    if not schedule:
+        raise KeyError(schedule_id)
+    runner = runner or _default_runner()
+    finished_at = time.time()
+    try:
+        result = runner(schedule) or {}
+        status = result.get("status") or "ok"
+        detail = result.get("detail") or ""
+        error = result.get("error") or ""
+    except Exception as e:
+        status = "failed"
+        detail = ""
+        error = str(e)
+    event = _record_run(
+        schedule.id,
+        status=status,
+        trigger="manual",
+        detail=detail,
+        error=error,
+        finished_at=finished_at,
+        advance_schedule=False,
+    )
+    return {
+        "ok": status == "ok",
+        "status": status,
+        "detail": detail,
+        "error": error,
+        "event": event,
+        "schedule": get_schedule(schedule_id).to_dict() if get_schedule(schedule_id) else None,
+    }
 
 
 # ── Next-run computation ─────────────────────────────────────────────────────
@@ -285,7 +547,7 @@ _running = threading.Event()
 _thread: threading.Thread | None = None
 
 
-def start_scheduler(runner: Callable[[Schedule], None] | None = None) -> None:
+def start_scheduler(runner: Callable[[Schedule], dict[str, Any] | None] | None = None) -> None:
     """
     Start the background check loop. `runner` receives a Schedule when it's due.
     Default runner imports `concurrency.submit_mission` to run asynchronously.
@@ -295,34 +557,7 @@ def start_scheduler(runner: Callable[[Schedule], None] | None = None) -> None:
         return
 
     if runner is None:
-        def runner(s: Schedule) -> None:
-            # Action schedules call directly into daily_tasks — no mission loop.
-            if s.action:
-                try:
-                    from daily_tasks import ACTIONS
-                    handler = ACTIONS.get(s.action)
-                    if not handler:
-                        audit({"event": "scheduler_unknown_action",
-                               "action": s.action, "schedule_id": s.id})
-                        return
-                    status = handler()
-                    audit({"event": "scheduler_action_ran",
-                           "action": s.action, "schedule_id": s.id, "status": status})
-                except Exception as e:
-                    audit({"event": "scheduler_action_failed",
-                           "action": s.action, "schedule_id": s.id, "error": str(e)})
-                return
-
-            try:
-                from concurrency import submit_mission
-                submit_mission(
-                    goal=s.goal,
-                    tag=f"scheduled:{s.id}",
-                    auto_approve=s.auto_approve,
-                    project_slug=s.project_slug,
-                )
-            except Exception as e:
-                audit({"event": "scheduler_submit_failed", "schedule_id": s.id, "error": str(e)})
+        runner = _default_runner()
 
     _running.set()
 
@@ -344,8 +579,9 @@ def stop_scheduler() -> None:
     audit({"event": "scheduler_stopped"})
 
 
-def _tick(runner: Callable[[Schedule], None]) -> None:
+def _tick(runner: Callable[[Schedule], dict[str, Any] | None]) -> None:
     now = time.time()
+    due: list[Schedule] = []
     with file_lock("scheduler"), _lock:
         schedules = _load()
         dirty = False
@@ -357,14 +593,27 @@ def _tick(runner: Callable[[Schedule], None]) -> None:
                 dirty = True
                 continue
             if s.next_run <= now:
-                audit({"event": "schedule_fire", "id": s.id, "kind": s.kind, "goal": s.goal[:120]})
-                try:
-                    runner(s)
-                finally:
-                    s.last_run = now
-                    s.next_run = _compute_next(s, reference=now)
-                    if s.kind == "once":
-                        s.enabled = False
-                dirty = True
+                due.append(s)
         if dirty:
             _save(schedules)
+
+    for s in due:
+        audit({"event": "schedule_fire", "id": s.id, "kind": s.kind, "goal": s.goal[:120]})
+        try:
+            result = runner(s) or {}
+            status = result.get("status") or "ok"
+            detail = result.get("detail") or ""
+            error = result.get("error") or ""
+        except Exception as e:
+            status = "failed"
+            detail = ""
+            error = str(e)
+        _record_run(
+            s.id,
+            status=status,
+            trigger="schedule",
+            detail=detail,
+            error=error,
+            finished_at=now,
+            advance_schedule=True,
+        )

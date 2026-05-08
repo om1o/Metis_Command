@@ -1,0 +1,705 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Money · Metis</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="/static/assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/styles/shell.css?v=v21">
+<link rel="stylesheet" href="/static/styles/wordmark.css?v=v21">
+<script src="/static/js/wordmark.js?v=v18" defer></script>
+<style>
+/* ── Tabs ── */
+.tabs{display:flex;gap:4px;padding:4px;background:var(--panel);border:1px solid var(--border);border-radius:11px;margin-bottom:24px;width:fit-content}
+.tab{padding:9px 18px;border-radius:8px;background:transparent;border:none;color:var(--muted);font-family:inherit;font-size:13.5px;font-weight:600;cursor:pointer;transition:all .15s}
+.tab:hover{color:var(--text)}
+.tab.active{background:var(--accent-soft);color:var(--text);box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent)}
+.pane{display:none}
+.pane.active{display:block;animation:fadeIn .25s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+/* ── Wallet hero ── */
+.hero{display:grid;grid-template-columns:1fr auto;gap:20px;align-items:center;padding:28px 32px;border-radius:18px;background:linear-gradient(135deg,rgba(124,58,237,.18),rgba(251,113,133,.08) 60%,rgba(245,158,11,.05));border:1px solid var(--border-2);box-shadow:inset 0 1px 0 rgba(255,255,255,.06);margin-bottom:24px}
+.hero .label{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--vi2);margin-bottom:8px}
+.hero .balance{font-family:'Sora',sans-serif;font-size:44px;font-weight:800;letter-spacing:-.025em;line-height:1}
+.hero .balance .cents{font-size:24px;color:var(--muted);font-weight:600}
+.hero .sub{margin-top:8px;color:var(--muted);font-size:13px}
+.hero .actions{display:flex;flex-direction:column;gap:8px}
+
+/* Cap progress ring */
+.cap-ring{display:flex;align-items:center;gap:14px}
+.ring{position:relative;width:84px;height:84px;flex-shrink:0}
+.ring svg{transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:8;stroke-linecap:round}
+.ring .bg{stroke:rgba(255,255,255,.08)}
+.ring .fg{stroke:var(--vi2);transition:stroke-dashoffset .6s ease}
+.ring .pct{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700}
+.cap-label{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--subtle);text-transform:uppercase;letter-spacing:.1em}
+
+/* Section card */
+.section{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px 22px;margin-bottom:18px}
+.section h3{font-family:'Sora',sans-serif;font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--subtle);margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.section h3 .count{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--vi2);background:var(--accent-soft);padding:2px 8px;border-radius:99px;font-weight:600}
+
+/* Ledger / table */
+.ledger{display:flex;flex-direction:column;gap:1px}
+.ledger-row{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:11px 8px;border-radius:8px}
+.ledger-row:hover{background:var(--panel-2)}
+.ledger-row .ico{width:28px;height:28px;border-radius:8px;background:var(--panel-2);display:flex;align-items:center;justify-content:center;font-size:13px}
+.ledger-row .meta .cat{font-size:13px;font-weight:600}
+.ledger-row .meta .ts{font-size:11.5px;color:var(--subtle);font-family:'JetBrains Mono',monospace}
+.ledger-row .amt{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700}
+.ledger-row .amt.spend{color:var(--co)}
+.ledger-row .amt.credit{color:var(--gr)}
+
+/* Card list */
+.card-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.card-tile{padding:18px 20px;border-radius:14px;background:linear-gradient(135deg,rgba(255,255,255,.05),rgba(124,58,237,.08));border:1px solid var(--border-2);position:relative}
+.card-tile .brand{font-family:'Sora',sans-serif;font-weight:700;letter-spacing:.04em;font-size:13px;color:var(--vi2)}
+.card-tile .num{font-family:'JetBrains Mono',monospace;font-size:18px;letter-spacing:.08em;margin:18px 0 10px}
+.card-tile .row{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted)}
+.card-tile .row b{color:var(--text)}
+
+/* Vault list */
+.vault-list{display:flex;flex-direction:column;gap:1px}
+.vault-row{display:grid;grid-template-columns:auto 1fr auto auto;gap:12px;align-items:center;padding:12px 10px;border-radius:9px;cursor:default}
+.vault-row:hover{background:var(--panel-2)}
+.vault-row .ico{width:32px;height:32px;border-radius:8px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;font-family:'Sora',sans-serif;font-weight:700;font-size:13px;color:var(--vi2)}
+.vault-row .meta .site{font-size:13.5px;font-weight:600}
+.vault-row .meta .user{font-size:11.5px;color:var(--subtle);font-family:'JetBrains Mono',monospace}
+.vault-row .reveal{height:30px;padding:0 12px;border-radius:7px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);font-family:inherit;font-size:11.5px;cursor:pointer}
+.vault-row .reveal:hover{background:var(--accent-soft);border-color:var(--accent)}
+.vault-row .del{background:transparent;border:none;color:var(--subtle);cursor:pointer;font-size:18px;padding:4px 8px;border-radius:5px}
+.vault-row .del:hover{color:var(--co);background:rgba(251,113,133,.08)}
+
+/* Vault locked / setup */
+.vault-gate{padding:36px;text-align:center;border-radius:14px;background:var(--panel);border:1px solid var(--border)}
+.vault-gate .icon-circle{width:54px;height:54px;border-radius:50%;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:22px}
+.vault-gate h3{font-family:'Sora',sans-serif;font-size:18px;font-weight:700;margin-bottom:8px}
+.vault-gate p{color:var(--muted);font-size:13.5px;line-height:1.55;max-width:46ch;margin:0 auto 18px}
+.vault-gate .form{display:flex;gap:8px;max-width:380px;margin:0 auto}
+.vault-gate input[type=password]{flex:1;height:38px;padding:0 12px;border-radius:8px;border:1px solid var(--border-2);background:rgba(0,0,0,.25);color:var(--text);font-family:inherit;font-size:13px;outline:none}
+.vault-gate input[type=password]:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+
+/* Investing */
+.invest-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px}
+.stat{padding:18px 20px;border-radius:12px;background:var(--panel);border:1px solid var(--border)}
+.stat .label{font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--subtle);margin-bottom:6px}
+.stat .val{font-family:'Sora',sans-serif;font-size:24px;font-weight:700;letter-spacing:-.01em}
+.stat .delta{margin-top:4px;font-size:12px;font-family:'JetBrains Mono',monospace}
+.stat .delta.up{color:var(--gr)}
+.stat .delta.down{color:var(--co)}
+
+.holdings-table{width:100%;font-size:13px}
+.holdings-table th{text-align:left;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--subtle);padding:8px 10px;border-bottom:1px solid var(--border);font-weight:600}
+.holdings-table td{padding:10px;border-bottom:1px solid rgba(255,255,255,.04);font-family:'JetBrains Mono',monospace}
+.holdings-table .ticker{color:var(--text);font-weight:700;font-family:'Sora',sans-serif}
+
+.watch-add{display:flex;gap:8px;margin-bottom:12px}
+.watch-add input{flex:1;height:36px;padding:0 12px;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;text-transform:uppercase;outline:none}
+.watch-add input:focus{border-color:var(--accent)}
+
+.invest-warn{padding:12px 16px;border-radius:10px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);color:#FBBF24;font-size:12.5px;line-height:1.5;margin-bottom:18px;display:flex;gap:10px}
+.invest-warn .ico{flex-shrink:0;font-size:16px}
+
+.empty-row{padding:20px 12px;text-align:center;color:var(--subtle);font-size:13px;font-style:italic}
+
+/* AI take cards (opportunities) */
+.opp-card{padding:14px 16px;border-radius:11px;background:var(--panel-2);border:1px solid var(--border);margin-bottom:10px;display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:start}
+.opp-card .ico{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-family:'Sora',sans-serif;font-weight:700;font-size:13px;flex-shrink:0}
+.opp-card.signal-buy .ico{background:rgba(34,197,94,.14);color:#86EFAC;border:1px solid rgba(34,197,94,.4)}
+.opp-card.signal-sell .ico{background:rgba(251,113,133,.14);color:#FCA5A5;border:1px solid rgba(251,113,133,.4)}
+.opp-card.signal-hold .ico{background:var(--accent-soft);color:var(--vi2);border:1px solid color-mix(in srgb, var(--accent) 35%, transparent)}
+.opp-card .body .head{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;margin-bottom:4px}
+.opp-card .body .head .ticker{font-family:'Sora',sans-serif;font-size:15px}
+.opp-card .body .head .signal{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:2px 7px;border-radius:99px}
+.opp-card.signal-buy .signal{background:rgba(34,197,94,.14);color:#86EFAC}
+.opp-card.signal-sell .signal{background:rgba(251,113,133,.14);color:#FCA5A5}
+.opp-card.signal-hold .signal{background:var(--panel);color:var(--muted)}
+.opp-card .body .head .conf{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--subtle)}
+.opp-card .body .take{font-size:13px;color:var(--muted);line-height:1.55}
+.opp-card .body .factors{margin-top:8px;display:flex;flex-wrap:wrap;gap:5px}
+.opp-card .body .factor{font-family:'JetBrains Mono',monospace;font-size:10px;padding:2px 8px;border-radius:99px;background:var(--panel);border:1px solid var(--border);color:var(--muted)}
+.opp-card .price{text-align:right;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700}
+.opp-card .price .change{font-size:11px;font-weight:500}
+
+/* Proposal cards */
+.prop-card{padding:14px 16px;border-radius:11px;background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.25);margin-bottom:10px}
+.prop-card .head{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.prop-card .badge{font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.1em;padding:3px 8px;border-radius:99px;font-weight:700}
+.prop-card .badge.buy{background:rgba(34,197,94,.18);color:#86EFAC}
+.prop-card .badge.sell{background:rgba(251,113,133,.18);color:#FCA5A5}
+.prop-card .summary{font-family:'Sora',sans-serif;font-size:14px;font-weight:600;flex:1}
+.prop-card .conf{font-family:'JetBrains Mono',monospace;font-size:11px;color:#93C5FD}
+.prop-card .reason{font-size:12.5px;color:var(--muted);line-height:1.5;margin-bottom:10px}
+.prop-card .actions{display:flex;gap:8px}
+.prop-card .actions .approve{background:linear-gradient(135deg,#22C55E,#10B981);color:#fff;border:none}
+.prop-card .actions .approve:hover{box-shadow:0 4px 16px rgba(34,197,94,.4)}
+.prop-card .actions .reject{background:rgba(251,113,133,.15);color:#FCA5A5;border:1px solid rgba(251,113,133,.3)}
+.prop-card .actions .reject:hover{background:rgba(251,113,133,.25)}
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <aside class="side">
+    <div class="side-head">
+      <button class="metis-mark size-sm" type="button" title="Refresh">
+        <img class="mm-glyph" src="/static/assets/metis-mark.svg?v=v18" alt="">
+        <span class="mm-stack">
+          <span class="mm-word">Metis</span>
+          <span class="mm-sub">Money</span>
+        </span>
+      </button>
+    </div>
+    <nav class="nav" data-active="money"></nav>
+    <div class="side-foot">
+      <div class="avatar" id="userAvatar">M</div>
+      <div class="user-meta">
+        <div class="name" id="userName">Loading…</div>
+        <div class="role">Director</div>
+      </div>
+      <button class="btn" id="signoutBtn" style="height:32px;padding:0 10px;font-size:11px" title="Sign out">Sign out</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="page-head">
+      <h1 class="page-title">Money <em>vault</em></h1>
+      <span class="page-sub">Wallet · Cards · Investing · Vault</span>
+    </div>
+    <div class="body">
+      <div class="body-inner">
+
+        <!-- Tabs -->
+        <div class="tabs" role="tablist">
+          <button class="tab active" data-tab="wallet">Wallet</button>
+          <button class="tab" data-tab="cards">Cards</button>
+          <button class="tab" data-tab="investing">Investing</button>
+          <button class="tab" data-tab="vault">Vault</button>
+        </div>
+
+        <!-- Wallet tab -->
+        <section class="pane active" data-pane="wallet">
+          <div class="hero">
+            <div>
+              <div class="label">Wallet balance</div>
+              <div class="balance" id="walletBalance">$0<span class="cents">.00</span></div>
+              <div class="sub" id="walletMode">Loading…</div>
+            </div>
+            <div class="cap-ring">
+              <div class="ring">
+                <svg width="84" height="84" viewBox="0 0 84 84">
+                  <circle class="bg" cx="42" cy="42" r="36"/>
+                  <circle class="fg" id="capRing" cx="42" cy="42" r="36" stroke-dasharray="226.2" stroke-dashoffset="226.2"/>
+                </svg>
+                <div class="pct" id="capPct">0%</div>
+              </div>
+              <div class="cap-label">Monthly<br>cap</div>
+            </div>
+          </div>
+
+          <div class="section">
+            <h3>Recent ledger <span class="count" id="ledgerCount">0</span></h3>
+            <div class="ledger" id="ledger">
+              <div class="empty-row">Loading…</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Cards tab -->
+        <section class="pane" data-pane="cards">
+          <div class="invest-warn">
+            <span class="ico">🔒</span>
+            <span><b>Coming with Stripe.</b> Card storage uses Stripe Elements so raw numbers never touch our servers — only a payment-method token. Add a Stripe key to <code>.env</code> (STRIPE_PUBLISHABLE_KEY + STRIPE_SECRET_KEY) and this tab will activate.</span>
+          </div>
+          <div class="section">
+            <h3>Saved cards <span class="count">0</span></h3>
+            <div class="card-list" id="cardList">
+              <div class="empty-row">No cards yet — add one once Stripe is wired up.</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Investing tab -->
+        <section class="pane" data-pane="investing">
+          <div class="invest-warn">
+            <span class="ico">📊</span>
+            <span><b>Paper trading mode</b> — no real money, no government ID required. The agent will track a simulated portfolio and surface opportunities; you'll execute real trades on whatever broker you already use. Switch modes in <code>.env</code> with <code>METIS_INVEST_MODE</code>.</span>
+          </div>
+
+          <div class="invest-grid">
+            <div class="stat">
+              <div class="label">Portfolio value</div>
+              <div class="val" id="invValue">$0.00</div>
+              <div class="delta" id="invDelta">+$0.00 (0.00%)</div>
+            </div>
+            <div class="stat">
+              <div class="label">Cash available</div>
+              <div class="val" id="invCash">$0.00</div>
+              <div class="delta" id="invMode">Mode: paper</div>
+            </div>
+          </div>
+
+          <div class="section">
+            <h3>Holdings <span class="count" id="holdingsCount">0</span></h3>
+            <table class="holdings-table">
+              <thead>
+                <tr><th>Ticker</th><th>Qty</th><th>Avg cost</th><th>Last</th><th>Value</th><th>Gain</th></tr>
+              </thead>
+              <tbody id="holdingsBody">
+                <tr><td colspan="6" class="empty-row">Nothing yet. Add to your watchlist below and the agent will start tracking.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="section">
+            <h3>
+              Watchlist <span class="count" id="watchCount">0</span>
+              <button class="btn" id="scanBtn" style="margin-left:auto;height:30px;padding:0 12px;font-size:11px">🤖 Scan with AI</button>
+              <button class="btn" id="scanProposeBtn" style="height:30px;padding:0 12px;font-size:11px">🤖 Scan + propose</button>
+            </h3>
+            <div class="watch-add">
+              <input type="text" id="watchInput" placeholder="Ticker (e.g. AAPL)" autocomplete="off" maxlength="8">
+              <button class="btn" id="watchAddBtn">Add</button>
+            </div>
+            <table class="holdings-table">
+              <thead>
+                <tr><th>Ticker</th><th>Last</th><th>Day Δ</th><th></th></tr>
+              </thead>
+              <tbody id="watchBody">
+                <tr><td colspan="4" class="empty-row">No tickers yet.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- AI-flagged opportunities (Group 3) -->
+          <div class="section">
+            <h3>AI take · per ticker <span class="count" id="oppsCount">0</span></h3>
+            <div id="oppsList">
+              <div class="empty-row">Hit "Scan with AI" above. The agent will fetch news, summarize what's going on with each ticker, and surface signals here.</div>
+            </div>
+          </div>
+
+          <!-- Proposed trades awaiting approval (Group 3) -->
+          <div class="section">
+            <h3>Proposed trades · pending approval <span class="count" id="propsCount">0</span></h3>
+            <div id="propsList">
+              <div class="empty-row">No proposals. The AI only proposes a trade when its confidence ≥ 0.7. Every proposal needs your approval — nothing auto-fills.</div>
+            </div>
+          </div>
+
+          <!-- Safety caps -->
+          <div class="section">
+            <h3>Safety caps <span class="count" id="capsBadge">$5k / $10k</span></h3>
+            <div class="invest-grid">
+              <div class="stat">
+                <div class="label">Per-trade cap</div>
+                <div class="val" id="capPerTrade">$5,000</div>
+                <div class="delta">No single trade can exceed this</div>
+              </div>
+              <div class="stat">
+                <div class="label">Daily cap</div>
+                <div class="val" id="capDaily">$10,000</div>
+                <div class="delta" id="capDailyUsed">Used today: $0.00</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Vault tab -->
+        <section class="pane" data-pane="vault">
+          <div id="vaultPane">
+            <div class="empty-row">Loading vault…</div>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </main>
+</div>
+
+<script type="module">
+import { api, ensureAuthed, getUser, clearSession } from '/static/js/api.js?v=v19';
+
+await ensureAuthed();
+const cached = getUser() || { email: 'Operator' };
+document.getElementById('userName').textContent = cached.email || 'Operator';
+document.getElementById('userAvatar').textContent = (cached.email?.[0] || 'M').toUpperCase();
+
+document.getElementById('signoutBtn').addEventListener('click', async () => {
+  try { await api.signout(); } catch {}
+  clearSession();
+  window.location.replace('/login');
+});
+
+// ── Tabs ──────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
+    document.querySelectorAll('.pane').forEach(p => p.classList.toggle('active', p.dataset.pane === t.dataset.tab));
+  });
+});
+
+const fmt = (cents) => '$' + (Math.abs(cents) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const sign = (cents) => cents >= 0 ? '+' : '-';
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+// ── Wallet ────────────────────────────────────────────────────────────
+async function loadWallet() {
+  try {
+    const w = await api.wallet();
+    const balance = w.balance_cents || 0;
+    const cap = w.monthly_cap_cents || 0;
+    const spent = w.month_spent_cents || w.monthly_spent_cents || 0;
+    const dollars = Math.floor(balance / 100);
+    const cents = String(balance % 100).padStart(2, '0');
+    document.getElementById('walletBalance').innerHTML = '$' + dollars.toLocaleString() + '<span class="cents">.' + cents + '</span>';
+    document.getElementById('walletMode').textContent = `Mode: ${w.mode || 'simulated'} · cap ${fmt(cap)}/mo · spent ${fmt(spent)} this month`;
+
+    const pct = cap > 0 ? Math.min(100, Math.round(spent / cap * 100)) : 0;
+    document.getElementById('capPct').textContent = pct + '%';
+    const ring = document.getElementById('capRing');
+    const C = 2 * Math.PI * 36;
+    ring.setAttribute('stroke-dasharray', String(C));
+    ring.setAttribute('stroke-dashoffset', String(C * (1 - pct / 100)));
+  } catch (e) {
+    document.getElementById('walletMode').textContent = 'Wallet unavailable: ' + (e.message || e);
+  }
+
+  try {
+    const ledger = await api.walletLedger(20);
+    const list = document.getElementById('ledger');
+    document.getElementById('ledgerCount').textContent = ledger.length;
+    if (!ledger.length) { list.innerHTML = '<div class="empty-row">No transactions yet.</div>'; return; }
+    list.innerHTML = ledger.map(e => {
+      const cents = e.cents_delta || e.cents || 0;
+      const isCredit = cents > 0;
+      const ts = (e.ts || e.timestamp || '').replace('T', ' ').slice(0, 16);
+      return `
+        <div class="ledger-row">
+          <div class="ico">${isCredit ? '⬆' : '⬇'}</div>
+          <div class="meta">
+            <div class="cat">${esc(e.category || 'other')}${e.memo ? ' · ' + esc(e.memo) : ''}</div>
+            <div class="ts">${esc(ts)}</div>
+          </div>
+          <div class="amt ${isCredit ? 'credit' : 'spend'}">${sign(cents)}${fmt(cents)}</div>
+        </div>`;
+    }).join('');
+  } catch {}
+}
+
+// ── Investing ─────────────────────────────────────────────────────────
+async function loadInvesting() {
+  try {
+    const p = await fetch('/invest/portfolio', { headers: { Authorization: 'Bearer ' + localStorage.getItem('metis.access_token') }}).then(r => r.json());
+    document.getElementById('invValue').textContent = fmt(p.total_value_cents + p.cash_cents);
+    document.getElementById('invCash').textContent = fmt(p.cash_cents);
+    document.getElementById('invMode').textContent = 'Mode: ' + (p.mode || 'paper');
+    const gain = p.total_gain_cents || 0;
+    const delta = document.getElementById('invDelta');
+    delta.textContent = sign(gain) + fmt(gain);
+    delta.className = 'delta ' + (gain >= 0 ? 'up' : 'down');
+
+    const tbody = document.getElementById('holdingsBody');
+    document.getElementById('holdingsCount').textContent = p.holdings.length;
+    if (!p.holdings.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty-row">Nothing yet. Add to your watchlist below and the agent will start tracking.</td></tr>';
+    } else {
+      tbody.innerHTML = p.holdings.map(h => `
+        <tr>
+          <td class="ticker">${esc(h.ticker)}</td>
+          <td>${h.qty}</td>
+          <td>${fmt(h.avg_cost_cents)}</td>
+          <td>${h.last_price ? '$' + h.last_price.toFixed(2) : '—'}</td>
+          <td>${fmt(h.value_cents)}</td>
+          <td style="color:${h.gain_cents >= 0 ? 'var(--gr)' : 'var(--co)'}">${sign(h.gain_cents)}${fmt(h.gain_cents)} (${h.gain_pct}%)</td>
+        </tr>`).join('');
+    }
+  } catch (e) {
+    console.warn('portfolio:', e);
+  }
+
+  try {
+    const wl = await fetch('/invest/watchlist', { headers: { Authorization: 'Bearer ' + localStorage.getItem('metis.access_token') }}).then(r => r.json());
+    const tbody = document.getElementById('watchBody');
+    document.getElementById('watchCount').textContent = wl.length;
+    if (!wl.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="empty-row">No tickers yet.</td></tr>';
+    } else {
+      tbody.innerHTML = wl.map(q => {
+        const change = q.change_pct || 0;
+        return `<tr>
+          <td class="ticker">${esc(q.ticker)}</td>
+          <td>${q.price ? '$' + q.price.toFixed(2) : (q.error ? '<span style="color:var(--subtle)">—</span>' : '—')}</td>
+          <td style="color:${change >= 0 ? 'var(--gr)' : 'var(--co)'}">${change >= 0 ? '+' : ''}${change.toFixed(2)}%</td>
+          <td><button class="btn" data-rm="${esc(q.ticker)}" style="height:26px;padding:0 10px;font-size:11px">Remove</button></td>
+        </tr>`;
+      }).join('');
+      tbody.querySelectorAll('[data-rm]').forEach(b => {
+        b.addEventListener('click', async () => {
+          await fetch('/invest/watchlist/' + encodeURIComponent(b.dataset.rm), {
+            method: 'DELETE',
+            headers: { Authorization: 'Bearer ' + localStorage.getItem('metis.access_token') },
+          });
+          loadInvesting();
+        });
+      });
+    }
+  } catch {}
+}
+
+document.getElementById('watchAddBtn').addEventListener('click', async () => {
+  const inp = document.getElementById('watchInput');
+  const t = (inp.value || '').trim().toUpperCase();
+  if (!t) return;
+  await fetch('/invest/watchlist', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + localStorage.getItem('metis.access_token'), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ticker: t }),
+  });
+  inp.value = '';
+  loadInvesting();
+});
+
+// ── Group 3: AI scan, opportunities, proposals, caps ────────────────────
+function authedFetch(path, opts = {}) {
+  return fetch(path, { ...opts, headers: { ...(opts.headers || {}), Authorization: 'Bearer ' + localStorage.getItem('metis.access_token'), 'Content-Type': 'application/json' } });
+}
+
+async function runScan(propose) {
+  const btn = propose ? document.getElementById('scanProposeBtn') : document.getElementById('scanBtn');
+  const original = btn.textContent;
+  btn.disabled = true; btn.textContent = '🤖 Scanning…';
+  try {
+    const r = await authedFetch('/invest/scan', { method: 'POST', body: JSON.stringify({ max_tickers: 10, propose }) }).then(r => r.json());
+    btn.textContent = `Scanned ${r.scanned} · ${r.opportunities} takes${propose ? ` · ${r.proposals} proposals` : ''}`;
+    setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 3000);
+    loadOpportunities();
+    if (propose) loadProposals();
+  } catch (e) {
+    btn.textContent = 'Scan failed';
+    setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 3000);
+  }
+}
+document.getElementById('scanBtn').addEventListener('click', () => runScan(false));
+document.getElementById('scanProposeBtn').addEventListener('click', () => runScan(true));
+
+async function loadOpportunities() {
+  try {
+    const opps = await authedFetch('/invest/opportunities').then(r => r.json());
+    document.getElementById('oppsCount').textContent = opps.length;
+    const list = document.getElementById('oppsList');
+    if (!opps.length) { list.innerHTML = '<div class="empty-row">No takes yet. Hit "Scan with AI" above.</div>'; return; }
+    list.innerHTML = opps.map(o => `
+      <div class="opp-card signal-${esc(o.signal || 'hold')}">
+        <div class="ico">${esc((o.signal || 'hold').toUpperCase()[0])}</div>
+        <div class="body">
+          <div class="head">
+            <span class="ticker">${esc(o.ticker)}</span>
+            <span class="signal">${esc(o.signal || 'hold')}</span>
+            <span class="conf">conf ${(o.confidence ?? 0).toFixed(2)} · risk ${esc(o.risk || 'medium')}</span>
+          </div>
+          <div class="take">${esc(o.take || '—')}</div>
+          ${(o.key_factors || []).length ? `<div class="factors">${o.key_factors.map(f => `<span class="factor">${esc(f)}</span>`).join('')}</div>` : ''}
+        </div>
+        <div class="price">
+          $${(o.price ?? 0).toFixed(2)}
+          <div class="change" style="color:${(o.change_pct ?? 0) >= 0 ? 'var(--gr)' : 'var(--co)'}">${(o.change_pct ?? 0) >= 0 ? '+' : ''}${(o.change_pct ?? 0).toFixed(2)}%</div>
+        </div>
+      </div>`).join('');
+  } catch {}
+}
+
+async function loadProposals() {
+  try {
+    const props = await authedFetch('/invest/proposals').then(r => r.json());
+    document.getElementById('propsCount').textContent = props.length;
+    const list = document.getElementById('propsList');
+    if (!props.length) { list.innerHTML = '<div class="empty-row">No proposals. The AI only proposes a trade when its confidence ≥ 0.7. Every proposal needs your approval — nothing auto-fills.</div>'; return; }
+    list.innerHTML = props.map(p => `
+      <div class="prop-card" data-id="${esc(p.id)}">
+        <div class="head">
+          <span class="badge ${esc(p.side)}">${esc(p.side)}</span>
+          <span class="summary">${p.qty} ${esc(p.ticker)} @ ~$${(p.est_price || 0).toFixed(2)} (≈ ${fmt(p.est_cost_cents || 0)})</span>
+          <span class="conf">conf ${(p.confidence ?? 0).toFixed(2)}</span>
+        </div>
+        <div class="reason">${esc(p.reason || '(no reason given)')}</div>
+        <div class="actions">
+          <button class="btn approve" data-approve="${esc(p.id)}">✓ Approve</button>
+          <button class="btn reject" data-reject="${esc(p.id)}">✗ Reject</button>
+        </div>
+      </div>`).join('');
+    list.querySelectorAll('[data-approve]').forEach(b => {
+      b.addEventListener('click', async () => {
+        b.disabled = true; b.textContent = 'Filling…';
+        const r = await authedFetch(`/invest/proposals/${encodeURIComponent(b.dataset.approve)}/approve`, { method: 'POST' });
+        if (!r.ok) {
+          const j = await r.json().catch(() => ({}));
+          alert('Approve failed: ' + (j.detail || r.statusText));
+          b.disabled = false; b.textContent = '✓ Approve';
+          return;
+        }
+        loadProposals(); loadInvesting();
+      });
+    });
+    list.querySelectorAll('[data-reject]').forEach(b => {
+      b.addEventListener('click', async () => {
+        await authedFetch(`/invest/proposals/${encodeURIComponent(b.dataset.reject)}/reject`, { method: 'POST' });
+        loadProposals();
+      });
+    });
+  } catch {}
+}
+
+async function loadInvestSettings() {
+  try {
+    const s = await authedFetch('/invest/settings').then(r => r.json());
+    const perTrade = s.per_trade_cap_cents || 0;
+    const daily = s.daily_cap_cents || 0;
+    document.getElementById('capPerTrade').textContent = '$' + (perTrade / 100).toLocaleString();
+    document.getElementById('capDaily').textContent = '$' + (daily / 100).toLocaleString();
+    document.getElementById('capsBadge').textContent = `$${(perTrade/100).toLocaleString()} / $${(daily/100).toLocaleString()}`;
+    // Today's used
+    const portfolio = await authedFetch('/invest/portfolio').then(r => r.json());
+    const today = new Date().toISOString().slice(0, 10);
+    let used = 0;
+    for (const o of (portfolio.orders || [])) {
+      if ((o.ts || '').startsWith(today)) used += (o.cost_cents || 0);
+    }
+    document.getElementById('capDailyUsed').textContent = `Used today: ${fmt(used)}`;
+  } catch {}
+}
+
+// ── Vault ─────────────────────────────────────────────────────────────
+async function vaultFetch(path, opts = {}) {
+  const headers = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + localStorage.getItem('metis.access_token'), ...(opts.headers || {}) };
+  const r = await fetch(path, { ...opts, headers });
+  if (!r.ok) throw new Error(((await r.json().catch(() => ({}))).detail) || r.statusText);
+  return r.json();
+}
+
+async function loadVault() {
+  const pane = document.getElementById('vaultPane');
+  const status = await vaultFetch('/vault/status');
+  if (!status.initialized) {
+    pane.innerHTML = `
+      <div class="vault-gate">
+        <div class="icon-circle">🔐</div>
+        <h3>Set a vault master password</h3>
+        <p>This password encrypts every credential the agent ever stores. It's never written to disk and never sent to a server. Pick something you'll remember — there's no recovery if you forget it.</p>
+        <div class="form">
+          <input type="password" id="vaultInitPw" placeholder="At least 8 characters" minlength="8">
+          <button class="btn primary" id="vaultInitBtn">Create vault</button>
+        </div>
+      </div>`;
+    document.getElementById('vaultInitBtn').addEventListener('click', async () => {
+      const pw = document.getElementById('vaultInitPw').value;
+      if (!pw || pw.length < 8) { alert('Password must be at least 8 characters.'); return; }
+      try { await vaultFetch('/vault/init', { method: 'POST', body: JSON.stringify({ master_password: pw }) }); }
+      catch (e) { alert('Init failed: ' + e.message); return; }
+      loadVault();
+    });
+    return;
+  }
+
+  if (!status.unlocked) {
+    pane.innerHTML = `
+      <div class="vault-gate">
+        <div class="icon-circle">🔒</div>
+        <h3>Vault is locked</h3>
+        <p>Unlock with your master password to view or edit stored credentials. Auto-locks after ${Math.round(status.idle_lock_s/60)} minutes idle.</p>
+        <div class="form">
+          <input type="password" id="vaultUnlockPw" placeholder="Master password" autofocus>
+          <button class="btn primary" id="vaultUnlockBtn">Unlock</button>
+        </div>
+      </div>`;
+    const submit = async () => {
+      const pw = document.getElementById('vaultUnlockPw').value;
+      try { await vaultFetch('/vault/unlock', { method: 'POST', body: JSON.stringify({ master_password: pw }) }); }
+      catch (e) { alert('Bad password.'); return; }
+      loadVault();
+    };
+    document.getElementById('vaultUnlockBtn').addEventListener('click', submit);
+    document.getElementById('vaultUnlockPw').addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+    return;
+  }
+
+  // Unlocked — show items + add form
+  const items = await vaultFetch('/vault/items');
+  pane.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <span style="color:var(--muted);font-size:13px">🔓 Vault unlocked · ${items.length} item${items.length === 1 ? '' : 's'}</span>
+      <div style="display:flex;gap:8px">
+        <button class="btn" id="vaultAddBtn">+ Add credential</button>
+        <button class="btn" id="vaultLockBtn">Lock</button>
+      </div>
+    </div>
+    <div class="section">
+      <h3>Stored credentials <span class="count">${items.length}</span></h3>
+      <div class="vault-list" id="vaultList">
+        ${items.length === 0 ? '<div class="empty-row">No credentials yet. Click <b>Add credential</b> to save one.</div>' :
+          items.map(it => `
+            <div class="vault-row" data-id="${esc(it.id)}">
+              <div class="ico">${esc((it.site || '?')[0].toUpperCase())}</div>
+              <div class="meta">
+                <div class="site">${esc(it.site || 'untitled')}</div>
+                <div class="user">${esc(it.username || '')}</div>
+              </div>
+              <button class="reveal" data-reveal="${esc(it.id)}">Reveal</button>
+              <button class="del" data-del="${esc(it.id)}" title="Delete">×</button>
+            </div>
+          `).join('')}
+      </div>
+    </div>`;
+
+  document.getElementById('vaultLockBtn').addEventListener('click', async () => {
+    await vaultFetch('/vault/lock', { method: 'POST' });
+    loadVault();
+  });
+
+  document.getElementById('vaultAddBtn').addEventListener('click', () => {
+    const site = prompt('Site / service name (e.g. github.com)');
+    if (!site) return;
+    const username = prompt('Username / email');
+    if (!username) return;
+    const password = prompt('Password');
+    if (!password) return;
+    vaultFetch('/vault/items', { method: 'POST', body: JSON.stringify({ site, username, password }) })
+      .then(loadVault)
+      .catch(e => alert('Add failed: ' + e.message));
+  });
+
+  document.querySelectorAll('[data-reveal]').forEach(b => {
+    b.addEventListener('click', async () => {
+      try {
+        const item = await vaultFetch('/vault/items/' + encodeURIComponent(b.dataset.reveal));
+        alert(`Site: ${item.site}\nUsername: ${item.username}\nPassword: ${item.password}` + (item.notes ? `\nNotes: ${item.notes}` : ''));
+      } catch (e) { alert('Reveal failed: ' + e.message); }
+    });
+  });
+
+  document.querySelectorAll('[data-del]').forEach(b => {
+    b.addEventListener('click', async () => {
+      if (!confirm('Delete this credential? This cannot be undone.')) return;
+      await vaultFetch('/vault/items/' + encodeURIComponent(b.dataset.del), { method: 'DELETE' });
+      loadVault();
+    });
+  });
+}
+
+// ── Init ──────────────────────────────────────────────────────────────
+loadWallet();
+loadInvesting();
+loadOpportunities();
+loadProposals();
+loadInvestSettings();
+loadVault();
+</script>
+
+<script type="module" src="/static/js/nav.js?v=v21"></script>
+</body>
+</html>

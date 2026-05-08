@@ -11,6 +11,7 @@ import asyncio
 import json
 import os
 from typing import Any
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -43,13 +44,20 @@ PUBLIC_PATHS = {"/", "/health", "/version", "/status",
                 "/webhooks/stripe",
                 # Frontend pages + auth (no bearer token required)
                 "/login", "/app", "/signup", "/setup", "/splash",
+                "/money", "/people", "/automations", "/automation-inbox",
+                "/manager", "/code", "/plugins",
+                "/inspector", "/browser-control",
                 "/oauth/callback",
                 "/auth/signup", "/auth/signin", "/auth/signout",
                 "/auth/oauth/start", "/auth/oauth/complete",
                 "/auth/me", "/auth/refresh", "/auth/reset_password",
                 "/auth/local-token",
                 # Ollama auto-start probes the splash screen calls before login
-                "/ollama/status", "/ollama/start"}
+                "/ollama/status", "/ollama/start",
+                # Playwright auto-install probes — same rationale (splash polls
+                # them while the user is still on /login or /splash with no
+                # session yet).
+                "/playwright/status", "/playwright/install"}
 
 PUBLIC_PREFIXES = ("/static/",)
 
@@ -115,6 +123,14 @@ def _boot_services() -> None:
         ).start()
     except Exception as e:
         print(f"[api_bridge] ollama auto-start skipped: {e}")
+    # Auto-install Playwright Chromium on first launch so customers never
+    # need to run `python -m playwright install chromium` themselves.
+    # ensure_chromium_async() is a no-op when the binary is already present.
+    try:
+        import playwright_installer as _pwi
+        _pwi.ensure_chromium_async()
+    except Exception as e:
+        print(f"[api_bridge] playwright auto-install skipped: {e}")
     try:
         from scheduler import seed_default_schedules, start_scheduler
         seed_default_schedules()
@@ -209,7 +225,7 @@ def _resolve_cors_origins() -> list[str]:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_resolve_cors_origins(),
-    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
     max_age=600,
 )
@@ -219,6 +235,14 @@ class ChatRequest(BaseModel):
     session_id: str
     message: str
     role: str = "manager"
+    # Group 6: per-specialist AGENTS.md overrides {name: md_text}.
+    # Sent verbatim from the chat UI's right-click brief editor.
+    agents_md_overrides: dict[str, str] | None = None
+    # When the user is answering a specialist's [QUESTION]: from a previous
+    # turn, the chat UI passes the answer + which specialist asked it so the
+    # orchestrator can resume that subagent instead of starting fresh.
+    director_answer: str | None = None
+    director_answer_for: str | None = None
     direct: bool = False   # True = skip orchestrator, stream directly to model
 
 
@@ -252,6 +276,49 @@ def health() -> dict:
 def version() -> dict:
     """Stable endpoint the launcher + auto-update polls can read."""
     return {"version": METIS_VERSION}
+
+
+# ── Tool permission policy ───────────────────────────────────────────────────
+# Reports which channels the agent may use without re-asking. Group 1 added
+# Chrome and Google services to this set (default-on per the operator).
+
+@app.get("/policy")
+def policy_get() -> dict:
+    import comms_policy as _p
+    return {
+        "policy":   _p.get_policy(),
+        "enforced": _p.policy_enforced(),
+        "twilio_configured": _p.twilio_configured(),
+        "smtp_configured":   _p.smtp_configured(),
+        "google_oauth_configured": bool(
+            os.getenv("GOOGLE_OAUTH_CLIENT_ID") and os.getenv("GOOGLE_OAUTH_CLIENT_SECRET")
+        ),
+    }
+
+
+class PolicyUpdate(BaseModel):
+    sms: bool | None = None
+    phone: bool | None = None
+    email: bool | None = None
+    calendar: bool | None = None
+    chrome: bool | None = None
+    google_services: bool | None = None
+
+
+@app.post("/policy")
+def policy_set(req: PolicyUpdate) -> dict:
+    """Override the in-memory policy. Persists for the lifetime of this server."""
+    import comms_policy as _p
+    state = {
+        "tool_sms":             req.sms             if req.sms             is not None else _p.is_allowed("sms"),
+        "tool_phone_calls":     req.phone           if req.phone           is not None else _p.is_allowed("phone"),
+        "tool_email":           req.email           if req.email           is not None else _p.is_allowed("email"),
+        "tool_calendar":        req.calendar        if req.calendar        is not None else _p.is_allowed("calendar"),
+        "tool_chrome":          req.chrome          if req.chrome          is not None else _p.is_allowed("chrome"),
+        "tool_google_services": req.google_services if req.google_services is not None else _p.is_allowed("google_services"),
+    }
+    _p.set_from_session(state)
+    return {"policy": _p.get_policy(), "enforced": True}
 
 
 @app.get("/status")
@@ -374,7 +441,14 @@ async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
         elif req.role == "manager":
             from manager_orchestrator import orchestrate
             try:
-                for ev in orchestrate(req.message, user_id=user_id, session_id=req.session_id):
+                for ev in orchestrate(
+                    req.message,
+                    user_id=user_id,
+                    session_id=req.session_id,
+                    agents_md_overrides=req.agents_md_overrides,
+                    director_answer=req.director_answer,
+                    director_answer_for=req.director_answer_for,
+                ):
                     if ev.get("type") == "token":
                         full_answer += ev.get("delta", "")
                     yield f"data: {json.dumps(ev)}\n\n"
@@ -824,6 +898,20 @@ class ScheduleAddRequest(BaseModel):
     project_slug: str | None = None
     auto_approve: bool = True
     action: str = ""
+    name: str = ""
+    description: str = ""
+    agents_md: str = ""
+
+
+class SchedulePatchRequest(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    goal: str | None = None
+    kind: str | None = None
+    spec: str | None = None
+    auto_approve: bool | None = None
+    enabled: bool | None = None
+    agents_md: str | None = None
 
 
 @app.get("/schedules")
@@ -842,7 +930,20 @@ def schedules_add(req: ScheduleAddRequest) -> dict:
         project_slug=req.project_slug,
         auto_approve=req.auto_approve,
         action=req.action,
+        name=req.name,
+        description=req.description,
+        agents_md=req.agents_md,
     )
+    return s.to_dict()
+
+
+@app.patch("/schedules/{schedule_id}")
+def schedules_patch(schedule_id: str, req: SchedulePatchRequest) -> dict:
+    from scheduler import patch as _patch
+    updates = {k: v for k, v in req.model_dump().items() if v is not None}
+    s = _patch(schedule_id, updates)
+    if not s:
+        raise HTTPException(status_code=404, detail="schedule not found")
     return s.to_dict()
 
 
@@ -856,6 +957,24 @@ def schedules_remove(schedule_id: str) -> dict:
 def schedules_toggle(schedule_id: str) -> dict:
     from scheduler import toggle as _toggle
     return {"enabled": _toggle(schedule_id), "id": schedule_id}
+
+
+@app.post("/schedules/{schedule_id}/run")
+def schedules_run_now(schedule_id: str) -> dict:
+    from scheduler import run_now as _run_now
+    try:
+        return _run_now(schedule_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="schedule not found")
+
+
+@app.get("/automation-events")
+def automation_events_list(
+    limit: int = Query(default=100, ge=1, le=500),
+    schedule_id: str | None = None,
+) -> dict:
+    from scheduler import list_events
+    return {"events": list_events(limit=limit, schedule_id=schedule_id)}
 
 
 # ── Marketplace ──────────────────────────────────────────────────────────────
@@ -941,6 +1060,103 @@ def relationship_get(rid: str) -> dict:
     if not fp.exists():
         raise HTTPException(status_code=404, detail="relationship not found")
     return json.loads(fp.read_text(encoding="utf-8"))
+
+
+# ── Group 4: relationship updates + notes + conversation log ────────────────
+
+class RelationshipPatch(BaseModel):
+    name: str | None = None
+    role: str | None = None
+    company: str | None = None
+    phone: str | None = None
+    email: str | None = None
+    notes: str | None = None
+    tags: list[str] | None = None
+    folder: str | None = None       # optional folder grouping (Family / Work / etc.)
+    avatar_color: str | None = None  # hex like #7C3AED
+
+
+@app.patch("/relationships/{rid}")
+def relationship_patch(rid: str, req: RelationshipPatch) -> dict:
+    """Partial update — only fields the caller sets are merged."""
+    fp = _RELATIONSHIPS_DIR / f"{rid}.json"
+    if not fp.exists():
+        raise HTTPException(status_code=404, detail="relationship not found")
+    data = json.loads(fp.read_text(encoding="utf-8"))
+    patch = {k: v for k, v in req.model_dump().items() if v is not None}
+    data.update(patch)
+    data["updated_at"] = __import__("datetime").datetime.utcnow().isoformat()
+    fp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    return data
+
+
+class NoteEntry(BaseModel):
+    text: str
+
+
+@app.post("/relationships/{rid}/notes")
+def relationship_add_note(rid: str, req: NoteEntry) -> dict:
+    """Append a timestamped note. Notes live as a list under data['notes_log']."""
+    fp = _RELATIONSHIPS_DIR / f"{rid}.json"
+    if not fp.exists():
+        raise HTTPException(status_code=404, detail="relationship not found")
+    data = json.loads(fp.read_text(encoding="utf-8"))
+    log = data.setdefault("notes_log", [])
+    log.insert(0, {
+        "id": __import__("uuid").uuid4().hex[:8],
+        "ts": __import__("datetime").datetime.utcnow().isoformat(),
+        "text": (req.text or "").strip(),
+    })
+    data["notes_log"] = log[:200]
+    fp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    return {"ok": True, "note": log[0]}
+
+
+class ConversationEntry(BaseModel):
+    channel: str        # "chat" | "email" | "sms" | "phone" | "in-person"
+    direction: str      # "inbound" | "outbound"
+    summary: str        # 1-2 line gist
+    body: str = ""      # full content (optional)
+
+
+@app.post("/relationships/{rid}/conversations")
+def relationship_add_conversation(rid: str, req: ConversationEntry) -> dict:
+    """Log a conversation. Used by the agent when it talks to/about this person."""
+    fp = _RELATIONSHIPS_DIR / f"{rid}.json"
+    if not fp.exists():
+        raise HTTPException(status_code=404, detail="relationship not found")
+    data = json.loads(fp.read_text(encoding="utf-8"))
+    log = data.setdefault("conversations", [])
+    log.insert(0, {
+        "id": __import__("uuid").uuid4().hex[:8],
+        "ts": __import__("datetime").datetime.utcnow().isoformat(),
+        "channel": req.channel,
+        "direction": req.direction,
+        "summary": (req.summary or "").strip()[:240],
+        "body": (req.body or "").strip()[:4000],
+    })
+    data["conversations"] = log[:500]
+    fp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    return {"ok": True, "entry": log[0]}
+
+
+@app.get("/relationships/folders/list")
+def relationship_folders() -> dict:
+    """Aggregate folder + tag counts so the sidebar can render filters."""
+    folders: dict[str, int] = {}
+    tags: dict[str, int] = {}
+    for f in _RELATIONSHIPS_DIR.glob("*.json"):
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        folder = (data.get("folder") or "Unsorted").strip() or "Unsorted"
+        folders[folder] = folders.get(folder, 0) + 1
+        for tag in (data.get("tags") or []):
+            t = str(tag).strip()
+            if t:
+                tags[t] = tags.get(t, 0) + 1
+    return {"folders": folders, "tags": tags}
 
 
 # ── Skills ───────────────────────────────────────────────────────────────────
@@ -1281,6 +1497,1154 @@ def page_splash() -> FileResponse:
     return FileResponse(_FRONTEND_DIR / "splash.html")
 
 
+# ── Vault (Group 2) ──────────────────────────────────────────────────────────
+# Encrypted credential store. The master password never leaves the user's
+# session; every endpoint requires the vault to be unlocked first
+# (init creates + auto-unlocks; unlock confirms the password).
+
+class VaultInitRequest(BaseModel):
+    master_password: str
+
+
+class VaultUnlockRequest(BaseModel):
+    master_password: str
+
+
+class VaultItemRequest(BaseModel):
+    site: str
+    username: str
+    password: str
+    url: str | None = ""
+    notes: str | None = ""
+
+
+class VaultRotateRequest(BaseModel):
+    old_password: str
+    new_password: str
+
+
+@app.get("/vault/status")
+def vault_status() -> dict:
+    import vault as _vault
+    return {
+        "initialized": _vault.is_initialized(),
+        "unlocked":    _vault.is_unlocked(),
+        "idle_lock_s": _vault.IDLE_LOCK_S,
+    }
+
+
+@app.post("/vault/init")
+def vault_init(req: VaultInitRequest) -> dict:
+    import vault as _vault
+    if _vault.is_initialized():
+        raise HTTPException(status_code=409, detail="vault already initialized")
+    try:
+        _vault.init_vault(req.master_password)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"ok": True, "unlocked": True}
+
+
+@app.post("/vault/unlock")
+def vault_unlock(req: VaultUnlockRequest) -> dict:
+    import vault as _vault
+    ok = _vault.unlock(req.master_password)
+    if not ok:
+        raise HTTPException(status_code=401, detail="bad master password")
+    return {"ok": True}
+
+
+@app.post("/vault/lock")
+def vault_lock() -> dict:
+    import vault as _vault
+    _vault.lock()
+    return {"ok": True}
+
+
+@app.get("/vault/items")
+def vault_items_list() -> list[dict]:
+    """Returns non-secret metadata for every stored credential."""
+    import vault as _vault
+    return _vault.list_items()
+
+
+@app.post("/vault/items")
+def vault_items_add(req: VaultItemRequest) -> dict:
+    import vault as _vault
+    try:
+        item_id = _vault.add_item(req.model_dump())
+    except PermissionError:
+        raise HTTPException(status_code=423, detail="vault is locked")
+    return {"ok": True, "id": item_id}
+
+
+@app.get("/vault/items/{item_id}")
+def vault_items_get(item_id: str) -> dict:
+    import vault as _vault
+    try:
+        item = _vault.get_item(item_id)
+    except PermissionError:
+        raise HTTPException(status_code=423, detail="vault is locked")
+    if not item:
+        raise HTTPException(status_code=404, detail="item not found")
+    return item
+
+
+@app.delete("/vault/items/{item_id}")
+def vault_items_delete(item_id: str) -> dict:
+    import vault as _vault
+    try:
+        ok = _vault.delete_item(item_id)
+    except PermissionError:
+        raise HTTPException(status_code=423, detail="vault is locked")
+    return {"ok": ok}
+
+
+@app.post("/vault/rotate")
+def vault_rotate(req: VaultRotateRequest) -> dict:
+    import vault as _vault
+    try:
+        ok = _vault.rotate_master_password(req.old_password, req.new_password)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if not ok:
+        raise HTTPException(status_code=401, detail="old password incorrect")
+    return {"ok": True}
+
+
+# ── Investing (Group 2 — paper trading sandbox, no KYC required) ────────────
+
+class InvestWatchAdd(BaseModel):
+    ticker: str
+
+
+class InvestOrderRequest(BaseModel):
+    ticker: str
+    side: str        # "buy" | "sell"
+    qty: float
+    approval_token: str | None = ""
+
+
+@app.get("/invest/portfolio")
+def invest_portfolio() -> dict:
+    import investing as _inv
+    return _inv.portfolio()
+
+
+@app.get("/invest/watchlist")
+def invest_watchlist() -> list[dict]:
+    import investing as _inv
+    return _inv.get_watchlist()
+
+
+@app.post("/invest/watchlist")
+def invest_watchlist_add(req: InvestWatchAdd) -> dict:
+    import investing as _inv
+    return _inv.add_to_watchlist(req.ticker)
+
+
+@app.delete("/invest/watchlist/{ticker}")
+def invest_watchlist_remove(ticker: str) -> dict:
+    import investing as _inv
+    return {"ok": _inv.remove_from_watchlist(ticker)}
+
+
+@app.get("/invest/quote/{ticker}")
+def invest_quote(ticker: str) -> dict:
+    import investing as _inv
+    q = _inv.get_quote(ticker)
+    if not q:
+        raise HTTPException(status_code=404, detail="no quote")
+    return q
+
+
+@app.get("/invest/orders")
+def invest_orders(limit: int = 50) -> list[dict]:
+    import investing as _inv
+    return _inv.list_orders(limit=limit)
+
+
+@app.post("/invest/order")
+def invest_order(req: InvestOrderRequest) -> dict:
+    import investing as _inv
+    result = _inv.submit_order(
+        req.ticker, req.side, req.qty,
+        approval_token=req.approval_token,
+    )
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=result.get("error", "order failed"))
+    return result
+
+
+@app.get("/invest/opportunities")
+def invest_opportunities() -> list[dict]:
+    import investing as _inv
+    return _inv.list_opportunities()
+
+
+# ── Group 3: AI scanner + proposal flow ─────────────────────────────────────
+
+class InvestScanRequest(BaseModel):
+    max_tickers: int = 10
+    propose: bool = False        # if true, high-confidence picks become proposals
+
+
+class InvestProposeRequest(BaseModel):
+    ticker: str
+    side: str                    # "buy" | "sell"
+    qty: float
+    reason: str = ""
+    confidence: float = 0.5
+    source: str = "manual"
+
+
+class InvestSettingsUpdate(BaseModel):
+    per_trade_cap_cents: int | None = None
+    daily_cap_cents: int | None = None
+    auto_approve_under_cents: int | None = None
+    scan_interval_min: int | None = None
+    notify_on_proposal: bool | None = None
+
+
+@app.post("/invest/scan")
+def invest_scan(req: InvestScanRequest) -> dict:
+    """Run the AI scanner across the current watchlist + holdings."""
+    import investing_scanner as _scan
+    return _scan.scan_watchlist(max_tickers=req.max_tickers, propose=req.propose)
+
+
+@app.get("/invest/proposals")
+def invest_proposals_list(all: bool = False) -> list[dict]:
+    """Pending proposals by default; pass ?all=true to include resolved ones."""
+    import investing as _inv
+    return _inv.list_all_proposals() if all else _inv.list_proposals()
+
+
+@app.post("/invest/proposals")
+def invest_propose(req: InvestProposeRequest) -> dict:
+    """Manual proposal entry (e.g. from the chat — 'propose buy 5 AAPL')."""
+    import investing as _inv
+    r = _inv.propose_trade(
+        req.ticker, req.side, req.qty,
+        reason=req.reason, confidence=req.confidence, source=req.source,
+    )
+    if not r.get("ok"):
+        raise HTTPException(status_code=400, detail=r.get("error", "propose failed"))
+    return r
+
+
+@app.post("/invest/proposals/{proposal_id}/approve")
+def invest_proposal_approve(proposal_id: str) -> dict:
+    import investing as _inv
+    r = _inv.approve_proposal(proposal_id)
+    if not r.get("ok"):
+        raise HTTPException(status_code=400, detail=(r.get("result") or {}).get("error") or r.get("error", "approve failed"))
+    return r
+
+
+@app.post("/invest/proposals/{proposal_id}/reject")
+def invest_proposal_reject(proposal_id: str, note: str = "") -> dict:
+    import investing as _inv
+    return {"ok": _inv.reject_proposal(proposal_id, note=note)}
+
+
+@app.get("/invest/settings")
+def invest_settings_get() -> dict:
+    import investing as _inv
+    return _inv.get_settings()
+
+
+@app.post("/invest/settings")
+def invest_settings_update(req: InvestSettingsUpdate) -> dict:
+    import investing as _inv
+    return _inv.update_settings(req.model_dump(exclude_unset=True))
+
+
+@app.get("/invest/analyze/{ticker}")
+def invest_analyze(ticker: str) -> dict:
+    """One-shot AI analysis on a single ticker (no side effects)."""
+    import investing_scanner as _scan
+    result = _scan.analyze_ticker(ticker)
+    if not result:
+        raise HTTPException(status_code=404, detail="no quote available")
+    return result
+
+
+# ── Group 8: Notifier + voice ───────────────────────────────────────────────
+
+class NotifyRequest(BaseModel):
+    subject: str
+    body: str
+    urgency: str = "normal"     # low | normal | high | critical
+    user_id: str | None = None
+
+
+@app.post("/notify")
+def notify_send(req: NotifyRequest, request: Request) -> dict:
+    """
+    Send a notification through the Director's preferred channels.
+    Used internally (proposal scanner, automation completion hooks) and
+    exposed for the chat UI's "send me a reminder" command.
+    """
+    import notifier as _n
+    uid = req.user_id or _user_id_from_request(request)
+    return _n.notify(req.subject, req.body, urgency=req.urgency, user_id=uid)
+
+
+@app.get("/notify/status")
+def notify_status() -> dict:
+    """Today's notification usage + remaining caps."""
+    import notifier as _n
+    return _n.status()
+
+
+class VoiceCallRequest(BaseModel):
+    to: str | None = None       # E.164; defaults to Director's notification_phone
+    twiml_url: str | None = None
+
+
+@app.post("/voice/call")
+def voice_call(req: VoiceCallRequest, request: Request) -> dict:
+    """
+    Place an outbound voice call via Twilio.
+    By default the Manager calls the Director's notification_phone, but the
+    caller can override `to` to reach anyone (e.g. an agent calling a
+    contact on the Director's behalf — gated by comms_policy('phone')).
+    """
+    import comms_policy as _cp
+    if not _cp.is_allowed("phone"):
+        raise HTTPException(status_code=403, detail="phone calls disabled in policy")
+
+    target = (req.to or "").strip()
+    if not target:
+        # Default to the Director's notification phone
+        try:
+            import manager_config as _mc
+            uid = _user_id_from_request(request)
+            target = (_mc.get_config(uid).notification_phone or "").strip()
+        except Exception:
+            target = ""
+    if not target:
+        raise HTTPException(status_code=400, detail="no phone number — set notification_phone or pass `to`")
+
+    try:
+        from comms_link import CommsLink
+        ok = CommsLink().place_outbound_call(target, twiml_url=req.twiml_url)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"call failed: {e}")
+    return {"ok": bool(ok), "to": target}
+
+
+class VoiceTwimlRequest(BaseModel):
+    say: str                    # text the manager should speak
+    voice: str = "Polly.Joanna" # any Twilio TTS voice; defaults to Polly.Joanna
+
+
+@app.post("/voice/twiml")
+def voice_twiml(req: VoiceTwimlRequest) -> dict:
+    """
+    Generate a TwiML <Response><Say> blob that Twilio will speak when it
+    calls the recipient. Twilio fetches the TwiML URL during the call —
+    operators host this somewhere reachable, or use the inline data: URL.
+
+    Returns the raw XML string + a data URL the caller can plug into
+    /voice/call's `twiml_url` field for one-shot announcements.
+    """
+    safe = (req.say or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    voice = req.voice or "Polly.Joanna"
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        f'<Response><Say voice="{voice}">'
+        '<prosody rate="medium">'
+        # Required disclosure for AI-initiated calls (US 2-party consent
+        # states + general best practice). Group 1's safety suggestions
+        # called this out as mandatory.
+        'This is an AI-generated call from your Metis assistant. '
+        f'{safe}'
+        '</prosody></Say></Response>'
+    )
+    import base64 as _b64
+    data_url = "data:application/xml;base64," + _b64.b64encode(xml.encode("utf-8")).decode("ascii")
+    return {"xml": xml, "data_url": data_url}
+
+
+# ── Group 7: Browser control + assisted account creation ───────────────────
+# A single shared session (one Playwright browser at a time). Multi-tab is
+# fine inside the session; multiple sessions would fight over the lock.
+
+_BROWSER_LOCK = asyncio.Lock()
+_BROWSER_SESSION: Any = None
+_BROWSER_PAGE: Any = None
+_BROWSER_MODE = "safe"
+_BROWSER_JOB_LABEL = "Manual browser session"
+_BROWSER_APPROVALS: list[dict[str, Any]] = []
+_BROWSER_APPROVAL_SEQ = 0
+_BROWSER_LAST_CAPTURED_AT = 0.0
+
+
+class BrowserOpenRequest(BaseModel):
+    headless: bool = False
+
+
+class BrowserNavigateRequest(BaseModel):
+    url: str
+
+
+class BrowserFillRequest(BaseModel):
+    selector: str
+    value: str
+    secret: bool = False
+
+
+class BrowserClickRequest(BaseModel):
+    selector: str
+
+
+class BrowserWaitRequest(BaseModel):
+    selector: str
+    timeout_ms: int = 10_000
+
+
+class BrowserSessionModeRequest(BaseModel):
+    mode: str
+    job_label: str | None = None
+
+
+class BrowserServiceUpsertRequest(BaseModel):
+    domain: str
+    label: str | None = None
+    enabled: bool = True
+    trusted: bool = True
+    daily_cap: int | None = None
+
+
+class BrowserServicePatchRequest(BaseModel):
+    label: str | None = None
+    enabled: bool | None = None
+    trusted: bool | None = None
+    daily_cap: int | None = None
+
+
+class BrowserAccountRequest(BaseModel):
+    service: str             # short name, must be in METIS_BROWSER_ALLOWED_SERVICES
+    username: str = ""
+    email: str
+    password: str
+    signup_url: str = ""
+    selectors: dict[str, str] | None = None
+    submit_selector: str | None = None
+
+
+def _browser_user_id(request: Request | None) -> str:
+    return _user_id_from_request(request) if request is not None else "default"
+
+
+def _normalize_domain(raw: str) -> str:
+    text = (raw or "").strip().lower()
+    if not text:
+        return ""
+    if "://" not in text:
+        text = "https://" + text
+    parsed = urlparse(text)
+    host = (parsed.netloc or parsed.path or "").lower().strip()
+    if host.startswith("www."):
+        host = host[4:]
+    return host
+
+
+def _service_label(domain: str) -> str:
+    host = _normalize_domain(domain)
+    if not host:
+        return "Unknown"
+    base = host.split(".")[0].replace("-", " ").replace("_", " ").strip()
+    return base.title() or host
+
+
+def _manager_browser_config(user_id: str):
+    import manager_config as _mc
+
+    cfg = _mc.get_config(user_id)
+    if not isinstance(cfg.allowed_services, list):
+        cfg.allowed_services = []
+    if not isinstance(cfg.daily_caps, dict):
+        cfg.daily_caps = {}
+    return cfg
+
+
+def _save_manager_browser_config(user_id: str, updates: dict[str, Any]):
+    import manager_config as _mc
+    return _mc.save_config(user_id, updates)
+
+
+def _browser_today_action_count(domain: str) -> int:
+    try:
+        from datetime import datetime
+        from safety import tail_audit
+
+        day = datetime.now().date().isoformat()
+        target = _normalize_domain(domain)
+        total = 0
+        for row in tail_audit(2000):
+            event = str(row.get("event") or "")
+            if event not in {"browser.click", "browser.fill", "browser.approval_executed"}:
+                continue
+            row_domain = _normalize_domain(str(row.get("domain") or ""))
+            if row_domain != target:
+                continue
+            ts = row.get("ts")
+            if not ts:
+                continue
+            if datetime.fromtimestamp(float(ts) / 1000.0).date().isoformat() == day:
+                total += 1
+        return total
+    except Exception:
+        return 0
+
+
+def _service_rows(cfg) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for raw in cfg.allowed_services or []:
+        if not isinstance(raw, dict):
+            continue
+        domain = _normalize_domain(str(raw.get("domain") or ""))
+        if not domain:
+            continue
+        actions_today = _browser_today_action_count(domain)
+        daily_cap = raw.get("daily_cap")
+        enabled = raw.get("enabled", True) is not False
+        rows.append({
+            "id": domain,
+            "domain": domain,
+            "label": raw.get("label") or _service_label(domain),
+            "enabled": enabled,
+            "trusted": raw.get("trusted", True) is not False,
+            "daily_cap": daily_cap,
+            "actions_today": actions_today,
+            "status": "blocked" if not enabled else ("capped" if daily_cap and actions_today >= int(daily_cap) else "allowed"),
+        })
+    rows.sort(key=lambda row: (row["status"] != "allowed", row["label"].lower()))
+    return rows
+
+
+def _service_for_domain(cfg, domain: str) -> dict[str, Any] | None:
+    target = _normalize_domain(domain)
+    for row in _service_rows(cfg):
+        if row["domain"] == target:
+            return row
+    return None
+
+
+def _browser_audit(limit: int = 50) -> list[dict[str, Any]]:
+    try:
+        from safety import tail_audit
+
+        rows = []
+        for row in reversed(tail_audit(limit * 6)):
+            event = str(row.get("event") or "")
+            if event.startswith("browser."):
+                rows.append(row)
+            if len(rows) >= limit:
+                break
+        return rows
+    except Exception:
+        return []
+
+
+def _current_browser_domain() -> str:
+    if _BROWSER_PAGE is None:
+        return ""
+    try:
+        return _normalize_domain(getattr(_BROWSER_PAGE, "url", ""))
+    except Exception:
+        return ""
+
+
+def _check_browser_policy(user_id: str, domain: str) -> dict[str, Any] | None:
+    """
+    When the user has configured one or more allowed services, only those
+    domains may receive navigations and actions (strict allowlist). An empty
+    list means open mode for first-run / local hacking — add a service to
+    turn enforcement on.
+    """
+    cfg = _manager_browser_config(user_id)
+    rows = [r for r in (cfg.allowed_services or []) if isinstance(r, dict)]
+    dom = (domain or "").strip()
+    if rows and dom:
+        service = _service_for_domain(cfg, dom)
+        if not service:
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    f"domain '{dom}' is not in your browser allowlist — "
+                    "add it under Allowed services in the cockpit first"
+                ),
+            )
+    else:
+        service = _service_for_domain(cfg, dom) if dom else None
+    if service and not service.get("enabled", True):
+        raise HTTPException(status_code=403, detail=f"browser policy blocks {service['domain']}")
+    if service and service.get("daily_cap") and service["actions_today"] >= int(service["daily_cap"]):
+        raise HTTPException(status_code=429, detail=f"daily action cap reached for {service['domain']}")
+    return service
+
+
+def _browser_inbox_log(
+    action: str,
+    title: str,
+    *,
+    detail: str = "",
+    status: str = "ok",
+    error: str = "",
+) -> None:
+    try:
+        from scheduler import log_operator_event
+
+        log_operator_event(
+            action=action,
+            title=title,
+            detail=detail,
+            status=status,
+            error=error,
+        )
+    except Exception:
+        pass
+
+
+def _next_approval_id() -> str:
+    global _BROWSER_APPROVAL_SEQ
+    _BROWSER_APPROVAL_SEQ += 1
+    return f"appr-{_BROWSER_APPROVAL_SEQ}"
+
+
+def _queue_browser_approval(kind: str, payload: dict[str, Any], *, why: str) -> dict[str, Any]:
+    approval = {
+        "id": _next_approval_id(),
+        "kind": kind,
+        "payload": payload,
+        "why": why,
+        "status": "pending",
+        "created_at": int(__import__("time").time() * 1000),
+        "mode": _BROWSER_MODE,
+        "domain": _normalize_domain(payload.get("domain") or _current_browser_domain()),
+        "job_label": _BROWSER_JOB_LABEL,
+        "result": None,
+        "error": "",
+    }
+    _BROWSER_APPROVALS.insert(0, approval)
+    try:
+        from safety import audit
+        audit({
+            "event": "browser.approval_queued",
+            "approval_id": approval["id"],
+            "kind": kind,
+            "domain": approval["domain"],
+        })
+    except Exception:
+        pass
+    return approval
+
+
+async def _execute_browser_action(kind: str, payload: dict[str, Any]) -> dict[str, Any]:
+    import browser_runner as _br
+
+    page = _require_page()
+    if kind == "click":
+        await _br.click(page, payload["selector"])
+        return {"ok": True}
+    if kind == "fill":
+        await _br.fill(page, payload["selector"], payload["value"], secret=bool(payload.get("secret")))
+        return {"ok": True}
+    if kind == "wait":
+        return await _br.wait_for(page, payload["selector"], int(payload.get("timeout_ms") or 10_000))
+    raise HTTPException(status_code=400, detail=f"unknown browser action: {kind}")
+
+
+def _browser_status_payload(user_id: str) -> dict[str, Any]:
+    import browser_runner as _br
+
+    cfg = _manager_browser_config(user_id)
+    services = _service_rows(cfg)
+    current_url = getattr(_BROWSER_PAGE, "url", "about:blank") if _BROWSER_PAGE is not None else "about:blank"
+    return {
+        "playwright_installed": _br.is_available(),
+        "session_open": _BROWSER_SESSION is not None,
+        "mode": _BROWSER_MODE,
+        "job_label": _BROWSER_JOB_LABEL,
+        "current_url": current_url,
+        "current_domain": _normalize_domain(current_url),
+        "allowed_services": services,
+        "daily_caps": cfg.daily_caps,
+        "default_safe_mode": cfg.default_safe_mode,
+        "allow_per_job_auto_mode": cfg.allow_per_job_auto_mode,
+        "browser_warning_acknowledged": cfg.browser_warning_acknowledged,
+        "daily_account_cap": _br.DAILY_ACCOUNT_CAP,
+        "daily_accounts_today": _br.daily_account_count(),
+        "chrome_allowed": __import__("comms_policy").is_allowed("chrome"),
+        "approvals": _BROWSER_APPROVALS[:20],
+        "audit": _browser_audit(50),
+        "last_captured_at": _BROWSER_LAST_CAPTURED_AT,
+    }
+
+
+@app.get("/browser/status")
+def browser_status(request: Request) -> dict:
+    return _browser_status_payload(_browser_user_id(request))
+
+
+@app.post("/browser/open")
+async def browser_open(req: BrowserOpenRequest, request: Request) -> dict:
+    """Spin up a Chromium session. Headful by default so the user sees it."""
+    global _BROWSER_SESSION, _BROWSER_PAGE, _BROWSER_MODE
+    import browser_runner as _br
+    user_id = _browser_user_id(request)
+    if not _br.is_available():
+        raise HTTPException(status_code=503,
+            detail="Playwright not installed. Run `python -m playwright install chromium`.")
+    import comms_policy as _cp
+    if not _cp.is_allowed("chrome"):
+        raise HTTPException(status_code=403, detail="Chrome control disabled in policy")
+    async with _BROWSER_LOCK:
+        if _BROWSER_SESSION is not None:
+            return {"ok": True, "reused": True, **_browser_status_payload(user_id)}
+        sess = _br.BrowserSession()
+        try:
+            await sess.open(headless=req.headless)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"browser open failed: {e}")
+        _BROWSER_SESSION = sess
+        _BROWSER_PAGE = await sess.new_page()
+        cfg = _manager_browser_config(user_id)
+        _BROWSER_MODE = "safe" if cfg.default_safe_mode else "auto"
+        try:
+            from safety import audit
+            audit({"event": "browser.session_start", "mode": _BROWSER_MODE, "headless": req.headless})
+        except Exception:
+            pass
+        _browser_inbox_log(
+            "browser.session_start",
+            "Browser session started",
+            detail=f"mode={_BROWSER_MODE} headless={bool(req.headless)}",
+        )
+    return {"ok": True, "reused": False, **_browser_status_payload(user_id)}
+
+
+@app.post("/browser/close")
+async def browser_close() -> dict:
+    global _BROWSER_SESSION, _BROWSER_PAGE
+    async with _BROWSER_LOCK:
+        if _BROWSER_SESSION:
+            await _BROWSER_SESSION.close()
+        _BROWSER_SESSION = None
+        _BROWSER_PAGE = None
+    try:
+        from safety import audit
+        audit({"event": "browser.session_stop"})
+    except Exception:
+        pass
+    _browser_inbox_log("browser.session_stop", "Browser session closed")
+    return {"ok": True}
+
+
+def _require_page() -> Any:
+    if _BROWSER_SESSION is None or _BROWSER_PAGE is None:
+        raise HTTPException(status_code=409, detail="no browser session — call /browser/open first")
+    return _BROWSER_PAGE
+
+
+@app.post("/browser/navigate")
+async def browser_navigate(req: BrowserNavigateRequest, request: Request) -> dict:
+    import browser_runner as _br
+    page = _require_page()
+    domain = _normalize_domain(req.url)
+    if domain:
+        _check_browser_policy(_browser_user_id(request), domain)
+    result = await _br.navigate(page, req.url)
+    return result
+
+
+@app.get("/browser/screenshot")
+async def browser_screenshot() -> dict:
+    global _BROWSER_LAST_CAPTURED_AT
+    import browser_runner as _br
+    page = _require_page()
+    b64 = await _br.screenshot_b64(page)
+    _BROWSER_LAST_CAPTURED_AT = int(__import__("time").time() * 1000)
+    try:
+        from safety import audit
+        audit({
+            "event": "browser.screenshot",
+            "domain": _current_browser_domain(),
+            "captured_at": _BROWSER_LAST_CAPTURED_AT,
+        })
+    except Exception:
+        pass
+    return {"png_base64": b64, "captured_at": _BROWSER_LAST_CAPTURED_AT}
+
+
+@app.post("/browser/fill")
+async def browser_fill(req: BrowserFillRequest, request: Request) -> dict:
+    _require_page()
+    domain = _current_browser_domain()
+    _check_browser_policy(_browser_user_id(request), domain)
+    if _BROWSER_MODE == "safe" and req.secret:
+        approval = _queue_browser_approval(
+            "fill",
+            {
+                "selector": req.selector,
+                "value": req.value,
+                "secret": req.secret,
+                "domain": domain,
+            },
+            why="Secret input is gated in safe mode.",
+        )
+        return {"ok": True, "queued": True, "approval": approval}
+    result = await _execute_browser_action("fill", req.model_dump())
+    return {"ok": True, "queued": False, "result": result}
+
+
+@app.post("/browser/click")
+async def browser_click(req: BrowserClickRequest, request: Request) -> dict:
+    _require_page()
+    domain = _current_browser_domain()
+    _check_browser_policy(_browser_user_id(request), domain)
+    if _BROWSER_MODE == "safe":
+        approval = _queue_browser_approval(
+            "click",
+            {"selector": req.selector, "domain": domain},
+            why="Clicks are approval-gated in safe mode.",
+        )
+        return {"ok": True, "queued": True, "approval": approval}
+    result = await _execute_browser_action("click", req.model_dump())
+    return {"ok": True, "queued": False, "result": result}
+
+
+@app.post("/browser/wait")
+async def browser_wait(req: BrowserWaitRequest) -> dict:
+    result = await _execute_browser_action("wait", req.model_dump())
+    return {"ok": True, "result": result}
+
+
+@app.get("/browser/audit")
+def browser_audit(limit: int = Query(default=50, ge=1, le=200)) -> dict:
+    return {"events": _browser_audit(limit)}
+
+
+@app.get("/browser/approvals")
+def browser_approvals() -> dict:
+    return {"approvals": _BROWSER_APPROVALS[:50]}
+
+
+@app.post("/browser/approvals/{approval_id}/approve")
+async def browser_approval_approve(approval_id: str) -> dict:
+    for approval in _BROWSER_APPROVALS:
+        if approval["id"] != approval_id:
+            continue
+        if approval["status"] != "pending":
+            return {"approval": approval}
+        try:
+            result = await _execute_browser_action(approval["kind"], approval["payload"])
+            approval["status"] = "approved"
+            approval["result"] = result
+            approval["error"] = ""
+            try:
+                from safety import audit
+                audit({
+                    "event": "browser.approval_executed",
+                    "approval_id": approval_id,
+                    "kind": approval["kind"],
+                    "domain": approval["domain"],
+                })
+            except Exception:
+                pass
+        except Exception as e:
+            approval["status"] = "failed"
+            approval["error"] = str(e)
+            _browser_inbox_log(
+                "browser.approval_executed",
+                "Browser action failed after approval",
+                detail=f"{approval['kind']} {approval.get('domain') or ''}",
+                status="failed",
+                error=str(e)[:300],
+            )
+            return {"approval": approval}
+        _browser_inbox_log(
+            "browser.approval_executed",
+            f"Approved {approval['kind']}",
+            detail=f"{approval.get('payload', {}).get('selector') or approval.get('domain') or ''}",
+        )
+        return {"approval": approval}
+    raise HTTPException(status_code=404, detail="approval not found")
+
+
+@app.post("/browser/approvals/{approval_id}/deny")
+def browser_approval_deny(approval_id: str) -> dict:
+    for approval in _BROWSER_APPROVALS:
+        if approval["id"] != approval_id:
+            continue
+        approval["status"] = "denied"
+        try:
+            from safety import audit
+            audit({
+                "event": "browser.approval_denied",
+                "approval_id": approval_id,
+                "kind": approval["kind"],
+                "domain": approval["domain"],
+            })
+        except Exception:
+            pass
+        _browser_inbox_log(
+            "browser.approval_denied",
+            f"Denied {approval['kind']}",
+            detail=f"{approval.get('payload', {}).get('selector') or approval.get('domain') or ''}",
+            status="failed",
+            error="denied by operator",
+        )
+        return {"approval": approval}
+    raise HTTPException(status_code=404, detail="approval not found")
+
+
+@app.post("/browser/session-mode")
+def browser_session_mode(req: BrowserSessionModeRequest, request: Request) -> dict:
+    global _BROWSER_MODE, _BROWSER_JOB_LABEL
+    user_id = _browser_user_id(request)
+    cfg = _manager_browser_config(user_id)
+    mode = (req.mode or "").strip().lower()
+    if mode not in {"safe", "auto"}:
+        raise HTTPException(status_code=400, detail="mode must be 'safe' or 'auto'")
+    if mode == "auto" and not cfg.allow_per_job_auto_mode:
+        raise HTTPException(status_code=403, detail="per-job auto mode disabled in manager policy")
+    _BROWSER_MODE = mode
+    if req.job_label:
+        _BROWSER_JOB_LABEL = req.job_label.strip()[:120] or _BROWSER_JOB_LABEL
+    try:
+        from safety import audit
+        audit({"event": "browser.session_mode", "mode": mode, "job_label": _BROWSER_JOB_LABEL})
+    except Exception:
+        pass
+    return {"ok": True, **_browser_status_payload(user_id)}
+
+
+@app.get("/browser/services")
+def browser_services(request: Request) -> dict:
+    cfg = _manager_browser_config(_browser_user_id(request))
+    return {"services": _service_rows(cfg)}
+
+
+@app.post("/browser/services")
+def browser_services_add(req: BrowserServiceUpsertRequest, request: Request) -> dict:
+    user_id = _browser_user_id(request)
+    cfg = _manager_browser_config(user_id)
+    domain = _normalize_domain(req.domain)
+    if not domain:
+        raise HTTPException(status_code=400, detail="domain required")
+    rows = [row for row in (cfg.allowed_services or []) if _normalize_domain(str(row.get("domain") or "")) != domain]
+    rows.append({
+        "domain": domain,
+        "label": req.label or _service_label(domain),
+        "enabled": req.enabled,
+        "trusted": req.trusted,
+        "daily_cap": req.daily_cap,
+    })
+    cfg = _save_manager_browser_config(user_id, {"allowed_services": rows})
+    return {"service": _service_for_domain(cfg, domain), "services": _service_rows(cfg)}
+
+
+@app.patch("/browser/services/{service_id}")
+def browser_services_patch(service_id: str, req: BrowserServicePatchRequest, request: Request) -> dict:
+    user_id = _browser_user_id(request)
+    cfg = _manager_browser_config(user_id)
+    target = _normalize_domain(service_id)
+    found = False
+    rows = []
+    for row in (cfg.allowed_services or []):
+        domain = _normalize_domain(str(row.get("domain") or ""))
+        if domain != target:
+            rows.append(row)
+            continue
+        found = True
+        updated = dict(row)
+        patch = req.model_dump()
+        for key, value in patch.items():
+            if value is not None:
+                updated[key] = value
+        updated["domain"] = target
+        rows.append(updated)
+    if not found:
+        raise HTTPException(status_code=404, detail="service not found")
+    cfg = _save_manager_browser_config(user_id, {"allowed_services": rows})
+    return {"service": _service_for_domain(cfg, target), "services": _service_rows(cfg)}
+
+
+@app.post("/browser/create_account")
+async def browser_create_account(req: BrowserAccountRequest, request: Request) -> dict:
+    import browser_runner as _br
+    page = _require_page()
+    user_id = _browser_user_id(request)
+    cfg = _manager_browser_config(user_id)
+    if not _service_for_domain(cfg, req.service):
+        raise HTTPException(status_code=403, detail=f"{req.service} is not in the allowed services list")
+    _check_browser_policy(user_id, req.service)
+    result = await _br.create_account_assisted(
+        page,
+        service=req.service,
+        username=req.username,
+        email=req.email,
+        password=req.password,
+        signup_url=req.signup_url,
+        selectors=req.selectors,
+        submit_selector=req.submit_selector,
+    )
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=result.get("error") or "account creation failed")
+    return result
+
+
+# Code workspace shell
+# Owns ~/MetisProjects/. Every coding chat operates against a workspace
+# (an open folder OR a cloned GitHub repo). The /code page gates everything
+# behind picking one of these so the AI can never write to a path outside
+# the projects root.
+
+class WorkspaceCreateRequest(BaseModel):
+    name: str
+
+
+class WorkspaceCloneRequest(BaseModel):
+    git_url: str
+    name: str | None = None
+
+
+@app.get("/code/workspaces")
+def code_workspaces_list() -> dict:
+    import code_workspace as _cw
+    return {
+        "workspaces": _cw.list_workspaces(),
+        "active":     _cw.active_workspace(),
+        "root":       str(_cw.root_dir()),
+    }
+
+
+@app.post("/code/workspaces")
+def code_workspace_create(req: WorkspaceCreateRequest) -> dict:
+    import code_workspace as _cw
+    try:
+        return _cw.create_workspace(req.name)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/code/workspaces/clone")
+def code_workspace_clone(req: WorkspaceCloneRequest) -> dict:
+    import code_workspace as _cw
+    try:
+        return _cw.clone_workspace(req.git_url, name=req.name)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/code/workspaces/{slug}/open")
+def code_workspace_open(slug: str) -> dict:
+    import code_workspace as _cw
+    try:
+        return _cw.open_workspace(slug)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="workspace not found")
+
+
+@app.delete("/code/workspaces/{slug}")
+def code_workspace_delete(slug: str, remove_files: bool = False) -> dict:
+    import code_workspace as _cw
+    return {"ok": _cw.delete_workspace(slug, remove_files=remove_files)}
+
+
+@app.get("/code/tree")
+def code_tree(slug: str | None = None) -> dict:
+    """File tree of the active workspace (or the one specified by ?slug=)."""
+    import code_workspace as _cw
+    target = slug or ((_cw.active_workspace() or {}).get("slug"))
+    if not target:
+        raise HTTPException(status_code=400, detail="no active workspace")
+    try:
+        return {"slug": target, "tree": _cw.read_tree(target)}
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="workspace not found")
+
+
+@app.get("/code/file")
+def code_file(path: str, slug: str | None = None) -> dict:
+    """Read a single file from the workspace. Path is relative to the root."""
+    import code_workspace as _cw
+    target = slug or ((_cw.active_workspace() or {}).get("slug"))
+    if not target:
+        raise HTTPException(status_code=400, detail="no active workspace")
+    try:
+        return {"slug": target, "path": path, "content": _cw.read_file(target, path)}
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="file not found")
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=413, detail=str(e))
+
+
+# ── Money / People / Automations pages (Group 1 scaffolds) ─────────────────
+# Note: /relationships is already a JSON API. The HTML page lives at /people
+# so browsers and API clients don't fight for the same route. The sidebar
+# button still reads "Relationships" — the URL is internal.
+
+@app.get("/money")
+def page_money() -> FileResponse:
+    return FileResponse(_FRONTEND_DIR / "money.html")
+
+
+@app.get("/people")
+def page_people() -> FileResponse:
+    return FileResponse(_FRONTEND_DIR / "people.html")
+
+
+@app.get("/automations")
+def page_automations() -> FileResponse:
+    return FileResponse(_FRONTEND_DIR / "automations.html")
+
+
+@app.get("/automation-inbox")
+def page_automation_inbox() -> FileResponse:
+    return FileResponse(_FRONTEND_DIR / "automation-inbox.html")
+
+
+@app.get("/manager")
+def page_manager() -> FileResponse:
+    return FileResponse(_FRONTEND_DIR / "manager.html")
+
+
+@app.get("/code")
+def page_code() -> FileResponse:
+    return FileResponse(_FRONTEND_DIR / "code.html")
+
+
+@app.get("/plugins")
+def page_plugins() -> FileResponse:
+    return FileResponse(_FRONTEND_DIR / "plugins.html")
+
+
+@app.get("/inspector")
+def page_inspector() -> FileResponse:
+    """Subagent inspector — Group 6 visual layer.
+    The URL is /inspector (not /agents) because /agents is a JSON
+    API for the persistent-agent roster."""
+    return FileResponse(_FRONTEND_DIR / "agents.html")
+
+
+@app.get("/browser-control")
+def page_browser_control() -> FileResponse:
+    """Browser control room — Group 7 visual layer.
+    The URL is /browser-control (not /browser) because /browser is the
+    Playwright control namespace (status, open, navigate, click, ...)."""
+    return FileResponse(_FRONTEND_DIR / "browser.html")
+
+
 @app.get("/logo-test")
 def page_logo_test() -> FileResponse:
     return FileResponse(_FRONTEND_DIR / "logo-test.html")
@@ -1330,6 +2694,19 @@ class ManagerConfigUpdate(BaseModel):
     director_about: str | None = None
     accent_color: str | None = None
     specialists: list[str] | None = None
+    notification_email: str | None = None
+    notification_phone: str | None = None
+    notify_on_complete: bool | None = None
+    notify_on_question: bool | None = None
+    email_username: str | None = None
+    email_password: str | None = None
+    email_smtp_host: str | None = None
+    email_smtp_port: int | None = None
+    default_safe_mode: bool | None = None
+    allow_per_job_auto_mode: bool | None = None
+    allowed_services: list[dict[str, Any]] | None = None
+    daily_caps: dict[str, int] | None = None
+    browser_warning_acknowledged: bool | None = None
 
 
 @app.post("/manager/config")
@@ -1360,6 +2737,27 @@ def ollama_status() -> dict:
         "installed": binary is not None,
         "binary": str(binary) if binary else None,
     }
+
+
+# ── Playwright auto-install ─────────────────────────────────────────────────
+# Surfaced through the splash screen so the customer sees "Installing browser
+# engine — first launch only" without ever opening a terminal.
+
+@app.get("/playwright/status")
+def playwright_status() -> dict:
+    """
+    Live state of the Chromium auto-install. The splash polls this every
+    second on first launch; once state == 'ready' it moves on.
+    """
+    import playwright_installer as _pwi
+    return _pwi.install_status()
+
+
+@app.post("/playwright/install")
+def playwright_install() -> dict:
+    """Manual trigger — useful if the auto-start was skipped."""
+    import playwright_installer as _pwi
+    return _pwi.ensure_chromium_async()
 
 
 @app.post("/ollama/start")

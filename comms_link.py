@@ -8,11 +8,41 @@ import smtplib
 from email.message import EmailMessage
 
 
+def _email_credentials(user_id: str | None = None) -> tuple[str, str, str, int]:
+    """
+    Resolve SMTP credentials in priority order:
+      1. The user's manager_config (filled via the setup wizard).
+      2. EMAIL_USER / EMAIL_PASS / SMTP_HOST / SMTP_PORT env vars.
+
+    Returns (user, password, host, port). Empty strings when nothing is set.
+    """
+    cfg_user = cfg_pass = ""
+    cfg_host = "smtp.gmail.com"
+    cfg_port = 465
+    try:
+        import manager_config as _mc
+        cfg = _mc.get_config(user_id or "default")
+        cfg_user = (cfg.email_username or "").strip()
+        cfg_pass = (cfg.email_password or "").strip()
+        cfg_host = (cfg.email_smtp_host or "smtp.gmail.com").strip() or "smtp.gmail.com"
+        cfg_port = int(cfg.email_smtp_port or 465)
+    except Exception:
+        pass
+    user = cfg_user or os.getenv("EMAIL_USER", "")
+    password = cfg_pass or os.getenv("EMAIL_PASS", "")
+    host = cfg_host if cfg_user else os.getenv("SMTP_HOST", "smtp.gmail.com")
+    port = cfg_port if cfg_user else int(os.getenv("SMTP_PORT", "465"))
+    return user, password, host, port
+
+
 class CommsLink:
-    def send_human_email(self, to_email: str, subject: str, body: str) -> bool:
+    def send_human_email(
+        self, to_email: str, subject: str, body: str,
+        *, user_id: str | None = None,
+    ) -> bool:
         """
-        Send an email via SMTP using EMAIL_USER / EMAIL_PASS env vars.
-        Defaults to Gmail SSL (port 465).
+        Send an email via SMTP. Credentials come from the user's
+        manager_config first, environment vars second.
         """
         try:
             from comms_policy import is_allowed
@@ -22,10 +52,7 @@ class CommsLink:
         except ImportError:
             pass
 
-        smtp_user = os.getenv("EMAIL_USER")
-        smtp_pass = os.getenv("EMAIL_PASS")
-        smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
-        smtp_port = int(os.getenv("SMTP_PORT", "465"))
+        smtp_user, smtp_pass, smtp_host, smtp_port = _email_credentials(user_id)
 
         if not smtp_user or not smtp_pass:
             print("[CommsLink] Missing EMAIL_USER or EMAIL_PASS in .env.")

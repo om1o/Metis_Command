@@ -47,6 +47,9 @@ identity/local_chat.db-shm
 identity/local_chat.db-wal
 identity/manager_configs/
 identity/brains/*/compact_trash.jsonl
+identity/vault.enc
+identity/investing.json
+identity/agent_health.json
 logs/locks/
 
 # ── Website + build artifacts ────────────────────────────────────────────────
@@ -76,3 +79,6 @@ Thumbs.db
 *.safetensors
 *.gguf
 *.onnx
+identity/notify_log.jsonl
+identity/code_workspaces.json
+identity/automation_events.jsonl

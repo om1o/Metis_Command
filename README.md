@@ -1,10 +1,18 @@
 # Metis Command
 
-**Local-first autonomous AI desktop. Five-agent swarm, persistent memory, policy-gated autonomy — every byte on your hardware.**
+**Desktop-first automation operator. Browser-control-first MVP, local auth, local files, local browser runtime, and policy-gated execution on your machine.**
 
 [![ci](https://github.com/om1o/Metis_Command/actions/workflows/ci.yml/badge.svg)](https://github.com/om1o/Metis_Command/actions/workflows/ci.yml)
 
-Metis is a Claude.ai / Codex-style desktop AI that orchestrates a swarm of specialists on top of local Ollama models — with an optional GLM-4.6 "Genius" brain over the Z.ai API. Memory persists across sessions via ChromaDB + Supabase. Skills are forged on demand and executed inside a Docker sandbox. Voice and computer-use tools let Metis hear you and drive your desktop.
+Metis is a desktop-first operator that centers a manager, automations, and browser control on top of local runtime primitives. The current MVP focus is browser-backed execution with safe mode, per-job auto mode, approvals, audit history, and local policy control. Metis still contains older chat/code/media surfaces, but they are no longer the product priority.
+
+## Current Focus
+
+- Desktop first product platform.
+- Browser-control first MVP.
+- Automation board, inbox, and manager policy surfaces.
+- Local auth, local files, local browser runtime, and desktop shell reliability.
+- Safe mode by default, with per-job auto mode only.
 
 ---
 
@@ -61,8 +69,8 @@ flowchart TD
 
 ## Features
 
-### Genius brain
-GLM-4.6 via Z.ai (set `GLM_API_KEY` in `.env`) with automatic fallback to local `glm4:9b` through Ollama. Cloud calls auto-bill through the Wallet so spend is always capped.
+### Manager and browser operator
+The manager owns automation jobs and browser sessions. The browser cockpit is the current primary execution surface: open a session, navigate, capture screenshots, fill fields, click controls, wait for selectors, and review audit/approval state. Safe mode is the default; jobs can opt into per-job auto mode when the user wants browser actions to run without repeated approval prompts.
 
 ### Brains — memory that never forgets
 Swappable long-term memory profiles, each with three tiers:

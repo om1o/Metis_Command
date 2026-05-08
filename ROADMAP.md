@@ -1,223 +1,65 @@
-# Metis Command — 18-Phase Roadmap
+# Metis Command Roadmap
 
-> Generated 2026-05-02 after full codebase audit (46 Python modules, 6 HTML pages, 4 JS files, 976-line API bridge, 11 local Ollama models, 4 persistent agents running).
+## Direction Lock
 
----
+Metis is now a desktop-first automation operator.
 
-## Current State (v0.16.4)
+Product framing:
+- Desktop first platform.
+- Browser-control first MVP.
+- Operator OS is the long-term category, not the first implementation target.
 
-### Working
-- Manager orchestrator with 4 specialists (Researcher, Coder, Thinker, Scholar)
-- Sequential specialist execution (avoids VRAM thrashing)
-- FastAPI backend with 59+ routes on port 7331
-- Supabase auth (email/password, Google/GitHub OAuth, PKCE)
-- Local install token for desktop use
-- 6-step setup wizard (company, manager name/color, personality presets, model picker, director profile, crew)
-- Splash screen with Ollama auto-start
-- Streaming SSE chat with subagent activity cards
-- Markdown rendering with code syntax labels + copy buttons
-- Reasoning/thinking collapsible toggle (deepseek-r1)
-- Command palette (Cmd+K) with 6 commands
-- Mobile hamburger sidebar drawer
-- Session management (load, delete)
-- Agent health sidebar panel (4 persistent agents)
-- Model selector dropdown (11 local + cloud routes)
-- Wallet system (simulated budget, policies, ledger)
-- Scheduler (interval/daily/once/cron with croniter)
-- Memory vault (ChromaDB vectors + Supabase persistence)
-- Memory GC (compact_older_than)
-- Distributed tracing (trace_id correlation)
-- Agent bus with backpressure handling
-- Tool runtime with per-tool timeouts
-- Confirm gate with TTL expiry
-- Secret scanning + path safety
-- 5 persona presets (Athena, Atlas, Aria, Kai, Nova)
-- Response timing + specialist attribution
-- Streaming timeout UI (30s warning)
-- Specialist cap at 2 per turn
-- Default model: qwen3.5:4b (stronger than 1.5b)
+Current non-goals unless directly required by the browser MVP:
+- Chat-first product work.
+- Code workspace expansion.
+- Plugin-store-first work.
+- Media-first work.
+- Broad OS control beyond browser execution.
 
-### Known Gaps
-- No conversation memory in the frontend (sessions are empty for local-install users)
-- No file/image upload in chat
-- No voice I/O
-- No MFA/2FA
-- No dark/light theme toggle
-- No export/share conversations
-- No notification system (push/email)
-- No plugin UI in sidebar (API exists, no frontend)
-- No search across conversations
-- No multi-turn context window management
-- No rate limit UI feedback
-- No onboarding tour
-- Legacy Streamlit UI (`dynamic_ui.py`) remains in the tree for reference; `launch.py` only starts FastAPI
+## Current Focus
 
----
+The current production wedge is:
+- manager
+- browser cockpit
+- approvals and per-job auto mode
+- automation board
+- inbox with real event history
+- manager policies
 
-## Phase 1 — Local Memory Layer
-**Goal**: Chat history works for local-install users without Supabase.
+The first credible release claim is:
+`a local manager that can control a browser reliably and operate on your machine`
 
-- Add `LocalMemoryStore` in `memory.py` — SQLite file at `identity/local_chat.db`
-- Tables: `sessions(id, title, created_at, updated_at)`, `messages(id, session_id, role, content, created_at)`
-- Wire `save_message()` and `load_session()` to use SQLite when `user_id == "local-install"`
-- Auto-generate session titles from the first user message (first 60 chars)
-- Show real session list in sidebar with titles instead of IDs
+## MVP Milestones
 
-**Files**: `memory.py`, `api_bridge.py`
-**Est**: Small
+### Milestone 1: Direction lock
+- Add repo-level agent instructions so future agents stop following the old roadmap.
+- Update README, roadmap, and prompt docs to describe Metis as a desktop-first browser automation operator.
+- Keep the old surfaces in the tree, but remove them from product priority language.
 
----
+### Milestone 2: Browser backend truth
+- Make browser control endpoints complete enough for the cockpit.
+- Add wait, audit, session mode, and service policy APIs.
+- Tie browser safety defaults to manager policy instead of mock UI state.
+- Keep safe mode default and allow per-job auto mode only.
 
-## Phase 2 — Conversation Context Window
-**Goal**: Multi-turn conversations actually remember previous messages.
+### Milestone 3: Browser cockpit
+- Replace the current mock browser page behavior with real backend wiring.
+- Show live session state, URL, screenshot refresh, audit log, approval queue, and visible control aura.
+- Expose reliable manual controls for navigate, fill, click, wait, and screenshot.
 
-- In `manager_orchestrator.orchestrate()`, call `memory_loop.inject_context()` before planning
-- Prepend last 6 turns from the session into the Manager's system prompt
-- Prepend top-K relevant vector memories from ChromaDB
-- After each turn, call `memory_loop.persist_turn()` to save both sides
-- Frontend: show session title in header when a past session is loaded
+### Milestone 4: Manager and automation integration
+- Treat browser work as manager-owned jobs.
+- Show browser-backed runs in the automation board and inbox.
+- Add manager settings for allowed services, daily limits, safe mode, and warning acknowledgement.
 
-**Files**: `manager_orchestrator.py`, `memory_loop.py`, `frontend/app.html`
-**Est**: Small
+### Milestone 5: Brand and shell
+- Use the Metis logo as the visual source of truth.
+- Apply a control-room design across splash, browser, manager, automations, and inbox.
+- Demote old chat/code emphasis without deleting those pages yet.
 
----
-
-## Phase 3 — Smart Session Titles
-**Goal**: Sessions get human-readable titles instead of `sess-1746192xxx`.
-
-- After the first assistant response, ask the Manager (1 cheap call) to generate a 4-6 word title
-- Save title in the session store (SQLite for local, Supabase metadata for cloud)
-- Show titles in sidebar session list
-- Add rename button (pencil icon) on hover
-
-**Files**: `memory.py`, `api_bridge.py`, `frontend/app.html`
-**Est**: Small
-
----
-
-## Phase 4 — File Upload & Attachments
-**Goal**: Users can drop files into the chat input.
-
-- Add drag-and-drop zone on the input area
-- Upload to `POST /upload` → saves to `artifacts/` with metadata
-- Include file content (or summary for large files) in the Manager's prompt
-- Support: `.py`, `.js`, `.ts`, `.json`, `.csv`, `.txt`, `.md` (text files)
-- Show file chip below the input with name + size
-
-**Files**: `api_bridge.py`, `frontend/app.html`
-**Est**: Medium
-
----
-
-## Phase 5 — Export & Share Conversations
-**Goal**: Export a conversation as Markdown, JSON, or shareable link.
-
-- Add export button in message actions area
-- Formats: `.md` (formatted), `.json` (raw messages), clipboard (plain text)
-- Export includes metadata: manager name, model, specialists used, timestamps
-- Add `/sessions/{id}/export` API route
-
-**Files**: `api_bridge.py`, `frontend/app.html`
-**Est**: Small
-
----
-
-## Phase 6 — Search Across Conversations
-**Goal**: Find anything you've ever discussed with the Manager.
-
-- Add search icon in sidebar header
-- Full-text search across all sessions (SQLite FTS5 for local, Supabase text search for cloud)
-- Vector search via ChromaDB for semantic matches
-- Results show: session title, matched snippet, timestamp
-- Click result → opens that session, scrolls to the match
-
-**Files**: `memory.py`, `api_bridge.py`, `frontend/app.html`
-**Est**: Medium
-
----
-
-## Phase 7 — Plugin Marketplace UI
-**Goal**: Browse, install, and manage plugins from the sidebar.
-
-- Add "Marketplace" expander in sidebar
-- Fetch plugin catalog from `/marketplace`
-- Show cards: name, description, author, price, install button
-- Installed plugins show a green checkmark + uninstall option
-- Wire install to `POST /marketplace/install`
-
-**Files**: `frontend/app.html`, `marketplace.py`
-**Est**: Small
-
----
-
-## Phase 8 — Voice Input
-**Goal**: Talk to the Manager via microphone.
-
-- Add 🎤 button next to the chat input
-- Use browser `webkitSpeechRecognition` / `SpeechRecognition` API
-- Pipe recognized text directly into the input textarea
-- Show recording indicator (pulsing red dot) while listening
-- Auto-send after 2s of silence (configurable)
-- Graceful fallback: hide button if browser doesn't support speech API
-
-**Files**: `frontend/app.html`
-**Est**: Small (browser-native, no backend needed)
-
----
-
-## Phase 9 — Dark/Light/Auto Theme
-**Goal**: Let users choose their preferred theme.
-
-- Add theme toggle in settings/sidebar footer (moon/sun icon)
-- Three modes: Dark (current), Light, System (follows OS preference)
-- CSS custom properties already centralized in `:root` — swap variable sets
-- Persist theme choice in `manager_config` or localStorage
-- Light theme: white background, dark text, adjusted glassmorphism
-
-**Files**: `frontend/app.html`, `frontend/login.html`, `frontend/setup.html`, `frontend/splash.html`
-**Est**: Medium (need to design the light palette)
-
----
-
-## Phase 10 — Notification System
-**Goal**: Background tasks and agents can notify the user.
-
-- Browser Notification API for persistent agent alerts
-- Toast notifications for in-app events (already exists via global-polish.v2.js)
-- Add `/notifications` API route that agents can POST to
-- Notification bell icon in header with unread count badge
-- Click opens a dropdown with recent notifications
-
-**Files**: `api_bridge.py`, `frontend/app.html`, new `notifications.py`
-**Est**: Medium
-
----
-
-## Phase 11 — Onboarding Tour
-**Goal**: First-time users get a guided walkthrough of the app.
-
-- After setup wizard completes, show a 5-step overlay tour
-- Highlights: sidebar, chat input, model selector, command palette, crew panel
-- Uses a lightweight spotlight/tooltip approach (no library needed)
-- "Skip" and "Next" buttons, progress dots
-- Mark as complete in manager_config so it only shows once
-
-**Files**: `frontend/app.html`, `manager_config.py`
-**Est**: Small
-
----
-
-## Phase 12 — Keyboard Power User Features
-**Goal**: Make the app as fast as a terminal for power users.
-
-- Slash commands in chat input: `/clear`, `/model <name>`, `/role <persona>`, `/export`, `/search <query>`
-- Cmd+Shift+C → copy last response
-- Cmd+Shift+R → regenerate
-- Up arrow in empty input → edit last message
-- Escape while streaming → stop generation (already works)
-- Add keyboard shortcut reference modal (Cmd+?)
-
-**Files**: `frontend/app.html`
+### Milestone 6: Hardening
+- Add tests for browser session lifecycle, service policy enforcement, safe mode vs auto mode, and audit retrieval.
+- Run route, unit, and browser smoke checks before claiming the MVP works.
 **Est**: Small
 
 ---

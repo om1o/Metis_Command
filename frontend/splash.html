@@ -82,7 +82,7 @@ body.leaving{animation:fadeOut .5s cubic-bezier(.4,0,.6,1) forwards}
 
 <div class="stage">
   <button class="metis-mark size-xl stacked" type="button" title="Refresh">
-    <img class="mm-glyph" src="/static/assets/metis-logomark-transparent.png" alt="">
+    <img class="mm-glyph" src="/static/assets/metis-mark.svg?v=v18" alt="">
     <span class="mm-stack">
       <span class="mm-word">Metis</span>
       <span class="mm-sub gradient">Director's Console</span>
@@ -102,17 +102,18 @@ body.leaving{animation:fadeOut .5s cubic-bezier(.4,0,.6,1) forwards}
 <div class="foot">Boot sequence · <span id="ver">v—</span></div>
 
 <script type="module">
-import { api, getToken, ensureAuthed, setSession } from '/static/js/api.js?v=v17';
+import { api, getToken, ensureAuthed, setSession } from '/static/js/api.js?v=v19';
 
 const STEPS = [
-  { id: 'boot',    label: 'Initializing runtime',         run: bootRuntime },
-  { id: 'auth',    label: 'Verifying your session',       run: bootAuth },
-  { id: 'ollama',  label: 'Starting your AI brain',       run: bootOllama },
-  { id: 'config',  label: 'Loading Manager configuration', run: bootConfig },
-  { id: 'status',  label: 'Pinging the runtime',          run: bootStatus },
-  { id: 'models',  label: 'Discovering available models',  run: bootModels },
-  { id: 'sessions',label: 'Pulling your sessions',         run: bootSessions },
-  { id: 'crew',    label: 'Waking the crew',               run: bootCrew },
+  { id: 'boot',     label: 'Initializing runtime',         run: bootRuntime },
+  { id: 'auth',     label: 'Verifying your session',       run: bootAuth },
+  { id: 'ollama',   label: 'Starting your AI brain',       run: bootOllama },
+  { id: 'browser',  label: 'Preparing browser engine',     run: bootBrowserEngine },
+  { id: 'config',   label: 'Loading Manager configuration', run: bootConfig },
+  { id: 'status',   label: 'Pinging the runtime',          run: bootStatus },
+  { id: 'models',   label: 'Discovering available models',  run: bootModels },
+  { id: 'sessions', label: 'Pulling your sessions',         run: bootSessions },
+  { id: 'crew',     label: 'Waking the crew',               run: bootCrew },
 ];
 
 const stepsEl = document.getElementById('steps');
@@ -222,6 +223,60 @@ async function bootOllama() {
   } catch {
     return 'skipped';
   }
+}
+
+async function bootBrowserEngine() {
+  // Customer-friendly: never ask anyone to run `python -m playwright install`.
+  // The backend kicks off the install on startup; we just poll until it's
+  // ready (or surface "not needed" / "skipped" when the package isn't there).
+  // First-launch install downloads ~150 MB; subsequent boots are instant.
+  if (routeNext !== '/app') return 'skipped';
+
+  const stepEl = document.getElementById('step-browser');
+  const metaEl = stepEl?.querySelector('.meta');
+
+  const poll = async () => {
+    const r = await fetch('/playwright/status');
+    if (!r.ok) throw new Error('status unavailable');
+    return r.json();
+  };
+
+  let s;
+  try { s = await poll(); }
+  catch { return 'unavailable'; }
+
+  if (s.state === 'unavailable') return 'not installed (browser tasks disabled)';
+  if (s.state === 'ready')       return 'ready';
+
+  // If absent, ask the backend to start the install (idempotent).
+  if (s.state === 'absent') {
+    try { await fetch('/playwright/install', { method: 'POST' }); }
+    catch {}
+    s = await poll();
+  }
+
+  // While installing, poll every 1.5s and update the meta line so the user
+  // sees real progress instead of a frozen step.
+  const startedAt = Date.now();
+  const TIMEOUT_MS = 8 * 60 * 1000;  // 8 min — generous for slow networks
+  while (s.state === 'installing') {
+    if (metaEl) {
+      const elapsed = Math.round((Date.now() - startedAt) / 1000);
+      metaEl.textContent = `first launch — downloading Chromium (${elapsed}s)…`;
+    }
+    if (Date.now() - startedAt > TIMEOUT_MS) {
+      // Don't block the whole boot forever — let the user into the app
+      // and surface the install state via the Browser Control page.
+      return 'still installing in background';
+    }
+    await new Promise(r => setTimeout(r, 1500));
+    try { s = await poll(); }
+    catch { return 'still installing in background'; }
+  }
+
+  if (s.state === 'ready')  return 'installed';
+  if (s.state === 'failed') return s.message || 'install failed (will retry next launch)';
+  return s.state || 'unknown';
 }
 
 async function bootConfig() {

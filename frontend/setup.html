@@ -138,7 +138,7 @@ body{cursor:auto}
 
 <header class="head">
   <button class="metis-mark size-sm" type="button" title="Refresh">
-    <img class="mm-glyph" src="/static/assets/metis-logomark-transparent.png" alt="">
+    <img class="mm-glyph" src="/static/assets/metis-mark.svg?v=v18" alt="">
     <span class="mm-word">Metis</span>
   </button>
   <div class="step-counter">Setup · <b id="counter">1 / 6</b></div>
@@ -151,9 +151,9 @@ body{cursor:auto}
 </div>
 
 <script type="module">
-import { api, ensureAuthed, clearSession } from '/static/js/api.js?v=v17';
+import { api, ensureAuthed, clearSession } from '/static/js/api.js?v=v19';
 
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 7;
 let stepIdx = 0;
 let presets = [];
 let availableModels = [];
@@ -210,7 +210,7 @@ function header(eyebrow, title, sub) {
 
 const STEPS = [
   // Step 1 — Welcome / Company
-  () => `${header('Step 1 of 6', 'Welcome to <em>your</em> AI company.', 'Let\'s set up the Manager who will run the room. First, what do you want to call your company?')}
+  () => `${header('Step 1 of 7', 'Welcome to <em>your</em> AI company.', 'Let\'s set up the Manager who will run the room. First, what do you want to call your company?')}
     <div class="field">
       <label>Company name</label>
       <input type="text" id="companyName" maxlength="60" value="${esc(cfg.company_name)}" placeholder="Metis Command">
@@ -223,7 +223,7 @@ const STEPS = [
     </div>`,
 
   // Step 2 — Manager identity
-  () => `${header('Step 2 of 6', 'Name your <em>Manager</em>.', 'Give them a name and a color. This is who you\'ll talk to every day.')}
+  () => `${header('Step 2 of 7', 'Name your <em>Manager</em>.', 'Give them a name and a color. This is who you\'ll talk to every day.')}
     <div class="field">
       <label>Manager name</label>
       <input type="text" id="managerName" maxlength="40" value="${esc(cfg.manager_name)}" placeholder="Atlas">
@@ -243,7 +243,7 @@ const STEPS = [
     </div>`,
 
   // Step 3 — Personality
-  () => `${header('Step 3 of 6', 'Pick a <em>personality</em>.', 'How should ' + esc(cfg.manager_name) + ' talk to you? Each preset fills in a starting prompt — you can edit it directly below.')}
+  () => `${header('Step 3 of 7', 'Pick a <em>personality</em>.', 'How should ' + esc(cfg.manager_name) + ' talk to you? Each preset fills in a starting prompt — you can edit it directly below.')}
     <div class="preset-grid">
       ${presets.map(p => `
         <button type="button" class="preset-card ${p.key === cfg.persona_key ? 'selected' : ''}" data-key="${p.key}">
@@ -260,7 +260,7 @@ const STEPS = [
     </div>`,
 
   // Step 4 — Model
-  () => availableModels.length ? `${header('Step 4 of 6', 'Choose your <em>model</em>.', 'Which AI brain should power the Manager? Local models are private (run on your machine). Cloud models are faster + smarter but cost API credits.')}
+  () => availableModels.length ? `${header('Step 4 of 7', 'Choose your <em>model</em>.', 'Which AI brain should power the Manager? Local models are private (run on your machine). Cloud models are faster + smarter but cost API credits.')}
     <div class="model-grid">
       ${availableModels.map(m => `
         <div class="model-card ${m.id === cfg.manager_model ? 'selected' : ''}" data-id="${esc(m.id)}">
@@ -272,22 +272,61 @@ const STEPS = [
           <div class="check"></div>
         </div>
       `).join('')}
-    </div>` : `${header('Step 4 of 6', 'Choose your <em>model</em>.', 'No models found yet. Make sure Ollama is running, or set GLM_API_KEY / GROQ_API_KEY in your .env to enable cloud routes.')}<div class="banner show error">No models available. You can finish setup and we'll detect them when they come online.</div>`,
+    </div>` : `${header('Step 4 of 7', 'Choose your <em>model</em>.', 'No models found yet. Make sure Ollama is running, or set GLM_API_KEY / GROQ_API_KEY in your .env to enable cloud routes.')}<div class="banner show error">No models available. You can finish setup and we'll detect them when they come online.</div>`,
 
-  // Step 5 — Director profile
-  () => `${header('Step 5 of 6', 'Tell <em>' + esc(cfg.manager_name) + '</em> about you.', 'Whatever ' + esc(cfg.manager_name) + ' knows about you can be used to give better answers. Keep it short or write paragraphs — your call.')}
+  // Step 5 — Director profile + notification preferences
+  () => `${header('Step 5 of 7', 'Tell <em>' + esc(cfg.manager_name) + '</em> about you.', 'Whatever ' + esc(cfg.manager_name) + ' knows about you can be used to give better answers. The notification fields are how the manager reaches you when an automation finishes or a subagent has a question.')}
     <div class="field">
       <label>What should ${esc(cfg.manager_name)} call you?</label>
       <input type="text" id="directorName" maxlength="40" value="${esc(cfg.director_name)}" placeholder="Your name">
     </div>
     <div class="field">
       <label>About you <span style="color:var(--subtle)">(role, projects, preferences — anything)</span></label>
-      <textarea id="directorAbout" rows="7" placeholder="e.g. Software engineer building a product company. Prefer concise answers with code samples. Working on Metis (an AI orchestrator). I read fast, ship fast.">${esc(cfg.director_about)}</textarea>
+      <textarea id="directorAbout" rows="6" placeholder="e.g. Software engineer building a product company. Prefer concise answers with code samples. Working on Metis (an AI orchestrator). I read fast, ship fast.">${esc(cfg.director_about)}</textarea>
       <div class="hint">This is added to ${esc(cfg.manager_name)}'s system prompt so it persists across every conversation.</div>
+    </div>
+    <div class="row-2">
+      <div class="field">
+        <label>Notification email <span style="color:var(--subtle)">(optional)</span></label>
+        <input type="email" id="notificationEmail" maxlength="120" value="${esc(cfg.notification_email || '')}" placeholder="you@example.com">
+        <div class="hint">For task-complete pings.</div>
+      </div>
+      <div class="field">
+        <label>Notification phone <span style="color:var(--subtle)">(optional)</span></label>
+        <input type="tel" id="notificationPhone" maxlength="20" value="${esc(cfg.notification_phone || '')}" placeholder="+1 555 555 5555">
+        <div class="hint">SMS / call alerts via Twilio.</div>
+      </div>
     </div>`,
 
-  // Step 6 — Specialists / Crew
-  () => `${header('Step 6 of 6', 'Build your <em>crew</em>.', esc(cfg.manager_name) + ' delegates to specialists when their depth helps. Toggle which ones are part of your team — you can always change this later.')}
+  // Step 6 — Email sending credentials (used by the AI to send mail FROM you)
+  () => `${header('Step 6 of 7', 'Give <em>' + esc(cfg.manager_name) + '</em> an email account.', 'These credentials let the AI send messages on your behalf — confirmation pings, automation reports, replies you ask it to draft and send. Stored locally only (encrypted at rest is on the roadmap; gitignored either way). <strong>Use a Gmail App Password</strong>, never your real Google password.')}
+    <div class="field">
+      <label>Email username (the address the AI sends FROM) <span style="color:var(--subtle)">(optional)</span></label>
+      <input type="email" id="emailUsername" maxlength="120" value="${esc(cfg.email_username || '')}" placeholder="you-or-an-alias@gmail.com" autocomplete="off">
+      <div class="hint">Tip: create a dedicated Gmail alias just for the AI so you can revoke it later.</div>
+    </div>
+    <div class="field">
+      <label>App password <span style="color:var(--subtle)">(optional)</span></label>
+      <input type="password" id="emailPassword" maxlength="120" value="${esc(cfg.email_password || '')}" placeholder="16-character app password" autocomplete="new-password">
+      <div class="hint">Get one at <code>myaccount.google.com → Security → 2-Step Verification → App passwords</code>. <strong>Never paste your real account password.</strong></div>
+    </div>
+    <div class="row-2">
+      <div class="field">
+        <label>SMTP host</label>
+        <input type="text" id="emailSmtpHost" maxlength="120" value="${esc(cfg.email_smtp_host || 'smtp.gmail.com')}" placeholder="smtp.gmail.com">
+      </div>
+      <div class="field">
+        <label>SMTP port</label>
+        <input type="number" id="emailSmtpPort" min="1" max="65535" value="${cfg.email_smtp_port || 465}">
+        <div class="hint">465 (SSL) or 587 (STARTTLS).</div>
+      </div>
+    </div>
+    <div class="banner show" style="background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.25);color:#FBBF24;padding:12px 14px;border-radius:10px;margin-top:12px;font-size:12.5px;line-height:1.5">
+      ⚠ This password sits on disk in plaintext (gitignored). It's safe-ish on a single-user machine but anyone with file access can read it. A future update moves these into the Vault.
+    </div>`,
+
+  // Step 7 — Specialists / Crew
+  () => `${header('Step 7 of 7', 'Build your <em>crew</em>.', esc(cfg.manager_name) + ' delegates to specialists when their depth helps. Toggle which ones are part of your team — you can always change this later.')}
     <div class="spec-list">
       ${specOptions.map(s => `
         <div class="spec-row ${cfg.specialists.includes(s.key) ? 'on' : ''}" data-key="${s.key}">
@@ -384,7 +423,7 @@ function attachStepHandlers() {
     });
   }
 
-  if (stepIdx === 5) {
+  if (stepIdx === 6) {
     document.querySelectorAll('.spec-row').forEach(el => {
       el.addEventListener('click', () => {
         const key = el.dataset.key;
@@ -409,6 +448,13 @@ function saveStepInputs() {
   } else if (stepIdx === 4) {
     cfg.director_name = (document.getElementById('directorName')?.value || '').trim() || 'Director';
     cfg.director_about = (document.getElementById('directorAbout')?.value || '').trim();
+    cfg.notification_email = (document.getElementById('notificationEmail')?.value || '').trim();
+    cfg.notification_phone = (document.getElementById('notificationPhone')?.value || '').trim();
+  } else if (stepIdx === 5) {
+    cfg.email_username  = (document.getElementById('emailUsername')?.value || '').trim();
+    cfg.email_password  = (document.getElementById('emailPassword')?.value || '').trim();
+    cfg.email_smtp_host = (document.getElementById('emailSmtpHost')?.value || '').trim() || 'smtp.gmail.com';
+    cfg.email_smtp_port = parseInt(document.getElementById('emailSmtpPort')?.value || '465', 10) || 465;
   }
 }
 

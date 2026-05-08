@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Automation Inbox - Metis</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="/static/assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/styles/shell.css?v=v21">
+<link rel="stylesheet" href="/static/styles/wordmark.css?v=v21">
+<script src="/static/js/wordmark.js?v=v20" defer></script>
+<style>
+.inbox{display:flex;flex-direction:column;gap:10px}
+.event{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:start;background:var(--panel);border:1px solid var(--border);border-radius:13px;padding:14px 16px}
+.dot{width:11px;height:11px;border-radius:50%;background:var(--subtle);margin-top:5px}
+.dot.ok{background:var(--gr);box-shadow:0 0 10px rgba(34,197,94,.4)}
+.dot.failed{background:var(--co);box-shadow:0 0 10px rgba(251,113,133,.4)}
+.dot.pending{background:var(--am);box-shadow:0 0 10px rgba(245,158,11,.4)}
+.title{font-family:'Sora',sans-serif;font-size:14px;font-weight:700;color:var(--text);line-height:1.35}
+.meta{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--subtle);margin-top:4px}
+.bodytext{font-size:12.5px;color:var(--muted);line-height:1.55;margin-top:8px;white-space:pre-wrap}
+.pill{font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.08em;border:1px solid var(--border);border-radius:99px;padding:3px 8px;color:var(--muted)}
+.pill.ok{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.3);color:#86EFAC}
+.pill.failed{background:rgba(251,113,133,.12);border-color:rgba(251,113,133,.3);color:#FCA5A5}
+.pill.pending{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.3);color:#FCD34D}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px}
+.stat{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px}
+.stat .k{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--subtle)}
+.stat .v{font-family:'Sora',sans-serif;font-size:24px;font-weight:800;color:var(--text);margin-top:5px}
+.empty{padding:28px;text-align:center;color:var(--subtle)}
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="side">
+    <div class="side-head">
+      <button class="metis-mark size-sm" type="button" title="Refresh">
+        <img class="mm-glyph" src="/static/assets/metis-mark.svg?v=v19" alt="">
+        <span class="mm-stack"><span class="mm-word">Metis</span><span class="mm-sub">Inbox</span></span>
+      </button>
+    </div>
+    <nav class="nav" data-active="automation-inbox"></nav>
+    <div class="side-foot">
+      <div class="avatar" id="userAvatar">M</div>
+      <div class="user-meta"><div class="name" id="userName">Loading...</div><div class="role">Director</div></div>
+      <button class="btn" id="signoutBtn" style="height:32px;padding:0 10px;font-size:11px">Sign out</button>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="page-head">
+      <h1 class="page-title">Automation <em>inbox</em></h1>
+      <span class="page-sub">Real run history, browser jobs, timestamps, status, and failure detail</span>
+      <a class="btn primary" href="/automations">Automation board</a>
+    </div>
+    <div class="body">
+      <div class="body-inner" style="max-width:1120px">
+        <div class="summary">
+          <div class="stat"><div class="k">Total automations</div><div class="v" id="total">0</div></div>
+          <div class="stat"><div class="k">Ran at least once</div><div class="v" id="ran">0</div></div>
+          <div class="stat"><div class="k">Failed last run</div><div class="v" id="failed">0</div></div>
+        </div>
+        <div class="inbox" id="inbox"><div class="empty">Loading automation activity...</div></div>
+      </div>
+    </div>
+  </main>
+</div>
+<script type="module">
+import { api, ensureAuthed } from '/static/js/api.js?v=v21';
+
+await ensureAuthed();
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = (ts) => {
+  if (!ts) return 'Never';
+  return ts > 1e12 ? new Date(ts).toLocaleString() : new Date(ts * 1000).toLocaleString();
+};
+
+async function loadInbox() {
+  const [schedules, eventResp] = await Promise.all([
+    api.schedules(),
+    api.automationEvents(120).catch(() => ({ events: [] })),
+  ]);
+  const rows = eventResp.events || [];
+  document.getElementById('total').textContent = schedules.length;
+  document.getElementById('ran').textContent = schedules.filter(s => s.last_run).length;
+  document.getElementById('failed').textContent = rows.filter(e => e.status === 'failed').length;
+  const inbox = document.getElementById('inbox');
+  if (!rows.length) {
+    inbox.innerHTML = '<div class="empty">No execution events yet.</div>';
+    return;
+  }
+  inbox.innerHTML = rows.map(event => {
+    const st = event.status || 'pending';
+    const label = event.schedule_name || event.goal || event.action || 'Untitled automation';
+    const action = event.action ? `System action: ${event.action}` : event.goal || event.detail || '';
+    return `
+      <article class="event">
+        <div class="dot ${esc(st)}"></div>
+        <div>
+          <div class="title">${esc(label)}</div>
+          <div class="meta">${esc(event.trigger || 'schedule')} - ${esc(fmt(event.created_at))} - runs ${event.run_count || 0}</div>
+          <div class="bodytext">${esc(action)}${event.detail ? '\n\nResult: ' + esc(event.detail) : ''}${event.error ? '\n\nError: ' + esc(event.error) : ''}</div>
+        </div>
+        <span class="pill ${esc(st)}">${esc(st)}</span>
+      </article>
+    `;
+  }).join('');
+}
+
+loadInbox().catch(err => {
+  document.getElementById('inbox').innerHTML = `<div class="empty">Load failed: ${esc(err.message)}</div>`;
+});
+setInterval(loadInbox, 30000);
+</script>
+<script type="module" src="/static/js/nav.js?v=v21"></script>
+</body>
+</html>

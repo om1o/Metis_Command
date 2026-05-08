@@ -84,8 +84,15 @@ export const api = {
   createSchedule: (data) => _fetch('/schedules', { method: 'POST', body: JSON.stringify(data) }),
   deleteSchedule: (id) => _fetch(`/schedules/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   toggleSchedule: (id) => _fetch(`/schedules/${encodeURIComponent(id)}/toggle`, { method: 'POST' }),
+  runScheduleNow: (id) => _fetch(`/schedules/${encodeURIComponent(id)}/run`, { method: 'POST' }),
+  automationEvents: (limit = 100, scheduleId = '') => _fetch(`/automation-events?limit=${limit}${scheduleId ? `&schedule_id=${encodeURIComponent(scheduleId)}` : ''}`),
   marketplace: () => _fetch('/marketplace'),
+  installPlugin: (slug) => _fetch('/marketplace/install', {
+    method: 'POST',
+    body: JSON.stringify({ slug }),
+  }),
   skills: () => _fetch('/skills'),
+  artifacts: (limit = 50) => _fetch(`/artifacts?limit=${limit}`),
   sessions: () => _fetch('/sessions'),
   sessionMessages: (id) => _fetch(`/sessions/${encodeURIComponent(id)}`),
   deleteSession: (id) => _fetch(`/sessions/${encodeURIComponent(id)}`, { method: 'DELETE' }),
@@ -100,8 +107,51 @@ export const api = {
   }),
   models: () => _fetch('/models'),
 
+  // Browser operator
+  browserStatus: () => _fetch('/browser/status'),
+  browserOpen: (headless = false) => _fetch('/browser/open', {
+    method: 'POST',
+    body: JSON.stringify({ headless }),
+  }),
+  browserClose: () => _fetch('/browser/close', { method: 'POST' }),
+  browserNavigate: (url) => _fetch('/browser/navigate', {
+    method: 'POST',
+    body: JSON.stringify({ url }),
+  }),
+  browserScreenshot: () => _fetch('/browser/screenshot'),
+  browserFill: (selector, value, secret = false) => _fetch('/browser/fill', {
+    method: 'POST',
+    body: JSON.stringify({ selector, value, secret }),
+  }),
+  browserClick: (selector) => _fetch('/browser/click', {
+    method: 'POST',
+    body: JSON.stringify({ selector }),
+  }),
+  browserWait: (selector, timeout_ms = 10000) => _fetch('/browser/wait', {
+    method: 'POST',
+    body: JSON.stringify({ selector, timeout_ms }),
+  }),
+  browserAudit: (limit = 50) => _fetch(`/browser/audit?limit=${limit}`),
+  browserApprovals: () => _fetch('/browser/approvals'),
+  approveBrowserAction: (id) => _fetch(`/browser/approvals/${encodeURIComponent(id)}/approve`, { method: 'POST' }),
+  denyBrowserAction: (id) => _fetch(`/browser/approvals/${encodeURIComponent(id)}/deny`, { method: 'POST' }),
+  browserSessionMode: (mode, job_label = '') => _fetch('/browser/session-mode', {
+    method: 'POST',
+    body: JSON.stringify({ mode, job_label }),
+  }),
+  browserServices: () => _fetch('/browser/services'),
+  addBrowserService: (payload) => _fetch('/browser/services', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  }),
+  patchBrowserService: (id, payload) => _fetch(`/browser/services/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  }),
+
   // Agent health
   agentHealth: () => _fetch('/agents/health'),
+  notifyStatus: () => _fetch('/notify/status'),
 
   // Relationships
   relationships: () => _fetch('/relationships'),
@@ -147,7 +197,10 @@ export const api = {
   }),
 
   // Streaming chat (Server-Sent Events)
-  chatStream: async function* (sessionId, message, role = 'manager', signal, direct = false) {
+  // `extra` is a Group-6 hook that piggybacks per-call fields onto the
+  // POST body — currently agents_md_overrides + director_answer +
+  // director_answer_for. Existing callers stay backward-compatible.
+  chatStream: async function* (sessionId, message, role = 'manager', signal, direct = false, extra = {}) {
     const token = getToken();
     const r = await fetch('/chat', {
       method: 'POST',
@@ -155,7 +208,7 @@ export const api = {
         'Content-Type': 'application/json',
         ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({ session_id: sessionId, message, role, direct }),
+      body: JSON.stringify({ session_id: sessionId, message, role, direct, ...(extra || {}) }),
       signal,
     });
     if (!r.ok || !r.body) {
@@ -191,6 +244,18 @@ export const api = {
 };
 
 export async function ensureAuthed() {
+  // Local installs: same-origin /auth/local-token works before any cloud session.
+  if (!getToken()) {
+    try {
+      const res = await fetch('/auth/local-token');
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.token) localStorage.setItem(TOKEN_KEY, data.token);
+      }
+    } catch {
+      /* ignore */
+    }
+  }
   if (!getToken()) {
     window.location.href = '/login';
     return null;

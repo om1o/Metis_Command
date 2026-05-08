@@ -13,21 +13,23 @@
 <script src="/static/js/wordmark.js?v=v17" defer></script>
 <style>
 :root{
-  --vi:#7C3AED; --vi2:#A78BFA; --co:#FB7185; --am:#F59E0B; --bl:#3B82F6; --gr:#22C55E;
-  --bg:#07071a; --bg-2:#0d0d24; --panel:rgba(255,255,255,.04); --panel-2:rgba(255,255,255,.06);
-  --text:#F8FAFF; --muted:rgba(248,250,255,.6); --subtle:rgba(248,250,255,.32);
-  --border:rgba(255,255,255,.08); --border-2:rgba(255,255,255,.14);
-  --grad:linear-gradient(135deg,var(--vi),var(--co) 55%,var(--am));
-  --accent: #7C3AED;
-  --accent-soft: rgba(124,58,237,.18);
-  --accent-glow: rgba(124,58,237,.35);
+  --vi:#7857FF; --vi2:#C1B6FF; --co:#F6926B; --am:#D5A156; --bl:#4B82F8; --gr:#39BA78;
+  --bg:#0A0D14; --bg-2:#121926; --panel:rgba(255,255,255,.035); --panel-2:rgba(255,255,255,.055);
+  --text:#F4F7FB; --muted:rgba(244,247,251,.66); --subtle:rgba(244,247,251,.42);
+  --border:rgba(255,255,255,.085); --border-2:rgba(255,255,255,.15);
+  --grad:linear-gradient(135deg,var(--vi),#B94CE4 60%,var(--co));
+  --accent:#7857FF;
+  --accent-soft:rgba(120,87,255,.16);
+  --accent-glow:rgba(120,87,255,.28);
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden}
 body{cursor:auto}
 body::before{content:"";position:fixed;inset:0;background:
-  radial-gradient(circle at 12% 8%,rgba(124,58,237,.18),transparent 50%),
-  radial-gradient(circle at 90% 100%,rgba(251,113,133,.10),transparent 55%);
+  linear-gradient(180deg,rgba(255,255,255,.015),transparent 30%),
+  radial-gradient(circle at 14% 8%,rgba(120,87,255,.14),transparent 44%),
+  radial-gradient(circle at 84% 0%,rgba(246,146,107,.08),transparent 28%),
+  radial-gradient(circle at 94% 100%,rgba(75,130,248,.06),transparent 30%);
   z-index:0;pointer-events:none}
 
 #mp-dot, #mp-ring, #mp-grain { display: none !important; }
@@ -35,12 +37,25 @@ body::before{content:"";position:fixed;inset:0;background:
 .layout{position:relative;z-index:1;display:grid;grid-template-columns:280px 1fr;height:100vh}
 
 /* ── Sidebar ── */
-.side{background:rgba(7,7,26,.7);backdrop-filter:blur(20px);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.side{background:rgba(10,13,20,.84);backdrop-filter:blur(22px);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
 
 /* Sidebar header: stretched clickable wordmark + version pill */
 .side-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;min-height:64px}
 .side-head .metis-mark{flex:1;min-width:0}
 .side-head .ver{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--subtle);background:var(--panel);padding:3px 7px;border-radius:5px;border:1px solid var(--border);flex-shrink:0}
+
+/* Top-level page nav: exactly three expandable groups */
+.page-nav{padding:8px 8px 6px;display:flex;flex-direction:column;gap:8px;border-bottom:1px solid var(--border)}
+.page-nav-group{border:1px solid var(--border);border-radius:10px;background:rgba(255,255,255,.025);overflow:hidden}
+.page-nav-group summary{list-style:none;display:flex;align-items:center;justify-content:space-between;padding:9px 11px;font-family:'Sora',sans-serif;font-size:10.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--subtle);cursor:pointer;user-select:none}
+.page-nav-group summary::-webkit-details-marker{display:none}
+.page-nav-group summary::after{content:"";width:7px;height:7px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg);transition:transform .15s;opacity:.75}
+.page-nav-group[open] summary::after{transform:rotate(225deg)}
+.page-nav-items{display:flex;flex-direction:column;gap:2px;padding:0 5px 6px}
+.page-nav-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;color:var(--muted);text-decoration:none;font-size:12.5px;font-weight:500;cursor:pointer;transition:all .15s}
+.page-nav-item:hover{background:var(--panel);color:var(--text)}
+.page-nav-item.active{background:var(--accent-soft);color:var(--text);box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent)}
+.page-nav-item svg{width:16px;height:16px;stroke:currentColor;stroke-width:2;fill:none;flex-shrink:0}
 
 .new-btn{margin:14px 16px 8px;height:38px;border-radius:10px;border:1px solid var(--border-2);background:var(--panel-2);color:var(--text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .18s}
 .new-btn:hover{background:var(--accent-soft);border-color:var(--accent)}
@@ -85,7 +100,7 @@ body::before{content:"";position:fixed;inset:0;background:
 
 /* ── Main ── */
 .main{display:flex;flex-direction:column;overflow:hidden;position:relative}
-.main-head{padding:14px 28px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;background:rgba(7,7,26,.5);backdrop-filter:blur(14px)}
+.main-head{padding:18px 28px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;background:rgba(10,13,20,.72);backdrop-filter:blur(18px)}
 .manager-badge{display:flex;align-items:center;gap:10px;padding:8px 14px;border-radius:10px;background:var(--accent-soft);border:1px solid color-mix(in srgb, var(--accent) 40%, transparent)}
 .manager-badge .pulse{width:7px;height:7px;border-radius:50%;background:var(--gr);box-shadow:0 0 8px rgba(34,197,94,.6);animation:dot-pulse 2s ease-in-out infinite}
 @keyframes dot-pulse{0%,100%{opacity:.7}50%{opacity:1}}
@@ -127,16 +142,48 @@ body::before{content:"";position:fixed;inset:0;background:
 .health-dot.bad{background:var(--co);box-shadow:0 0 6px rgba(251,113,133,.6)}
 
 .chat{flex:1;overflow-y:auto;padding:32px 0}
-.chat-inner{max-width:820px;margin:0 auto;padding:0 28px}
-.empty{text-align:center;padding:60px 20px;color:var(--muted)}
-.empty img{width:80px;height:auto;margin-bottom:24px;filter:drop-shadow(0 0 20px var(--accent-glow));animation:float 5s ease-in-out infinite}
-@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
-.empty h2{font-family:'Sora',sans-serif;font-size:32px;font-weight:700;letter-spacing:-.02em;margin-bottom:10px;color:var(--text)}
+.chat-inner{max-width:1140px;margin:0 auto;padding:0 28px}
+.empty{text-align:left;padding:18px 0 44px;color:var(--muted)}
+.empty img{width:58px;height:auto;margin-bottom:16px;filter:drop-shadow(0 6px 18px rgba(120,87,255,.16));animation:none}
+.empty h2{font-family:'Sora',sans-serif;font-size:38px;font-weight:700;letter-spacing:-.025em;margin-bottom:12px;color:var(--text);max-width:12ch}
 .empty h2 em{font-family:Georgia,serif;font-style:italic;font-weight:400;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
-.empty p{font-size:15px;color:var(--muted);max-width:48ch;margin:0 auto 28px;line-height:1.55}
-.suggestions{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;max-width:600px;margin:0 auto}
-.suggestion{padding:14px 16px;border-radius:12px;border:1px solid var(--border);background:var(--panel);text-align:left;cursor:pointer;transition:all .18s;font-family:inherit;font-size:13.5px;color:var(--text)}
-.suggestion:hover{background:var(--panel-2);border-color:color-mix(in srgb, var(--accent) 35%, transparent);transform:translateY(-2px)}
+.empty p{font-size:15px;color:var(--muted);max-width:66ch;margin:0 0 28px;line-height:1.65}
+.workspace-board{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(320px,.9fr);gap:18px;align-items:start}
+.workspace-main,.workspace-side{display:flex;flex-direction:column;gap:18px}
+.workspace-hero,.ops-panel,.launch-card{border:1px solid var(--border);background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.02));box-shadow:0 18px 48px rgba(0,0,0,.22)}
+.workspace-hero{padding:24px 26px;border-radius:22px;position:relative;overflow:hidden}
+.workspace-hero::after{content:"";position:absolute;inset:auto -40px -60px auto;width:220px;height:220px;background:radial-gradient(circle,rgba(120,87,255,.16),transparent 68%);pointer-events:none}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--vi2);margin-bottom:12px}
+.hero-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.hero-stat{padding:14px 16px;border-radius:16px;background:rgba(0,0,0,.18);border:1px solid var(--border)}
+.hero-stat-label{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--subtle)}
+.hero-stat-value{margin-top:8px;font-family:'Sora',sans-serif;font-size:18px;font-weight:700;color:var(--text);letter-spacing:-.02em}
+.hero-stat-copy{margin-top:5px;font-size:12px;line-height:1.5;color:var(--muted)}
+.launch-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.launch-card{display:block;padding:18px;border-radius:18px;text-decoration:none;color:inherit;transition:transform .18s ease,border-color .18s ease,background .18s ease}
+.launch-card:hover{transform:translateY(-2px);border-color:color-mix(in srgb, var(--accent) 42%, transparent);background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.03))}
+.launch-card.featured{border-color:rgba(120,87,255,.32);background:linear-gradient(180deg,rgba(120,87,255,.12),rgba(255,255,255,.03))}
+.launch-card-eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--vi2)}
+.launch-card-title{margin-top:10px;font-family:'Sora',sans-serif;font-size:20px;font-weight:700;letter-spacing:-.02em;color:var(--text)}
+.launch-card-desc{margin-top:8px;font-size:13px;line-height:1.65;color:var(--muted)}
+.launch-card-meta{margin-top:14px;font-size:11px;color:var(--subtle);font-family:'JetBrains Mono',monospace}
+.ops-panel{padding:22px;border-radius:22px}
+.ops-panel h3{font-family:'Sora',sans-serif;font-size:13px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--subtle);margin-bottom:14px}
+.ops-panel p{margin-bottom:14px;font-size:13px;line-height:1.65;color:var(--muted)}
+.ops-steps{display:flex;flex-direction:column;gap:10px}
+.ops-step{display:grid;grid-template-columns:28px 1fr;gap:12px;padding:12px 14px;border-radius:14px;background:rgba(0,0,0,.16);border:1px solid var(--border)}
+.ops-step-num{width:28px;height:28px;border-radius:999px;background:rgba(120,87,255,.16);border:1px solid rgba(120,87,255,.24);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--vi2)}
+.ops-step-title{font-size:13px;font-weight:700;color:var(--text)}
+.ops-step-copy{margin-top:4px;font-size:12px;line-height:1.55;color:var(--muted)}
+.ops-list{display:flex;flex-direction:column;gap:10px}
+.ops-list-item{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid rgba(255,255,255,.05)}
+.ops-list-item:first-child{border-top:none;padding-top:0}
+.ops-list-marker{width:8px;height:8px;border-radius:999px;background:var(--gr);box-shadow:0 0 0 5px rgba(57,186,120,.08);margin-top:6px;flex-shrink:0}
+.ops-list-copy strong{display:block;font-size:12px;font-weight:700;color:var(--text);margin-bottom:3px}
+.ops-list-copy span{font-size:12px;line-height:1.55;color:var(--muted)}
+.suggestions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;max-width:none;margin:0}
+.suggestion{padding:16px 18px;border-radius:15px;border:1px solid var(--border);background:rgba(255,255,255,.03);text-align:left;cursor:pointer;transition:all .18s;font-family:inherit;font-size:13.5px;color:var(--text)}
+.suggestion:hover{background:rgba(255,255,255,.055);border-color:color-mix(in srgb, var(--accent) 35%, transparent);transform:translateY(-1px)}
 .suggestion .stitle{font-weight:600;margin-bottom:4px}
 .suggestion .ssub{font-size:12px;color:var(--muted)}
 
@@ -349,6 +396,27 @@ pre:hover .code-copy{opacity:1}
 .agent-timeout{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);font-size:12px;color:#FBBF24;font-family:'JetBrains Mono',monospace;margin-top:4px;animation:fadeIn .3s ease}
 .agent-timeout .ico{font-size:14px;flex-shrink:0}
 
+/* Agent question backchannel */
+.agent-question-box{margin-top:8px;padding:12px 14px;border-radius:10px;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.3);animation:fadeIn .35s ease}
+.agent-question-box .aq-label{font-family:'JetBrains Mono',monospace;font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;color:#93C5FD;margin-bottom:6px}
+.agent-question-box .aq-question{font-size:13.5px;line-height:1.5;color:var(--text);margin-bottom:6px}
+.agent-question-box .aq-hint{font-size:11.5px;color:var(--subtle);font-style:italic}
+
+/* AGENTS.md editor modal */
+.agents-md-overlay{position:fixed;inset:0;z-index:300;background:rgba(7,7,26,.72);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;padding:24px;animation:fadeIn .2s ease}
+.agents-md-overlay.show{display:flex}
+.agents-md-modal{width:680px;max-width:100%;max-height:80vh;background:rgba(13,13,36,.96);backdrop-filter:blur(40px);border:1px solid var(--border-2);border-radius:14px;box-shadow:0 32px 80px rgba(0,0,0,.5);display:flex;flex-direction:column;overflow:hidden}
+.agents-md-head{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
+.agents-md-head h3{font-family:'Sora',sans-serif;font-size:17px;font-weight:700;flex:1}
+.agents-md-head .close{background:transparent;border:none;color:var(--subtle);cursor:pointer;font-size:22px;line-height:1;padding:4px 10px}
+.agents-md-head .close:hover{color:var(--text)}
+.agents-md-body{flex:1;padding:18px 22px;overflow-y:auto}
+.agents-md-body textarea{width:100%;min-height:340px;background:rgba(0,0,0,.25);border:1px solid var(--border);border-radius:10px;padding:14px;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--text);resize:vertical;outline:none;line-height:1.55}
+.agents-md-body textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.agents-md-foot{padding:14px 22px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px}
+.agents-md-foot .hint{font-size:11.5px;color:var(--subtle)}
+.agents-md-foot .actions{display:flex;gap:8px}
+
 /* ── Hamburger toggle (mobile only) ── */
 .hamburger{display:none;background:transparent;border:none;color:var(--text);cursor:pointer;padding:6px;border-radius:7px;transition:background .15s;flex-shrink:0}
 .hamburger:hover{background:var(--panel)}
@@ -511,8 +579,8 @@ pre:hover .code-copy{opacity:1}
   .health-pill{display:none}
   .input-wrap{padding:12px 14px 18px}
   .chat-inner{padding:0 14px}
-  .empty h2{font-size:24px}
-  .suggestions{grid-template-columns:1fr}
+  .empty h2{font-size:28px}
+  .workspace-board,.hero-stats,.launch-grid,.suggestions{grid-template-columns:1fr}
   .msg-content{max-width:88%}
 }
 /* Very small phones */
@@ -522,6 +590,14 @@ pre:hover .code-copy{opacity:1}
   .manager-badge .name{font-size:12.5px}
 }
 </style>
+<script>
+if (window.location.hash.includes('figmacapture=')) {
+  const figmaCaptureScript = document.createElement('script');
+  figmaCaptureScript.src = 'https://mcp.figma.com/mcp/html-to-design/capture.js';
+  figmaCaptureScript.async = true;
+  document.head.appendChild(figmaCaptureScript);
+}
+</script>
 </head>
 <body>
 
@@ -529,21 +605,84 @@ pre:hover .code-copy{opacity:1}
   <aside class="side">
     <div class="side-head">
       <button class="metis-mark size-sm" type="button" id="brandMark" title="Refresh">
-        <img class="mm-glyph" src="/static/assets/metis-logomark-transparent.png" alt="">
+        <img class="mm-glyph" src="/static/assets/metis-mark.svg?v=v18" alt="">
         <span class="mm-stack">
           <span class="mm-word">Metis</span>
-          <span class="mm-sub" id="brandSub">Director's Console</span>
+          <span class="mm-sub" id="brandSub">Operator Console</span>
         </span>
       </button>
       <span class="ver">v16.4</span>
     </div>
 
+    <!-- Top-level page nav: Chat, Work, Code -->
+    <div class="page-nav" id="pageNav">
+      <details class="page-nav-group" open>
+        <summary>Chat</summary>
+        <div class="page-nav-items">
+          <a class="page-nav-item active" href="/app" data-id="chat">
+            <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <span>All chats</span>
+          </a>
+          <a class="page-nav-item" href="/app?new=1" data-id="new-chat" data-action="new-chat">
+            <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span>New chat</span>
+          </a>
+          <a class="page-nav-item" href="/app#recent" data-id="recent-chats" data-action="recent-chats">
+            <svg viewBox="0 0 24 24"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 5.64 5.64L3 8"/><polyline points="12 7 12 12 15 15"/></svg>
+            <span>Recent chats</span>
+          </a>
+        </div>
+      </details>
+      <details class="page-nav-group" open>
+        <summary>Work</summary>
+        <div class="page-nav-items">
+          <a class="page-nav-item" href="/browser-control" data-id="browser">
+            <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 20h8"/><path d="M12 18v2"/><path d="M3 8h18"/></svg>
+            <span>Browser</span>
+          </a>
+          <a class="page-nav-item" href="/automations" data-id="automations">
+            <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            <span>Automations</span>
+          </a>
+          <a class="page-nav-item" href="/automation-inbox" data-id="automation-inbox">
+            <svg viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+            <span>Automation Inbox</span>
+          </a>
+          <a class="page-nav-item" href="/money" data-id="money">
+            <svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            <span>Money</span>
+          </a>
+          <a class="page-nav-item" href="/manager" data-id="manager">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33"/></svg>
+            <span>Manager</span>
+          </a>
+        </div>
+      </details>
+      <details class="page-nav-group">
+        <summary>Code</summary>
+        <div class="page-nav-items">
+          <a class="page-nav-item" href="/code" data-id="code">
+            <svg viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            <span>Coding chats</span>
+          </a>
+          <a class="page-nav-item" href="/code#artifacts" data-id="generated-files">
+            <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <span>Generated files</span>
+          </a>
+          <a class="page-nav-item" href="/plugins" data-id="plugins">
+            <svg viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4v5l3 2.5v5h5l2.5-3H20v-5L17 9V4h-2.5z"/></svg>
+            <span>Plugin Store</span>
+          </a>
+        </div>
+      </details>
+    </div>
+
     <button class="new-btn" id="newChatBtn">
       <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      New conversation
+      New briefing
     </button>
 
-    <div class="side-section"><span>Recent</span><span class="session-count" id="sessionCount">0</span></div>
+    <div class="side-section" id="recent"><span>Recent</span><span class="session-count" id="sessionCount">0</span></div>
     <div class="session-search">
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       <input type="text" id="sessionSearchInput" placeholder="Search sessions..." autocomplete="off">
@@ -636,26 +775,142 @@ pre:hover .code-copy{opacity:1}
     <div class="chat" id="chat">
       <div class="chat-inner" id="chatInner">
         <div class="empty" id="empty">
-          <img src="/static/assets/metis-logomark-transparent.png" alt="">
-          <h2 id="emptyTitle">What can I help you <em>build</em>, <span id="emptyDirector">Director</span>?</h2>
-          <p id="emptySub">I'm <span id="emptyManager">Manager</span>. I delegate to specialists when their depth helps and synthesize their work into one clean answer. Ask me anything.</p>
-          <div class="suggestions" id="suggestions">
-            <button class="suggestion" data-q="What can you do? Walk me through your specialists.">
-              <div class="stitle">🎯 What can you do?</div>
-              <div class="ssub">Tour your specialists and capabilities</div>
-            </button>
-            <button class="suggestion" data-q="Write a Python function that finds duplicate files in a directory by content hash.">
-              <div class="stitle">⚙️ Write some code</div>
-              <div class="ssub">Delegates to Coder + Thinker</div>
-            </button>
-            <button class="suggestion" data-q="Explain the difference between fine-tuning and RAG, in 4 bullet points.">
-              <div class="stitle">📚 Explain a concept</div>
-              <div class="ssub">Routes to Scholar for the explanation</div>
-            </button>
-            <button class="suggestion" data-q="Plan a 3-day trip to Tokyo for a software engineer interested in food.">
-              <div class="stitle">🗾 Plan something</div>
-              <div class="ssub">Multi-agent: Researcher + Thinker</div>
-            </button>
+          <div class="workspace-board">
+            <section class="workspace-main">
+              <div class="workspace-hero">
+                <img src="/static/assets/metis-mark.svg?v=v18" alt="">
+                <div class="hero-eyebrow">Desktop-first operator workspace</div>
+                <h2 id="emptyTitle">Operations ready for <span id="emptyDirector">Director</span>.</h2>
+                <p id="emptySub">I'm <span id="emptyManager">Manager</span>. Start with the browser cockpit, review automations, or tighten policy before you hand live work to Metis.</p>
+                <div class="hero-stats">
+                  <div class="hero-stat">
+                    <div class="hero-stat-label">Primary surface</div>
+                    <div class="hero-stat-value">Browser cockpit</div>
+                    <div class="hero-stat-copy">Drive a real desktop browser session with safe mode and approvals.</div>
+                  </div>
+                  <div class="hero-stat">
+                    <div class="hero-stat-label">Operator truth</div>
+                    <div class="hero-stat-value">Inbox + audit</div>
+                    <div class="hero-stat-copy">Check what ran, what failed, and what still needs approval.</div>
+                  </div>
+                  <div class="hero-stat">
+                    <div class="hero-stat-label">Control point</div>
+                    <div class="hero-stat-value">Manager policy</div>
+                    <div class="hero-stat-copy">Keep safe mode, service limits, and browser caps explicit.</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="launch-grid">
+                <a class="launch-card featured" href="/browser-control">
+                  <div class="launch-card-eyebrow">Work / Browser</div>
+                  <div class="launch-card-title">Run the browser MVP</div>
+                  <div class="launch-card-desc">Open a controlled browser session, watch the live preview, queue an approval, and prove the audit trail.</div>
+                  <div class="launch-card-meta">Open browser, navigate, click, approve, verify</div>
+                </a>
+                <a class="launch-card" href="/automations">
+                  <div class="launch-card-eyebrow">Work / Automations</div>
+                  <div class="launch-card-title">Manage active jobs</div>
+                  <div class="launch-card-desc">Start, pause, inspect, and manually run schedules from an operator board instead of a chat thread.</div>
+                  <div class="launch-card-meta">Run now, toggle, inspect, schedule</div>
+                </a>
+                <a class="launch-card" href="/automation-inbox">
+                  <div class="launch-card-eyebrow">Work / Inbox</div>
+                  <div class="launch-card-title">Review execution history</div>
+                  <div class="launch-card-desc">Use the inbox as the source of truth for timestamps, failures, approvals, and automation results.</div>
+                  <div class="launch-card-meta">Runs, failures, approvals, outcomes</div>
+                </a>
+                <a class="launch-card" href="/manager">
+                  <div class="launch-card-eyebrow">Work / Manager</div>
+                  <div class="launch-card-title">Set policy before execution</div>
+                  <div class="launch-card-desc">Configure browser warnings, allowed services, caps, and manager behavior before you trust live automation.</div>
+                  <div class="launch-card-meta">Policy, caps, safe mode, services</div>
+                </a>
+              </div>
+
+              <div class="suggestions" id="suggestions">
+                <button class="suggestion" data-q="Open the browser cockpit and guide me through a safe MVP test.">
+                  <div class="stitle">Guide the browser MVP test</div>
+                  <div class="ssub">Walk through safe mode, approvals, preview, and audit</div>
+                </button>
+                <button class="suggestion" data-q="Create a daily automation that summarizes failures and puts them in the inbox.">
+                  <div class="stitle">Create an automation</div>
+                  <div class="ssub">Set up a useful operator job with a schedule</div>
+                </button>
+                <button class="suggestion" data-q="Review the latest automation events and tell me what failed.">
+                  <div class="stitle">Review recent failures</div>
+                  <div class="ssub">Summarize what ran and what needs attention</div>
+                </button>
+                <button class="suggestion" data-q="Update manager policy for browser sessions and allowed services.">
+                  <div class="stitle">Tighten manager policy</div>
+                  <div class="ssub">Adjust service rules, safe mode, and execution limits</div>
+                </button>
+              </div>
+            </section>
+
+            <aside class="workspace-side">
+              <section class="ops-panel">
+                <h3>Browser MVP test</h3>
+                <p>If you cannot prove the browser flow, the MVP is not ready. Use this sequence and keep safe mode on for the first pass.</p>
+                <div class="ops-steps">
+                  <div class="ops-step">
+                    <div class="ops-step-num">1</div>
+                    <div>
+                      <div class="ops-step-title">Open Browser</div>
+                      <div class="ops-step-copy">Launch the browser cockpit from the Work group and start a desktop session.</div>
+                    </div>
+                  </div>
+                  <div class="ops-step">
+                    <div class="ops-step-num">2</div>
+                    <div>
+                      <div class="ops-step-title">Allow a test domain</div>
+                      <div class="ops-step-copy">Add <code>example.com</code> as an allowed service so the policy layer is active.</div>
+                    </div>
+                  </div>
+                  <div class="ops-step">
+                    <div class="ops-step-num">3</div>
+                    <div>
+                      <div class="ops-step-title">Navigate and queue an approval</div>
+                      <div class="ops-step-copy">Load <code>https://example.com</code>, then click selector <code>a</code> to create an approval.</div>
+                    </div>
+                  </div>
+                  <div class="ops-step">
+                    <div class="ops-step-num">4</div>
+                    <div>
+                      <div class="ops-step-title">Approve and verify</div>
+                      <div class="ops-step-copy">Approve the click, confirm the preview changed, and check the audit entry.</div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="ops-panel">
+                <h3>What counts as done</h3>
+                <div class="ops-list">
+                  <div class="ops-list-item">
+                    <div class="ops-list-marker"></div>
+                    <div class="ops-list-copy">
+                      <strong>Preview proves control</strong>
+                      <span>The screenshot panel must update after navigation and after an approved action.</span>
+                    </div>
+                  </div>
+                  <div class="ops-list-item">
+                    <div class="ops-list-marker"></div>
+                    <div class="ops-list-copy">
+                      <strong>Approvals prove safe mode</strong>
+                      <span>Clicks should queue in safe mode and only execute after approval.</span>
+                    </div>
+                  </div>
+                  <div class="ops-list-item">
+                    <div class="ops-list-marker"></div>
+                    <div class="ops-list-copy">
+                      <strong>Audit proves reliability</strong>
+                      <span>The browser event log should show the queued action and the approved execution.</span>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </aside>
           </div>
         </div>
       </div>
@@ -682,7 +937,7 @@ pre:hover .code-copy{opacity:1}
           <button class="input-icon-btn" id="micBtn" title="Voice input (speech-to-text)">
             <svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
           </button>
-          <textarea id="msgInput" placeholder="Ask the Manager…  (⌘K for commands)" rows="1"></textarea>
+          <textarea id="msgInput" placeholder="Ask Manager to run browser work, review automations, or set policy…  (⌘K for commands)" rows="1"></textarea>
           <button class="input-model-btn" id="inputModelBtn" title="Switch model"><span class="tier-dot fast"></span> Fast <span class="caret">▾</span></button>
           <button class="send-btn" id="sendBtn" disabled title="Send (↵)">
             <svg id="sendIcon" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
@@ -696,6 +951,26 @@ pre:hover .code-copy{opacity:1}
       </div>
     </div>
   </main>
+</div>
+
+<!-- AGENTS.md editor modal -->
+<div class="agents-md-overlay" id="agentsMdOverlay">
+  <div class="agents-md-modal" role="dialog" aria-label="Agent brief editor">
+    <div class="agents-md-head">
+      <h3 id="agentsMdTitle">Agent brief — AGENTS.md</h3>
+      <button class="close" id="agentsMdClose" aria-label="Close">×</button>
+    </div>
+    <div class="agents-md-body">
+      <textarea id="agentsMdText" spellcheck="false"></textarea>
+    </div>
+    <div class="agents-md-foot">
+      <span class="hint">Edits apply to the next time this specialist runs.</span>
+      <div class="actions">
+        <button class="act-btn" id="agentsMdReset">Reset</button>
+        <button class="act-btn" id="agentsMdSave" style="background:var(--grad);color:#fff;border:none">Save</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Command palette -->
@@ -776,7 +1051,7 @@ pre:hover .code-copy{opacity:1}
 </div>
 
 <script type="module">
-import { api, ensureAuthed, clearSession, getUser } from '/static/js/api.js?v=v17';
+import { api, ensureAuthed, clearSession, getUser } from '/static/js/api.js?v=v19';
 
 window.addEventListener('load', () => {
   const g = document.getElementById('mp-grain');
@@ -852,7 +1127,7 @@ function applyConfig(c) {
   document.getElementById('managerName').textContent = c.manager_name || 'Manager';
   document.getElementById('emptyDirector').textContent = c.director_name || 'Director';
   document.getElementById('emptyManager').textContent = c.manager_name || 'the Manager';
-  document.getElementById('brandSub').textContent = c.company_name || 'Director\'s Console';
+  document.getElementById('brandSub').textContent = c.company_name ? `${c.company_name} operator` : 'Operator Console';
   document.title = `${c.manager_name || 'Manager'} · ${c.company_name || 'Metis'}`;
 
   // Disable specialist rows that aren't in the user's crew; hide "Genius"
@@ -1322,7 +1597,7 @@ function makePlanBanner(activity, agents) {
   box.className = 'mission';
   box.innerHTML = `
     <div class="mission-head">
-      <div class="mission-mark"><img src="/static/assets/metis-logomark-transparent.png" alt=""></div>
+      <div class="mission-mark"><img src="/static/assets/metis-mark.svg?v=v18" alt=""></div>
       <div class="mission-head-info">
         <div class="mission-head-title">${escapeHtml(managerName)}</div>
         <div class="mission-head-sub mission-sub-text">${escapeHtml(agents.length ? `${agents.length} specialist${agents.length > 1 ? 's' : ''} · planning` : 'self-handling')}</div>
@@ -1651,6 +1926,17 @@ async function sendMessage() {
   msgInput.value = '';
   msgInput.style.height = 'auto';
 
+  // Group 6: if a specialist asked a [QUESTION]: in the previous turn, the
+  // first thing the user types after that is treated as the answer to it.
+  // We arm window._pendingAgentAnswer; the chatStream call below picks it up.
+  if (window._lastAgentQuestion && text) {
+    window._pendingAgentAnswer = {
+      agent: window._lastAgentQuestion.agent,
+      answer: text,
+    };
+    window._lastAgentQuestion = null;
+  }
+
   // Capture attached files for THIS turn (clear after sending)
   const turnFiles = attachedFiles.slice();
   attachedFiles = [];
@@ -1836,7 +2122,17 @@ async function sendMessage() {
 
   try {
     const useDirect = isDirectMode();
-    for await (const ev of api.chatStream(currentSession, text, 'manager', abortController.signal, useDirect)) {
+    // Group 6: pipe per-specialist AGENTS.md overrides + answer-resumption
+    // metadata into the chat call so the orchestrator can apply them.
+    const extra = {
+      agents_md_overrides: getAgentsMdOverrides(),
+    };
+    if (window._pendingAgentAnswer) {
+      extra.director_answer = window._pendingAgentAnswer.answer;
+      extra.director_answer_for = window._pendingAgentAnswer.agent;
+      window._pendingAgentAnswer = null;
+    }
+    for await (const ev of api.chatStream(currentSession, text, 'manager', abortController.signal, useDirect, extra)) {
       if (ev.type === 'heartbeat') {
         // Server received message — update stage to confirm
         if (stageLabel) stageLabel.textContent = 'Connected · Loading model...';
@@ -1875,6 +2171,22 @@ async function sendMessage() {
         if (agentCards[ev.agent]) {
           finishAgentCard(agentCards[ev.agent], ev.output || '', ev.duration_ms || 0);
         }
+      } else if (ev.type === 'agent_question') {
+        // Specialist needs more info — render an inline answer prompt.
+        const card = agentCards[ev.agent];
+        if (card) {
+          const qBox = document.createElement('div');
+          qBox.className = 'agent-question-box';
+          qBox.innerHTML = `
+            <div class="aq-label">${escapeHtml(ev.agent)} needs more info:</div>
+            <div class="aq-question">${escapeHtml(ev.question || '')}</div>
+            <div class="aq-hint">Reply in chat with your answer — I'll resume ${escapeHtml(ev.agent)} with it.</div>`;
+          card.appendChild(qBox);
+        }
+        // Group 6: arm the answer-resumption — the next /chat call will be
+        // routed to this specialist via director_answer_for. Store on
+        // window so sendMessage() picks it up.
+        window._lastAgentQuestion = { agent: ev.agent, question: ev.question };
       } else if (ev.type === 'manager_synthesis') {
         if (stageLabel) stageLabel.textContent = 'Composing answer...';
         synthBanner = makeSynthBanner(activity);
@@ -2092,6 +2404,22 @@ function newChat() {
 document.getElementById('signoutBtn').addEventListener('click', signOut);
 document.getElementById('settingsBtn').addEventListener('click', openSettings);
 document.getElementById('newChatBtn').addEventListener('click', newChat);
+document.querySelector('[data-action="new-chat"]')?.addEventListener('click', (event) => {
+  event.preventDefault();
+  newChat();
+  history.replaceState(null, '', '/app');
+});
+document.querySelector('[data-action="recent-chats"]')?.addEventListener('click', (event) => {
+  event.preventDefault();
+  document.getElementById('sessionSearchInput')?.focus();
+  document.getElementById('sessionList')?.scrollIntoView({ block: 'nearest' });
+});
+if (new URLSearchParams(location.search).get('new') === '1') {
+  newChat();
+  history.replaceState(null, '', '/app');
+} else if (location.hash === '#recent') {
+  setTimeout(() => document.getElementById('sessionSearchInput')?.focus(), 0);
+}
 
 // ── Command palette ─────────────────────────────────────────────────────
 const COMMANDS = [
@@ -2429,6 +2757,84 @@ const TASK_KEYWORDS = /\b(find and|search and save|research and|scrape|fetch eve
 function detectAutomationIntent(text) {
   return AUTO_KEYWORDS.test(text) || TASK_KEYWORDS.test(text);
 }
+
+// ── AGENTS.md editor modal (Group 1) ───────────────────────────────────
+// Per-specialist task brief override. Stored in localStorage by agent name;
+// the orchestrator reads these on the next /chat call (wired in Group 6).
+const _AGENTS_MD_KEY = 'metis.agents_md';
+
+function getAgentsMdOverrides() {
+  try { return JSON.parse(localStorage.getItem(_AGENTS_MD_KEY) || '{}'); }
+  catch { return {}; }
+}
+function setAgentsMdOverride(agent, text) {
+  const all = getAgentsMdOverrides();
+  if (text && text.trim()) all[agent] = text;
+  else delete all[agent];
+  localStorage.setItem(_AGENTS_MD_KEY, JSON.stringify(all));
+}
+function getDefaultAgentsMd(agent) {
+  return [
+    `# AGENTS.md — ${agent}`,
+    ``,
+    `## Operating rules`,
+    `- Never assume. If you don't know something with certainty, ask the Manager.`,
+    `- Reply with only your contribution. The Manager synthesizes the final answer.`,
+    `- Begin with \`[QUESTION]:\` if you need clarification before continuing.`,
+    ``,
+    `## Style`,
+    `- Concise, focused, no preamble.`,
+    `- Cite sources when you state non-obvious facts.`,
+    ``,
+    `## Off-limits`,
+    `- Don't invent APIs, numbers, dates, or names.`,
+    `- Don't speculate beyond what the user asked.`,
+  ].join('\n');
+}
+
+const agentsMdOverlay = document.getElementById('agentsMdOverlay');
+const agentsMdText = document.getElementById('agentsMdText');
+const agentsMdTitle = document.getElementById('agentsMdTitle');
+let _currentAgentEdit = null;
+
+function openAgentsMd(agent) {
+  _currentAgentEdit = agent;
+  agentsMdTitle.textContent = `Agent brief — ${agent} · AGENTS.md`;
+  const over = getAgentsMdOverrides();
+  agentsMdText.value = over[agent] || getDefaultAgentsMd(agent);
+  agentsMdOverlay.classList.add('show');
+  setTimeout(() => agentsMdText.focus(), 80);
+}
+function closeAgentsMd() {
+  agentsMdOverlay.classList.remove('show');
+  _currentAgentEdit = null;
+}
+document.getElementById('agentsMdClose').addEventListener('click', closeAgentsMd);
+agentsMdOverlay.addEventListener('click', (e) => { if (e.target === agentsMdOverlay) closeAgentsMd(); });
+document.getElementById('agentsMdSave').addEventListener('click', () => {
+  if (_currentAgentEdit) {
+    setAgentsMdOverride(_currentAgentEdit, agentsMdText.value);
+    if (window.toast) toast('success', 'Brief saved', `${_currentAgentEdit} will use the new brief next run`, 2200);
+  }
+  closeAgentsMd();
+});
+document.getElementById('agentsMdReset').addEventListener('click', () => {
+  if (_currentAgentEdit) {
+    agentsMdText.value = getDefaultAgentsMd(_currentAgentEdit);
+  }
+});
+
+// Right-click on any agent card opens its AGENTS.md editor.
+document.addEventListener('contextmenu', (e) => {
+  const card = e.target.closest('.agent-card[data-agent]');
+  if (card) {
+    e.preventDefault();
+    openAgentsMd(card.dataset.agent);
+  }
+});
+// Also surface a tiny "edit brief" button on each card head when finished
+// (handled inside finishAgentCard — see addEditBriefButton below).
+window.openAgentsMd = openAgentsMd;  // expose for inline handlers
 
 // ── Mobile sidebar drawer ──────────────────────────────────────────────
 const sidebar = document.querySelector('.side');

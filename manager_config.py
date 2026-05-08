@@ -142,8 +142,40 @@ class ManagerConfig:
     director_about: str = ""
     accent_color: str = "#7C3AED"
     specialists: list[str] = field(default_factory=lambda: ["Researcher", "Coder", "Thinker", "Scholar"])
+
+    # ── Notification preferences ────────────────────────────────────────────
+    # The manager pings the Director here when a long-running task finishes,
+    # an automation runs, or a subagent needs an answer. Both fields are
+    # optional; the wizard prompts but you can skip and add later in Settings.
+    notification_email: str = ""        # SMTP "to" address for completion alerts
+    notification_phone: str = ""        # E.164 number for SMS / call notifications
+    notify_on_complete: bool = True     # ping Director when an automation finishes
+    notify_on_question: bool = True     # ping Director when a subagent has a question
+
+    # ── Email sending credentials (used by CommsLink to send mail AS the AI) ─
+    # Stored in identity/manager_configs/{user_id}.json — gitignored.
+    # Plaintext-on-disk: acceptable for a local-only desktop app. Group 6 will
+    # add an option to move these into the encrypted Vault.
+    # Use a Gmail App Password (myaccount.google.com → Security → App passwords),
+    # not your real Google password. Other SMTP providers work the same way.
+    email_username: str = ""            # the address the AI sends FROM
+    email_password: str = ""            # SMTP password / app-specific password
+    email_smtp_host: str = "smtp.gmail.com"
+    email_smtp_port: int = 465
+
+    # Browser-control policy for the desktop-first operator MVP.
+    default_safe_mode: bool = True
+    allow_per_job_auto_mode: bool = True
+    allowed_services: list[dict[str, Any]] = field(default_factory=list)
+    daily_caps: dict[str, int] = field(default_factory=lambda: {
+        "accounts": 3,
+        "screenshots": 250,
+        "actions": 500,
+    })
+    browser_warning_acknowledged: bool = False
+
     configured_at: str = ""
-    schema_version: int = 1
+    schema_version: int = 4
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

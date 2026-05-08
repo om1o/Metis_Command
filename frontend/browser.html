@@ -1,0 +1,662 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Browser Control - Metis</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="/static/assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/styles/shell.css?v=v21">
+<link rel="stylesheet" href="/static/styles/wordmark.css?v=v21">
+<style>
+.browser-shell{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(320px,.9fr);gap:18px}
+.stack{display:flex;flex-direction:column;gap:16px}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px 18px}
+.panel h3{font-family:'Sora',sans-serif;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--subtle);margin-bottom:12px}
+.banner{position:relative;overflow:hidden;background:linear-gradient(135deg,rgba(124,58,237,.2),rgba(251,113,133,.12));border:1px solid rgba(124,58,237,.26);box-shadow:0 0 0 1px rgba(124,58,237,.12),0 20px 48px rgba(0,0,0,.25)}
+.banner::after{content:"";position:absolute;inset:-20% auto auto 55%;width:220px;height:220px;background:radial-gradient(circle,rgba(251,113,133,.18),transparent 68%);pointer-events:none}
+.banner.active{box-shadow:0 0 0 1px rgba(124,58,237,.24),0 0 28px rgba(124,58,237,.24),0 20px 48px rgba(0,0,0,.28)}
+.banner-head{display:flex;align-items:center;gap:16px}
+.brand-lockup{display:flex;align-items:center;gap:14px}
+.brand-lockup img{width:56px;height:56px;object-fit:contain;border-radius:10px;background:rgba(255,255,255,.06);padding:6px}
+.brand-meta{display:flex;flex-direction:column;gap:5px}
+.brand-meta .eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:rgba(248,250,255,.58)}
+.brand-meta .title{font-family:'Sora',sans-serif;font-size:24px;font-weight:700;letter-spacing:-.02em}
+.brand-meta .subtitle{font-size:13px;color:var(--muted);max-width:68ch;line-height:1.5}
+.status-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:14px}
+.stat{padding:12px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08)}
+.stat .k{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--subtle)}
+.stat .v{font-family:'Sora',sans-serif;font-size:21px;font-weight:800;margin-top:4px}
+.pill-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-left:auto}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;border:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.pill.safe{background:rgba(245,158,11,.14);border-color:rgba(245,158,11,.26);color:#FCD34D}
+.pill.auto{background:rgba(34,197,94,.14);border-color:rgba(34,197,94,.24);color:#86EFAC}
+.pill.live{background:rgba(59,130,246,.14);border-color:rgba(59,130,246,.24);color:#93C5FD}
+.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.input,.select{height:40px;border-radius:10px;border:1px solid var(--border);background:rgba(0,0,0,.24);color:var(--text);padding:0 12px;font:inherit;outline:none}
+.input.mono{font-family:'JetBrains Mono',monospace;font-size:12px}
+.input:focus,.select:focus,.textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.toolbar .grow{flex:1;min-width:220px}
+.segmented{display:inline-flex;padding:4px;border-radius:12px;background:rgba(0,0,0,.25);border:1px solid var(--border)}
+.segmented button{height:34px;padding:0 14px;border:none;border-radius:8px;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:700;cursor:pointer}
+.segmented button.active{background:var(--accent-soft);color:var(--text)}
+.quickstart{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(320px,.95fr);gap:14px}
+.quickstart-copy{display:flex;flex-direction:column;gap:12px}
+.quickstart-copy p{font-size:13px;color:var(--muted);line-height:1.65}
+.quickstart-actions{display:flex;flex-wrap:wrap;gap:8px}
+.quickstart-steps{display:flex;flex-direction:column;gap:10px}
+.quickstep{display:grid;grid-template-columns:1fr auto;gap:12px;padding:12px 14px;border-radius:12px;background:var(--panel-2);border:1px solid var(--border);align-items:start}
+.quickstep-title{font-size:13px;font-weight:700;color:var(--text)}
+.quickstep-copy{margin-top:4px;font-size:12px;color:var(--muted);line-height:1.55}
+.step-state{display:inline-flex;align-items:center;justify-content:center;min-width:88px;padding:5px 10px;border-radius:999px;border:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--subtle)}
+.step-state.pending{background:rgba(245,158,11,.14);border-color:rgba(245,158,11,.26);color:#FCD34D}
+.step-state.ready{background:rgba(59,130,246,.14);border-color:rgba(59,130,246,.24);color:#93C5FD}
+.step-state.done{background:rgba(34,197,94,.14);border-color:rgba(34,197,94,.24);color:#86EFAC}
+.step-state.blocked{background:rgba(251,113,133,.14);border-color:rgba(251,113,133,.24);color:#FCA5A5}
+.preview-wrap{position:relative;overflow:hidden;border-radius:14px;border:1px solid var(--border);background:rgba(0,0,0,.36);aspect-ratio:16/10;display:flex;align-items:center;justify-content:center}
+.preview-wrap img{width:100%;height:100%;object-fit:contain;background:#050512}
+.preview-empty{padding:28px;text-align:center;color:var(--subtle);font-size:13px;line-height:1.7}
+.preview-meta{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;font-size:12px;color:var(--muted)}
+.preview-spinner{width:14px;height:14px;border:2px solid rgba(255,255,255,.2);border-top-color:var(--accent);border-radius:50%;animation:spin .9s linear infinite;display:none}
+.preview-spinner.show{display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.action-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.action-card{padding:14px;border-radius:12px;background:var(--panel-2);border:1px solid var(--border);display:flex;flex-direction:column;gap:10px}
+.action-card h4{font-size:13px;font-weight:700}
+.action-card p{font-size:12px;color:var(--muted);line-height:1.5}
+.action-card .row{display:flex;gap:8px;flex-wrap:wrap}
+.textarea{min-height:84px;border-radius:10px;border:1px solid var(--border);background:rgba(0,0,0,.24);color:var(--text);padding:10px 12px;font:inherit;outline:none;resize:vertical}
+.service-list,.approval-list,.audit-list{display:flex;flex-direction:column;gap:10px}
+.service-card,.approval-card,.audit-row{padding:12px;border-radius:12px;background:var(--panel-2);border:1px solid var(--border)}
+.service-top,.approval-top{display:flex;align-items:start;justify-content:space-between;gap:10px}
+.service-name,.approval-action{font-size:13px;font-weight:700}
+.service-meta,.approval-meta,.audit-meta{margin-top:6px;font-size:11px;color:var(--subtle);font-family:'JetBrains Mono',monospace;line-height:1.5}
+.service-controls,.approval-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.tiny{height:30px;padding:0 10px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.02);color:var(--text);font:inherit;font-size:12px;cursor:pointer}
+.tiny.primary{background:var(--accent-soft);border-color:rgba(124,58,237,.24)}
+.tiny.danger{color:#FCA5A5;border-color:rgba(251,113,133,.24)}
+.audit-row{display:grid;grid-template-columns:80px 1fr;gap:10px}
+.audit-event{font-family:'JetBrains Mono',monospace;font-size:11px;color:#C4B5FD}
+.audit-detail{font-size:12px;color:var(--muted);line-height:1.5}
+.empty{padding:18px;border-radius:12px;border:1px dashed var(--border);color:var(--subtle);text-align:center;font-size:12px;line-height:1.6}
+.inline-form{display:grid;grid-template-columns:1fr 1fr auto;gap:8px}
+.inline-form .grow2{grid-column:span 2}
+.helper{font-size:12px;color:var(--muted);line-height:1.5}
+.badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase}
+.badge.allowed{background:rgba(34,197,94,.14);color:#86EFAC}
+.badge.blocked{background:rgba(251,113,133,.14);color:#FCA5A5}
+.badge.capped{background:rgba(245,158,11,.14);color:#FCD34D}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;z-index:40;padding:24px}
+.modal-overlay.show{display:flex}
+.modal{width:min(520px,100%);background:#120f24;border:1px solid var(--border-2);border-radius:16px;padding:22px}
+.modal h2{font-family:'Sora',sans-serif;font-size:18px}
+.modal p{margin-top:8px;font-size:13px;color:var(--muted);line-height:1.6}
+.modal .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+@media(max-width:1180px){.browser-shell,.quickstart{grid-template-columns:1fr}.status-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:720px){.status-grid,.action-grid{grid-template-columns:1fr}.inline-form{grid-template-columns:1fr}.inline-form .grow2{grid-column:auto}.banner-head{flex-direction:column;align-items:flex-start}.pill-row{margin-left:0}}
+</style>
+<script>
+if (window.location.hash.includes('figmacapture=')) {
+  const figmaCaptureScript = document.createElement('script');
+  figmaCaptureScript.src = 'https://mcp.figma.com/mcp/html-to-design/capture.js';
+  figmaCaptureScript.async = true;
+  document.head.appendChild(figmaCaptureScript);
+}
+</script>
+</head>
+<body>
+<div class="layout">
+  <aside class="side">
+    <div class="side-head">
+      <button class="metis-mark size-sm" type="button" title="Refresh">
+        <img class="mm-glyph" src="/static/assets/metis-mark.svg?v=v21" alt="">
+        <span class="mm-stack"><span class="mm-word">Metis</span><span class="mm-sub">Browser</span></span>
+      </button>
+    </div>
+    <nav class="nav" data-active="browser"></nav>
+    <div class="side-foot">
+      <div class="avatar" id="userAvatar">M</div>
+      <div class="user-meta"><div class="name" id="userName">Loading...</div><div class="role">Director</div></div>
+      <button class="btn" id="signoutBtn" style="height:32px;padding:0 10px;font-size:11px">Sign out</button>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="page-head">
+      <h1 class="page-title">Browser <em>cockpit</em></h1>
+      <span class="page-sub">Desktop-first operator control with safe mode, approvals, audit, and policy gates.</span>
+      <button class="btn" id="refreshBtn">Refresh</button>
+      <button class="btn primary" id="sessionBtn">Open browser</button>
+    </div>
+    <div class="body">
+      <div class="body-inner" style="max-width:1440px">
+        <div class="browser-shell">
+          <section class="stack">
+            <div class="panel banner" id="liveBanner">
+              <div class="banner-head">
+                <div class="brand-lockup">
+                  <img src="/static/assets/metis-logo-full.png?v=v21" alt="Metis logo">
+                  <div class="brand-meta">
+                    <div class="eyebrow">Desktop operator</div>
+                    <div class="title">Metis controlling the browser</div>
+                    <div class="subtitle" id="bannerSubtitle">Open a live Chromium session, drive it from the desktop app, and gate risky actions through approvals.</div>
+                  </div>
+                </div>
+                <div class="pill-row">
+                  <span class="pill live" id="sessionPill">session closed</span>
+                  <span class="pill safe" id="modePill">safe mode</span>
+                </div>
+              </div>
+              <div class="status-grid">
+                <div class="stat"><div class="k">Current URL</div><div class="v" id="statUrl" style="font-size:13px;font-family:'JetBrains Mono',monospace;line-height:1.45">about:blank</div></div>
+                <div class="stat"><div class="k">Pending approvals</div><div class="v" id="statApprovals">0</div></div>
+                <div class="stat"><div class="k">Allowed services</div><div class="v" id="statServices">0</div></div>
+                <div class="stat"><div class="k">Account cap today</div><div class="v" id="statAccounts">0 / 0</div></div>
+              </div>
+            </div>
+
+            <div class="panel quickstart">
+              <div class="quickstart-copy">
+                <h3>Guided MVP check</h3>
+                <p>Use the stable <code>example.com</code> path to prove the browser MVP. Until you add allowed services, navigation stays open; after the first service is saved, only allowlisted domains can be driven — so add <code>example.com</code> here to turn on real policy gates.</p>
+                <div class="quickstart-actions">
+                  <button class="btn primary" id="loadRecipeBtn">Load test recipe</button>
+                  <button class="btn" id="addExampleServiceBtn">Add example.com</button>
+                  <button class="btn" id="queueExampleClickBtn">Queue test click</button>
+                </div>
+                <div class="helper" id="quickstartHint">Load the recipe, add the allowed service, then open the browser in safe mode.</div>
+              </div>
+              <div class="quickstart-steps">
+                <div class="quickstep">
+                  <div>
+                    <div class="quickstep-title">1. Allowed service</div>
+                    <div class="quickstep-copy">Enable <code>example.com</code> so policy enforcement is active before navigation.</div>
+                  </div>
+                  <span class="step-state blocked" id="qsService">missing</span>
+                </div>
+                <div class="quickstep">
+                  <div>
+                    <div class="quickstep-title">2. Browser session</div>
+                    <div class="quickstep-copy">Open a live Chromium session from this desktop app.</div>
+                  </div>
+                  <span class="step-state blocked" id="qsSession">closed</span>
+                </div>
+                <div class="quickstep">
+                  <div>
+                    <div class="quickstep-title">3. Preview and navigation</div>
+                    <div class="quickstep-copy">Navigate to <code>https://example.com</code> and confirm the preview updated.</div>
+                  </div>
+                  <span class="step-state blocked" id="qsPreview">idle</span>
+                </div>
+                <div class="quickstep">
+                  <div>
+                    <div class="quickstep-title">4. Approval and audit</div>
+                    <div class="quickstep-copy">Queue selector <code>a</code>, approve it, and verify the audit event landed.</div>
+                  </div>
+                  <span class="step-state blocked" id="qsApproval">waiting</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <h3>Session controls</h3>
+              <div class="toolbar" style="margin-bottom:12px">
+                <input class="input mono grow" id="urlInput" placeholder="https://example.com">
+                <button class="btn primary" id="navigateBtn">Navigate</button>
+                <button class="btn" id="screenshotBtn">Screenshot</button>
+              </div>
+              <div class="toolbar">
+                <div class="segmented" id="modeToggle">
+                  <button data-mode="safe" class="active">Safe</button>
+                  <button data-mode="auto">Auto</button>
+                </div>
+                <input class="input grow" id="jobLabelInput" placeholder="Current job label">
+                <button class="btn" id="applyModeBtn">Apply mode</button>
+              </div>
+            </div>
+
+            <div class="panel">
+              <h3>Live preview</h3>
+              <div class="preview-wrap">
+                <img id="previewImage" alt="Browser preview" hidden>
+                <div class="preview-empty" id="previewEmpty">No session is open yet. Start the browser, navigate to a page, then Metis will stream screenshots here.</div>
+              </div>
+              <div class="preview-meta">
+                <div><span class="preview-spinner" id="previewSpinner"></span> <span id="previewStatus">Idle</span></div>
+                <div id="capturedAt">No screenshot captured</div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <h3>Action console</h3>
+              <div class="action-grid">
+                <div class="action-card">
+                  <h4>Fill field</h4>
+                  <p>Text fills execute immediately. Secret fills queue an approval in safe mode.</p>
+                  <input class="input mono" id="fillSelector" placeholder='input[name="email"]'>
+                  <textarea class="textarea" id="fillValue" placeholder="Value to fill"></textarea>
+                  <label class="helper"><input type="checkbox" id="fillSecret"> Treat value as secret</label>
+                  <div class="row"><button class="btn primary" id="fillBtn">Fill</button></div>
+                </div>
+                <div class="action-card">
+                  <h4>Click selector</h4>
+                  <p>Clicks queue approvals in safe mode and execute immediately in auto mode.</p>
+                  <input class="input mono" id="clickSelector" placeholder='button[type="submit"]'>
+                  <div class="row"><button class="btn primary" id="clickBtn">Click</button></div>
+                </div>
+                <div class="action-card">
+                  <h4>Wait for selector</h4>
+                  <p>Use this to pause until a page element is visible.</p>
+                  <input class="input mono" id="waitSelector" placeholder=".dashboard">
+                  <div class="row">
+                    <input class="input mono" id="waitTimeout" value="10000" style="width:140px">
+                    <button class="btn primary" id="waitBtn">Wait</button>
+                  </div>
+                </div>
+                <div class="action-card">
+                  <h4>Allowed service policy</h4>
+                  <p>Configured services can be trusted, blocked, or capped. A blocked service cannot be controlled.</p>
+                  <div class="inline-form">
+                    <input class="input mono grow2" id="serviceDomain" placeholder="github.com">
+                    <input class="input" id="serviceLabel" placeholder="GitHub">
+                    <input class="input mono" id="serviceCap" placeholder="cap">
+                    <button class="btn primary" id="addServiceBtn">Add service</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <aside class="stack">
+            <div class="panel">
+              <h3>Approval queue</h3>
+              <div class="approval-list" id="approvalList"><div class="empty">No pending approvals.</div></div>
+            </div>
+
+            <div class="panel">
+              <h3>Service policy</h3>
+              <div class="service-list" id="serviceList"><div class="empty">No services configured yet.</div></div>
+            </div>
+
+            <div class="panel">
+              <h3>Browser audit</h3>
+              <div class="audit-list" id="auditList"><div class="empty">No browser events yet.</div></div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="modal-overlay" id="warningModal">
+  <div class="modal">
+    <h2>Browser automation warning</h2>
+    <p>Metis can control real browser sessions on this machine. Some sites prohibit automation. Safe mode is the default and should stay on unless you intentionally want auto execution for the current browser job.</p>
+    <div class="actions">
+      <button class="btn" id="warningCancel">Cancel</button>
+      <button class="btn primary" id="warningProceed">I understand</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { api, ensureAuthed } from '/static/js/api.js?v=v21';
+
+await ensureAuthed();
+
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtDate = (ts) => {
+  if (!ts) return 'No screenshot captured';
+  const value = typeof ts === 'number' && ts > 1e12 ? ts : Number(ts);
+  return `Last capture ${new Date(value).toLocaleString()}`;
+};
+const fmtAuditTime = (ts) => {
+  if (!ts) return '--';
+  return new Date(Number(ts)).toLocaleTimeString();
+};
+
+let state = null;
+let previewTimer = null;
+
+function setStepState(id, kind, label) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.className = `step-state ${kind}`;
+  el.textContent = label;
+}
+
+function loadTestRecipe() {
+  document.getElementById('urlInput').value = 'https://example.com';
+  document.getElementById('jobLabelInput').value = 'MVP browser check';
+  document.getElementById('serviceDomain').value = 'example.com';
+  document.getElementById('serviceLabel').value = 'Example.com';
+  document.getElementById('serviceCap').value = '10';
+  document.getElementById('clickSelector').value = 'a';
+  document.getElementById('waitSelector').value = 'h1';
+  document.getElementById('waitTimeout').value = '10000';
+  document.getElementById('quickstartHint').textContent = 'Recipe loaded. Add the service, open the browser, navigate to example.com, then queue the click.';
+}
+
+function updateQuickstart(data) {
+  const services = data.allowed_services || [];
+  const approvals = data.approvals || [];
+  const audit = data.audit || [];
+  const hasExampleService = services.some(item => item.domain === 'example.com' && item.enabled);
+  const onExample = String(data.current_url || '').includes('example.com');
+  const previewReady = Boolean(data.last_captured_at) && onExample;
+  const pendingApproval = approvals.some(item => item.status === 'pending');
+  const executedApproval = audit.some(item => item.event === 'browser.approval_executed');
+
+  setStepState('qsService', hasExampleService ? 'done' : 'blocked', hasExampleService ? 'ready' : 'missing');
+  setStepState('qsSession', data.session_open ? 'done' : 'blocked', data.session_open ? 'live' : 'closed');
+  setStepState('qsPreview', previewReady ? 'done' : onExample ? 'ready' : 'blocked', previewReady ? 'verified' : onExample ? 'loading' : 'idle');
+  setStepState('qsApproval', executedApproval ? 'done' : pendingApproval ? 'pending' : 'blocked', executedApproval ? 'complete' : pendingApproval ? 'approve' : 'waiting');
+
+  const hint = document.getElementById('quickstartHint');
+  if (!hasExampleService) {
+    hint.textContent = 'Load the recipe, then add example.com as an allowed service.';
+  } else if (!data.session_open) {
+    hint.textContent = 'The service is ready. Open the browser session next.';
+  } else if (!onExample) {
+    hint.textContent = 'Navigate to https://example.com so the preview and policy flow can be verified.';
+  } else if (!pendingApproval && !executedApproval) {
+    hint.textContent = 'Queue selector a to create a safe-mode approval.';
+  } else if (pendingApproval) {
+    hint.textContent = 'Approve the queued click from the approval panel, then confirm the preview and audit updated.';
+  } else {
+    hint.textContent = 'Browser MVP proven: the service policy, preview, approval flow, and audit trail are all live.';
+  }
+}
+
+function setPreviewBusy(busy, text = 'Working...') {
+  document.getElementById('previewSpinner').classList.toggle('show', busy);
+  document.getElementById('previewStatus').textContent = text;
+}
+
+function renderState(data) {
+  state = data;
+  const open = !!data.session_open;
+  const mode = data.mode || 'safe';
+  const sessionBtn = document.getElementById('sessionBtn');
+  sessionBtn.textContent = open ? 'Close browser' : 'Open browser';
+  sessionBtn.classList.toggle('primary', !open);
+  document.getElementById('liveBanner').classList.toggle('active', open);
+  document.getElementById('sessionPill').textContent = open ? 'session live' : 'session closed';
+  document.getElementById('modePill').textContent = `${mode} mode`;
+  document.getElementById('modePill').className = `pill ${mode}`;
+  document.getElementById('statUrl').textContent = data.current_url || 'about:blank';
+  document.getElementById('statApprovals').textContent = String((data.approvals || []).filter(x => x.status === 'pending').length);
+  document.getElementById('statServices').textContent = String((data.allowed_services || []).length);
+  document.getElementById('statAccounts').textContent = `${data.daily_accounts_today || 0} / ${data.daily_account_cap || 0}`;
+  document.getElementById('bannerSubtitle').textContent = open
+    ? `Metis is controlling the browser for "${data.job_label || 'Manual browser session'}". Current domain policy applies before every gated action.`
+    : 'Open a live Chromium session, drive it from the desktop app, and gate risky actions through approvals.';
+  document.getElementById('urlInput').value = data.current_url && data.current_url !== 'about:blank' ? data.current_url : '';
+  document.getElementById('jobLabelInput').value = data.job_label || 'Manual browser session';
+
+  document.querySelectorAll('#modeToggle button').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.mode === mode);
+  });
+
+  renderApprovals(data.approvals || []);
+  renderServices(data.allowed_services || []);
+  renderAudit(data.audit || []);
+  updateQuickstart(data);
+  document.getElementById('capturedAt').textContent = fmtDate(data.last_captured_at);
+
+  if (!open) {
+    clearPreviewTimer();
+    document.getElementById('previewImage').hidden = true;
+    document.getElementById('previewEmpty').hidden = false;
+    document.getElementById('previewStatus').textContent = 'Idle';
+  } else if (!previewTimer) {
+    startPreviewTimer();
+  }
+}
+
+function renderApprovals(items) {
+  const host = document.getElementById('approvalList');
+  if (!items.length) {
+    host.innerHTML = '<div class="empty">No pending approvals.</div>';
+    return;
+  }
+  host.innerHTML = items.map(item => `
+    <article class="approval-card">
+      <div class="approval-top">
+        <div>
+          <div class="approval-action">${esc(item.kind)} ${esc(item.payload?.selector || item.payload?.domain || '')}</div>
+          <div class="approval-meta">${esc(item.why || '')}<br>${esc(item.domain || 'unknown domain')} · ${esc(item.job_label || '')}</div>
+        </div>
+        <span class="badge ${item.status === 'pending' ? 'capped' : item.status === 'approved' ? 'allowed' : 'blocked'}">${esc(item.status)}</span>
+      </div>
+      ${item.error ? `<div class="helper" style="color:#FCA5A5">${esc(item.error)}</div>` : ''}
+      ${item.status === 'pending' ? `
+        <div class="approval-actions">
+          <button class="tiny primary" data-approve="${esc(item.id)}">Approve</button>
+          <button class="tiny danger" data-deny="${esc(item.id)}">Deny</button>
+        </div>
+      ` : ''}
+    </article>
+  `).join('');
+  host.querySelectorAll('[data-approve]').forEach(btn => btn.addEventListener('click', async () => {
+    await api.approveBrowserAction(btn.dataset.approve);
+    await refreshStatus();
+    await capturePreview();
+  }));
+  host.querySelectorAll('[data-deny]').forEach(btn => btn.addEventListener('click', async () => {
+    await api.denyBrowserAction(btn.dataset.deny);
+    await refreshStatus();
+  }));
+}
+
+function renderServices(items) {
+  const host = document.getElementById('serviceList');
+  if (!items.length) {
+    host.innerHTML = '<div class="empty">No services configured yet.</div>';
+    return;
+  }
+  host.innerHTML = items.map(item => `
+    <article class="service-card">
+      <div class="service-top">
+        <div>
+          <div class="service-name">${esc(item.label)}</div>
+          <div class="service-meta">${esc(item.domain)} · actions today ${esc(item.actions_today)}${item.daily_cap ? ` / ${esc(item.daily_cap)}` : ''}</div>
+        </div>
+        <span class="badge ${item.status === 'allowed' ? 'allowed' : item.status === 'blocked' ? 'blocked' : 'capped'}">${esc(item.status)}</span>
+      </div>
+      <div class="service-controls">
+        <button class="tiny" data-service-toggle="${esc(item.id)}">${item.enabled ? 'Block' : 'Allow'}</button>
+        <button class="tiny" data-service-trust="${esc(item.id)}">${item.trusted ? 'Trusted' : 'Untrusted'}</button>
+      </div>
+    </article>
+  `).join('');
+  host.querySelectorAll('[data-service-toggle]').forEach(btn => btn.addEventListener('click', async () => {
+    const service = items.find(x => x.id === btn.dataset.serviceToggle);
+    if (!service) return;
+    await api.patchBrowserService(service.id, { enabled: !service.enabled });
+    await refreshStatus();
+  }));
+  host.querySelectorAll('[data-service-trust]').forEach(btn => btn.addEventListener('click', async () => {
+    const service = items.find(x => x.id === btn.dataset.serviceTrust);
+    if (!service) return;
+    await api.patchBrowserService(service.id, { trusted: !service.trusted });
+    await refreshStatus();
+  }));
+}
+
+function renderAudit(events) {
+  const host = document.getElementById('auditList');
+  if (!events.length) {
+    host.innerHTML = '<div class="empty">No browser events yet.</div>';
+    return;
+  }
+  host.innerHTML = events.map(event => `
+    <article class="audit-row">
+      <div class="audit-meta">${esc(fmtAuditTime(event.ts))}<br><span class="audit-event">${esc(event.event || '')}</span></div>
+      <div class="audit-detail">${esc(JSON.stringify(event))}</div>
+    </article>
+  `).join('');
+}
+
+async function refreshStatus() {
+  renderState(await api.browserStatus());
+}
+
+async function capturePreview() {
+  if (!state?.session_open) return;
+  setPreviewBusy(true, 'Capturing preview...');
+  try {
+    const shot = await api.browserScreenshot();
+    const image = document.getElementById('previewImage');
+    image.src = `data:image/png;base64,${shot.png_base64}`;
+    image.hidden = false;
+    document.getElementById('previewEmpty').hidden = true;
+    document.getElementById('capturedAt').textContent = fmtDate(shot.captured_at);
+    setPreviewBusy(false, 'Preview updated');
+  } catch (err) {
+    setPreviewBusy(false, `Preview failed: ${err.message}`);
+  }
+}
+
+function clearPreviewTimer() {
+  if (previewTimer) {
+    clearInterval(previewTimer);
+    previewTimer = null;
+  }
+}
+
+function startPreviewTimer() {
+  clearPreviewTimer();
+  previewTimer = setInterval(() => {
+    capturePreview().catch(() => {});
+    refreshStatus().catch(() => {});
+  }, 3500);
+}
+
+async function openOrCloseSession() {
+  if (state?.session_open) {
+    await api.browserClose();
+    await refreshStatus();
+    return;
+  }
+  if (!state?.browser_warning_acknowledged) {
+    document.getElementById('warningModal').classList.add('show');
+    return;
+  }
+  await api.browserOpen(false);
+  await refreshStatus();
+  await capturePreview();
+}
+
+async function applyMode() {
+  const active = document.querySelector('#modeToggle button.active')?.dataset.mode || 'safe';
+  await api.browserSessionMode(active, document.getElementById('jobLabelInput').value.trim() || 'Manual browser session');
+  await refreshStatus();
+}
+
+async function addService() {
+  const domain = document.getElementById('serviceDomain').value.trim();
+  if (!domain) return;
+  const label = document.getElementById('serviceLabel').value.trim();
+  const capRaw = document.getElementById('serviceCap').value.trim();
+  await api.addBrowserService({
+    domain,
+    label,
+    daily_cap: capRaw ? Number(capRaw) : null,
+    enabled: true,
+    trusted: true,
+  });
+  document.getElementById('serviceDomain').value = '';
+  document.getElementById('serviceLabel').value = '';
+  document.getElementById('serviceCap').value = '';
+  await refreshStatus();
+}
+
+async function ensureExampleService() {
+  const existing = (state?.allowed_services || []).find(item => item.domain === 'example.com');
+  if (!existing) {
+    document.getElementById('serviceDomain').value = 'example.com';
+    document.getElementById('serviceLabel').value = 'Example.com';
+    document.getElementById('serviceCap').value = '10';
+    await addService();
+    return;
+  }
+  await api.patchBrowserService(existing.id, { enabled: true, trusted: true, daily_cap: existing.daily_cap || 10 });
+  await refreshStatus();
+}
+
+async function queueExampleClick() {
+  if (!state?.session_open) throw new Error('Open the browser first.');
+  if (!String(state.current_url || '').includes('example.com')) throw new Error('Navigate to https://example.com first.');
+  document.getElementById('clickSelector').value = 'a';
+  const result = await api.browserClick('a');
+  await refreshStatus();
+  if (!result.queued) await capturePreview();
+}
+
+document.getElementById('sessionBtn').addEventListener('click', () => openOrCloseSession().catch(err => alert(err.message)));
+document.getElementById('refreshBtn').addEventListener('click', () => refreshStatus().then(capturePreview).catch(err => alert(err.message)));
+document.getElementById('navigateBtn').addEventListener('click', async () => {
+  const url = document.getElementById('urlInput').value.trim();
+  if (!url) return;
+  setPreviewBusy(true, 'Navigating...');
+  try {
+    await api.browserNavigate(url);
+    await refreshStatus();
+    await capturePreview();
+  } catch (err) {
+    setPreviewBusy(false, `Navigate failed: ${err.message}`);
+  }
+});
+document.getElementById('screenshotBtn').addEventListener('click', () => capturePreview().catch(err => alert(err.message)));
+document.getElementById('fillBtn').addEventListener('click', async () => {
+  const selector = document.getElementById('fillSelector').value.trim();
+  const value = document.getElementById('fillValue').value;
+  if (!selector) return;
+  const result = await api.browserFill(selector, value, document.getElementById('fillSecret').checked);
+  await refreshStatus();
+  if (!result.queued) await capturePreview();
+});
+document.getElementById('clickBtn').addEventListener('click', async () => {
+  const selector = document.getElementById('clickSelector').value.trim();
+  if (!selector) return;
+  const result = await api.browserClick(selector);
+  await refreshStatus();
+  if (!result.queued) await capturePreview();
+});
+document.getElementById('waitBtn').addEventListener('click', async () => {
+  const selector = document.getElementById('waitSelector').value.trim();
+  if (!selector) return;
+  await api.browserWait(selector, Number(document.getElementById('waitTimeout').value || 10000));
+  await refreshStatus();
+  await capturePreview();
+});
+document.getElementById('applyModeBtn').addEventListener('click', () => applyMode().catch(err => alert(err.message)));
+document.querySelectorAll('#modeToggle button').forEach(btn => btn.addEventListener('click', () => {
+  document.querySelectorAll('#modeToggle button').forEach(other => other.classList.toggle('active', other === btn));
+}));
+document.getElementById('addServiceBtn').addEventListener('click', () => addService().catch(err => alert(err.message)));
+document.getElementById('loadRecipeBtn').addEventListener('click', loadTestRecipe);
+document.getElementById('addExampleServiceBtn').addEventListener('click', () => ensureExampleService().catch(err => alert(err.message)));
+document.getElementById('queueExampleClickBtn').addEventListener('click', () => queueExampleClick().catch(err => alert(err.message)));
+
+document.getElementById('warningCancel').addEventListener('click', () => {
+  document.getElementById('warningModal').classList.remove('show');
+});
+document.getElementById('warningProceed').addEventListener('click', async () => {
+  await api.saveManagerConfig({ browser_warning_acknowledged: true });
+  document.getElementById('warningModal').classList.remove('show');
+  await refreshStatus();
+  await openOrCloseSession();
+});
+
+await refreshStatus();
+if (state?.session_open) {
+  await capturePreview();
+}
+</script>
+<script type="module" src="/static/js/nav.js?v=v21"></script>
+</body>
+</html>

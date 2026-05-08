@@ -1,0 +1,568 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Relationships · Metis</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="/static/assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/styles/shell.css?v=v21">
+<link rel="stylesheet" href="/static/styles/wordmark.css?v=v21">
+<script src="/static/js/wordmark.js?v=v18" defer></script>
+<style>
+/* ── Two-pane layout for the Relationships page ── */
+.people-grid{display:grid;grid-template-columns:300px 1fr;gap:18px;height:calc(100vh - 120px)}
+
+/* ── Left rail: search, folders, contacts ── */
+.left-rail{display:flex;flex-direction:column;gap:14px;overflow:hidden}
+.search-box{position:relative}
+.search-box svg{position:absolute;top:50%;left:12px;transform:translateY(-50%);width:14px;height:14px;color:var(--subtle);stroke:currentColor;fill:none}
+.search-box input{width:100%;height:38px;padding:0 12px 0 34px;border-radius:9px;border:1px solid var(--border);background:var(--panel);color:var(--text);font-family:inherit;font-size:13px;outline:none}
+.search-box input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+
+.filter-card{padding:12px 14px;border-radius:11px;background:var(--panel);border:1px solid var(--border)}
+.filter-card .legend{font-family:'Sora',sans-serif;font-size:10.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--subtle);margin-bottom:8px}
+.filter-list{display:flex;flex-direction:column;gap:1px}
+.filter-pill{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:7px;cursor:pointer;transition:all .12s;font-size:12.5px;color:var(--muted);background:transparent;border:none;font-family:inherit;text-align:left}
+.filter-pill:hover{background:var(--panel-2);color:var(--text)}
+.filter-pill.active{background:var(--accent-soft);color:var(--text)}
+.filter-pill .num{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--subtle)}
+
+.tag-row{display:flex;flex-wrap:wrap;gap:5px}
+.tag-chip{font-family:'JetBrains Mono',monospace;font-size:10px;padding:3px 9px;border-radius:99px;background:var(--panel-2);border:1px solid var(--border);color:var(--muted);cursor:pointer;transition:all .15s}
+.tag-chip:hover{background:var(--accent-soft);color:var(--text);border-color:var(--accent)}
+.tag-chip.active{background:var(--accent-soft);color:var(--text);border-color:var(--accent)}
+
+.contact-list{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:1px;padding-right:4px}
+.contact-row{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;cursor:pointer;transition:background .12s;background:transparent;border:1px solid transparent;font-family:inherit;text-align:left;width:100%}
+.contact-row:hover{background:var(--panel)}
+.contact-row.active{background:var(--accent-soft);border-color:color-mix(in srgb, var(--accent) 30%, transparent)}
+.contact-row .avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Sora',sans-serif;font-weight:700;font-size:13px;color:#fff;flex-shrink:0;background:var(--grad)}
+.contact-row .meta{flex:1;min-width:0}
+.contact-row .name{font-size:13.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.contact-row .sub{font-size:11.5px;color:var(--subtle);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ── Main pane: contact detail ── */
+.detail-pane{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:24px 28px;overflow-y:auto;display:flex;flex-direction:column;gap:18px}
+.detail-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--subtle);text-align:center;gap:14px}
+.detail-empty svg{width:56px;height:56px;color:var(--subtle);stroke:currentColor;fill:none;stroke-width:1.5;opacity:.5}
+.detail-empty h3{font-family:'Sora',sans-serif;font-size:18px;font-weight:600;color:var(--muted)}
+.detail-empty p{font-size:13px;max-width:36ch;line-height:1.55}
+
+.contact-head{display:grid;grid-template-columns:auto 1fr auto;gap:18px;align-items:center}
+.contact-head .big-avatar{width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Sora',sans-serif;font-weight:800;font-size:22px;color:#fff;background:var(--grad);box-shadow:0 8px 24px var(--accent-glow)}
+.contact-head h2{font-family:'Sora',sans-serif;font-size:24px;font-weight:700;letter-spacing:-.015em;line-height:1.2}
+.contact-head .role{color:var(--muted);font-size:13.5px;margin-top:3px}
+.contact-head .actions{display:flex;gap:6px}
+.icon-action{width:34px;height:34px;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.icon-action:hover{background:var(--accent-soft);color:var(--text);border-color:var(--accent)}
+.icon-action svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2}
+.icon-action.danger:hover{color:var(--co);border-color:var(--co);background:rgba(251,113,133,.08)}
+
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field-row{padding:11px 13px;border-radius:9px;background:var(--panel-2);border:1px solid var(--border)}
+.field-row .lbl{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--subtle);margin-bottom:3px}
+.field-row .val{font-size:13px;color:var(--text)}
+.field-row .val input,.field-row .val textarea{width:100%;background:transparent;border:none;color:var(--text);font-family:inherit;font-size:13px;outline:none;padding:0;resize:vertical}
+.field-row.editable:hover{border-color:var(--border-2);background:var(--panel)}
+
+.tags-edit{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.tags-edit .tag-chip.removable::after{content:" ×";color:var(--subtle)}
+.tags-edit input{flex:1;min-width:110px;background:transparent;border:none;color:var(--text);font-family:inherit;font-size:12px;outline:none}
+
+.section-title{font-family:'Sora',sans-serif;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--subtle);display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.section-title .count{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--vi2);background:var(--accent-soft);padding:2px 8px;border-radius:99px;font-weight:600}
+
+.add-note{display:flex;gap:8px;margin-bottom:12px}
+.add-note textarea{flex:1;min-height:38px;max-height:120px;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);font-family:inherit;font-size:13px;outline:none;resize:vertical;line-height:1.5}
+.add-note textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+
+.note-row,.conv-row{padding:11px 13px;border-radius:9px;background:var(--panel-2);border:1px solid var(--border);margin-bottom:8px}
+.note-row .ts,.conv-row .ts{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--subtle);margin-bottom:5px;display:flex;align-items:center;gap:6px}
+.note-row .text{font-size:13px;line-height:1.55;color:var(--text);white-space:pre-wrap}
+.conv-row .ts .ch{padding:1px 7px;border-radius:99px;font-size:9px;text-transform:uppercase;letter-spacing:.08em}
+.conv-row .ts .ch.chat{background:rgba(124,58,237,.16);color:var(--vi2)}
+.conv-row .ts .ch.email{background:rgba(59,130,246,.18);color:#93C5FD}
+.conv-row .ts .ch.sms{background:rgba(34,197,94,.16);color:#86EFAC}
+.conv-row .ts .ch.phone{background:rgba(245,158,11,.18);color:#FCD34D}
+.conv-row .ts .dir{color:var(--subtle)}
+.conv-row .summary{font-size:13px;color:var(--text);font-weight:500;margin-bottom:4px}
+.conv-row .body{font-size:12px;color:var(--muted);line-height:1.5;white-space:pre-wrap}
+
+/* New contact modal */
+.modal-overlay{position:fixed;inset:0;z-index:200;background:rgba(7,7,26,.72);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;padding:24px;animation:fadeIn .2s}
+.modal-overlay.show{display:flex}
+.modal{width:480px;max-width:100%;background:rgba(13,13,36,.96);backdrop-filter:blur(40px);border:1px solid var(--border-2);border-radius:14px;box-shadow:0 32px 80px rgba(0,0,0,.5);overflow:hidden}
+.modal-head{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
+.modal-head h3{font-family:'Sora',sans-serif;font-size:17px;font-weight:700;flex:1}
+.modal-head .close{background:transparent;border:none;color:var(--subtle);cursor:pointer;font-size:22px;padding:0 6px;line-height:1}
+.modal-head .close:hover{color:var(--text)}
+.modal-body{padding:18px 22px;display:flex;flex-direction:column;gap:12px}
+.modal-body label{font-size:11.5px;color:var(--subtle);text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin-bottom:4px;display:block}
+.modal-body input,.modal-body textarea{width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:rgba(0,0,0,.25);color:var(--text);font-family:inherit;font-size:13px;outline:none}
+.modal-body input:focus,.modal-body textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.modal-foot{padding:14px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+
+/* Mobile */
+@media(max-width:880px){
+  .people-grid{grid-template-columns:1fr;height:auto}
+  .left-rail{order:2}
+}
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <aside class="side">
+    <div class="side-head">
+      <button class="metis-mark size-sm" type="button" title="Refresh">
+        <img class="mm-glyph" src="/static/assets/metis-mark.svg?v=v18" alt="">
+        <span class="mm-stack">
+          <span class="mm-word">Metis</span>
+          <span class="mm-sub">Relationships</span>
+        </span>
+      </button>
+    </div>
+    <nav class="nav" data-active="people"></nav>
+    <div class="side-foot">
+      <div class="avatar" id="userAvatar">M</div>
+      <div class="user-meta">
+        <div class="name" id="userName">Loading…</div>
+        <div class="role">Director</div>
+      </div>
+      <button class="btn" id="signoutBtn" style="height:32px;padding:0 10px;font-size:11px" title="Sign out">Sign out</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="page-head">
+      <h1 class="page-title">Your <em>people</em></h1>
+      <span class="page-sub">Contacts · Conversations · Folders</span>
+      <button class="btn primary" id="addContactBtn">+ Add contact</button>
+    </div>
+    <div class="body">
+      <div class="body-inner" style="max-width:1200px">
+        <div class="people-grid">
+          <!-- Left rail -->
+          <div class="left-rail">
+            <div class="search-box">
+              <svg viewBox="0 0 24 24" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="searchInput" placeholder="Search contacts…" autocomplete="off">
+            </div>
+
+            <div class="filter-card">
+              <div class="legend">Folders</div>
+              <div class="filter-list" id="folderList">
+                <div class="empty-row" style="padding:8px;color:var(--subtle);font-size:11.5px">Loading…</div>
+              </div>
+            </div>
+
+            <div class="filter-card">
+              <div class="legend">Tags</div>
+              <div class="tag-row" id="tagList">
+                <div class="empty-row" style="color:var(--subtle);font-size:11.5px">Loading…</div>
+              </div>
+            </div>
+
+            <div class="filter-card" style="flex:1;overflow:hidden;display:flex;flex-direction:column">
+              <div class="legend" id="contactsLegend">All contacts <span class="count" id="contactCount" style="font-family:'JetBrains Mono',monospace;font-weight:600;font-size:10.5px;color:var(--vi2);margin-left:8px">0</span></div>
+              <div class="contact-list" id="contactList">
+                <div class="empty-row" style="padding:14px;color:var(--subtle);font-size:12px;text-align:center">No contacts yet.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Detail pane -->
+          <div class="detail-pane" id="detailPane">
+            <div class="detail-empty">
+              <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              <h3>No contact selected</h3>
+              <p>Pick someone from the list to see their full profile, conversation history, and notes. Or hit <strong>+ Add contact</strong> to create a new one.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- New contact modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" role="dialog">
+    <div class="modal-head">
+      <h3>Add a new contact</h3>
+      <button class="close" id="modalClose">×</button>
+    </div>
+    <div class="modal-body">
+      <div><label>Name *</label><input type="text" id="newName" placeholder="Jane Doe" autocomplete="off"></div>
+      <div><label>Role / what they do</label><input type="text" id="newRole" placeholder="Designer at Acme"></div>
+      <div><label>Email</label><input type="email" id="newEmail" placeholder="jane@example.com"></div>
+      <div><label>Phone</label><input type="tel" id="newPhone" placeholder="+1 555 555 5555"></div>
+      <div><label>Folder</label><input type="text" id="newFolder" placeholder="Work / Family / Friends"></div>
+      <div><label>Tags <span style="color:var(--subtle);text-transform:none;letter-spacing:0;font-size:10.5px;font-weight:400">(comma-separated)</span></label><input type="text" id="newTags" placeholder="design, mentor"></div>
+      <div><label>Notes</label><textarea id="newNotes" rows="3" placeholder="What should the agent remember about this person?"></textarea></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="modalCancel">Cancel</button>
+      <button class="btn primary" id="modalSave">Save contact</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { api, ensureAuthed, getUser, clearSession } from '/static/js/api.js?v=v19';
+
+await ensureAuthed();
+const cached = getUser() || { email: 'Operator' };
+document.getElementById('userName').textContent = cached.email || 'Operator';
+document.getElementById('userAvatar').textContent = (cached.email?.[0] || 'M').toUpperCase();
+
+document.getElementById('signoutBtn').addEventListener('click', async () => {
+  try { await api.signout(); } catch {}
+  clearSession();
+  window.location.replace('/login');
+});
+
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtTime = (iso) => {
+  if (!iso) return '';
+  try { return new Date(iso).toLocaleString(); } catch { return iso; }
+};
+const initials = (name) => (name || '?').trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+const colorFor = (name) => {
+  const palette = ['#7C3AED','#FB7185','#F59E0B','#3B82F6','#22C55E','#EC4899','#06B6D4','#A855F7'];
+  let h = 0; for (const c of name || '') h = (h * 31 + c.charCodeAt(0)) | 0;
+  return palette[Math.abs(h) % palette.length];
+};
+
+function authedFetch(path, opts = {}) {
+  return fetch(path, {
+    ...opts,
+    headers: {
+      ...(opts.headers || {}),
+      Authorization: 'Bearer ' + localStorage.getItem('metis.access_token'),
+      'Content-Type': 'application/json',
+    },
+  });
+}
+
+// ── State ────────────────────────────────────────────────────────────────
+let allContacts = [];
+let activeFilter = { folder: null, tag: null, q: '' };
+let selectedId = null;
+
+// ── Loaders ──────────────────────────────────────────────────────────────
+async function loadContacts() {
+  const r = await authedFetch('/relationships').then(r => r.json());
+  allContacts = Array.isArray(r) ? r : [];
+  renderContactList();
+}
+
+async function loadFiltersList() {
+  const r = await authedFetch('/relationships/folders/list').then(r => r.json());
+  const folders = r.folders || {};
+  const tags = r.tags || {};
+  const total = Object.values(folders).reduce((a, b) => a + b, 0);
+
+  const fl = document.getElementById('folderList');
+  fl.innerHTML = `
+    <button class="filter-pill ${!activeFilter.folder ? 'active' : ''}" data-folder="">
+      All<span class="num">${total}</span>
+    </button>
+    ${Object.entries(folders).sort().map(([name, count]) => `
+      <button class="filter-pill ${activeFilter.folder === name ? 'active' : ''}" data-folder="${esc(name)}">
+        ${esc(name)}<span class="num">${count}</span>
+      </button>
+    `).join('')}
+  `;
+  fl.querySelectorAll('[data-folder]').forEach(b => {
+    b.addEventListener('click', () => {
+      activeFilter.folder = b.dataset.folder || null;
+      loadFiltersList();
+      renderContactList();
+    });
+  });
+
+  const tl = document.getElementById('tagList');
+  if (Object.keys(tags).length === 0) {
+    tl.innerHTML = '<div style="color:var(--subtle);font-size:11.5px">No tags yet.</div>';
+  } else {
+    tl.innerHTML = Object.entries(tags).sort((a, b) => b[1] - a[1]).map(([name, count]) => `
+      <button class="tag-chip ${activeFilter.tag === name ? 'active' : ''}" data-tag="${esc(name)}">${esc(name)}<span style="margin-left:5px;color:var(--subtle)">${count}</span></button>
+    `).join('');
+    tl.querySelectorAll('[data-tag]').forEach(b => {
+      b.addEventListener('click', () => {
+        activeFilter.tag = activeFilter.tag === b.dataset.tag ? null : b.dataset.tag;
+        loadFiltersList();
+        renderContactList();
+      });
+    });
+  }
+}
+
+function applyFilters(list) {
+  return list.filter(c => {
+    if (activeFilter.folder) {
+      const f = (c.folder || 'Unsorted');
+      if (f !== activeFilter.folder) return false;
+    }
+    if (activeFilter.tag) {
+      if (!(c.tags || []).includes(activeFilter.tag)) return false;
+    }
+    if (activeFilter.q) {
+      const q = activeFilter.q.toLowerCase();
+      const hay = [c.name, c.role, c.company, c.email, c.notes].filter(Boolean).join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function renderContactList() {
+  const list = applyFilters(allContacts);
+  document.getElementById('contactCount').textContent = list.length;
+  const el = document.getElementById('contactList');
+  if (list.length === 0) {
+    el.innerHTML = '<div class="empty-row" style="padding:14px;color:var(--subtle);font-size:12px;text-align:center">No matches.</div>';
+    return;
+  }
+  el.innerHTML = list.map(c => `
+    <button class="contact-row ${c.id === selectedId ? 'active' : ''}" data-id="${esc(c.id)}">
+      <div class="avatar" style="background:${colorFor(c.name)}">${esc(initials(c.name))}</div>
+      <div class="meta">
+        <div class="name">${esc(c.name || 'Untitled')}</div>
+        <div class="sub">${esc(c.role || c.company || c.email || '—')}</div>
+      </div>
+    </button>`).join('');
+  el.querySelectorAll('[data-id]').forEach(b => {
+    b.addEventListener('click', () => {
+      selectedId = b.dataset.id;
+      renderContactList();
+      loadDetail(selectedId);
+    });
+  });
+}
+
+async function loadDetail(id) {
+  const c = await authedFetch('/relationships/' + encodeURIComponent(id)).then(r => r.json());
+  const pane = document.getElementById('detailPane');
+  pane.innerHTML = `
+    <div class="contact-head">
+      <div class="big-avatar" style="background:${colorFor(c.name)}">${esc(initials(c.name))}</div>
+      <div>
+        <h2 contenteditable="true" data-field="name">${esc(c.name || 'Untitled')}</h2>
+        <div class="role" contenteditable="true" data-field="role" data-placeholder="Role / what they do">${esc(c.role || '')}</div>
+      </div>
+      <div class="actions">
+        ${c.email ? `<a class="icon-action" href="mailto:${esc(c.email)}" title="Email"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><polyline points="3 7 12 13 21 7"/></svg></a>` : ''}
+        ${c.phone ? `<a class="icon-action" href="tel:${esc(c.phone)}" title="Call"><svg viewBox="0 0 24 24"><path d="M22 16.92V19a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 1.18h3a2 2 0 0 1 2 1.72c.13.96.36 1.91.69 2.81a2 2 0 0 1-.45 2.11L7.91 9.09a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.33 1.85.56 2.81.69a2 2 0 0 1 1.72 2z"/></svg></a>` : ''}
+        <button class="icon-action danger" title="Delete contact" id="deleteBtn"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button>
+      </div>
+    </div>
+
+    <div class="fields">
+      <div class="field-row editable">
+        <div class="lbl">Email</div>
+        <div class="val"><input type="email" data-field="email" value="${esc(c.email || '')}" placeholder="—"></div>
+      </div>
+      <div class="field-row editable">
+        <div class="lbl">Phone</div>
+        <div class="val"><input type="tel" data-field="phone" value="${esc(c.phone || '')}" placeholder="—"></div>
+      </div>
+      <div class="field-row editable">
+        <div class="lbl">Company</div>
+        <div class="val"><input type="text" data-field="company" value="${esc(c.company || '')}" placeholder="—"></div>
+      </div>
+      <div class="field-row editable">
+        <div class="lbl">Folder</div>
+        <div class="val"><input type="text" data-field="folder" value="${esc(c.folder || '')}" placeholder="Unsorted"></div>
+      </div>
+    </div>
+
+    <div class="field-row editable">
+      <div class="lbl">Tags</div>
+      <div class="tags-edit">
+        ${(c.tags || []).map(t => `<span class="tag-chip removable" data-tag="${esc(t)}">${esc(t)}</span>`).join('')}
+        <input type="text" id="tagInput" placeholder="add tag, ↵">
+      </div>
+    </div>
+
+    <div class="field-row editable">
+      <div class="lbl">Notes (one-liner)</div>
+      <div class="val"><textarea data-field="notes" rows="2" placeholder="Anything important to remember about this person…">${esc(c.notes || '')}</textarea></div>
+    </div>
+
+    <div>
+      <div class="section-title">Notes log <span class="count" id="notesCount">${(c.notes_log || []).length}</span></div>
+      <div class="add-note">
+        <textarea id="newNoteText" placeholder="Add a quick note (Ctrl+↵ to save)" rows="2"></textarea>
+        <button class="btn" id="addNoteBtn">Add</button>
+      </div>
+      <div id="notesList">
+        ${(c.notes_log || []).map(n => `
+          <div class="note-row">
+            <div class="ts">📝 ${esc(fmtTime(n.ts))}</div>
+            <div class="text">${esc(n.text || '')}</div>
+          </div>`).join('') || '<div class="empty-row" style="color:var(--subtle);font-size:12px">No notes yet.</div>'}
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">Conversations <span class="count">${(c.conversations || []).length}</span></div>
+      <div id="convList">
+        ${(c.conversations || []).map(conv => `
+          <div class="conv-row">
+            <div class="ts">
+              <span class="ch ${esc(conv.channel)}">${esc(conv.channel)}</span>
+              <span class="dir">${esc(conv.direction === 'outbound' ? '→ sent' : '← received')}</span>
+              <span style="color:var(--subtle)">·</span>
+              ${esc(fmtTime(conv.ts))}
+            </div>
+            <div class="summary">${esc(conv.summary || '')}</div>
+            ${conv.body ? `<div class="body">${esc(conv.body)}</div>` : ''}
+          </div>`).join('') || '<div class="empty-row" style="color:var(--subtle);font-size:12px">No conversations logged. The agent will add entries here whenever it reaches out on your behalf.</div>'}
+      </div>
+    </div>
+  `;
+
+  // Wire events
+  pane.querySelectorAll('[data-field]').forEach(el => {
+    const save = async () => {
+      const field = el.dataset.field;
+      const value = el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' ? el.value : el.textContent;
+      const r = await authedFetch('/relationships/' + encodeURIComponent(id), {
+        method: 'PATCH',
+        body: JSON.stringify({ [field]: value }),
+      });
+      if (r.ok) {
+        // Refresh list silently to update name + role pills
+        await loadContacts();
+        loadFiltersList();
+      }
+    };
+    el.addEventListener('blur', save);
+    if (el.tagName !== 'TEXTAREA') {
+      el.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); el.blur(); } });
+    }
+  });
+
+  // Tag remove
+  pane.querySelectorAll('[data-tag]').forEach(chip => {
+    chip.addEventListener('click', async () => {
+      const newTags = (c.tags || []).filter(t => t !== chip.dataset.tag);
+      await authedFetch('/relationships/' + encodeURIComponent(id), {
+        method: 'PATCH',
+        body: JSON.stringify({ tags: newTags }),
+      });
+      loadDetail(id); loadFiltersList();
+    });
+  });
+  // Tag add
+  const tagInput = document.getElementById('tagInput');
+  if (tagInput) {
+    tagInput.addEventListener('keydown', async (e) => {
+      if (e.key === 'Enter' && tagInput.value.trim()) {
+        e.preventDefault();
+        const newTags = [...(c.tags || []), tagInput.value.trim()];
+        await authedFetch('/relationships/' + encodeURIComponent(id), {
+          method: 'PATCH',
+          body: JSON.stringify({ tags: [...new Set(newTags)] }),
+        });
+        tagInput.value = '';
+        loadDetail(id); loadFiltersList();
+      }
+    });
+  }
+
+  // Add note
+  const noteBtn = document.getElementById('addNoteBtn');
+  const noteText = document.getElementById('newNoteText');
+  const submitNote = async () => {
+    const text = (noteText?.value || '').trim();
+    if (!text) return;
+    await authedFetch(`/relationships/${encodeURIComponent(id)}/notes`, {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    });
+    loadDetail(id);
+  };
+  noteBtn?.addEventListener('click', submitNote);
+  noteText?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); submitNote(); }
+  });
+
+  // Delete
+  document.getElementById('deleteBtn')?.addEventListener('click', async () => {
+    if (!confirm(`Delete ${c.name || 'this contact'}? This cannot be undone.`)) return;
+    await authedFetch('/relationships/' + encodeURIComponent(id), { method: 'DELETE' });
+    selectedId = null;
+    document.getElementById('detailPane').innerHTML = `
+      <div class="detail-empty">
+        <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        <h3>Contact deleted</h3>
+      </div>`;
+    loadContacts();
+    loadFiltersList();
+  });
+}
+
+// ── Search ──────────────────────────────────────────────────────────────
+document.getElementById('searchInput').addEventListener('input', (e) => {
+  activeFilter.q = e.target.value.trim();
+  renderContactList();
+});
+
+// ── New contact modal ──────────────────────────────────────────────────
+const modal = document.getElementById('modalOverlay');
+function openModal() {
+  ['newName', 'newRole', 'newEmail', 'newPhone', 'newFolder', 'newTags', 'newNotes'].forEach(id => document.getElementById(id).value = '');
+  modal.classList.add('show');
+  setTimeout(() => document.getElementById('newName').focus(), 80);
+}
+function closeModal() { modal.classList.remove('show'); }
+document.getElementById('addContactBtn').addEventListener('click', openModal);
+document.getElementById('modalCancel').addEventListener('click', closeModal);
+document.getElementById('modalClose').addEventListener('click', closeModal);
+modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+document.getElementById('modalSave').addEventListener('click', async () => {
+  const name = document.getElementById('newName').value.trim();
+  if (!name) { alert('Name is required.'); return; }
+  const tags = document.getElementById('newTags').value.split(',').map(t => t.trim()).filter(Boolean);
+  const folder = document.getElementById('newFolder').value.trim();
+  const r = await authedFetch('/relationships', {
+    method: 'POST',
+    body: JSON.stringify({
+      name,
+      role:  document.getElementById('newRole').value.trim(),
+      email: document.getElementById('newEmail').value.trim(),
+      phone: document.getElementById('newPhone').value.trim(),
+      notes: document.getElementById('newNotes').value.trim(),
+      tags,
+    }),
+  });
+  if (!r.ok) { alert('Save failed.'); return; }
+  const created = await r.json();
+  // Patch folder separately since /relationships POST doesn't take it
+  if (folder) {
+    await authedFetch('/relationships/' + encodeURIComponent(created.id), {
+      method: 'PATCH',
+      body: JSON.stringify({ folder }),
+    });
+  }
+  closeModal();
+  selectedId = created.id;
+  await loadContacts();
+  await loadFiltersList();
+  loadDetail(created.id);
+});
+
+// ── Init ──────────────────────────────────────────────────────────────
+loadContacts();
+loadFiltersList();
+</script>
+
+<script type="module" src="/static/js/nav.js?v=v21"></script>
+</body>
+</html>
