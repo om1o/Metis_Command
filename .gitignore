@@ -71,6 +71,12 @@ Thumbs.db
 *.swp
 *.swo
 
+# ── Agent workspaces & local scratch (never commit) ─────────────────────────
+.claude/
+.playwright-mcp/
+scratch/
+Metis_Command/
+
 # ── ML / model weights (belong on HF/Ollama, not git) ────────────────────────
 *.bin
 *.safetensors
