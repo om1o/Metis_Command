@@ -112,6 +112,29 @@ export interface AuthResult {
 
 export type OAuthProvider = 'google' | 'github';
 
+// ── Schedules ──────────────────────────────────────────────────────────────
+// Mirror of scheduler.Schedule on the backend. Kind-specific spec format:
+//   interval — minutes as a string ("60", "1440")
+//   daily    — "HH:MM" 24-hour
+//   once     — ISO timestamp
+//   cron     — 5-field cron string
+
+export type ScheduleKind = 'interval' | 'daily' | 'once' | 'cron';
+
+export interface Schedule {
+  id: string;
+  kind: ScheduleKind;
+  spec: string;
+  goal: string;
+  action: string;
+  enabled: boolean;
+  project_slug: string | null;
+  auto_approve: boolean;
+  last_run: number | null;
+  next_run: number | null;
+  created_at: number;
+}
+
 // ── Client ──────────────────────────────────────────────────────────────────
 
 export class MetisClient {
@@ -281,6 +304,43 @@ export class MetisClient {
     missing_gb: number;
   }> {
     return this.get(`/tiers/plan?tier=${tier}`);
+  }
+
+  // ── Schedules ───────────────────────────────────────────────────────────
+
+  async listSchedules(): Promise<Schedule[]> {
+    return this.get('/schedules');
+  }
+
+  async createSchedule(input: {
+    goal: string;
+    kind: ScheduleKind;
+    spec: string;
+    auto_approve?: boolean;
+    project_slug?: string | null;
+    action?: string;
+  }): Promise<Schedule> {
+    return this.post('/schedules', {
+      goal: input.goal,
+      kind: input.kind,
+      spec: input.spec,
+      auto_approve: input.auto_approve ?? true,
+      project_slug: input.project_slug ?? null,
+      action: input.action ?? '',
+    });
+  }
+
+  async deleteSchedule(id: string): Promise<{ ok: boolean; id: string }> {
+    const res = await fetch(`${this.baseUrl}/schedules/${id}`, {
+      method: 'DELETE',
+      headers: this.headers(),
+    });
+    if (!res.ok) throw new Error(`delete schedule: ${res.status}`);
+    return res.json();
+  }
+
+  async toggleSchedule(id: string): Promise<{ enabled: boolean; id: string }> {
+    return this.post(`/schedules/${id}/toggle`, {});
   }
 
   // ── Auth ────────────────────────────────────────────────────────────────

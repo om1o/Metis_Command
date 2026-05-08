@@ -40,15 +40,17 @@ import {
   Eye,
 } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { createLocalClient, MetisClient, AuthUser } from '@/lib/metis-client';
+import { createLocalClient, MetisClient, AuthUser, Schedule } from '@/lib/metis-client';
 import { Mark, Wordmark } from '@/components/brand';
 import LoginScreen, { AuthSuccess } from '@/components/login-screen';
+import JobPlanner from '@/components/job-planner';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
 type Theme = 'dark' | 'light';
 type AgentStatus = 'idle' | 'thinking' | 'working' | 'done' | 'error';
 type Permission = 'full' | 'balanced' | 'read';
+type Mode = 'task' | 'job';
 
 interface Message {
   id: string;
@@ -126,6 +128,15 @@ function pickTitle(text: string): string {
   const t = text.trim().replace(/\s+/g, ' ');
   if (t.length <= 48) return t || 'New session';
   return `${t.slice(0, 45).trimEnd()}…`;
+}
+
+function formatMinutes(mins: number): string {
+  if (!Number.isFinite(mins) || mins <= 0) return 'often';
+  if (mins < 60)  return `${mins} min`;
+  if (mins === 60) return 'hour';
+  if (mins % 1440 === 0) return `${mins / 1440} day${mins === 1440 ? '' : 's'}`;
+  if (mins % 60 === 0)   return `${mins / 60} hours`;
+  return `${mins} min`;
 }
 
 // Heuristic status for the agent header line while it's streaming.
@@ -336,6 +347,8 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [permission, setPermission] = useState<Permission>('balanced');
+  const [mode, setMode] = useState<Mode>('task');
+  const [jobPlanner, setJobPlanner] = useState<{ goal: string } | null>(null);
 
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
@@ -382,6 +395,10 @@ export default function App() {
       const p = localStorage.getItem('metis-permission');
       if (p === 'full' || p === 'balanced' || p === 'read') setPermission(p);
     } catch {}
+    try {
+      const m = localStorage.getItem('metis-mode');
+      if (m === 'task' || m === 'job') setMode(m);
+    } catch {}
 
     let cancelled = false;
     (async () => {
@@ -419,6 +436,9 @@ export default function App() {
   useEffect(() => {
     try { localStorage.setItem('metis-permission', permission); } catch {}
   }, [permission]);
+  useEffect(() => {
+    try { localStorage.setItem('metis-mode', mode); } catch {}
+  }, [mode]);
   useEffect(() => {
     try { localStorage.setItem('metis-sessions', JSON.stringify(sessions.slice(0, 30))); } catch {}
   }, [sessions]);
@@ -483,6 +503,14 @@ export default function App() {
     const text = (overrideText ?? input).trim();
     if (!text || streaming) return;
     if (!client) return; // gated by LoginScreen above
+
+    // Job mode short-circuits the chat stream and opens the scheduler.
+    // We don't insert the goal as a user message — the user only commits
+    // to a job after picking a cadence in the planner.
+    if (mode === 'job') {
+      setJobPlanner({ goal: text });
+      return;
+    }
 
     let session = active;
     if (!session) {
@@ -574,6 +602,51 @@ export default function App() {
   };
 
   const stop = () => { abortRef.current?.abort(); setStreaming(false); };
+
+  // After a job is created, drop a confirmation message into the active
+  // (or new) session so the user has a visible breadcrumb of what they
+  // just scheduled, plus how it'll run.
+  const handleJobCreated = (s: Schedule) => {
+    setJobPlanner(null);
+    setInput('');
+    if (composerRef.current) composerRef.current.style.height = 'auto';
+
+    let session = active;
+    if (!session) {
+      session = {
+        id: newId(),
+        title: pickTitle(s.goal),
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        messages: [],
+      };
+      setSessions((all) => [session as Session, ...all]);
+      setActiveId(session.id);
+    }
+    const sId = session.id;
+
+    const cadenceText =
+      s.kind === 'daily' ? `every day at ${s.spec}` :
+      s.kind === 'interval' ? `every ${formatMinutes(parseInt(s.spec, 10))}` :
+      s.kind === 'cron' ? `cron \`${s.spec}\`` :
+      `once at ${s.spec}`;
+
+    const nextRun = s.next_run ? new Date(s.next_run * 1000).toLocaleString() : 'soon';
+
+    const userMsg: Message = { id: newId(), role: 'user', content: s.goal, ts: Date.now() };
+    const agentMsg: Message = {
+      id: newId(),
+      role: 'agent',
+      content: `**Scheduled** — runs ${cadenceText}.\n\nFirst run: ${nextRun}.\n\n_Goal:_ ${s.goal}`,
+      ts: Date.now(),
+      status: 'done',
+    };
+    setSessions((all) =>
+      all.map((x) =>
+        x.id === sId ? { ...x, updatedAt: Date.now(), messages: [...x.messages, userMsg, agentMsg] } : x,
+      ),
+    );
+  };
 
   const handleSubmit = (e: FormEvent) => { e.preventDefault(); send(); };
   const onComposerKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -801,15 +874,16 @@ export default function App() {
                 t.style.height = `${Math.min(t.scrollHeight, 220)}px`;
               }}
               onKeyDown={onComposerKey}
-              placeholder="Ask your agent to do something…"
+              placeholder={mode === 'job' ? 'Schedule a job — e.g. \'check my stocks every weekday morning\'' : 'Ask your agent to do something…'}
               disabled={!client}
               className="max-h-[220px] min-h-[44px] w-full resize-none bg-transparent px-3 py-3 text-[14.5px] text-[var(--metis-foreground)] placeholder:text-[var(--metis-fg-dim)] outline-none"
               aria-label="Message"
             />
             <div className="flex flex-wrap items-center gap-1.5 px-1.5 pb-1.5">
+              <ModeSelector value={mode} onChange={setMode} />
               <PermissionSelector value={permission} onChange={setPermission} />
               <span className="hidden text-[11px] text-[var(--metis-fg-dim)] sm:inline">
-                <kbd className="rounded border border-[var(--metis-border)] bg-[var(--metis-code-bg)] px-1.5 py-0.5 text-[10px] text-[var(--metis-code-fg)]">↵</kbd> send · <kbd className="rounded border border-[var(--metis-border)] bg-[var(--metis-code-bg)] px-1.5 py-0.5 text-[10px] text-[var(--metis-code-fg)]">⇧↵</kbd> newline
+                <kbd className="rounded border border-[var(--metis-border)] bg-[var(--metis-code-bg)] px-1.5 py-0.5 text-[10px] text-[var(--metis-code-fg)]">↵</kbd> {mode === 'job' ? 'schedule' : 'send'} · <kbd className="rounded border border-[var(--metis-border)] bg-[var(--metis-code-bg)] px-1.5 py-0.5 text-[10px] text-[var(--metis-code-fg)]">⇧↵</kbd> newline
               </span>
               <div className="ml-auto">
                 {streaming ? (
@@ -926,6 +1000,19 @@ export default function App() {
               </div>
             </div>
           </motion.aside>
+        )}
+      </AnimatePresence>
+
+      {/* Job planner — opens when user submits in Job mode */}
+      <AnimatePresence>
+        {jobPlanner && client && (
+          <JobPlanner
+            goal={jobPlanner.goal}
+            client={client}
+            reduceMotion={!!reduceMotion}
+            onClose={() => setJobPlanner(null)}
+            onCreated={handleJobCreated}
+          />
         )}
       </AnimatePresence>
 
@@ -1103,6 +1190,44 @@ function MessageBubble({
         )}
       </div>
     </motion.div>
+  );
+}
+
+// ── Mode selector (Task vs Job) ────────────────────────────────────────────
+
+function ModeSelector({ value, onChange }: { value: Mode; onChange: (v: Mode) => void }) {
+  const items: { id: Mode; label: string; tip: string }[] = [
+    { id: 'task', label: 'Task',  tip: 'One-off — your agent does it now and reports back.' },
+    { id: 'job',  label: 'Job',   tip: 'Recurring — pick a cadence; runs on its own.' },
+  ];
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Run mode"
+      className="inline-flex items-center gap-0.5 rounded-full border border-[var(--metis-border)] bg-[var(--metis-bg)] p-0.5"
+    >
+      {items.map((m) => {
+        const sel = value === m.id;
+        return (
+          <button
+            key={m.id}
+            type="button"
+            role="radio"
+            aria-checked={sel}
+            onClick={() => onChange(m.id)}
+            title={m.tip}
+            className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] transition ${
+              sel
+                ? 'border border-violet-500/40 bg-violet-500/10 text-violet-200'
+                : 'border border-transparent text-[var(--metis-fg-muted)] hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]'
+            }`}
+          >
+            {m.id === 'task' ? <Sparkles className="h-3 w-3" /> : <Calendar className="h-3 w-3" />}
+            {m.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
