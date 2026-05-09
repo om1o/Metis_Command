@@ -1,7 +1,19 @@
 'use client';
 
 import { useEffect, useState, FormEvent } from 'react';
-import { Loader2, ChevronDown, ChevronUp, Mail, Lock, Laptop, KeyRound } from 'lucide-react';
+import {
+  Loader2,
+  ChevronDown,
+  ChevronUp,
+  Mail,
+  Lock,
+  Laptop,
+  KeyRound,
+  ArrowRight,
+  AlertCircle,
+  Copy,
+  Check,
+} from 'lucide-react';
 import { Mark, Wordmark } from '@/components/brand';
 import { MetisClient, AuthUser, OAuthProvider } from '@/lib/metis-client';
 
@@ -23,7 +35,6 @@ interface Props {
 const SIGN_IN = 'signin';
 const SIGN_UP = 'signup';
 
-// Google "G" mark — small inline SVG so we don't ship a logo asset.
 function GoogleGlyph({ size = 16 }: { size?: number }) {
   return (
     <svg viewBox="0 0 48 48" width={size} height={size} aria-hidden="true">
@@ -35,8 +46,6 @@ function GoogleGlyph({ size = 16 }: { size?: number }) {
   );
 }
 
-// GitHub Octocat mark — inline so it renders without the lucide icon
-// (lucide-react ≥1 dropped brand logos for trademark reasons).
 function GitHubGlyph({ size = 16 }: { size?: number }) {
   return (
     <svg viewBox="0 0 16 16" width={size} height={size} aria-hidden="true" fill="currentColor">
@@ -50,12 +59,33 @@ export default function LoginScreen({ onAuth }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState<AuthMode | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // Lazy initializer reads any OAuth error stashed by the / fallback or
+  // /oauth/callback page. Using initializer instead of useEffect avoids
+  // React 19's set-state-in-effect rule.
+  const [error, setError] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const stashed = sessionStorage.getItem('metis-auth-error');
+      if (stashed) {
+        sessionStorage.removeItem('metis-auth-error');
+        return stashed;
+      }
+    } catch {}
+    return null;
+  });
   const [info, setInfo] = useState<string | null>(null);
   const [tokenOpen, setTokenOpen] = useState(false);
+  // Auto-open the cloud panel if we landed here with an OAuth error so
+  // the user sees the context they were last in.
+  const [cloudOpen, setCloudOpen] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    try { return !!sessionStorage.getItem('metis-auth-error'); } catch {}
+    return false;
+  });
   const [tokenInput, setTokenInput] = useState('');
+  const [copied, setCopied] = useState(false);
 
-  // Ping the bridge so we can show a "bridge offline" hint immediately.
+  // Bridge ping so we can show a "bridge offline" hint immediately.
   const [bridgeUp, setBridgeUp] = useState<boolean | null>(null);
   useEffect(() => {
     let cancelled = false;
@@ -91,7 +121,6 @@ export default function LoginScreen({ onAuth }: Props) {
       const token = result.session?.access_token;
       const user = result.user;
       if (!token || !user) {
-        // Sign-up may return user without session if email confirmation is on.
         if (tab === SIGN_UP) {
           setInfo('Check your inbox to confirm your email, then sign in.');
         } else {
@@ -117,7 +146,6 @@ export default function LoginScreen({ onAuth }: Props) {
         setError(`${provider} did not return a sign-in URL. Check Supabase auth config.`);
         return;
       }
-      // Hand off to the provider — the callback page completes the flow.
       window.location.href = url;
     } catch (err) {
       setError(humanizeError(err, provider));
@@ -160,181 +188,220 @@ export default function LoginScreen({ onAuth }: Props) {
     }
   };
 
+  const copyError = async () => {
+    if (!error) return;
+    try {
+      await navigator.clipboard.writeText(error);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch {}
+  };
+
   return (
     <div className="metis-app-bg flex min-h-screen w-full items-center justify-center px-4 py-10 text-[var(--metis-fg)]">
       <div className="relative w-full max-w-md">
+        {/* Hero orb behind the card */}
         <div
-          className="pointer-events-none absolute inset-x-0 -top-32 mx-auto h-72"
+          className="pointer-events-none absolute inset-x-0 -top-40 mx-auto h-80"
           style={{ background: 'var(--metis-orb-hero)' }}
           aria-hidden
         />
-        <div className="relative metis-glow-border rounded-[24px] border border-[var(--metis-border)] bg-[var(--metis-elevated-2)] p-6 shadow-2xl">
-          <div className="flex items-center gap-2.5">
-            <Mark size={32} />
-            <Wordmark size="md" />
-          </div>
-          <h1 className="mt-4 text-2xl font-light tracking-[-0.01em] text-[var(--metis-foreground)]">
-            {tab === SIGN_IN ? 'Welcome back' : 'Create your account'}
-          </h1>
-          <p className="mt-1 text-sm text-[var(--metis-fg-muted)]">
-            Sign in to your agent. Local-first — your work stays on your device.
-          </p>
 
+        <div className="relative metis-glow-border overflow-hidden rounded-[28px] border border-[var(--metis-border)] bg-[var(--metis-elevated-2)] p-7 shadow-2xl">
+          {/* Brand */}
+          <div className="flex flex-col items-center gap-2 text-center">
+            <Mark size={48} />
+            <Wordmark size="large" />
+            <p className="mt-1 text-[12.5px] text-[var(--metis-fg-dim)]">
+              Your private agent. Local-first.
+            </p>
+          </div>
+
+          {/* Bridge status banner — only when actually unreachable */}
           {bridgeUp === false && (
-            <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12.5px] text-amber-200">
-              Local API bridge isn&apos;t reachable at {API_BASE}. Start it with <code className="rounded bg-black/30 px-1">python launch.py</code> and refresh.
+            <div className="mt-5 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-[12.5px] text-amber-200">
+              <strong className="font-medium">Local bridge offline.</strong> Start it with{' '}
+              <code className="rounded bg-black/30 px-1 font-mono">python launch.py</code> and refresh.
             </div>
           )}
 
-          {/* OAuth row */}
-          <div className="mt-5 grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => handleOAuth('google')}
-              disabled={busy !== null || bridgeUp === false}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--metis-border)] bg-[var(--metis-bg)] px-3 py-2.5 text-sm text-[var(--metis-fg)] transition hover:bg-[var(--metis-hover-surface)] disabled:opacity-50"
-            >
-              {busy === 'google' ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleGlyph size={16} />}
-              <span>Google</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleOAuth('github')}
-              disabled={busy !== null || bridgeUp === false}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--metis-border)] bg-[var(--metis-bg)] px-3 py-2.5 text-sm text-[var(--metis-fg)] transition hover:bg-[var(--metis-hover-surface)] disabled:opacity-50"
-            >
-              {busy === 'github' ? <Loader2 className="h-4 w-4 animate-spin" /> : <GitHubGlyph size={16} />}
-              <span>GitHub</span>
-            </button>
-          </div>
-
-          {/* Divider */}
-          <div className="my-5 flex items-center gap-3">
-            <div className="h-px flex-1 bg-[var(--metis-border)]" />
-            <span className="text-[10px] uppercase tracking-widest text-[var(--metis-fg-dim)]">or</span>
-            <div className="h-px flex-1 bg-[var(--metis-border)]" />
-          </div>
-
-          {/* Tab switch */}
-          <div
-            role="tablist"
-            aria-label="Email auth mode"
-            className="mb-3 inline-flex items-center gap-0.5 rounded-full border border-[var(--metis-border)] bg-[var(--metis-bg)] p-0.5"
-          >
-            {[SIGN_IN, SIGN_UP].map((t) => (
-              <button
-                key={t}
-                role="tab"
-                type="button"
-                aria-selected={tab === t}
-                onClick={() => { setTab(t as Tab); setError(null); setInfo(null); }}
-                className={`rounded-full px-3 py-1 text-[11px] transition ${
-                  tab === t
-                    ? 'bg-[var(--metis-hover-surface)] text-[var(--metis-fg)]'
-                    : 'text-[var(--metis-fg-muted)] hover:text-[var(--metis-fg)]'
-                }`}
-              >
-                {t === SIGN_IN ? 'Sign in' : 'Sign up'}
-              </button>
-            ))}
-          </div>
-
-          {/* Email + password form */}
-          <form onSubmit={handleEmailSubmit} className="grid gap-2.5">
-            <label className="grid gap-1">
-              <span className="sr-only">Email</span>
-              <div className="relative">
-                <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--metis-fg-dim)]" />
-                <input
-                  type="email"
-                  autoComplete="email"
-                  placeholder="you@domain.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-xl border border-[var(--metis-border)] bg-[var(--metis-input-bg)] py-2.5 pl-9 pr-3 text-sm outline-none placeholder:text-[var(--metis-fg-dim)] focus:border-violet-500/50 focus:ring-2 focus:ring-[var(--metis-focus)]"
-                />
-              </div>
-            </label>
-            <label className="grid gap-1">
-              <span className="sr-only">Password</span>
-              <div className="relative">
-                <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--metis-fg-dim)]" />
-                <input
-                  type="password"
-                  autoComplete={tab === SIGN_IN ? 'current-password' : 'new-password'}
-                  placeholder="Password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-xl border border-[var(--metis-border)] bg-[var(--metis-input-bg)] py-2.5 pl-9 pr-3 text-sm outline-none placeholder:text-[var(--metis-fg-dim)] focus:border-violet-500/50 focus:ring-2 focus:ring-[var(--metis-focus)]"
-                />
-              </div>
-            </label>
-            <button
-              type="submit"
-              disabled={busy !== null || bridgeUp === false}
-              className="mt-1 inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-white transition hover:brightness-110 disabled:opacity-50"
-              style={{ background: 'var(--metis-accent)' }}
-            >
-              {busy === 'email' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              {tab === SIGN_IN ? 'Sign in' : 'Create account'}
-            </button>
-          </form>
-
-          {/* Local-device shortcut */}
-          <div className="mt-4 rounded-xl border border-[var(--metis-border)] bg-[var(--metis-bg)] p-3">
+          {/* PRIMARY: Use this device — the path that always works */}
+          <div className="mt-6">
             <button
               type="button"
               onClick={handleLocal}
               disabled={busy !== null || bridgeUp === false}
-              className="flex w-full items-center justify-between gap-3 text-left transition disabled:opacity-50"
+              className="group flex w-full items-center gap-3 rounded-2xl border border-violet-500/30 bg-gradient-to-br from-violet-500/15 to-violet-500/5 px-4 py-3.5 text-left text-[var(--metis-fg)] transition hover:border-violet-500/50 hover:from-violet-500/20 hover:to-violet-500/10 disabled:opacity-50"
+              autoFocus
             >
-              <span className="flex items-center gap-2.5 text-sm text-[var(--metis-fg)]">
-                <Laptop className="h-4 w-4 text-violet-400" />
-                Use this device only
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-500/20 text-violet-200">
+                {busy === 'local' ? (
+                  <Loader2 className="h-4.5 w-4.5 animate-spin" />
+                ) : (
+                  <Laptop className="h-4.5 w-4.5" />
+                )}
               </span>
-              {busy === 'local' ? (
-                <Loader2 className="h-4 w-4 animate-spin text-violet-400" />
-              ) : (
-                <span className="text-[11px] text-[var(--metis-fg-dim)]">No account · stays here</span>
-              )}
+              <span className="min-w-0 flex-1">
+                <span className="block text-[14.5px] font-medium leading-snug">Use this device</span>
+                <span className="block text-[11.5px] text-[var(--metis-fg-dim)]">
+                  No account · everything stays on your machine
+                </span>
+              </span>
+              <ArrowRight className="h-4 w-4 text-[var(--metis-fg-dim)] transition group-hover:translate-x-0.5 group-hover:text-violet-300" />
             </button>
           </div>
 
-          {/* Setup-code expander */}
+          {/* SECONDARY: cloud account expander */}
+          <div className="mt-3">
+            <button
+              type="button"
+              onClick={() => { setCloudOpen((v) => !v); setError(null); setInfo(null); }}
+              className="flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-[12px] text-[var(--metis-fg-muted)] transition hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]"
+            >
+              {cloudOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+              {cloudOpen ? 'Hide cloud sign-in options' : 'Sign in with a cloud account'}
+            </button>
+          </div>
+
+          {cloudOpen && (
+            <div className="mt-2 grid gap-3 rounded-2xl border border-[var(--metis-border)] bg-[var(--metis-bg)] p-4">
+              {/* OAuth row */}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleOAuth('google')}
+                  disabled={busy !== null || bridgeUp === false}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--metis-border)] bg-[var(--metis-elevated)] px-3 py-2.5 text-sm text-[var(--metis-fg)] transition hover:bg-[var(--metis-hover-surface)] disabled:opacity-50"
+                >
+                  {busy === 'google' ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleGlyph size={16} />}
+                  <span>Google</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleOAuth('github')}
+                  disabled={busy !== null || bridgeUp === false}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--metis-border)] bg-[var(--metis-elevated)] px-3 py-2.5 text-sm text-[var(--metis-fg)] transition hover:bg-[var(--metis-hover-surface)] disabled:opacity-50"
+                >
+                  {busy === 'github' ? <Loader2 className="h-4 w-4 animate-spin" /> : <GitHubGlyph size={16} />}
+                  <span>GitHub</span>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="h-px flex-1 bg-[var(--metis-border)]" />
+                <span className="text-[10px] uppercase tracking-widest text-[var(--metis-fg-dim)]">or with email</span>
+                <div className="h-px flex-1 bg-[var(--metis-border)]" />
+              </div>
+
+              {/* Sign in / Sign up tabs */}
+              <div role="tablist" className="inline-flex items-center gap-0.5 self-start rounded-full border border-[var(--metis-border)] bg-[var(--metis-elevated)] p-0.5">
+                {[SIGN_IN, SIGN_UP].map((t) => (
+                  <button
+                    key={t}
+                    role="tab"
+                    type="button"
+                    aria-selected={tab === t}
+                    onClick={() => { setTab(t as Tab); setError(null); setInfo(null); }}
+                    className={`rounded-full px-3 py-1 text-[11px] transition ${
+                      tab === t
+                        ? 'bg-violet-500/15 text-violet-200'
+                        : 'text-[var(--metis-fg-muted)] hover:text-[var(--metis-fg)]'
+                    }`}
+                  >
+                    {t === SIGN_IN ? 'Sign in' : 'Sign up'}
+                  </button>
+                ))}
+              </div>
+
+              <form onSubmit={handleEmailSubmit} className="grid gap-2.5">
+                <label className="grid gap-1">
+                  <span className="sr-only">Email</span>
+                  <div className="relative">
+                    <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--metis-fg-dim)]" />
+                    <input
+                      type="email"
+                      autoComplete="email"
+                      placeholder="you@domain.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full rounded-xl border border-[var(--metis-border)] bg-[var(--metis-input-bg)] py-2.5 pl-9 pr-3 text-sm outline-none placeholder:text-[var(--metis-fg-dim)] focus:border-violet-500/50 focus:ring-2 focus:ring-[var(--metis-focus)]"
+                    />
+                  </div>
+                </label>
+                <label className="grid gap-1">
+                  <span className="sr-only">Password</span>
+                  <div className="relative">
+                    <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--metis-fg-dim)]" />
+                    <input
+                      type="password"
+                      autoComplete={tab === SIGN_IN ? 'current-password' : 'new-password'}
+                      placeholder="Password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full rounded-xl border border-[var(--metis-border)] bg-[var(--metis-input-bg)] py-2.5 pl-9 pr-3 text-sm outline-none placeholder:text-[var(--metis-fg-dim)] focus:border-violet-500/50 focus:ring-2 focus:ring-[var(--metis-focus)]"
+                    />
+                  </div>
+                </label>
+                <button
+                  type="submit"
+                  disabled={busy !== null || bridgeUp === false}
+                  className="mt-1 inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-white transition hover:brightness-110 disabled:opacity-50"
+                  style={{ background: 'var(--metis-accent)' }}
+                >
+                  {busy === 'email' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  {tab === SIGN_IN ? 'Sign in' : 'Create account'}
+                </button>
+              </form>
+            </div>
+          )}
+
+          {/* Tertiary: setup-code expander */}
           <button
             type="button"
             onClick={() => setTokenOpen((v) => !v)}
-            className="mt-3 flex w-full items-center justify-between rounded-lg px-1 text-[11.5px] text-[var(--metis-fg-muted)] hover:text-[var(--metis-fg)]"
+            className="mt-4 flex w-full items-center justify-center gap-1.5 text-[11px] text-[var(--metis-fg-dim)] hover:text-[var(--metis-fg-muted)]"
           >
-            <span className="inline-flex items-center gap-1.5">
-              <KeyRound className="h-3.5 w-3.5" />
-              I have a setup code
-            </span>
-            {tokenOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+            <KeyRound className="h-3 w-3" />
+            {tokenOpen ? 'Hide setup code' : 'I have a setup code'}
           </button>
           {tokenOpen && (
-            <form onSubmit={handleTokenPaste} className="mt-2 grid gap-2">
+            <form onSubmit={handleTokenPaste} className="mt-2 grid gap-2 rounded-xl border border-[var(--metis-border)] bg-[var(--metis-bg)] p-3">
               <input
                 type="password"
                 placeholder="Paste setup code"
                 autoComplete="off"
                 value={tokenInput}
                 onChange={(e) => setTokenInput(e.target.value)}
-                className="w-full rounded-xl border border-[var(--metis-border)] bg-[var(--metis-input-bg)] px-3 py-2.5 text-sm outline-none placeholder:text-[var(--metis-fg-dim)] focus:border-violet-500/50 focus:ring-2 focus:ring-[var(--metis-focus)]"
+                className="w-full rounded-lg border border-[var(--metis-border)] bg-[var(--metis-input-bg)] px-3 py-2 text-sm outline-none placeholder:text-[var(--metis-fg-dim)] focus:border-violet-500/50 focus:ring-2 focus:ring-[var(--metis-focus)]"
               />
               <button
                 type="submit"
                 disabled={busy !== null || !tokenInput.trim()}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--metis-border)] bg-[var(--metis-hover-surface)] px-3 py-2 text-sm text-[var(--metis-fg)] transition hover:brightness-110 disabled:opacity-50"
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--metis-border)] bg-[var(--metis-hover-surface)] px-3 py-2 text-sm text-[var(--metis-fg)] transition hover:brightness-110 disabled:opacity-50"
               >
                 Continue with code
               </button>
             </form>
           )}
 
+          {/* Persistent error display */}
           {error && (
-            <div className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-[12.5px] text-rose-200" role="alert">
-              {error}
+            <div className="mt-4 grid gap-2 rounded-xl border border-rose-500/40 bg-rose-500/10 p-3" role="alert">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-400" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-[12px] font-medium text-rose-100">Sign-in failed</div>
+                  <p className="mt-0.5 break-words text-[12px] text-rose-200/90">{error}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={copyError}
+                  className="shrink-0 rounded-md border border-rose-500/30 bg-rose-500/10 px-1.5 py-1 text-[10px] text-rose-200 hover:bg-rose-500/20"
+                  title="Copy error"
+                >
+                  {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                </button>
+              </div>
             </div>
           )}
           {info && (
@@ -343,7 +410,7 @@ export default function LoginScreen({ onAuth }: Props) {
             </div>
           )}
 
-          <p className="mt-5 text-center text-[11px] text-[var(--metis-fg-dim)]">
+          <p className="mt-5 text-center text-[10.5px] text-[var(--metis-fg-dim)]">
             By continuing you agree your agent runs locally. Your data stays on your device.
           </p>
         </div>
@@ -354,9 +421,14 @@ export default function LoginScreen({ onAuth }: Props) {
 
 function humanizeError(err: unknown, ctx: string): string {
   const raw = err instanceof Error ? err.message : String(err);
-  // Friendly mappings for common Supabase / config errors.
   if (/SUPABASE|supabase|not configured|missing.*key/i.test(raw)) {
-    return `${ctx}: Supabase isn’t configured on the bridge. Set SUPABASE_URL + SUPABASE_ANON_KEY in your .env, or use “Use this device only”.`;
+    return `${ctx}: Supabase isn’t configured on the bridge. Set SUPABASE_URL + SUPABASE_KEY in your .env, or use “Use this device”.`;
+  }
+  if (/invalid.*flow.*state/i.test(raw)) {
+    return `${ctx}: OAuth flow expired or already used. Open a fresh tab and try again.`;
+  }
+  if (/code_verifier|missing.*verifier/i.test(raw)) {
+    return `${ctx}: PKCE verifier was lost between redirect and callback. The bridge probably restarted mid-flow — try again.`;
   }
   if (/invalid.*credentials|invalid login/i.test(raw)) return 'Wrong email or password.';
   if (/already.*registered|already exists/i.test(raw)) return 'That email is already registered. Try signing in.';

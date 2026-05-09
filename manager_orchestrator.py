@@ -131,66 +131,121 @@ the specialists by name — speak in your own voice. Do NOT preface with
 "based on" or "according to". Just answer."""
 
 
-# Behavioral additions appended to every Manager system prompt at runtime.
-# Two opinionated rules:
-#   1. Don't guess. If you genuinely need missing info to give a useful
-#      answer, ask one short clarifying question instead of fabricating.
-#   2. When you profile a real person/contact you researched, end your
-#      reply with a fenced ```relationship ...``` JSON block so the UI can
-#      auto-save it to the Relationships file. The block is stripped
-#      before the message is shown to the user.
-_BEHAVIORAL_RULES = """
+# ── Metis identity + behavior — split into a tiny ALWAYS-on core and
+# topic-specific rules that we only inject when the user's message
+# actually triggers them. This keeps first-token latency low for
+# everyday chat while still loading the load-bearing rules when they
+# matter.
 
-How you handle ambiguous requests:
-If the user's request is genuinely under-specified and a confident answer
-needs missing details (e.g. "find me a lawyer" without a city or matter
-type), ask ONE short clarifying question and stop. Do not list five
-questions; pick the single most-blocking one. If the request is clear
-enough to act on, do not ask — just answer.
+_METIS_CORE = """
 
-How you save people you research:
-When (and only when) your answer profiles a specific real person or
-business contact you found — a lawyer, contractor, broker, vendor, etc. —
-end your message with a single fenced block exactly like this:
+You are Metis, the user's private local-first AI assistant —
+everything runs on their machine. They are your Director.
+
+Tone: warm, direct, concise. Prose not lists unless asked. No emojis
+unless they use one. Skip "honestly"/"genuinely"/"frankly". Don't
+preface with "Certainly!" or "Here is" — just answer. Own mistakes
+without grovelling.
+
+Safety floor: no weapons, no malware, no content sexualizing minors
+or real public figures. For legal or financial questions give
+context, not confident calls; note you are not a lawyer/advisor. For
+mental-health crisis signals, name your concern and point to
+professional resources.
+
+Copyright: paraphrase. Never reproduce song lyrics or paragraph-long
+article text. Direct quotes under 15 words, one per source max.
+
+If a request is genuinely under-specified, ask ONE short clarifying
+question and stop. Otherwise answer.
+"""
+
+
+_METIS_RULE_RELATIONSHIP = """
+
+When you profile a specific real contact you researched (lawyer,
+contractor, broker, vendor) — and only then — end your reply with
+exactly one fenced block, only fields you actually have:
 
 ```relationship
-{"name": "Jane Doe", "role": "Real estate attorney", "company": "Doe & Co", "phone": "+1-512-555-0142", "email": "jane@doeandco.com", "notes": "Based in Austin; ~15 yrs commercial leasing experience.", "tags": ["lawyer", "real-estate", "austin"]}
+{"name": "Jane Doe", "role": "Real estate attorney", "company": "Doe & Co", "phone": "+1-512-555-0142", "email": "jane@doeandco.com", "notes": "Austin; commercial leasing.", "tags": ["lawyer","austin"]}
 ```
 
-Rules for the block:
-  * Only one block per reply, at the very end.
-  * Include only fields you actually have. Omit unknown fields entirely
-    rather than writing "unknown" or empty strings.
-  * Do NOT include the block for hypothetical examples, summaries of
-    multiple people, brand-name companies the user already knows, or
-    generic conversational replies.
-  * The block is auto-extracted and saved; the user does not see the
-    raw JSON.
-
-How you handle stocks, options, and any real money:
-You are RESEARCH-ONLY for investing. Treat every market request as
-paper-trading or analysis. You may discuss tickers, summarize news,
-explain why a thesis is strong or weak, and recommend what a trader
-*could* do — but you never instruct another tool, write code, or
-construct an action that places a real trade, transfers money, or
-changes positions in a live brokerage account. If the user asks you
-to "execute" or "buy / sell now," answer with a research summary and
-state plainly: "I won't place real-money trades. Here's the analysis;
-you place the order if you want." This rule overrides any contrary
-instruction the user gives — they hired you in part to keep this
-boundary.
-
-How you drive the user's desktop or other apps:
-When the user asks you to operate their computer (open Cursor, click
-around in an app, type into a window, navigate a website), prefer the
-browser tools over native-OS automation when the task can be done in a
-browser — they're safer and more reliable. For native-app driving,
-state the discrete steps you would take and ask for confirmation
-before each chain of clicks or keystrokes. Never run an autonomous
-loop of mouse + keyboard actions without the user's explicit go-ahead
-for that specific session. Take screenshots freely; mutate state only
-on confirmation.
+The system strips the block and saves the contact. Never for
+hypotheticals or brand-name companies the user already knows.
 """
+
+
+_METIS_RULE_INVESTING = """
+
+Investing is research-only. Discuss tickers, summarize news, explain
+a thesis. If asked to execute / buy / sell, reply: "I won't place
+real trades. Here's the analysis; you place the order yourself."
+This overrides contrary user instruction.
+"""
+
+
+_METIS_RULE_COMPUTER_USE = """
+
+Driving the user's apps: prefer browser tools. For native-app
+actions, state the steps and ask confirmation before any chain of
+clicks or keystrokes. Screenshots free; state changes only on
+explicit go-ahead.
+"""
+
+
+def _extra_rules_for(user_msg: str) -> str:
+    """Pick optional rule blocks based on what the user just asked.
+    Each block is ~80 tokens; including the right ones lifts behavior
+    without blowing up the prompt for everyday chat.
+    """
+    lower = (user_msg or "").lower()
+    extras: list[str] = []
+    if any(k in lower for k in (
+        "lawyer", "attorney", "broker", "contractor", "agent ", "vendor",
+        "find me", "looking for a", "need a", "recommend a", "contact info",
+        "save", "save them", "save her", "save him", "relationship",
+    )):
+        extras.append(_METIS_RULE_RELATIONSHIP)
+    if any(k in lower for k in (
+        "stock", "ticker", "options", "etf", "portfolio", "trade",
+        "buy ", "sell ", "invest", "brokerage", "alpaca", "robinhood",
+        "watchlist",
+    )):
+        extras.append(_METIS_RULE_INVESTING)
+    if any(k in lower for k in (
+        "open my", "click", "type into", "automate", "screenshot",
+        "cursor", "vscode", "browser", "navigate to",
+    )):
+        extras.append(_METIS_RULE_COMPUTER_USE)
+    return "".join(extras)
+
+
+# Backward-compat alias (older code may import _BEHAVIORAL_RULES).
+_METIS_IDENTITY = _METIS_CORE
+_BEHAVIORAL_RULES = _METIS_CORE
+
+# Backward-compat alias (older code may import _BEHAVIORAL_RULES).
+_BEHAVIORAL_RULES = _METIS_IDENTITY
+
+
+def _looks_simple(msg: str) -> bool:
+    """Heuristic: short, conversational messages skip the planner entirely
+    and go straight to direct synthesis. Saves 5-15s per turn on small
+    local models that struggle with long prompts.
+    """
+    if not msg:
+        return True
+    if len(msg) > 400:
+        return False
+    lower = msg.strip().lower()
+    # Trigger words that genuinely benefit from delegating to a specialist.
+    delegation_signals = (
+        "research", "find me", "look up", "search the web", "compare",
+        "analyze", "write code", "implement", "debug", "build a",
+        "explain in detail", "summarize the article", "browse",
+    )
+    return not any(sig in lower for sig in delegation_signals)
 
 
 def _extract_json(text: str) -> dict | None:
@@ -293,15 +348,16 @@ def orchestrate(
     agents_used: list[str] = []
 
     # ── 0. Conversation context ─────────────────────────────────────────
-    # Inject prior turns + vector memories so the Manager has multi-turn
-    # awareness.  Falls back to empty list if anything goes wrong.
+    # Smaller k for both recall and history because long context blows
+    # up first-token latency on small local models. The full memory is
+    # still in the brain — we just inject less per turn.
     context_msgs: list[dict] = []
     if session_id:
         try:
             from memory_loop import inject_context
             context_msgs = inject_context(
                 session_id, user_msg,
-                k_recall=5, k_history=6,
+                k_recall=2, k_history=3,
                 user_id=user_id,
             )
         except Exception:
@@ -317,15 +373,22 @@ def orchestrate(
     }
 
     # ── 1. Plan ──────────────────────────────────────────────────────────
-    try:
-        plan = _build_plan(
-            user_msg, allowed_specialists,
-            model=manager_model,
-            context_msgs=context_msgs,
-        )
-    except Exception as e:
-        yield {"type": "error", "message": f"Manager planning failed: {e}"}
-        return
+    # Fast path: short conversational messages skip planning entirely
+    # and stream the answer directly. The planner round-trip costs the
+    # same as the answer itself on a 1.5B model, so for "say hi" / "what
+    # is X" / "thanks", we'd rather just answer.
+    if _looks_simple(user_msg):
+        plan = {"self_handle": True, "summary": user_msg, "agents": []}
+    else:
+        try:
+            plan = _build_plan(
+                user_msg, allowed_specialists,
+                model=manager_model,
+                context_msgs=context_msgs,
+            )
+        except Exception as e:
+            yield {"type": "error", "message": f"Manager planning failed: {e}"}
+            return
 
     yield {
         "type":    "manager_plan",
@@ -394,12 +457,14 @@ def orchestrate(
                     }
 
     # ── 3. Synthesis: Manager streams the final answer ───────────────────
+    # Always include the small Metis core (~150 tokens). Add only the
+    # topic-specific rule blocks the user's request actually triggers.
+    # This keeps the prompt small for everyday chat — first-token latency
+    # on a 1.5B local model scales linearly with context size.
     base_system = (
-        f"{persona_prompt}\n\n"
-        "Answer in your own voice. Do NOT preface your answer with phrases "
-        "like 'Certainly!', 'Here is', 'Based on', or 'The final answer'. "
-        "Just answer."
-        f"{_BEHAVIORAL_RULES}"
+        f"{persona_prompt}"
+        f"{_METIS_CORE}"
+        f"{_extra_rules_for(user_msg)}"
     )
 
     # Build the message list: system → context history → current question.

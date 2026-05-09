@@ -130,6 +130,64 @@ export interface AuthResult {
 
 export type OAuthProvider = 'google' | 'github';
 
+// ── Memory ──────────────────────────────────────────────────────────────────
+
+export interface MemoryHit {
+  id?: string;
+  text: string;
+  kind?: 'episodic' | 'semantic' | 'procedural' | string;
+  score?: number;
+  meta?: Record<string, unknown>;
+  // Some brains return additional fields like "source" or "ts" — keep open.
+  [key: string]: unknown;
+}
+
+// ── Models + manager config ─────────────────────────────────────────────────
+
+export interface AvailableModel {
+  id: string;
+  label: string;
+  kind: 'local' | 'cloud';
+  note?: string;
+}
+
+export interface ManagerConfig {
+  user_id?: string;
+  manager_name?: string;
+  persona_key?: string;
+  manager_persona?: string;
+  manager_model?: string;
+  company_name?: string;
+  company_mission?: string;
+  director_name?: string;
+  director_about?: string;
+  accent_color?: string;
+  specialists?: string[];
+  configured_at?: string;
+}
+
+// ── System health ──────────────────────────────────────────────────────────
+
+export interface ProviderStatus {
+  ok: boolean;
+  reason?: string;
+  fix?: string;
+  model?: string;
+  models?: number;
+  destination?: string | null;
+}
+
+export interface SystemHealth {
+  checked_at: number;
+  ollama: ProviderStatus;
+  groq:   ProviderStatus;
+  glm:    ProviderStatus;
+  openai: ProviderStatus;
+  twilio: ProviderStatus;
+  smtp:   ProviderStatus;
+  preferred_manager: 'groq' | 'glm' | 'openai' | 'ollama' | null;
+}
+
 // ── Schedules ──────────────────────────────────────────────────────────────
 // Mirror of scheduler.Schedule on the backend. Kind-specific spec format:
 //   interval — minutes as a string ("60", "1440")
@@ -241,6 +299,22 @@ export class MetisClient {
     return this.get('/status');
   }
 
+  async getSystemHealth(): Promise<SystemHealth> {
+    return this.get('/system/health');
+  }
+
+  async listModels(): Promise<{ models: AvailableModel[] }> {
+    return this.get('/models');
+  }
+
+  async getManagerConfig(): Promise<{ config: ManagerConfig; is_configured: boolean }> {
+    return this.get('/manager/config');
+  }
+
+  async setManagerConfig(updates: Partial<ManagerConfig>): Promise<{ config: ManagerConfig; is_configured: boolean }> {
+    return this.post('/manager/config', updates);
+  }
+
   // ── Streaming chat (SSE) ────────────────────────────────────────────────
 
   async *chat(role: string, message: string, sessionId = 'default'): AsyncGenerator<StreamEvent> {
@@ -308,7 +382,7 @@ export class MetisClient {
     return this.post('/brains/remember', { text, kind });
   }
 
-  async recall(query: string, k = 5): Promise<unknown[]> {
+  async recall(query: string, k = 5): Promise<MemoryHit[]> {
     return this.get(`/brains/recall?q=${encodeURIComponent(query)}&k=${k}`);
   }
 

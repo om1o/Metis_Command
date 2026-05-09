@@ -42,6 +42,7 @@ import {
   Users,
   Bell,
   Monitor,
+  Brain,
 } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { createLocalClient, MetisClient, AuthUser, Schedule } from '@/lib/metis-client';
@@ -51,6 +52,9 @@ import JobPlanner from '@/components/job-planner';
 import JobsPanel from '@/components/jobs-panel';
 import RelationshipsPanel from '@/components/relationships-panel';
 import InboxPanel from '@/components/inbox-panel';
+import ConnectionsPanel from '@/components/connections-panel';
+import MemoryPanel from '@/components/memory-panel';
+import type { SystemHealth } from '@/lib/metis-client';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -173,6 +177,45 @@ function deriveStatus(content: string): string {
   if (lower.includes('summarizing'))                                  return 'Summarizing';
   if (lower.includes('plan')        || lower.includes('step'))       return 'Planning';
   return 'Thinking';
+}
+
+// Pre-token "thinking" cycler — gives the user something alive to look
+// at during the first-token wait on a slow local model. Cycles through
+// short status phrases every ~2.5s and folds in an elapsed-time hint
+// once we've been waiting more than a beat.
+const _PRE_TOKEN_PHRASES = [
+  'Thinking',
+  'Working it out',
+  'Picking the right words',
+  'Getting set up',
+  'Composing the answer',
+];
+
+function useStreamingStatus(streaming: boolean, hasContent: boolean, content: string): string {
+  // tick = which phrase to show, elapsed = whole seconds since start.
+  // Both are updated by the interval; we never read Date.now() during
+  // render (that would be impure).
+  const [tick, setTick] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    if (!streaming) return;
+    const t0 = Date.now();
+    const id = setInterval(() => {
+      setTick((t) => t + 1);
+      setElapsed(Math.floor((Date.now() - t0) / 1000));
+    }, 1000);
+    return () => {
+      clearInterval(id);
+      setTick(0);
+      setElapsed(0);
+    };
+  }, [streaming]);
+
+  if (!streaming) return '';
+  if (hasContent) return deriveStatus(content);
+  const phrase = _PRE_TOKEN_PHRASES[Math.floor(tick / 2.5) % _PRE_TOKEN_PHRASES.length];
+  if (elapsed > 5) return `${phrase} · ${elapsed}s`;
+  return `${phrase}…`;
 }
 
 // ── Light markdown renderer ────────────────────────────────────────────────
@@ -329,13 +372,45 @@ function MarkdownView({ source }: { source: string }) {
             {b.items.map((it, j) => <li key={`${k}-${j}`}>{renderInline(it, `${k}-${j}`)}</li>)}
           </ol>
         );
-        return (
-          <pre key={k} className="overflow-x-auto rounded-xl border border-[var(--metis-border)] bg-[var(--metis-bg)] p-4 text-[13px] leading-6 text-[var(--metis-fg)]">
-            {b.lang && <div className="mb-2 text-[10px] uppercase tracking-widest text-[var(--metis-fg-dim)]">{b.lang}</div>}
-            <code className="font-mono">{b.text}</code>
-          </pre>
-        );
+        return <CodeBlock key={k} lang={b.lang} text={b.text} />;
       })}
+    </div>
+  );
+}
+
+// Code block with header (language label) + copy button. The pre body
+// stays selectable + scrollable; the header floats above it.
+function CodeBlock({ lang, text }: { lang: string; text: string }) {
+  const [copied, setCopied] = useState(false);
+  const onCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch {}
+  };
+  const lineCount = text.split('\n').length;
+  return (
+    <div className="metis-code-block group overflow-hidden rounded-xl border border-[var(--metis-border)] bg-[var(--metis-bg)]">
+      <div className="flex items-center gap-2 border-b border-[var(--metis-border)] bg-[var(--metis-elevated)] px-3 py-1.5">
+        <span className="text-[10px] uppercase tracking-widest text-[var(--metis-fg-dim)]">
+          {lang || 'code'}
+        </span>
+        <span className="text-[10px] text-[var(--metis-fg-dim)]">·</span>
+        <span className="text-[10px] text-[var(--metis-fg-dim)]">{lineCount} {lineCount === 1 ? 'line' : 'lines'}</span>
+        <button
+          type="button"
+          onClick={onCopy}
+          className="ml-auto inline-flex items-center gap-1 rounded-md border border-[var(--metis-border)] bg-[var(--metis-bg)] px-1.5 py-0.5 text-[10px] text-[var(--metis-fg-muted)] transition hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]"
+          title="Copy code"
+        >
+          {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+      </div>
+      <pre className="overflow-x-auto p-3.5 text-[12.5px] leading-6 text-[var(--metis-fg)]">
+        <code className="font-mono">{text}</code>
+      </pre>
     </div>
   );
 }
@@ -379,6 +454,9 @@ export default function App() {
   const [relationshipsOpen, setRelationshipsOpen] = useState(false);
   const [inboxOpen, setInboxOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [connectionsOpen, setConnectionsOpen] = useState(false);
+  const [memoryOpen, setMemoryOpen] = useState(false);
+  const [health, setHealth] = useState<SystemHealth | null>(null);
 
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
@@ -445,6 +523,62 @@ export default function App() {
 
     let cancelled = false;
     (async () => {
+      // ── 0. OAuth fallback — when Supabase drops the user back at "/"
+      // instead of "/oauth/callback" (because the redirect URL isn't
+      // in the project's Redirect URLs allowlist), the code arrives in
+      // *our* URL. Detect and finish the flow inline so the user isn't
+      // bounced to LoginScreen with their auth code thrown away.
+      try {
+        const here = new URL(window.location.href);
+        const code = here.searchParams.get('code');
+        const state = here.searchParams.get('state') || undefined;
+        const err = here.searchParams.get('error_description') || here.searchParams.get('error');
+        if (code) {
+          const fallback = createLocalClient('');
+          try {
+            const result = await fallback.oauthComplete(code, state);
+            const tok = result.session?.access_token;
+            const u = result.user;
+            if (tok && u) {
+              try {
+                localStorage.setItem('metis-token', tok);
+                localStorage.setItem('metis-auth-mode', 'oauth');
+                localStorage.setItem('metis-user', JSON.stringify(u));
+              } catch {}
+              if (!cancelled) {
+                setClient(createLocalClient(tok));
+                setUser(u);
+              }
+            }
+          } catch (e) {
+            // OAuth completion failed — leave token state alone and
+            // stash the error so LoginScreen can surface it (and the
+            // user can copy it).
+            const msg = e instanceof Error ? e.message : String(e);
+            console.warn('[metis] OAuth code on / failed to exchange:', e);
+            try { sessionStorage.setItem('metis-auth-error', msg); } catch {}
+          }
+          // Clean the code/state out of the URL so a refresh doesn't
+          // double-spend it (codes are single-use).
+          here.searchParams.delete('code');
+          here.searchParams.delete('state');
+          here.searchParams.delete('error');
+          here.searchParams.delete('error_description');
+          window.history.replaceState({}, '', here.pathname + (here.searchParams.toString() ? '?' + here.searchParams.toString() : ''));
+          if (!cancelled) setAuthResolved(true);
+          return;
+        }
+        if (err) {
+          console.warn('[metis] OAuth error returned to /:', err);
+          here.searchParams.delete('error');
+          here.searchParams.delete('error_description');
+          window.history.replaceState({}, '', here.pathname);
+        }
+      } catch (e) {
+        console.warn('[metis] OAuth fallback check failed:', e);
+      }
+
+      // ── 1. Saved-session probe ──────────────────────────────────────
       let token: string | null = null;
       let savedUser: AuthUser | null = null;
       try {
@@ -456,29 +590,41 @@ export default function App() {
         if (!cancelled) setAuthResolved(true);
         return;
       }
-      // Hard 4-second cap on the saved-session probe so a dead or slow
-      // bridge can never strand the splash. On timeout we fall through
-      // to the LoginScreen, which has its own bridge-down banner.
+      // 8-second cap on the saved-session probe. Supabase JWT validation
+      // hops to the Supabase API and can take a couple seconds on a slow
+      // network — 4s was too tight and was wiping freshly-OAuth'd
+      // sessions. On timeout we KEEP the saved user (optimistic) and
+      // let the next real API call surface the failure if the token is
+      // actually dead.
+      const probe = createLocalClient(token);
       try {
-        const probe = createLocalClient(token);
         const meP = probe.getMe();
         const timeoutP = new Promise<never>((_, rej) =>
-          setTimeout(() => rej(new Error('saved-session probe timed out')), 4000),
+          setTimeout(() => rej(new Error('TIMEOUT')), 8000),
         );
         const me = await Promise.race([meP, timeoutP]);
         if (cancelled) return;
         setClient(probe);
         setUser(me.user || savedUser);
         try { localStorage.setItem('metis-user', JSON.stringify(me.user || savedUser)); } catch {}
-      } catch {
-        // Saved token didn't validate (or timed out). Clear it and ask
-        // the user to sign in fresh. We DO NOT keep a half-set client
-        // because the next API call would just hang again.
-        try {
-          localStorage.removeItem('metis-token');
-          localStorage.removeItem('metis-user');
-          localStorage.removeItem('metis-auth-mode');
-        } catch {}
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg === 'TIMEOUT' && savedUser) {
+          // Slow network, not a bad token — let the user in optimistically.
+          // If the token is genuinely dead, the first real API call will
+          // 401 and we can re-gate then.
+          if (!cancelled) {
+            setClient(probe);
+            setUser(savedUser);
+          }
+        } else {
+          // Definite failure (401/403/JSON parse). Clear and re-login.
+          try {
+            localStorage.removeItem('metis-token');
+            localStorage.removeItem('metis-user');
+            localStorage.removeItem('metis-auth-mode');
+          } catch {}
+        }
       } finally {
         if (!cancelled) setAuthResolved(true);
       }
@@ -491,6 +637,20 @@ export default function App() {
   useEffect(() => {
     try { localStorage.setItem('metis-mode', mode); } catch {}
   }, [mode]);
+
+  // Probe the system once at start + whenever the connections panel
+  // closes (so a refresh inside it can update the dot color).
+  useEffect(() => {
+    if (!client) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const h = await client.getSystemHealth();
+        if (!cancelled) setHealth(h);
+      } catch { /* ignore — UI still works without health */ }
+    })();
+    return () => { cancelled = true; };
+  }, [client, connectionsOpen]);
 
   // Poll the inbox for the unread count so the bell badge stays fresh.
   // Cheap call; cap to once every 15s. Also re-checks when the panel is
@@ -529,6 +689,7 @@ export default function App() {
       else if (k === 'n')   { e.preventDefault(); newSession(); }
       else if (k === 'j')   { e.preventDefault(); setJobsOpen((v) => !v); }
       else if (k === 'r')   { e.preventDefault(); setRelationshipsOpen((v) => !v); }
+      else if (k === 'm')   { e.preventDefault(); setMemoryOpen((v) => !v); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -792,56 +953,44 @@ export default function App() {
         </div>
 
         {sidebarOpen && (
-          <div className="px-3 pt-3 pb-1.5">
-            <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--metis-chats-label)]">Recent</p>
+          <SessionsList
+            sessions={sessions}
+            activeId={activeId}
+            setActiveId={setActiveId}
+            deleteSession={deleteSession}
+            clearAll={() => {
+              if (sessions.length === 0) return;
+              const ok = window.confirm(`Delete all ${sessions.length} session${sessions.length === 1 ? '' : 's'}? This can't be undone.`);
+              if (!ok) return;
+              setSessions([]);
+              setActiveId(null);
+            }}
+          />
+        )}
+        {!sidebarOpen && (
+          <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+            {sessions.length > 0 && (
+              <ul className="space-y-0.5">
+                {sessions.map((s) => (
+                  <li key={s.id}>
+                    <button
+                      type="button"
+                      onClick={() => setActiveId(s.id)}
+                      className={`group flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition ${
+                        activeId === s.id
+                          ? 'bg-[var(--metis-hover-surface)] text-[var(--metis-fg)]'
+                          : 'text-[var(--metis-chats-item)] hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]'
+                      }`}
+                      title={s.title}
+                    >
+                      <span className={`inline-flex h-1.5 w-1.5 shrink-0 rounded-full ${activeId === s.id ? 'bg-violet-400' : 'bg-[var(--metis-fg-faint)]'}`} aria-hidden />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         )}
-
-        <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
-          {sessions.length === 0 ? (
-            sidebarOpen && (
-              <div className="mx-2 mt-2 rounded-xl border border-dashed border-[var(--metis-border)] p-3 text-xs text-[var(--metis-fg-dim)]">
-                Sessions will appear here.
-              </div>
-            )
-          ) : (
-            <ul className="space-y-0.5">
-              {sessions.map((s) => (
-                <li key={s.id}>
-                  <button
-                    type="button"
-                    onClick={() => setActiveId(s.id)}
-                    className={`group flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition ${
-                      activeId === s.id
-                        ? 'bg-[var(--metis-hover-surface)] text-[var(--metis-fg)]'
-                        : 'text-[var(--metis-chats-item)] hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]'
-                    }`}
-                    title={s.title}
-                  >
-                    <span className={`inline-flex h-1.5 w-1.5 shrink-0 rounded-full ${activeId === s.id ? 'bg-violet-400' : 'bg-[var(--metis-fg-faint)]'}`} aria-hidden />
-                    {sidebarOpen && (
-                      <>
-                        <span className="truncate text-[13px]">{s.title}</span>
-                        <span
-                          role="button"
-                          tabIndex={0}
-                          onClick={(e) => { e.stopPropagation(); deleteSession(s.id); }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); deleteSession(s.id); }
-                          }}
-                          className="ml-auto inline-flex cursor-pointer items-center justify-center rounded p-1 text-[var(--metis-fg-dim)] opacity-0 transition hover:text-rose-400 group-hover:opacity-100"
-                          title="Delete"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </span>
-                      </>
-                    )}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
 
         {sidebarOpen && user && (
           <div className="px-3 pt-2 pb-1 text-[11px] text-[var(--metis-fg-dim)] truncate" title={user.email}>
@@ -869,6 +1018,16 @@ export default function App() {
               <Users className="h-4 w-4 shrink-0 text-violet-400" />
               <span>Relationships</span>
               <span className="ml-auto text-[10px] text-[var(--metis-fg-dim)]">⌘R</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMemoryOpen(true)}
+              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] text-[var(--metis-fg-muted)] transition hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]"
+              title="Memory (⌘M)"
+            >
+              <Brain className="h-4 w-4 shrink-0 text-violet-400" />
+              <span>Memory</span>
+              <span className="ml-auto text-[10px] text-[var(--metis-fg-dim)]">⌘M</span>
             </button>
           </div>
         )}
@@ -934,13 +1093,15 @@ export default function App() {
             <Sparkles className="h-4 w-4 text-violet-400" />
             <div className="truncate text-sm font-medium">{active?.title ?? 'New conversation'}</div>
             {streaming && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[11px] text-violet-300">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                {lastAgentMsg ? deriveStatus(lastAgentMsg.content) : 'Thinking'}
-              </span>
+              <HeaderStatus
+                streaming={streaming}
+                hasContent={!!lastAgentMsg?.content}
+                content={lastAgentMsg?.content || ''}
+              />
             )}
           </div>
           <div className="ml-auto flex items-center gap-1">
+            <ConnectionsBadge health={health} onOpen={() => setConnectionsOpen(true)} />
             <button
               type="button"
               onClick={() => setInboxOpen(true)}
@@ -1183,58 +1344,40 @@ export default function App() {
         )}
       </AnimatePresence>
 
+      {/* Connections — provider health + how to fix dead keys */}
+      <AnimatePresence>
+        {connectionsOpen && client && (
+          <ConnectionsPanel
+            client={client}
+            reduceMotion={!!reduceMotion}
+            onClose={() => setConnectionsOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Memory — recall + pin facts */}
+      <AnimatePresence>
+        {memoryOpen && client && (
+          <MemoryPanel
+            client={client}
+            reduceMotion={!!reduceMotion}
+            onClose={() => setMemoryOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Settings */}
       <AnimatePresence>
-        {settingsOpen && (
+        {settingsOpen && client && (
           <Modal title="Settings" onClose={() => setSettingsOpen(false)} reduceMotion={!!reduceMotion}>
-            <div className="grid gap-3">
-              <div className="rounded-xl border border-[var(--metis-border)] bg-[var(--metis-elevated)] p-3">
-                <div className="flex items-center justify-between">
-                  <div className="text-xs font-medium text-[var(--metis-fg-dim)]">Theme</div>
-                  {theme === 'system' && (
-                    <span className="text-[10px] text-[var(--metis-fg-dim)]">following OS · {effectiveTheme}</span>
-                  )}
-                </div>
-                <div className="mt-2 inline-flex items-center gap-0.5 rounded-full border border-[var(--metis-border)] bg-[var(--metis-bg)] p-0.5">
-                  {(['system', 'light', 'dark'] as Theme[]).map((t) => {
-                    const sel = theme === t;
-                    const Icon = t === 'light' ? Sun : t === 'dark' ? Moon : Monitor;
-                    return (
-                      <button
-                        key={t}
-                        type="button"
-                        onClick={() => setTheme(t)}
-                        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] capitalize transition ${
-                          sel
-                            ? 'border border-violet-500/40 bg-violet-500/10 text-violet-200'
-                            : 'border border-transparent text-[var(--metis-fg-muted)] hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]'
-                        }`}
-                      >
-                        <Icon className="h-3.5 w-3.5" />
-                        {t}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="rounded-xl border border-[var(--metis-border)] bg-[var(--metis-elevated)] p-3">
-                <div className="text-xs font-medium text-[var(--metis-fg-dim)]">Shortcuts</div>
-                <div className="mt-2 space-y-1.5 text-sm text-[var(--metis-fg-muted)]">
-                  {[
-                    ['New session',      '⌘ N'],
-                    ['Focus message box', '⌘ K'],
-                    ['Toggle sidebar',    '⌘ B'],
-                    ['Toggle workspace',  '⌘ /'],
-                    ['Settings',          '⌘ ,'],
-                  ].map(([a, b]) => (
-                    <div key={a} className="flex items-center justify-between gap-4">
-                      <span>{a}</span>
-                      <kbd className="rounded border border-[var(--metis-border)] bg-[var(--metis-code-bg)] px-2 py-0.5 text-xs text-[var(--metis-code-fg)]">{b}</kbd>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+            <SettingsBody
+              theme={theme}
+              effectiveTheme={effectiveTheme}
+              setTheme={setTheme}
+              client={client}
+              health={health}
+              onOpenConnections={() => { setSettingsOpen(false); setConnectionsOpen(true); }}
+            />
           </Modal>
         )}
       </AnimatePresence>
@@ -1414,6 +1557,337 @@ function ModeSelector({ value, onChange }: { value: Mode; onChange: (v: Mode) =>
         );
       })}
     </div>
+  );
+}
+
+// ── Sessions list (sidebar, when expanded) ───────────────────────────────
+
+function SessionsList({
+  sessions, activeId, setActiveId, deleteSession, clearAll,
+}: {
+  sessions: Session[];
+  activeId: string | null;
+  setActiveId: (id: string) => void;
+  deleteSession: (id: string) => void;
+  clearAll: () => void;
+}) {
+  const [query, setQuery] = useState('');
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return sessions;
+    return sessions.filter((s) =>
+      s.title.toLowerCase().includes(q) ||
+      s.messages.some((m) => m.content.toLowerCase().includes(q)),
+    );
+  }, [sessions, query]);
+
+  return (
+    <>
+      <div className="px-3 pt-3 pb-2">
+        <div className="flex items-center gap-2">
+          <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--metis-chats-label)]">
+            Recent
+          </p>
+          {sessions.length > 0 && (
+            <span className="text-[10px] text-[var(--metis-fg-dim)]">{sessions.length}</span>
+          )}
+          {sessions.length > 1 && (
+            <button
+              type="button"
+              onClick={clearAll}
+              className="ml-auto text-[10px] text-[var(--metis-fg-dim)] hover:text-rose-400"
+              title="Delete all sessions"
+            >
+              Clear all
+            </button>
+          )}
+        </div>
+        {sessions.length > 3 && (
+          <input
+            type="search"
+            placeholder="Search sessions…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="mt-2 w-full rounded-md border border-[var(--metis-border)] bg-[var(--metis-input-bg)] px-2 py-1 text-[12px] outline-none placeholder:text-[var(--metis-fg-dim)] focus:border-violet-500/50 focus:ring-1 focus:ring-[var(--metis-focus)]"
+          />
+        )}
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+        {sessions.length === 0 ? (
+          <div className="mx-2 mt-2 rounded-xl border border-dashed border-[var(--metis-border)] p-3 text-xs text-[var(--metis-fg-dim)]">
+            Sessions will appear here as you chat.
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="mx-2 mt-2 rounded-xl border border-dashed border-[var(--metis-border)] p-3 text-xs text-[var(--metis-fg-dim)]">
+            No matches for &ldquo;{query}&rdquo;.
+          </div>
+        ) : (
+          <ul className="space-y-0.5">
+            {filtered.map((s) => (
+              <li key={s.id}>
+                <button
+                  type="button"
+                  onClick={() => setActiveId(s.id)}
+                  className={`group flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition ${
+                    activeId === s.id
+                      ? 'bg-[var(--metis-hover-surface)] text-[var(--metis-fg)]'
+                      : 'text-[var(--metis-chats-item)] hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]'
+                  }`}
+                  title={s.title}
+                >
+                  <span className={`inline-flex h-1.5 w-1.5 shrink-0 rounded-full ${activeId === s.id ? 'bg-violet-400' : 'bg-[var(--metis-fg-faint)]'}`} aria-hidden />
+                  <span className="truncate text-[13px]">{s.title}</span>
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => { e.stopPropagation(); deleteSession(s.id); }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); deleteSession(s.id); }
+                    }}
+                    className="ml-auto inline-flex cursor-pointer items-center justify-center rounded p-1 text-[var(--metis-fg-dim)] opacity-0 transition hover:text-rose-400 group-hover:opacity-100"
+                    title="Delete"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </>
+  );
+}
+
+// ── Settings body (rendered inside the Settings modal) ───────────────────
+
+function SettingsBody({
+  theme, effectiveTheme, setTheme, client, health, onOpenConnections,
+}: {
+  theme: Theme;
+  effectiveTheme: EffectiveTheme;
+  setTheme: (t: Theme) => void;
+  client: MetisClient;
+  health: SystemHealth | null;
+  onOpenConnections: () => void;
+}) {
+  const [models, setModels] = useState<{ id: string; label: string; kind: 'local' | 'cloud'; note?: string }[] | null>(null);
+  const [activeModel, setActiveModel] = useState<string>('');
+  const [savingModel, setSavingModel] = useState(false);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+
+  // Load models + current manager_model on mount.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [m, c] = await Promise.all([client.listModels(), client.getManagerConfig()]);
+        if (cancelled) return;
+        setModels(m.models);
+        setActiveModel(c.config.manager_model || '');
+      } catch {/* ignore */}
+    })();
+    return () => { cancelled = true; };
+  }, [client]);
+
+  const pick = async (id: string) => {
+    setSavingModel(true);
+    try {
+      await client.setManagerConfig({ manager_model: id });
+      setActiveModel(id);
+      setSavedAt(Date.now());
+      setTimeout(() => setSavedAt(null), 1500);
+    } catch {/* ignore */}
+    finally { setSavingModel(false); }
+  };
+
+  return (
+    <div className="grid gap-3">
+      {/* Theme */}
+      <div className="rounded-xl border border-[var(--metis-border)] bg-[var(--metis-elevated)] p-3">
+        <div className="flex items-center justify-between">
+          <div className="text-xs font-medium text-[var(--metis-fg-dim)]">Theme</div>
+          {theme === 'system' && (
+            <span className="text-[10px] text-[var(--metis-fg-dim)]">following OS · {effectiveTheme}</span>
+          )}
+        </div>
+        <div className="mt-2 inline-flex items-center gap-0.5 rounded-full border border-[var(--metis-border)] bg-[var(--metis-bg)] p-0.5">
+          {(['system', 'light', 'dark'] as Theme[]).map((t) => {
+            const sel = theme === t;
+            const Icon = t === 'light' ? Sun : t === 'dark' ? Moon : Monitor;
+            return (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTheme(t)}
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] capitalize transition ${
+                  sel
+                    ? 'border border-violet-500/40 bg-violet-500/10 text-violet-200'
+                    : 'border border-transparent text-[var(--metis-fg-muted)] hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]'
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {t}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Manager model picker */}
+      <div className="rounded-xl border border-[var(--metis-border)] bg-[var(--metis-elevated)] p-3">
+        <div className="flex items-center justify-between">
+          <div className="text-xs font-medium text-[var(--metis-fg-dim)]">Manager model</div>
+          {savingModel ? (
+            <Loader2 className="h-3 w-3 animate-spin text-violet-400" />
+          ) : savedAt ? (
+            <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400"><Check className="h-3 w-3" /> saved</span>
+          ) : null}
+        </div>
+        <p className="mt-1 text-[11px] text-[var(--metis-fg-dim)]">
+          Picks the brain that powers your chat. Cloud models are faster but need a key in <code className="rounded bg-[var(--metis-code-bg)] px-1 text-[var(--metis-code-fg)]">.env</code>.
+        </p>
+        {!models ? (
+          <div className="mt-3 flex items-center gap-2 text-[12px] text-[var(--metis-fg-muted)]">
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-violet-400" /> Discovering models…
+          </div>
+        ) : models.length === 0 ? (
+          <div className="mt-3 text-[12px] text-rose-300">No models available. Pull one with <code className="rounded bg-[var(--metis-code-bg)] px-1 text-[var(--metis-code-fg)]">ollama pull qwen2.5-coder:1.5b</code>.</div>
+        ) : (
+          <div className="mt-3 grid max-h-56 gap-1 overflow-y-auto pr-1">
+            <button
+              type="button"
+              onClick={() => pick('')}
+              className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-[12px] transition ${
+                activeModel === ''
+                  ? 'border-violet-500/40 bg-violet-500/10 text-violet-200'
+                  : 'border-[var(--metis-border)] bg-[var(--metis-bg)] text-[var(--metis-fg-muted)] hover:bg-[var(--metis-hover-surface)]'
+              }`}
+            >
+              <Sparkles className="h-3.5 w-3.5 text-violet-400" />
+              <span className="flex-1 font-medium">Auto</span>
+              <span className="text-[10px] text-[var(--metis-fg-dim)]">first cloud → local</span>
+            </button>
+            {models.map((m) => {
+              const sel = activeModel === m.id;
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => pick(m.id)}
+                  className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-[12px] transition ${
+                    sel
+                      ? 'border-violet-500/40 bg-violet-500/10 text-violet-200'
+                      : 'border-[var(--metis-border)] bg-[var(--metis-bg)] text-[var(--metis-fg-muted)] hover:bg-[var(--metis-hover-surface)]'
+                  }`}
+                >
+                  <span className={`inline-block h-1.5 w-1.5 rounded-full ${m.kind === 'cloud' ? 'bg-emerald-400' : 'bg-violet-400'}`} />
+                  <span className="flex-1 truncate">{m.label}</span>
+                  {m.note && <span className="shrink-0 text-[10px] text-[var(--metis-fg-dim)]">{m.note}</span>}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Connections quick-link */}
+      <button
+        type="button"
+        onClick={onOpenConnections}
+        className="flex items-center gap-3 rounded-xl border border-[var(--metis-border)] bg-[var(--metis-elevated)] p-3 text-left transition hover:bg-[var(--metis-hover-surface)]"
+      >
+        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500/15 text-violet-300">
+          <Sparkles className="h-4 w-4" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="text-[13px] text-[var(--metis-fg)]">Connections + API keys</div>
+          <div className="text-[11px] text-[var(--metis-fg-dim)]">
+            {health?.preferred_manager
+              ? `Currently using ${health.preferred_manager}`
+              : 'Probe providers and configure keys'}
+          </div>
+        </div>
+        <ArrowRight className="h-4 w-4 text-[var(--metis-fg-dim)]" />
+      </button>
+
+      {/* Shortcuts */}
+      <div className="rounded-xl border border-[var(--metis-border)] bg-[var(--metis-elevated)] p-3">
+        <div className="text-xs font-medium text-[var(--metis-fg-dim)]">Shortcuts</div>
+        <div className="mt-2 space-y-1.5 text-sm text-[var(--metis-fg-muted)]">
+          {[
+            ['New session',      '⌘ N'],
+            ['Focus message box', '⌘ K'],
+            ['Toggle sidebar',    '⌘ B'],
+            ['Toggle workspace',  '⌘ /'],
+            ['Jobs panel',        '⌘ J'],
+            ['Relationships',     '⌘ R'],
+            ['Settings',          '⌘ ,'],
+          ].map(([a, b]) => (
+            <div key={a} className="flex items-center justify-between gap-4">
+              <span>{a}</span>
+              <kbd className="rounded border border-[var(--metis-border)] bg-[var(--metis-code-bg)] px-2 py-0.5 text-xs text-[var(--metis-code-fg)]">{b}</kbd>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Connection health badge in chat header ────────────────────────────────
+
+function ConnectionsBadge({ health, onOpen }: { health: SystemHealth | null; onOpen: () => void }) {
+  // Color: green if any cloud is up, amber if local-only, rose if no
+  // provider at all is reachable. Click opens the Connections panel.
+  let color = 'text-[var(--metis-fg-dim)]';
+  let dot   = 'bg-[var(--metis-fg-dim)]';
+  let label = '…';
+  if (health) {
+    const cloud = health.groq.ok || health.glm.ok || health.openai.ok;
+    if (cloud) {
+      color = 'text-emerald-300';
+      dot   = 'bg-emerald-400';
+      label = (health.preferred_manager || 'cloud').toUpperCase();
+    } else if (health.ollama.ok) {
+      color = 'text-amber-300';
+      dot   = 'bg-amber-400';
+      label = 'LOCAL';
+    } else {
+      color = 'text-rose-300';
+      dot   = 'bg-rose-400';
+      label = 'OFFLINE';
+    }
+  }
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className={`metis-icon-btn inline-flex items-center gap-1.5 px-2 ${color}`}
+      title="Connection health — click for details"
+      aria-label="Connections"
+    >
+      <span className={`inline-block h-1.5 w-1.5 rounded-full ${dot}`} />
+      <span className="text-[10px] font-medium tracking-widest">{label}</span>
+    </button>
+  );
+}
+
+// ── Streaming header status pill ──────────────────────────────────────────
+
+function HeaderStatus({ streaming, hasContent, content }: {
+  streaming: boolean;
+  hasContent: boolean;
+  content: string;
+}) {
+  const label = useStreamingStatus(streaming, hasContent, content);
+  if (!streaming) return null;
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[11px] text-violet-300">
+      <Loader2 className="h-3 w-3 animate-spin" />
+      {label}
+    </span>
   );
 }
 

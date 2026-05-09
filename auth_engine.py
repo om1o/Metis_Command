@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import secrets
 import tempfile
@@ -7,6 +8,22 @@ from pathlib import Path
 from typing import Any, Literal
 
 from supabase_client import get_client
+
+# Verbose by default while we're debugging OAuth — flip METIS_AUTH_DEBUG=0
+# in .env to silence once it's stable.
+_DEBUG = os.getenv("METIS_AUTH_DEBUG", "1") not in ("0", "false", "False")
+_log = logging.getLogger("metis.auth")
+if _DEBUG and not _log.handlers:
+    _h = logging.StreamHandler()
+    _h.setFormatter(logging.Formatter("[auth] %(message)s"))
+    _log.addHandler(_h)
+    _log.setLevel(logging.DEBUG)
+
+
+def _redact(s: str | None, keep: int = 6) -> str:
+    if not s: return "<empty>"
+    if len(s) <= keep * 2: return f"{s[:keep]}…"
+    return f"{s[:keep]}…{s[-keep:]} ({len(s)} chars)"
 
 # ── PKCE verifier disk cache ─────────────────────────────────────────────────
 # st.session_state is per-WebSocket session and is wiped when the browser
@@ -94,19 +111,22 @@ def start_oauth(*, provider: OAuthProvider, redirect_to: str) -> tuple[str, str]
     """
     Start an OAuth flow and return ``(authorization_url, state)``.
 
-    The state and PKCE verifier are saved to disk so they survive the redirect.
+    The state and PKCE verifier are saved to disk so they survive the
+    redirect (the in-memory storage on the client may be lost across
+    requests / processes).
     """
     client = get_client()
     state = secrets.token_urlsafe(16)
-    
-    # Explicitly request PKCE flow if the library supports it via options.
+    _log.debug("start_oauth provider=%s redirect_to=%s state=%s",
+               provider, redirect_to, _redact(state))
+
     resp: Any = client.auth.sign_in_with_oauth(
         {
-            "provider": provider, 
+            "provider": provider,
             "options": {
                 "redirect_to": redirect_to,
                 "skip_browser_redirect": True,
-            }
+            },
         }
     )
     url = getattr(resp, "url", None)
@@ -116,7 +136,9 @@ def start_oauth(*, provider: OAuthProvider, redirect_to: str) -> tuple[str, str]
     if not isinstance(url, str) or not url:
         raise RuntimeError("OAuth start failed: missing authorization URL")
 
-    # Extract the PKCE code_verifier from the client's internal storage.
+    # Pull the PKCE verifier the supabase library just generated so we
+    # can persist it across the browser redirect. supabase-auth 2.x
+    # stores it at `{_storage_key}-code-verifier`.
     code_verifier: str | None = None
     try:
         storage = getattr(client.auth, "_storage", None)
@@ -125,8 +147,15 @@ def start_oauth(*, provider: OAuthProvider, redirect_to: str) -> tuple[str, str]
             code_verifier = storage.get_item(f"{storage_key}-code-verifier")
         if code_verifier:
             _save_verifier(state, code_verifier)
-    except Exception:
-        pass
+            _log.debug("start_oauth saved verifier=%s for state=%s",
+                       _redact(code_verifier), _redact(state))
+        else:
+            _log.warning("start_oauth: NO verifier found in storage after "
+                         "sign_in_with_oauth. PKCE will fail at exchange. "
+                         "storage=%r storage_key=%r",
+                         type(storage).__name__ if storage else None, storage_key)
+    except Exception as e:
+        _log.warning("start_oauth verifier extract failed: %s", e)
 
     # Append state to the URL if not already present
     if url and "state=" not in url:
@@ -220,60 +249,83 @@ def unenroll_totp(*, factor_id: str) -> bool:
 
 def complete_oauth(*, code: str, state: str | None = None) -> dict:
     """
-    Complete OAuth by exchanging the returned `code` for a session.
+    Complete OAuth by exchanging the returned ``code`` for a Supabase
+    session.
 
-    If ``state`` is passed, we load the specific verifier for that request.
+    Supabase's PKCE flow needs the ``code_verifier`` that was generated
+    when ``start_oauth`` ran. The library normally pulls it from
+    ``client.auth._storage`` — but in our case the initial sign-in
+    happened in a different process / WebSocket session, so we
+    persisted the verifier to disk keyed by the OAuth state and
+    re-inject it here.
+
+    Compatible with supabase-auth 2.x where
+    ``exchange_code_for_session(params: CodeExchangeParams)``
+    expects a dict (TypedDict). We do NOT fall back to passing a
+    bare string — that signature was removed in 2.x and produces
+    a misleading ``'str' object has no attribute 'get'`` error.
     """
     client = get_client()
     code_verifier = _load_verifier(state)
+    _log.debug("complete_oauth state=%s code=%s verifier=%s pkce_dir=%s files=%s",
+               _redact(state), _redact(code), _redact(code_verifier),
+               _PKCE_DIR, [p.name for p in _PKCE_DIR.glob("*.txt")] if _PKCE_DIR.exists() else [])
 
-    # Inject verifier back into the client's in-memory storage so
-    # exchange_code_for_session can find it.
+    # Re-inject the verifier so the storage-fallback inside
+    # exchange_code_for_session can also find it.
     if code_verifier:
         try:
             storage = getattr(client.auth, "_storage", None)
             storage_key = getattr(client.auth, "_storage_key", "supabase.auth.token")
             if storage and hasattr(storage, "set_item"):
                 storage.set_item(f"{storage_key}-code-verifier", code_verifier)
-        except Exception:
-            pass
-
-    resp: Any | None = None
-    last_err: Exception | None = None
-
-    attempts: list[tuple[str, Any]] = [
-        ("exchange_code_for_session", {"auth_code": code, "code_verifier": code_verifier}),
-        ("exchange_code_for_session", {"auth_code": code}),
-        ("exchange_code_for_session", code),
-    ]
-
-    for fn_name, payload in attempts:
-        fn = getattr(client.auth, fn_name, None)
-        if not callable(fn):
-            continue
-        try:
-            resp = fn(payload)
-            # Treat a response with no session as failure (try next attempt).
-            if resp is not None:
-                _sess = getattr(resp, "session", None) or getattr(
-                    getattr(resp, "data", None), "session", None
-                )
-                if _sess is None:
-                    last_err = RuntimeError("No session in response")
-                    resp = None
-                    continue
-            break
+                _log.debug("complete_oauth re-injected verifier into _storage")
         except Exception as e:
-            last_err = e
-            resp = None
+            _log.warning("complete_oauth verifier re-inject failed: %s", e)
 
-    if resp is None:
+    fn = getattr(client.auth, "exchange_code_for_session", None)
+    if not callable(fn):
         raise RuntimeError(
-            f"OAuth completion failed: {last_err or 'unknown error'}. "
-            "Make sure Google/GitHub OAuth providers are enabled in your Supabase project "
-            "and the redirect URL is listed in Auth → URL Configuration."
+            "Installed Supabase client lacks exchange_code_for_session. "
+            "Upgrade `supabase` and `supabase-auth` in requirements."
         )
 
-    user = getattr(resp, "user", None) or getattr(getattr(resp, "data", None), "user", None)
-    session = getattr(resp, "session", None) or getattr(getattr(resp, "data", None), "session", None)
+    # Build the params dict. Always include auth_code; include
+    # code_verifier only if we actually have one (otherwise
+    # supabase-auth's storage-fallback handles it).
+    params: dict[str, Any] = {"auth_code": code}
+    if code_verifier:
+        params["code_verifier"] = code_verifier
+
+    try:
+        resp = fn(params)
+        _log.debug("complete_oauth exchange OK; got session=%s",
+                   bool(getattr(resp, "session", None)))
+    except Exception as e:
+        _log.error("complete_oauth exchange FAILED: %r", e)
+        # Most common real-world failures, in priority order:
+        #   - "invalid request: both auth code and code verifier should be non-empty"
+        #     → start_oauth never persisted the verifier (storage extraction failed).
+        #   - "PKCE flow not supported"
+        #     → Supabase project misconfigured.
+        #   - "invalid grant" / "code expired"
+        #     → user took >10 min between redirect and submit, OR refreshed callback.
+        # Surface the underlying error so the UI can show something useful.
+        raise RuntimeError(f"OAuth code exchange failed: {e}") from e
+
+    session = (
+        getattr(resp, "session", None)
+        or getattr(getattr(resp, "data", None), "session", None)
+    )
+    user = (
+        getattr(resp, "user", None)
+        or getattr(getattr(resp, "data", None), "user", None)
+    )
+    if session is None:
+        raise RuntimeError(
+            "OAuth exchange returned no session. "
+            "Check that Google/GitHub providers are enabled in Supabase "
+            "and that http://127.0.0.1:3000/oauth/callback is in the "
+            "Auth → URL Configuration → Redirect URLs allowlist."
+        )
     return {"user": user, "session": session}

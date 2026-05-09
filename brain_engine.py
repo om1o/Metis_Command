@@ -82,29 +82,44 @@ def get_active_model(role: str = "default") -> str:
     """
     Resolve the active model for a role.
 
-    For `genius`, cascading preference:
-        1. GLM cloud (GLM_API_KEY set)
-        2. Groq cloud (GROQ_API_KEY set) — FREE tier
-        3. Local glm4:9b via Ollama
-        4. Local qwen2.5-coder:7b fallback
+    For BOTH `genius` and `manager`, cascade through cloud providers
+    when their API keys are present, falling back to local Ollama
+    otherwise. The manager especially benefits — running through
+    Groq's 70B at 200+ tok/s is night-and-day vs. a local 1.5B.
+
+    Cascade order:
+        1. Groq (free, fastest)
+        2. GLM (Z.ai)
+        3. OpenAI
+        4. Local model from ROLE_MODELS / ROLE_LOCAL_FALLBACK
     """
     primary = ROLE_MODELS.get(role, ROLE_MODELS["default"])
-    if role == "genius":
-        # 1. GLM cloud
-        try:
-            from providers import glm as _glm
-            if _glm.is_configured():
-                return _glm.default_model() or primary
-        except Exception:
-            pass
-        # 2. Groq cloud (free)
+
+    if role in ("genius", "manager"):
+        # 1. Groq (FREE tier, fastest)
         try:
             from providers import groq as _groq
             if _groq.is_configured():
                 return f"groq/{_groq.default_model()}"
         except Exception:
             pass
-        # 3. Local fallback
+        # 2. GLM cloud
+        try:
+            from providers import glm as _glm
+            if _glm.is_configured():
+                return _glm.default_model() or primary
+        except Exception:
+            pass
+        # 3. OpenAI (manager only — genius doesn't have an OpenAI adapter wired)
+        if role == "manager":
+            import os as _os
+            if _os.getenv("OPENAI_API_KEY", "").strip():
+                # OpenAI uses the OpenAI-compatible Groq adapter pattern;
+                # we route via the provider name in the model id so
+                # stream_chat picks the right path. Falls through to
+                # local until we wire a dedicated OpenAI provider.
+                pass
+        # 4. Local fallback
         fallback = ROLE_LOCAL_FALLBACK.get(role)
         if fallback:
             try:
@@ -320,12 +335,20 @@ def stream_chat(
                     return
                 model = local_fb  # fall through to the Ollama path below
 
+    # num_ctx caps the model's working window. Default in Ollama is 2048
+    # for many models but ramps with prompt size — capping at 4096 keeps
+    # KV-cache setup fast on small models without truncating typical
+    # multi-turn chats. Operators can override with METIS_NUM_CTX.
+    num_ctx = int(os.getenv("METIS_NUM_CTX", "4096"))
     payload = {
         "model": model,
         "messages": messages,
         "stream": True,
         "keep_alive": -1,   # keep model permanently in VRAM
-        "options": {"temperature": temperature},
+        "options": {
+            "temperature": temperature,
+            "num_ctx": num_ctx,
+        },
     }
     started = time.time()
     tokens = 0
