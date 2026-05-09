@@ -2196,6 +2196,57 @@ def auth_reset_password(req: ResetPasswordRequest) -> dict:
     return {"ok": True}
 
 
+# ── MFA / TOTP ────────────────────────────────────────────────────────────────
+
+class MfaVerifyRequest(BaseModel):
+    factor_id: str
+    code: str
+
+class MfaUnenrollRequest(BaseModel):
+    factor_id: str
+
+@app.post("/auth/mfa/enroll")
+def auth_mfa_enroll() -> dict:
+    """Begin TOTP enrollment. Returns QR code, secret, and factor_id."""
+    try:
+        return auth_engine.enroll_totp()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/auth/mfa/verify")
+def auth_mfa_verify(req: MfaVerifyRequest) -> dict:
+    """Verify a 6-digit TOTP code and upgrade the session AAL."""
+    try:
+        out = auth_engine.verify_totp(factor_id=req.factor_id, code=req.code)
+        return {
+            "ok": True,
+            "user": _user_payload(out.get("user")),
+            "session": _session_payload(out.get("session")),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/auth/mfa/factors")
+def auth_mfa_factors() -> dict:
+    """Return enrolled MFA factors for the current user."""
+    try:
+        return {"factors": auth_engine.list_mfa_factors()}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/auth/mfa/unenroll")
+def auth_mfa_unenroll(req: MfaUnenrollRequest) -> dict:
+    """Remove a TOTP factor."""
+    try:
+        ok = auth_engine.unenroll_totp(factor_id=req.factor_id)
+        return {"ok": ok}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 # ── Frontend (HTML + static) ─────────────────────────────────────────────────
 
 if (_FRONTEND_DIR / "static").exists():

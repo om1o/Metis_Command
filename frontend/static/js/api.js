@@ -47,6 +47,16 @@ async function _fetch(path, opts = {}) {
     } catch {}
     const err = new Error(detail);
     err.status = r.status;
+    // Surface rate-limit errors with retry-after hint
+    if (r.status === 429) {
+      const retryAfter = r.headers.get('retry-after');
+      err.message = retryAfter
+        ? `Rate limit reached. Try again in ${retryAfter}s.`
+        : 'Rate limit reached. Please wait a moment and try again.';
+      if (typeof window !== 'undefined' && window.toast) {
+        window.toast('warning', 'Rate limit', err.message, 5000);
+      }
+    }
     throw err;
   }
   const ct = r.headers.get('content-type') || '';

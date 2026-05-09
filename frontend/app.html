@@ -963,6 +963,47 @@ pre:hover .code-copy{opacity:1}
       </div>
     </div>
     <div class="settings-group">
+      <div class="settings-group-label">Security</div>
+      <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:10px">
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%">
+          <span class="s-label">Two-factor auth (TOTP)</span>
+          <span id="mfaStatusBadge" style="font-family:'JetBrains Mono',monospace;font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--subtle)">Checking…</span>
+        </div>
+        <button id="mfaActionBtn" style="width:100%;height:36px;border-radius:8px;border:1px solid var(--border-2);background:var(--panel-2);color:var(--text);font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;transition:all .18s;display:none">Enable 2FA</button>
+      </div>
+    </div>
+
+    <!-- MFA enroll modal (inside settings panel body) -->
+    <div id="mfaEnrollModal" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(7,7,26,.75);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;animation:fadeIn .2s ease">
+      <div style="width:400px;max-width:92vw;background:rgba(13,13,36,.98);border:1px solid var(--border-2);border-radius:16px;padding:28px;box-shadow:0 24px 64px rgba(0,0,0,.6)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
+          <span style="font-size:22px">🔐</span>
+          <h3 style="font-family:'Sora',sans-serif;font-size:16px;font-weight:700;color:var(--text)">Set up two-factor auth</h3>
+        </div>
+        <div id="mfaEnrollStep1" style="">
+          <p style="font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:16px">Scan this QR code with your authenticator app (Authy, 1Password, Google Authenticator), then enter the code below to confirm.</p>
+          <div id="mfaQrWrap" style="text-align:center;margin-bottom:16px;min-height:160px;display:flex;align-items:center;justify-content:center">
+            <div style="font-size:12px;color:var(--subtle)">Loading QR code…</div>
+          </div>
+          <details style="margin-bottom:16px">
+            <summary style="font-size:11.5px;color:var(--vi2);cursor:pointer;font-family:'JetBrains Mono',monospace">Can't scan? Enter code manually</summary>
+            <div id="mfaSecret" style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text);background:var(--panel);padding:10px;border-radius:8px;margin-top:8px;word-break:break-all;border:1px solid var(--border)"></div>
+          </details>
+          <div style="margin-bottom:14px">
+            <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:7px">Enter 6-digit code to confirm</label>
+            <input type="text" id="mfaEnrollCode" inputmode="numeric" maxlength="6" placeholder="000000"
+              style="width:100%;padding:10px 14px;background:rgba(255,255,255,.07);border:1px solid var(--border-2);border-radius:9px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:18px;letter-spacing:.3em;text-align:center;outline:none">
+          </div>
+          <div id="mfaEnrollErr" style="display:none;color:#FCA5A5;font-size:12px;margin-bottom:12px"></div>
+          <div style="display:flex;gap:8px">
+            <button id="mfaEnrollCancel" style="flex:1;height:38px;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--muted);font-family:inherit;font-size:13px;cursor:pointer">Cancel</button>
+            <button id="mfaEnrollConfirm" style="flex:1;height:38px;border-radius:8px;border:none;background:linear-gradient(135deg,#7C3AED,#FB7185 55%,#F59E0B);color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Activate 2FA</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-group">
       <div class="settings-group-label">Advanced</div>
       <a class="settings-wizard-link" href="/analytics-ui" target="_blank" style="margin-bottom:8px">
         <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
@@ -2366,6 +2407,7 @@ function openSettings() {
   document.getElementById('settingsColorSwatch').style.background = cfg?.accent_color || '#7C3AED';
   panel.classList.add('open');
   overlay.classList.add('show');
+  loadMfaStatus();
 }
 function closeSettings() {
   document.getElementById('settingsPanel').classList.remove('open');
@@ -2373,6 +2415,148 @@ function closeSettings() {
 }
 document.getElementById('settingsClose').addEventListener('click', closeSettings);
 document.getElementById('settingsOverlay').addEventListener('click', closeSettings);
+
+// ── MFA / 2FA management ──────────────────────────────────────────────────
+let _mfaFactors = [];
+let _pendingEnrollFactorId = null;
+
+async function loadMfaStatus() {
+  const badge = document.getElementById('mfaStatusBadge');
+  const btn = document.getElementById('mfaActionBtn');
+  if (!badge || !btn) return;
+  badge.textContent = 'Checking…';
+  btn.style.display = 'none';
+  try {
+    const token = localStorage.getItem('metis.access_token');
+    const res = await fetch('/auth/mfa/factors', {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error('unavailable');
+    const { factors } = await res.json();
+    _mfaFactors = (factors || []).filter(f => f.status === 'verified');
+    if (_mfaFactors.length > 0) {
+      badge.textContent = '✓ Enabled';
+      badge.style.background = 'rgba(34,197,94,.15)';
+      badge.style.color = '#86EFAC';
+      badge.style.borderColor = 'rgba(34,197,94,.3)';
+      btn.textContent = 'Disable 2FA';
+      btn.style.color = '#FCA5A5';
+      btn.style.borderColor = 'rgba(251,113,133,.3)';
+      btn.style.display = '';
+    } else {
+      badge.textContent = 'Not enabled';
+      badge.style.background = '';
+      badge.style.color = '';
+      badge.style.borderColor = '';
+      btn.textContent = 'Enable 2FA';
+      btn.style.color = '';
+      btn.style.borderColor = '';
+      btn.style.display = '';
+    }
+  } catch {
+    badge.textContent = 'N/A';
+    btn.style.display = 'none';
+  }
+}
+
+document.getElementById('mfaActionBtn')?.addEventListener('click', async () => {
+  if (_mfaFactors.length > 0) {
+    // Disable: unenroll all verified factors
+    if (!confirm('Remove two-factor authentication? Your account will only require a password to sign in.')) return;
+    try {
+      const token = localStorage.getItem('metis.access_token');
+      for (const f of _mfaFactors) {
+        await fetch('/auth/mfa/unenroll', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          body: JSON.stringify({ factor_id: f.id }),
+        });
+      }
+      toast('success', '2FA disabled', 'Two-factor auth removed from your account.', 3000);
+      loadMfaStatus();
+    } catch (e) {
+      toast('error', 'Error', e.message, 3500);
+    }
+  } else {
+    startMfaEnroll();
+  }
+});
+
+async function startMfaEnroll() {
+  const modal = document.getElementById('mfaEnrollModal');
+  const qrWrap = document.getElementById('mfaQrWrap');
+  const secretEl = document.getElementById('mfaSecret');
+  const codeInput = document.getElementById('mfaEnrollCode');
+  const errEl = document.getElementById('mfaEnrollErr');
+  if (!modal) return;
+  errEl.style.display = 'none';
+  codeInput.value = '';
+  qrWrap.innerHTML = '<div style="font-size:12px;color:var(--subtle)">Generating QR code…</div>';
+  modal.style.display = 'flex';
+  try {
+    const token = localStorage.getItem('metis.access_token');
+    const res = await fetch('/auth/mfa/enroll', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Enroll failed');
+    const data = await res.json();
+    _pendingEnrollFactorId = data.factor_id;
+    if (data.qr_code) {
+      qrWrap.innerHTML = `<img src="${data.qr_code}" alt="QR code" style="width:160px;height:160px;border-radius:10px;border:1px solid var(--border)">`;
+    } else if (data.uri) {
+      qrWrap.innerHTML = `<a href="${escapeHtml(data.uri)}" style="font-size:11px;color:var(--vi2);word-break:break-all;font-family:'JetBrains Mono',monospace">${escapeHtml(data.uri)}</a>`;
+    }
+    secretEl.textContent = data.secret || '';
+    setTimeout(() => codeInput.focus(), 80);
+  } catch (e) {
+    qrWrap.innerHTML = `<div style="color:#FCA5A5;font-size:12px">${escapeHtml(e.message)}</div>`;
+  }
+}
+
+document.getElementById('mfaEnrollCancel')?.addEventListener('click', () => {
+  document.getElementById('mfaEnrollModal').style.display = 'none';
+  _pendingEnrollFactorId = null;
+});
+
+document.getElementById('mfaEnrollConfirm')?.addEventListener('click', async () => {
+  const codeInput = document.getElementById('mfaEnrollCode');
+  const errEl = document.getElementById('mfaEnrollErr');
+  const code = codeInput.value.replace(/\D/g, '');
+  if (code.length !== 6) {
+    errEl.textContent = 'Enter the 6-digit code from your app.';
+    errEl.style.display = '';
+    return;
+  }
+  errEl.style.display = 'none';
+  document.getElementById('mfaEnrollConfirm').disabled = true;
+  document.getElementById('mfaEnrollConfirm').textContent = 'Verifying…';
+  try {
+    const token = localStorage.getItem('metis.access_token');
+    const res = await fetch('/auth/mfa/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ factor_id: _pendingEnrollFactorId, code }),
+    });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Invalid code');
+    document.getElementById('mfaEnrollModal').style.display = 'none';
+    _pendingEnrollFactorId = null;
+    toast('success', '2FA enabled', 'Two-factor authentication is now active on your account.', 4000);
+    loadMfaStatus();
+  } catch (e) {
+    errEl.textContent = e.message || 'Invalid code. Try again.';
+    errEl.style.display = '';
+    codeInput.select();
+  } finally {
+    document.getElementById('mfaEnrollConfirm').disabled = false;
+    document.getElementById('mfaEnrollConfirm').textContent = 'Activate 2FA';
+  }
+});
+
+document.getElementById('mfaEnrollCode')?.addEventListener('input', (e) => {
+  e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
+  if (e.target.value.length === 6) document.getElementById('mfaEnrollConfirm').click();
+});
 function newChat() {
   if (isStreaming && abortController) abortController.abort();
   chatInner.innerHTML = '';

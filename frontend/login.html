@@ -214,6 +214,35 @@ html,body{min-height:100vh;background:var(--bg);color:var(--text);font-family:'I
         </button>
       </div>
     </div>
+
+    <!-- MFA challenge card (hidden until needed) -->
+    <div class="glass-card" id="mfaCard" style="display:none">
+      <div class="card-head">
+        <div style="font-size:44px;margin-bottom:12px;line-height:1">🔐</div>
+        <h1>Two-factor verification</h1>
+        <p>Enter the 6-digit code from your authenticator app</p>
+      </div>
+
+      <div id="mfaErrBanner" class="error-banner"></div>
+
+      <div class="form-field" style="margin-bottom:20px">
+        <label>Authentication code</label>
+        <input type="text" id="mfaCode" inputmode="numeric" pattern="[0-9]{6}" maxlength="6"
+          placeholder="000000" autocomplete="one-time-code"
+          style="font-size:22px;letter-spacing:.35em;text-align:center;font-family:'JetBrains Mono',monospace">
+      </div>
+
+      <button type="button" class="submit-btn" id="mfaVerifyBtn">
+        <div class="shimmer"></div>
+        <span id="mfaVerifyText">Verify →</span>
+      </button>
+
+      <div style="text-align:center;margin-top:14px">
+        <button type="button" id="mfaBackBtn" style="background:transparent;border:none;color:var(--vi2);font-family:inherit;font-size:13px;cursor:pointer;padding:6px">
+          ← Back to sign in
+        </button>
+      </div>
+    </div>
   </div>
 
   <div class="right-panel">
@@ -275,6 +304,74 @@ function clearErr() {
   errBanner.classList.remove('show');
 }
 
+// ── MFA state ──────────────────────────────────────────────────────────────
+let _mfaFactorId = null;
+
+const loginCard = document.querySelector('.glass-card:not(#mfaCard)');
+const mfaCard = document.getElementById('mfaCard');
+const mfaErrBanner = document.getElementById('mfaErrBanner');
+const mfaCode = document.getElementById('mfaCode');
+const mfaVerifyBtn = document.getElementById('mfaVerifyBtn');
+const mfaVerifyText = document.getElementById('mfaVerifyText');
+
+function showMfaChallenge(factorId) {
+  _mfaFactorId = factorId;
+  loginCard.style.display = 'none';
+  mfaCard.style.display = '';
+  mfaCard.style.animation = 'cardIn .4s cubic-bezier(.22,1,.36,1) both';
+  mfaCode.value = '';
+  setTimeout(() => mfaCode.focus(), 80);
+}
+
+function hideMfaChallenge() {
+  mfaCard.style.display = 'none';
+  loginCard.style.display = '';
+  _mfaFactorId = null;
+  submitBtn.disabled = false;
+  submitText.textContent = 'Sign in to Metis →';
+}
+
+document.getElementById('mfaBackBtn').addEventListener('click', hideMfaChallenge);
+
+mfaVerifyBtn.addEventListener('click', async () => {
+  const code = mfaCode.value.replace(/\D/g, '');
+  if (code.length !== 6) {
+    mfaErrBanner.textContent = 'Enter the 6-digit code from your authenticator app.';
+    mfaErrBanner.classList.add('show');
+    return;
+  }
+  mfaErrBanner.classList.remove('show');
+  mfaVerifyBtn.disabled = true;
+  mfaVerifyText.textContent = 'Verifying…';
+  try {
+    const token = localStorage.getItem('metis.access_token');
+    const res = await fetch('/auth/mfa/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ factor_id: _mfaFactorId, code }),
+    });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      throw new Error(j.detail || 'Invalid code');
+    }
+    const out = await res.json();
+    if (out.session) setSession(out.session, out.user);
+    window.location.replace('/splash');
+  } catch (err) {
+    mfaErrBanner.textContent = err.message || 'Verification failed. Check the code and try again.';
+    mfaErrBanner.classList.add('show');
+    mfaVerifyBtn.disabled = false;
+    mfaVerifyText.textContent = 'Verify →';
+    mfaCode.select();
+  }
+});
+
+// Auto-format: only allow digits and auto-submit at 6 chars
+mfaCode.addEventListener('input', () => {
+  mfaCode.value = mfaCode.value.replace(/\D/g, '').slice(0, 6);
+  if (mfaCode.value.length === 6) mfaVerifyBtn.click();
+});
+
 // Password show/hide
 const pwInput = document.getElementById('password');
 const pwIcon = document.getElementById('pwIcon');
@@ -286,7 +383,7 @@ document.getElementById('pwToggle').addEventListener('click', () => {
     : '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
 });
 
-// Email + password sign-in
+// Email + password sign-in — check for MFA requirement after success
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   clearErr();
@@ -298,6 +395,23 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
       document.getElementById('password').value,
     );
     setSession(out.session, out.user);
+
+    // Check if the session requires MFA upgrade (aal1 with enrolled factors)
+    try {
+      const token = out.session?.access_token || localStorage.getItem('metis.access_token');
+      const factorsRes = await fetch('/auth/mfa/factors', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (factorsRes.ok) {
+        const { factors } = await factorsRes.json();
+        const verified = (factors || []).filter(f => f.status === 'verified');
+        if (verified.length > 0) {
+          showMfaChallenge(verified[0].id);
+          return;
+        }
+      }
+    } catch {}
+
     window.location.replace('/splash');
   } catch (err) {
     showErr(err.message || 'Sign-in failed');

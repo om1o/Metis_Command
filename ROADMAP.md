@@ -38,10 +38,8 @@
 - Default model: qwen3.5:4b (stronger than 1.5b)
 
 ### Known Gaps
-- No MFA/2FA
-- Notification bell UI not yet wired (backend + routes done; desktop-ui bell needs polling `GET /notifications/count`)
-- Search backend done (`GET /sessions/search` with FTS5); no search UI in desktop-ui yet
-- No rate limit UI feedback
+- Notification bell UI is wired (polls `/notifications/count` every 30s — ✅ done)
+- Session FTS5 search UI wired in sidebar (✅ done)
 - Legacy Streamlit UI (`dynamic_ui.py`) remains in the tree for reference; `launch.py` only starts FastAPI
 
 ### Completed (v0.16.5)
@@ -64,6 +62,7 @@
 - ✅ PWA foundation (Phase 18) — manifest.json, service worker at /sw.js (root scope), offline shell caching, push notification plumbing, Apple/Android Add-to-Home-Screen meta tags across all HTML pages
 - ✅ Multi-model comparison API (Phase 13 backend) — `POST /chat/compare` runs same prompt against N models in parallel via ThreadPoolExecutor, stable result ordering, 90s timeout; `compareModels()` added to api.js
 - ✅ Compare panel UI (Phase 13 frontend) — ⚖️ button in header, full-screen side-by-side panel, model chip selector (up to 4), Ctrl+Enter to run, per-column timing display, copy support via command palette
+- ✅ MFA / Two-Factor Auth (Phase 14) — `enroll_totp`, `verify_totp`, `list_mfa_factors`, `unenroll_totp` in `auth_engine.py`; API routes `POST /auth/mfa/enroll`, `POST /auth/mfa/verify`, `GET /auth/mfa/factors`, `POST /auth/mfa/unenroll`; login challenge step (auto-triggers after sign-in when TOTP factor present); Settings panel Security section with QR code enroll/disable flow; rate-limit 429 toast feedback in `api.js`
 
 ---
 
@@ -338,7 +337,7 @@
 | 11. Onboarding | 🟡 High | Small | Q3 |
 | 12. Keyboard Power | 🟢 Medium | Small | Q3 |
 | 13. Model Compare | 🟢 Medium | Large | ✅ Done |
-| 14. MFA | 🟡 High | Medium | Q4 |
+| 14. MFA | 🟡 High | Medium | ✅ Done |
 | 15. Workflows | 🟢 Medium | Large | Q4 |
 | 16. Analytics | 🟢 Medium | Medium | ✅ Done |
 | 17. Desktop Native | 🔴 Critical | Large | Q4 |
