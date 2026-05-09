@@ -221,7 +221,7 @@ def selected_checks(*, manager_chat: bool, direct_chat_repeats: int = 1) -> list
 def run_gate(checks: Sequence[tuple[str, CheckFn]]) -> tuple[list[dict[str, object]], float]:
     started = time.time()
     results: list[dict[str, object]] = []
-    for name, check in checks:
+    for index, (name, check) in enumerate(checks):
         check_started = time.time()
         try:
             check()
@@ -234,6 +234,13 @@ def run_gate(checks: Sequence[tuple[str, CheckFn]]) -> tuple[list[dict[str, obje
                 "duration_s": round(elapsed, 3),
                 "error": str(exc),
             })
+            for skipped_name, _skipped_check in checks[index + 1:]:
+                results.append({
+                    "name": skipped_name,
+                    "status": "skipped",
+                    "duration_s": 0,
+                    "reason": f"previous check failed: {name}",
+                })
             break
         elapsed = time.time() - check_started
         results.append({

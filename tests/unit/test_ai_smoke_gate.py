@@ -52,6 +52,12 @@ def test_run_gate_stops_after_first_failure() -> None:
     assert results[1]["name"] == "second"
     assert results[1]["status"] == "failed"
     assert results[1]["error"] == "broken ai path"
+    assert results[2] == {
+        "name": "third",
+        "status": "skipped",
+        "duration_s": 0,
+        "reason": "previous check failed: second",
+    }
 
 
 def test_build_report_marks_failed_result_not_ok() -> None:
