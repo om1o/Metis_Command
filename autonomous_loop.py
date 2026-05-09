@@ -139,6 +139,22 @@ def _tool_registry() -> dict[str, Callable[..., Any]]:
         "write_clipboard": _perm.gate("write_clipboard", _cu.write_clipboard, summary_args=["text"]),
         "read_clipboard": _cu.read_clipboard,  # read-only
         "open_application": _perm.gate("open_application", _cu.open_application, summary_args=["name"]),
+        # MVP 20a: rest of the mouse repertoire. scroll/drag/right_click
+        # are state-changing and gated; mouse_move is read-only (just
+        # repositions the cursor — triggers hover effects but doesn't
+        # commit to a click).
+        "scroll":         _perm.gate("scroll",
+                                     lambda amount, x=None, y=None: _cu.scroll(int(amount), x=x, y=y, confirm=False),
+                                     summary_args=["amount"]),
+        "drag_xy":        _perm.gate("drag_xy",
+                                     lambda from_x, from_y, to_x, to_y, button="left", duration=0.4: _cu.drag_xy(
+                                         int(from_x), int(from_y), int(to_x), int(to_y),
+                                         button=button, duration=float(duration), confirm=False),
+                                     summary_args=["from_x", "from_y", "to_x", "to_y"]),
+        "right_click_xy": _perm.gate("right_click_xy",
+                                     lambda x, y: _cu.right_click_xy(int(x), int(y), confirm=False),
+                                     summary_args=["x", "y"]),
+        "mouse_move":     _cu.mouse_move,  # read-only — no gate
         # Persistent-browser helpers — snapshot/clear cookies so a
         # one-time Gmail login stays usable across sessions. The
         # save itself is gated (touches disk); login_helper opens a
@@ -194,6 +210,9 @@ _MUTATING_TOOLS = {
     "browser_new_tab",
     "browser_switch_tab",
     "browser_close_tab",
+    "scroll",
+    "drag_xy",
+    "right_click_xy",
     "speak",
     "subagent",
     # MVP 15 — anything that touches the real desktop or browser cookies.
@@ -303,8 +322,12 @@ Valid tools (name -> signature):
   open_application(name)                (gated; "Cursor", "Chrome", etc.)
   click_xy(x, y, button='left')         (gated)
   double_click_xy(x, y)                 (gated)
+  right_click_xy(x, y)                  (gated; opens context menu)
   type_text(text, interval=0.02)        (gated)
   key_combo(keys)                       (gated; e.g. ["ctrl","c"])
+  scroll(amount, x=None, y=None)        (gated; +up / -down)
+  drag_xy(from_x, from_y, to_x, to_y)   (gated; sliders, file moves)
+  mouse_move(x, y)                      -> hover (read-only)
 
   # Vision — describe what's on screen / find UI elements
   vision_describe(image_path)               -> str

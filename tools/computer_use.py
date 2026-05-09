@@ -121,6 +121,52 @@ def key_combo(keys: list[str], *, confirm: bool = True) -> dict:
     return {"ok": True, "keys": keys}
 
 
+def scroll(amount: int, *, x: int | None = None, y: int | None = None,
+           confirm: bool = True) -> dict:
+    """Wheel-scroll by ``amount`` clicks (positive = up, negative = down).
+    Optional ``(x, y)`` anchors the scroll on a specific spot — useful
+    when the OS picks up scroll events on the focused window only."""
+    _require_pyautogui()
+    if confirm:
+        return {"ok": False, "reason": "confirm-required", "amount": amount}
+    if x is not None and y is not None:
+        pyautogui.moveTo(x, y, duration=0.05)
+    pyautogui.scroll(int(amount))
+    return {"ok": True, "amount": amount, "x": x, "y": y}
+
+
+def drag_xy(from_x: int, from_y: int, to_x: int, to_y: int, *,
+            button: str = "left", duration: float = 0.4,
+            confirm: bool = True) -> dict:
+    """Press at (from_x, from_y), drag to (to_x, to_y), release.
+    Useful for sliders, file-manager moves, drawing-app strokes."""
+    _require_pyautogui()
+    if confirm:
+        return {"ok": False, "reason": "confirm-required",
+                "from": [from_x, from_y], "to": [to_x, to_y]}
+    pyautogui.moveTo(from_x, from_y, duration=0.1)
+    pyautogui.dragTo(to_x, to_y, duration=float(duration), button=button)
+    return {"ok": True, "from": [from_x, from_y], "to": [to_x, to_y], "button": button}
+
+
+def right_click_xy(x: int, y: int, *, confirm: bool = True) -> dict:
+    """Right-click at the given screen coordinates (open context menu)."""
+    _require_pyautogui()
+    if confirm:
+        return {"ok": False, "reason": "confirm-required", "x": x, "y": y}
+    pyautogui.rightClick(x=x, y=y)
+    return {"ok": True, "x": x, "y": y, "button": "right"}
+
+
+def mouse_move(x: int, y: int, *, duration: float = 0.1) -> dict:
+    """Move the mouse without clicking. Triggers hover effects (menus
+    that open on hover, tooltips, hover-based dropdowns). Read-only —
+    no confirm needed."""
+    _require_pyautogui()
+    pyautogui.moveTo(int(x), int(y), duration=float(duration))
+    return {"ok": True, "x": x, "y": y}
+
+
 def open_application(name: str) -> dict:
     """Launch a desktop app by name or path.
 
