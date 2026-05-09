@@ -148,6 +148,7 @@ export interface Schedule {
   enabled: boolean;
   project_slug: string | null;
   auto_approve: boolean;
+  notify: boolean;
   last_run: number | null;
   next_run: number | null;
   created_at: number;
@@ -377,6 +378,7 @@ export class MetisClient {
     auto_approve?: boolean;
     project_slug?: string | null;
     action?: string;
+    notify?: boolean;
   }): Promise<Schedule> {
     return this.post('/schedules', {
       goal: input.goal,
@@ -385,6 +387,7 @@ export class MetisClient {
       auto_approve: input.auto_approve ?? true,
       project_slug: input.project_slug ?? null,
       action: input.action ?? '',
+      notify: input.notify ?? false,
     });
   }
 

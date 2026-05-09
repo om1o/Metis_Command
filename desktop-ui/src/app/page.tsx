@@ -41,6 +41,7 @@ import {
   CalendarClock,
   Users,
   Bell,
+  Monitor,
 } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { createLocalClient, MetisClient, AuthUser, Schedule } from '@/lib/metis-client';
@@ -53,7 +54,8 @@ import InboxPanel from '@/components/inbox-panel';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-type Theme = 'dark' | 'light';
+type Theme = 'dark' | 'light' | 'system';
+type EffectiveTheme = 'dark' | 'light';
 type AgentStatus = 'idle' | 'thinking' | 'working' | 'done' | 'error';
 type Permission = 'full' | 'balanced' | 'read';
 type Mode = 'task' | 'job';
@@ -353,8 +355,10 @@ function extractActivity(content: string, max = 6): { kind: 'heading' | 'step'; 
 // ── Main ───────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const [theme, setTheme] = useState<Theme>('dark');
+  const [theme, setTheme] = useState<Theme>('system');
+  const [osTheme, setOsTheme] = useState<EffectiveTheme>('dark');
   const [themeReady, setThemeReady] = useState(false);
+  const effectiveTheme: EffectiveTheme = theme === 'system' ? osTheme : theme;
   const [client, setClient] = useState<MetisClient | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [authResolved, setAuthResolved] = useState(false);
@@ -393,16 +397,29 @@ export default function App() {
   const activity = useMemo(() => (lastAgentMsg ? extractActivity(lastAgentMsg.content) : []), [lastAgentMsg]);
 
   // ── theme bootstrap ─────────────────────────────────────────────────────
+  // Three modes: 'system' (default — follow OS), 'light', 'dark'.
+  // The DOM data-theme attribute always gets the resolved value so CSS
+  // variables work in both modes.
   useEffect(() => {
-    const stored = localStorage.getItem('metis-theme') as Theme | null;
-    if (stored === 'light' || stored === 'dark') setTheme(stored);
-    else if (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: light)').matches) setTheme('light');
+    let stored: Theme | null = null;
+    try { stored = localStorage.getItem('metis-theme') as Theme | null; } catch {}
+    if (stored === 'light' || stored === 'dark' || stored === 'system') setTheme(stored);
     setThemeReady(true);
   }, []);
+  // Watch the OS preference live so 'system' mode updates when the user
+  // flips light/dark in their settings.
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
+    if (typeof window === 'undefined') return;
+    const mql = window.matchMedia('(prefers-color-scheme: light)');
+    const update = () => setOsTheme(mql.matches ? 'light' : 'dark');
+    update();
+    mql.addEventListener('change', update);
+    return () => mql.removeEventListener('change', update);
+  }, []);
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', effectiveTheme);
     if (themeReady) try { localStorage.setItem('metis-theme', theme); } catch {}
-  }, [theme, themeReady]);
+  }, [theme, effectiveTheme, themeReady]);
 
   // ── persistence + saved-session check ──────────────────────────────────
   // We restore a saved session if it still validates against /auth/me.
@@ -439,15 +456,24 @@ export default function App() {
         if (!cancelled) setAuthResolved(true);
         return;
       }
+      // Hard 4-second cap on the saved-session probe so a dead or slow
+      // bridge can never strand the splash. On timeout we fall through
+      // to the LoginScreen, which has its own bridge-down banner.
       try {
         const probe = createLocalClient(token);
-        const me = await probe.getMe();
+        const meP = probe.getMe();
+        const timeoutP = new Promise<never>((_, rej) =>
+          setTimeout(() => rej(new Error('saved-session probe timed out')), 4000),
+        );
+        const me = await Promise.race([meP, timeoutP]);
         if (cancelled) return;
         setClient(probe);
         setUser(me.user || savedUser);
         try { localStorage.setItem('metis-user', JSON.stringify(me.user || savedUser)); } catch {}
       } catch {
-        // Saved token no longer works — clear it and ask the user to sign in.
+        // Saved token didn't validate (or timed out). Clear it and ask
+        // the user to sign in fresh. We DO NOT keep a half-set client
+        // because the next API call would just hang again.
         try {
           localStorage.removeItem('metis-token');
           localStorage.removeItem('metis-user');
@@ -714,17 +740,12 @@ export default function App() {
   // ── App ────────────────────────────────────────────────────────────────
   const hasMessages = !!active && active.messages.length > 0;
 
-  // While the saved-session probe is in flight, show a tiny splash so we
-  // don't flash the LoginScreen for users who are about to be auto-restored.
+  // While the saved-session probe is in flight, show a branded splash so
+  // we don't flash the LoginScreen for users who are about to be
+  // auto-restored. The probe has a 4-second hard cap so this never
+  // strands; if it does, the user can punch out manually.
   if (!authResolved) {
-    return (
-      <div className="metis-app-bg flex min-h-screen w-full items-center justify-center text-[var(--metis-fg-muted)]">
-        <div className="flex items-center gap-2.5">
-          <Mark size={22} />
-          <Loader2 className="h-4 w-4 animate-spin text-violet-400" />
-        </div>
-      </div>
-    );
+    return <Splash reduceMotion={!!reduceMotion} />;
   }
 
   // No client / user → gate behind the LoginScreen. Until auth succeeds,
@@ -887,12 +908,12 @@ export default function App() {
           )}
           <button
             type="button"
-            onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
+            onClick={() => setTheme((t) => (t === 'system' ? 'dark' : t === 'dark' ? 'light' : 'system'))}
             className="metis-icon-btn"
-            aria-label="Theme"
-            title="Theme"
+            aria-label={`Theme (current: ${theme})`}
+            title={`Theme: ${theme}${theme === 'system' ? ` · OS=${effectiveTheme}` : ''} — click to cycle`}
           >
-            {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            {theme === 'system' ? <Monitor className="h-4 w-4" /> : effectiveTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </button>
           <button
             type="button"
@@ -1168,20 +1189,32 @@ export default function App() {
           <Modal title="Settings" onClose={() => setSettingsOpen(false)} reduceMotion={!!reduceMotion}>
             <div className="grid gap-3">
               <div className="rounded-xl border border-[var(--metis-border)] bg-[var(--metis-elevated)] p-3">
-                <div className="text-xs font-medium text-[var(--metis-fg-dim)]">Theme</div>
-                <div className="mt-2 flex items-center gap-2">
-                  {(['dark', 'light'] as Theme[]).map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => setTheme(t)}
-                      className={`rounded-lg px-3 py-2 text-sm capitalize transition ${
-                        theme === t ? 'bg-[var(--metis-hover-surface)] text-[var(--metis-foreground)]' : 'text-[var(--metis-fg-muted)] hover:bg-[var(--metis-hover-surface)]'
-                      }`}
-                    >
-                      {t}
-                    </button>
-                  ))}
+                <div className="flex items-center justify-between">
+                  <div className="text-xs font-medium text-[var(--metis-fg-dim)]">Theme</div>
+                  {theme === 'system' && (
+                    <span className="text-[10px] text-[var(--metis-fg-dim)]">following OS · {effectiveTheme}</span>
+                  )}
+                </div>
+                <div className="mt-2 inline-flex items-center gap-0.5 rounded-full border border-[var(--metis-border)] bg-[var(--metis-bg)] p-0.5">
+                  {(['system', 'light', 'dark'] as Theme[]).map((t) => {
+                    const sel = theme === t;
+                    const Icon = t === 'light' ? Sun : t === 'dark' ? Moon : Monitor;
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setTheme(t)}
+                        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] capitalize transition ${
+                          sel
+                            ? 'border border-violet-500/40 bg-violet-500/10 text-violet-200'
+                            : 'border border-transparent text-[var(--metis-fg-muted)] hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]'
+                        }`}
+                      >
+                        <Icon className="h-3.5 w-3.5" />
+                        {t}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
               <div className="rounded-xl border border-[var(--metis-border)] bg-[var(--metis-elevated)] p-3">
@@ -1380,6 +1413,86 @@ function ModeSelector({ value, onChange }: { value: Mode; onChange: (v: Mode) =>
           </button>
         );
       })}
+    </div>
+  );
+}
+
+// ── Splash (auth-resolution loader) ───────────────────────────────────────
+
+function Splash({ reduceMotion }: { reduceMotion: boolean }) {
+  // We show a "still working…" line after a beat so the user gets
+  // feedback that we're waiting on something, plus an escape hatch
+  // after 5s so they're never stranded if the probe doesn't resolve.
+  const [phase, setPhase] = useState<'enter' | 'connecting' | 'stalled'>('enter');
+  useEffect(() => {
+    const t1 = setTimeout(() => setPhase('connecting'), 800);
+    const t2 = setTimeout(() => setPhase('stalled'), 5000);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, []);
+
+  const handleReset = () => {
+    try {
+      localStorage.removeItem('metis-token');
+      localStorage.removeItem('metis-user');
+      localStorage.removeItem('metis-auth-mode');
+    } catch {}
+    window.location.reload();
+  };
+
+  return (
+    <div className="metis-app-bg relative flex min-h-screen w-full items-center justify-center overflow-hidden text-[var(--metis-fg)]">
+      {/* Hero orb behind the mark */}
+      <div
+        className="pointer-events-none absolute inset-x-0 top-1/3 mx-auto h-80 w-full"
+        style={{ background: 'var(--metis-orb-hero)' }}
+        aria-hidden
+      />
+      <motion.div
+        initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+        className="relative flex flex-col items-center gap-4 px-4 text-center"
+      >
+        <motion.div
+          animate={reduceMotion ? undefined : { scale: [1, 1.04, 1] }}
+          transition={reduceMotion ? undefined : { duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
+          className="relative"
+        >
+          <div
+            className="absolute inset-0 -z-10 rounded-full blur-2xl"
+            style={{ background: 'radial-gradient(circle, rgba(167,139,250,0.35), transparent 70%)' }}
+            aria-hidden
+          />
+          <Mark size={56} />
+        </motion.div>
+        <Wordmark size="large" />
+        <div className="mt-1 flex items-center gap-2 text-[12.5px] text-[var(--metis-fg-muted)]">
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-violet-400" />
+          <AnimatePresence mode="wait">
+            <motion.span
+              key={phase}
+              initial={reduceMotion ? false : { opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
+              transition={{ duration: 0.2 }}
+            >
+              {phase === 'enter' ? 'Waking your agent…' : phase === 'connecting' ? 'Restoring your session…' : 'Still trying…'}
+            </motion.span>
+          </AnimatePresence>
+        </div>
+        {phase === 'stalled' && (
+          <motion.button
+            type="button"
+            onClick={handleReset}
+            initial={reduceMotion ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.25 }}
+            className="mt-2 rounded-full border border-[var(--metis-border)] bg-[var(--metis-bg)] px-3 py-1.5 text-[11.5px] text-[var(--metis-fg-muted)] hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]"
+          >
+            Reset and sign in fresh
+          </motion.button>
+        )}
+      </motion.div>
     </div>
   );
 }

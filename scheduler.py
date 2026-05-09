@@ -41,19 +41,45 @@ _CHECK_INTERVAL = 30.0
 def _notify_inbox_fired(s: "Schedule", *, body: str) -> None:
     """Best-effort notification when a schedule fires.
 
-    Imports lazily so headless environments without the inbox module
-    (e.g. tests stubbing the scheduler) keep working.
+    Always drops an in-app inbox item. If the schedule opted into
+    external notifications via ``notify=True``, also sends an SMS
+    (when TWILIO_* + METIS_NOTIFY_PHONE are set) and an email (when
+    SMTP creds + METIS_NOTIFY_EMAIL are set). All external sends are
+    best-effort and never raise.
+
+    Imports are lazy so headless environments without the inbox /
+    comms_link modules keep working.
     """
+    title = f"Job fired — {(s.goal or s.action or 'scheduled job')[:80]}"
     try:
         import inbox as _inbox
-        _inbox.append(
-            title=f"Job fired — {(s.goal or s.action or 'scheduled job')[:80]}",
-            body=body,
-            source=f"schedule:{s.id}",
-            schedule_id=s.id,
-        )
+        _inbox.append(title=title, body=body, source=f"schedule:{s.id}", schedule_id=s.id)
     except Exception:
         pass
+
+    if not getattr(s, "notify", False):
+        return
+
+    import os as _os
+    sms_to = _os.getenv("METIS_NOTIFY_PHONE", "").strip()
+    email_to = _os.getenv("METIS_NOTIFY_EMAIL", "").strip()
+
+    short = f"Metis: {title}\n\n{body[:240]}"
+    full = f"{title}\n\n{body}\n\n— Metis"
+
+    if sms_to:
+        try:
+            from comms_link import CommsLink as _Comms
+            _Comms().send_text_message(sms_to, short)
+        except Exception as e:
+            audit({"event": "scheduler_sms_failed", "schedule_id": s.id, "error": str(e)})
+
+    if email_to:
+        try:
+            from comms_link import CommsLink as _Comms
+            _Comms().send_human_email(email_to, title, full)
+        except Exception as e:
+            audit({"event": "scheduler_email_failed", "schedule_id": s.id, "error": str(e)})
 
 
 @dataclass
@@ -66,6 +92,7 @@ class Schedule:
     enabled: bool = True
     project_slug: str | None = None
     auto_approve: bool = True   # scheduled tasks usually run unattended
+    notify: bool = False        # text/email the operator when this fires
     last_run: float | None = None
     next_run: float | None = None
     created_at: float = field(default_factory=time.time)
@@ -107,6 +134,7 @@ def add(
     project_slug: str | None = None,
     auto_approve: bool = True,
     action: str = "",
+    notify: bool = False,
 ) -> Schedule:
     sched = Schedule(
         kind=kind,
@@ -115,6 +143,7 @@ def add(
         action=action,
         project_slug=project_slug,
         auto_approve=auto_approve,
+        notify=notify,
     )
     sched.next_run = _compute_next(sched, reference=time.time())
     with file_lock("scheduler"), _lock:

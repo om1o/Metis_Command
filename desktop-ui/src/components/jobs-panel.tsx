@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
+  Bell,
   CalendarClock,
   Loader2,
   Pause,
@@ -243,6 +244,11 @@ function JobRow({
               <Repeat className="h-3 w-3" /> {fmtCadence(s)}
             </span>
             <span>Next: {fmtNext(s.next_run)}</span>
+            {s.notify && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-[10px] text-violet-300" title="Texts + emails you when this fires">
+                <Bell className="h-2.5 w-2.5" /> Notify
+              </span>
+            )}
             {s.action && (
               <span className="rounded-full border border-[var(--metis-border)] bg-[var(--metis-hover-surface)] px-1.5 py-0.5 text-[10px] uppercase tracking-widest">
                 {s.action}

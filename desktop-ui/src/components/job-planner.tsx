@@ -2,7 +2,7 @@
 
 import { useMemo, useState, FormEvent } from 'react';
 import { motion } from 'framer-motion';
-import { CalendarClock, Loader2, Repeat, Sparkles, X } from 'lucide-react';
+import { Bell, CalendarClock, Loader2, Repeat, Sparkles, X } from 'lucide-react';
 import { MetisClient, Schedule, ScheduleKind } from '@/lib/metis-client';
 import { Mark } from '@/components/brand';
 
@@ -60,6 +60,7 @@ export default function JobPlanner({ goal, client, reduceMotion, onClose, onCrea
   const [everyN, setEveryN] = useState(6);
   const [cron, setCron] = useState('0 9 * * mon-fri');
   const [autoApprove, setAutoApprove] = useState(true);
+  const [notify, setNotify] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -84,6 +85,7 @@ export default function JobPlanner({ goal, client, reduceMotion, onClose, onCrea
         kind: payload.kind,
         spec: payload.spec,
         auto_approve: autoApprove,
+        notify,
       });
       onCreated(s);
     } catch (err) {
@@ -208,6 +210,25 @@ export default function JobPlanner({ goal, client, reduceMotion, onClose, onCrea
               <span className="block text-[var(--metis-fg)]">Run unattended</span>
               <span className="block text-[11.5px] text-[var(--metis-fg-dim)]">
                 Skip the approval prompt each run. You can still pause the job from the Jobs panel.
+              </span>
+            </span>
+          </label>
+
+          {/* Notify toggle */}
+          <label className="flex items-start gap-2.5 rounded-xl border border-[var(--metis-border)] bg-[var(--metis-bg)] px-3 py-2.5 text-[13px]">
+            <input
+              type="checkbox"
+              checked={notify}
+              onChange={(e) => setNotify(e.target.checked)}
+              className="mt-0.5 h-4 w-4 accent-violet-500"
+            />
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-1.5 text-[var(--metis-fg)]">
+                <Bell className="h-3.5 w-3.5 text-violet-400" />
+                Text + email me when this fires
+              </span>
+              <span className="block text-[11.5px] text-[var(--metis-fg-dim)]">
+                Sends to <code className="rounded bg-[var(--metis-code-bg)] px-1 text-[var(--metis-code-fg)]">METIS_NOTIFY_PHONE</code> via Twilio and <code className="rounded bg-[var(--metis-code-bg)] px-1 text-[var(--metis-code-fg)]">METIS_NOTIFY_EMAIL</code> via SMTP. Set them in <code className="rounded bg-[var(--metis-code-bg)] px-1 text-[var(--metis-code-fg)]">.env</code> first; otherwise this is silently a no-op.
               </span>
             </span>
           </label>

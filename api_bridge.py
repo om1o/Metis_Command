@@ -868,6 +868,7 @@ class ScheduleAddRequest(BaseModel):
     project_slug: str | None = None
     auto_approve: bool = True
     action: str = ""
+    notify: bool = False    # text + email the operator when this fires
 
 
 @app.get("/schedules")
@@ -886,6 +887,7 @@ def schedules_add(req: ScheduleAddRequest) -> dict:
         project_slug=req.project_slug,
         auto_approve=req.auto_approve,
         action=req.action,
+        notify=req.notify,
     )
     return s.to_dict()
 
