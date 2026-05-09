@@ -6,6 +6,8 @@ import {
   Loader2,
   Mail,
   Phone,
+  PhoneCall,
+  MessageSquare,
   Building2,
   StickyNote,
   Tag,
@@ -15,6 +17,9 @@ import {
   Users,
   ChevronDown,
   ChevronUp,
+  Send,
+  Check,
+  AlertCircle,
 } from 'lucide-react';
 import { MetisClient, Relationship } from '@/lib/metis-client';
 import { Mark } from '@/components/brand';
@@ -145,6 +150,7 @@ export default function RelationshipsPanel({ client, reduceMotion, onClose }: Pr
                   r={r}
                   open={openId === r.id}
                   busy={busyId === r.id}
+                  client={client}
                   onToggle={() => setOpenId(openId === r.id ? null : r.id)}
                   onDelete={() => onDelete(r.id)}
                 />
@@ -181,16 +187,58 @@ function RelationshipRow({
   r,
   open,
   busy,
+  client,
   onToggle,
   onDelete,
 }: {
   r: Relationship;
   open: boolean;
   busy: boolean;
+  client: MetisClient;
   onToggle: () => void;
   onDelete: () => void;
 }) {
   const subtitle = [r.role, r.company].filter(Boolean).join(' · ');
+  const [smsOpen, setSmsOpen] = useState(false);
+  const [smsBody, setSmsBody] = useState('');
+  const [smsBusy, setSmsBusy] = useState(false);
+  const [smsResult, setSmsResult] = useState<'sent' | string | null>(null);
+  const [callBusy, setCallBusy] = useState(false);
+  const [callResult, setCallResult] = useState<'placed' | string | null>(null);
+
+  const sendSms = async () => {
+    const msg = smsBody.trim();
+    if (!msg) return;
+    setSmsBusy(true); setSmsResult(null);
+    try {
+      await client.sendRelationshipSms(r.id, msg);
+      setSmsResult('sent');
+      setSmsBody('');
+      setTimeout(() => { setSmsResult(null); setSmsOpen(false); }, 1500);
+    } catch (err) {
+      setSmsResult(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSmsBusy(false);
+    }
+  };
+
+  const placeCall = async () => {
+    const ok = window.confirm(
+      `Place a Twilio call to ${r.name}${r.phone ? ` (${r.phone})` : ''}? ` +
+      `They will hear your TWIML script. This costs Twilio credits.`,
+    );
+    if (!ok) return;
+    setCallBusy(true); setCallResult(null);
+    try {
+      await client.placeRelationshipCall(r.id);
+      setCallResult('placed');
+      setTimeout(() => setCallResult(null), 2000);
+    } catch (err) {
+      setCallResult(err instanceof Error ? err.message : String(err));
+    } finally {
+      setCallBusy(false);
+    }
+  };
   return (
     <div className="rounded-xl border border-[var(--metis-border)] bg-[var(--metis-bg)]">
       <button
@@ -248,6 +296,75 @@ function RelationshipRow({
               </Field>
             )}
           </dl>
+          {/* Twilio outreach actions — only meaningful when there's a phone number */}
+          {r.phone && (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => { setSmsOpen((v) => !v); setSmsResult(null); }}
+                className="inline-flex items-center gap-1.5 rounded-md border border-[var(--metis-border)] bg-[var(--metis-elevated)] px-2 py-1 text-[11px] text-[var(--metis-fg)] hover:bg-[var(--metis-hover-surface)]"
+              >
+                <MessageSquare className="h-3 w-3 text-violet-400" />
+                {smsOpen ? 'Cancel SMS' : 'Send SMS'}
+              </button>
+              <button
+                type="button"
+                onClick={placeCall}
+                disabled={callBusy}
+                className="inline-flex items-center gap-1.5 rounded-md border border-[var(--metis-border)] bg-[var(--metis-elevated)] px-2 py-1 text-[11px] text-[var(--metis-fg)] hover:bg-[var(--metis-hover-surface)] disabled:opacity-40"
+              >
+                {callBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <PhoneCall className="h-3 w-3 text-violet-400" />}
+                Call
+              </button>
+              {callResult === 'placed' && (
+                <span className="inline-flex items-center gap-1 text-[10.5px] text-emerald-300">
+                  <Check className="h-3 w-3" /> dialed
+                </span>
+              )}
+              {callResult && callResult !== 'placed' && (
+                <span className="inline-flex items-center gap-1 text-[10.5px] text-rose-300">
+                  <AlertCircle className="h-3 w-3" /> {callResult}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Inline SMS composer */}
+          {smsOpen && r.phone && (
+            <div className="mt-2 grid gap-2 rounded-lg border border-[var(--metis-border)] bg-[var(--metis-bg)] p-2.5">
+              <textarea
+                value={smsBody}
+                onChange={(e) => setSmsBody(e.target.value)}
+                placeholder={`Message ${r.name}…`}
+                rows={3}
+                maxLength={1000}
+                className="w-full resize-none rounded-md border border-[var(--metis-border)] bg-[var(--metis-input-bg)] px-2 py-1.5 text-[12.5px] outline-none placeholder:text-[var(--metis-fg-dim)] focus:border-violet-500/50 focus:ring-1 focus:ring-[var(--metis-focus)]"
+              />
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-[var(--metis-fg-dim)]">{smsBody.length}/1000 · sent via Twilio</span>
+                {smsResult === 'sent' && (
+                  <span className="inline-flex items-center gap-1 text-[10.5px] text-emerald-300">
+                    <Check className="h-3 w-3" /> delivered
+                  </span>
+                )}
+                {smsResult && smsResult !== 'sent' && (
+                  <span className="inline-flex items-center gap-1 text-[10.5px] text-rose-300">
+                    <AlertCircle className="h-3 w-3" /> {smsResult}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={sendSms}
+                  disabled={smsBusy || !smsBody.trim()}
+                  className="ml-auto inline-flex items-center gap-1 rounded-md bg-violet-500 px-2 py-1 text-[11px] font-medium text-white hover:brightness-110 disabled:opacity-40"
+                >
+                  {smsBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                  Send
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="mt-3 flex items-center gap-2">
             {r.created_at && (
               <span className="text-[10.5px] text-[var(--metis-fg-dim)]">Added {fmtCreated(r.created_at)}</span>

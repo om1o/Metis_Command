@@ -1665,6 +1665,123 @@ def relationship_get(rid: str) -> dict:
     return json.loads(fp.read_text(encoding="utf-8"))
 
 
+# ── Twilio outreach (MVP 13) ─────────────────────────────────────────────
+# Send an SMS or place an outbound voice call to a saved relationship.
+# Both require Twilio creds in .env (TWILIO_SID/TOKEN/FROM); calls also
+# need TWILIO_CALL_TWIML_URL or a per-call twiml_url override. We always
+# log the outreach to notifications + the relationship's notes file so
+# there's an audit trail of what got sent.
+
+class RelationshipSMSRequest(BaseModel):
+    message: str
+
+
+class RelationshipCallRequest(BaseModel):
+    twiml_url: str | None = None
+
+
+def _append_to_relationship_log(rid: str, line: str) -> None:
+    """Append a one-line audit entry to the relationship's outreach log."""
+    fp = _RELATIONSHIPS_DIR / f"{rid}.json"
+    if not fp.exists():
+        return
+    try:
+        data = json.loads(fp.read_text(encoding="utf-8"))
+        log = list(data.get("outreach_log") or [])
+        log.append({
+            "ts": __import__("datetime").datetime.utcnow().isoformat(),
+            "entry": line,
+        })
+        # Keep the log bounded so the file doesn't grow unbounded.
+        data["outreach_log"] = log[-50:]
+        fp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    except Exception:
+        pass
+
+
+@app.post("/relationships/{rid}/sms")
+def relationship_send_sms(rid: str, req: RelationshipSMSRequest) -> dict:
+    fp = _RELATIONSHIPS_DIR / f"{rid}.json"
+    if not fp.exists():
+        raise HTTPException(status_code=404, detail="relationship not found")
+    rec = json.loads(fp.read_text(encoding="utf-8"))
+    phone = (rec.get("phone") or "").strip()
+    if not phone:
+        raise HTTPException(status_code=400, detail="relationship has no phone number")
+    msg = (req.message or "").strip()
+    if not msg:
+        raise HTTPException(status_code=400, detail="message body is empty")
+
+    # Bail out cleanly if Twilio isn't configured (don't pretend to send).
+    if not all((os.getenv("TWILIO_SID"), os.getenv("TWILIO_TOKEN"), os.getenv("TWILIO_FROM"))):
+        raise HTTPException(
+            status_code=400,
+            detail="Twilio not configured. Set TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM in .env.",
+        )
+
+    try:
+        from comms_link import CommsLink
+        ok = CommsLink().send_text_message(phone, msg)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"SMS send failed: {e}")
+    if not ok:
+        raise HTTPException(status_code=500, detail="Twilio refused the request (see api_bridge.log).")
+
+    _append_to_relationship_log(rid, f"SMS sent: {msg[:120]}")
+    try:
+        _notifs.add(
+            title=f"SMS sent to {rec.get('name','contact')}",
+            body=msg[:300],
+            notif_type="success",
+            metadata={"relationship_id": rid},
+        )
+    except Exception:
+        pass
+    return {"ok": True, "id": rid, "to": phone}
+
+
+@app.post("/relationships/{rid}/call")
+def relationship_place_call(rid: str, req: RelationshipCallRequest) -> dict:
+    fp = _RELATIONSHIPS_DIR / f"{rid}.json"
+    if not fp.exists():
+        raise HTTPException(status_code=404, detail="relationship not found")
+    rec = json.loads(fp.read_text(encoding="utf-8"))
+    phone = (rec.get("phone") or "").strip()
+    if not phone:
+        raise HTTPException(status_code=400, detail="relationship has no phone number")
+    if not all((os.getenv("TWILIO_SID"), os.getenv("TWILIO_TOKEN"), os.getenv("TWILIO_FROM"))):
+        raise HTTPException(
+            status_code=400,
+            detail="Twilio not configured. Set TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM in .env.",
+        )
+    twiml = (req.twiml_url or "").strip() or os.getenv("TWILIO_CALL_TWIML_URL", "").strip()
+    if not twiml:
+        raise HTTPException(
+            status_code=400,
+            detail="Set TWILIO_CALL_TWIML_URL in .env (or pass twiml_url) — Twilio needs an instructions URL to read on the call.",
+        )
+
+    try:
+        from comms_link import CommsLink
+        ok = CommsLink().place_outbound_call(phone, twiml_url=twiml)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"call failed: {e}")
+    if not ok:
+        raise HTTPException(status_code=500, detail="Twilio refused the call (see api_bridge.log).")
+
+    _append_to_relationship_log(rid, f"Call placed via {twiml}")
+    try:
+        _notifs.add(
+            title=f"Call placed to {rec.get('name','contact')}",
+            body=f"Twilio dialed {phone}.",
+            notif_type="success",
+            metadata={"relationship_id": rid},
+        )
+    except Exception:
+        pass
+    return {"ok": True, "id": rid, "to": phone}
+
+
 # ── Inbox ────────────────────────────────────────────────────────────────────
 # Storage + helpers live in inbox.py so the scheduler / orchestrator can
 # append items without importing api_bridge (which would be circular).

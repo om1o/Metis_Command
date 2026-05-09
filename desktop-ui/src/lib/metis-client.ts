@@ -745,6 +745,16 @@ export class MetisClient {
     return this.post('/briefings/run', {});
   }
 
+  // ── Twilio outreach (per-relationship) ──────────────────────────────────
+
+  async sendRelationshipSms(rid: string, message: string): Promise<{ ok: boolean; id: string; to: string }> {
+    return this.post(`/relationships/${encodeURIComponent(rid)}/sms`, { message });
+  }
+
+  async placeRelationshipCall(rid: string, twimlUrl?: string): Promise<{ ok: boolean; id: string; to: string }> {
+    return this.post(`/relationships/${encodeURIComponent(rid)}/call`, twimlUrl ? { twiml_url: twimlUrl } : {});
+  }
+
   // ── Analytics ────────────────────────────────────────────────────────────
 
   async getAnalytics(): Promise<AnalyticsSummary> {
