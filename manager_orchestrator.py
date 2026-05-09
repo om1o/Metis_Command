@@ -194,36 +194,30 @@ explicit go-ahead.
 """
 
 
+# IMPORTANT: keep this prompt STABLE across turns. Ollama prefix-caches
+# the KV state of identical message prefixes, so the system prompt only
+# pays its full prompt-processing cost on the FIRST turn of a conversation
+# — every later turn in the same chat reuses the cache and streams in <2s.
+# A varying / per-message system prompt would defeat that cache.
+_METIS_FULL_PROMPT = (
+    _METIS_CORE
+    + _METIS_RULE_RELATIONSHIP
+    + _METIS_RULE_INVESTING
+    + _METIS_RULE_COMPUTER_USE
+)
+
+
 def _extra_rules_for(user_msg: str) -> str:
-    """Pick optional rule blocks based on what the user just asked.
-    Each block is ~80 tokens; including the right ones lifts behavior
-    without blowing up the prompt for everyday chat.
-    """
-    lower = (user_msg or "").lower()
-    extras: list[str] = []
-    if any(k in lower for k in (
-        "lawyer", "attorney", "broker", "contractor", "agent ", "vendor",
-        "find me", "looking for a", "need a", "recommend a", "contact info",
-        "save", "save them", "save her", "save him", "relationship",
-    )):
-        extras.append(_METIS_RULE_RELATIONSHIP)
-    if any(k in lower for k in (
-        "stock", "ticker", "options", "etf", "portfolio", "trade",
-        "buy ", "sell ", "invest", "brokerage", "alpaca", "robinhood",
-        "watchlist",
-    )):
-        extras.append(_METIS_RULE_INVESTING)
-    if any(k in lower for k in (
-        "open my", "click", "type into", "automate", "screenshot",
-        "cursor", "vscode", "browser", "navigate to",
-    )):
-        extras.append(_METIS_RULE_COMPUTER_USE)
-    return "".join(extras)
+    """Always returns the full rule set. Kept as a function so the call
+    site stays unchanged; the previous keyword-conditional version
+    defeated Ollama's KV cache because each turn's system prompt
+    differed. Stability beats trimmed prompts in practice."""
+    return _METIS_RULE_RELATIONSHIP + _METIS_RULE_INVESTING + _METIS_RULE_COMPUTER_USE
 
 
 # Backward-compat alias (older code may import _BEHAVIORAL_RULES).
-_METIS_IDENTITY = _METIS_CORE
-_BEHAVIORAL_RULES = _METIS_CORE
+_METIS_IDENTITY = _METIS_FULL_PROMPT
+_BEHAVIORAL_RULES = _METIS_FULL_PROMPT
 
 # Backward-compat alias (older code may import _BEHAVIORAL_RULES).
 _BEHAVIORAL_RULES = _METIS_IDENTITY

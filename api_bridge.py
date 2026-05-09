@@ -157,11 +157,28 @@ def _boot_services() -> None:
                     except Exception:
                         pass
                     _t.sleep(1)
-                # Initial warm-up: load model permanently into VRAM
-                _req.post("http://127.0.0.1:11434/api/generate",
-                          json={"model": model, "prompt": "", "stream": False, "keep_alive": -1},
-                          timeout=120)
-                print(f"[api_bridge] model warmed up (permanent VRAM): {model}")
+                # Initial warm-up: load model into VRAM AND pre-process
+                # the Metis system prompt so its KV cache is hot before
+                # the first user turn. With a stable system prompt,
+                # Ollama caches the prefix and follow-up turns skip
+                # ~20s of prompt processing on small local models.
+                try:
+                    from manager_orchestrator import _METIS_FULL_PROMPT as _sys
+                except Exception:
+                    _sys = "You are Metis, a private local-first AI assistant."
+                _req.post("http://127.0.0.1:11434/api/chat",
+                          json={
+                              "model": model,
+                              "messages": [
+                                  {"role": "system", "content": _sys},
+                                  {"role": "user", "content": "ready"},
+                              ],
+                              "stream": False,
+                              "keep_alive": -1,
+                              "options": {"num_ctx": 4096},
+                          },
+                          timeout=180)
+                print(f"[api_bridge] model + system-prompt warmed up: {model}")
                 # Keep-alive ping every 4 min to be doubly sure it stays resident
                 while True:
                     _t.sleep(240)

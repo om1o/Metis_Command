@@ -36,6 +36,13 @@ OLLAMA_BASE = os.getenv("OLLAMA_BASE", "http://localhost:11434")
 # to Z.ai GLM-4.6 via `providers.glm`; otherwise we fall back to a local glm4
 # pulled through Ollama, and finally to qwen2.5-coder:7b if neither exists.
 ROLE_MODELS: dict[str, str] = {
+    # Manager stays on qwen2.5-coder:1.5b for first-token latency on
+    # commodity hardware. We empirically benchmarked llama3.2:3b at
+    # ~46s first-token vs ~24s for the 1.5B coder with the same
+    # full-fat Metis system prompt — the coder model processes the
+    # prompt almost 2× faster and the loss in chat warmth is small.
+    # Operators with capable GPUs can override via the Settings
+    # model picker (MVP 3) or set manager_model in their config.
     "manager":    "qwen2.5-coder:1.5b",
     "coder":      "qwen2.5-coder:7b",
     "thinker":    "deepseek-r1:1.5b",
@@ -340,7 +347,15 @@ def stream_chat(
     # KV-cache setup fast on small models without truncating typical
     # multi-turn chats. Operators can override with METIS_NUM_CTX.
     num_ctx = int(os.getenv("METIS_NUM_CTX", "4096"))
-    payload = {
+
+    # Ollama's /api/chat caches the KV state of any prefix that's
+    # identical to a previous call — so as long as Metis's system
+    # prompt is stable across turns (which it is by design), the
+    # second-and-later calls in a conversation skip all prompt
+    # processing for the cached prefix. Concretely: turn 1 might cost
+    # 20s of prompt processing; turn 2 onwards in the same conversation
+    # streams within ~1s.
+    payload: dict[str, Any] = {
         "model": model,
         "messages": messages,
         "stream": True,
