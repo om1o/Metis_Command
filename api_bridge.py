@@ -242,6 +242,11 @@ class ChatRequest(BaseModel):
     direct: bool = False   # True = skip orchestrator, stream directly to model
     mode: str = "task"     # task | job
     permission: str = "balanced"  # read | balanced | full
+    # Per-turn overrides (MVP 8). When set, these win over the saved
+    # manager_config for THIS turn only — the user can try a different
+    # model / tone without committing to it. Both optional.
+    model: str | None = None        # ollama tag or "groq/<id>" / "glm-4.6" / etc.
+    temperature: float | None = None
 
 
 class ForgeRequest(BaseModel):
@@ -534,7 +539,8 @@ async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
             try:
                 import manager_config as _mc
                 cfg_obj = _mc.get_config(user_id)
-                model_id = cfg_obj.manager_model or "qwen2.5-coder:1.5b"
+                # Per-turn override (MVP 8) wins over saved manager_model.
+                model_id = req.model or cfg_obj.manager_model or "qwen2.5-coder:1.5b"
                 manager_name = cfg_obj.manager_name or "Metis"
                 # Emit identity so UI can show manager name
                 yield f"data: {json.dumps({'type': 'manager_identity', 'name': manager_name, 'model': model_id})}\n\n"
@@ -547,7 +553,10 @@ async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
                         "prompt": wire_message,
                         "stream": True,
                         "keep_alive": -1,
-                        "options": {"num_ctx": 4096},
+                        "options": {
+                            "num_ctx": 4096,
+                            "temperature": req.temperature if req.temperature is not None else 0.7,
+                        },
                     },
                     stream=True,
                     timeout=120,
@@ -581,7 +590,13 @@ async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
         elif req.role == "manager":
             from manager_orchestrator import orchestrate
             try:
-                for ev in orchestrate(wire_message, user_id=user_id, session_id=req.session_id):
+                for ev in orchestrate(
+                    wire_message,
+                    user_id=user_id,
+                    session_id=req.session_id,
+                    model_override=req.model,
+                    temperature_override=req.temperature,
+                ):
                     if ev.get("type") == "token":
                         full_answer += ev.get("delta", "")
                     elif ev.get("type") == "manager_plan":

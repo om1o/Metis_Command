@@ -45,6 +45,7 @@ import {
   Brain,
   BarChart3,
   Search,
+  ChevronDown,
 } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { createLocalClient, MetisClient, AuthUser, Schedule, Artifact, RunMode, RunPermission, SessionMessage, SessionSearchResult } from '@/lib/metis-client';
@@ -67,6 +68,9 @@ type EffectiveTheme = 'dark' | 'light';
 type AgentStatus = 'idle' | 'thinking' | 'working' | 'done' | 'error';
 type Permission = RunPermission;
 type Mode = RunMode;
+// MVP 8 — per-turn tone preset that maps to a temperature value.
+type Tone = 'precise' | 'balanced' | 'creative';
+const TONE_TEMP: Record<Tone, number> = { precise: 0.2, balanced: 0.7, creative: 1.0 };
 
 interface Message {
   id: string;
@@ -448,6 +452,11 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   const [permission, setPermission] = useState<Permission>('balanced');
   const [mode, setMode] = useState<Mode>('task');
+  // MVP 8 — per-turn overrides. Tone maps to a temperature value;
+  // modelOverride is "" (auto) or a model id from /models.
+  const [tone, setTone] = useState<Tone>('balanced');
+  const [modelOverride, setModelOverride] = useState<string>('');
+  const [availableModels, setAvailableModels] = useState<{ id: string; label: string; kind: 'local' | 'cloud' }[]>([]);
   const [jobPlanner, setJobPlanner] = useState<{ goal: string } | null>(null);
   const [jobsOpen, setJobsOpen] = useState(false);
   const [relationshipsOpen, setRelationshipsOpen] = useState(false);
@@ -530,6 +539,14 @@ export default function App() {
     try {
       const m = localStorage.getItem('metis-mode');
       if (m === 'task' || m === 'job') setMode(m);
+    } catch {}
+    try {
+      const t = localStorage.getItem('metis-tone');
+      if (t === 'precise' || t === 'balanced' || t === 'creative') setTone(t);
+    } catch {}
+    try {
+      const mo = localStorage.getItem('metis-model-override');
+      if (mo) setModelOverride(mo);
     } catch {}
 
     let cancelled = false;
@@ -648,6 +665,29 @@ export default function App() {
   useEffect(() => {
     try { localStorage.setItem('metis-mode', mode); } catch {}
   }, [mode]);
+  useEffect(() => {
+    try { localStorage.setItem('metis-tone', tone); } catch {}
+  }, [tone]);
+  useEffect(() => {
+    try {
+      if (modelOverride) localStorage.setItem('metis-model-override', modelOverride);
+      else localStorage.removeItem('metis-model-override');
+    } catch {}
+  }, [modelOverride]);
+
+  // Pull the available-models list once we have a client. The composer
+  // pill uses it; cheap and bounded so we don't poll.
+  useEffect(() => {
+    if (!client) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await client.listModels();
+        if (!cancelled) setAvailableModels(r.models);
+      } catch {/* offline — pill falls back to "Auto" */}
+    })();
+    return () => { cancelled = true; };
+  }, [client]);
 
   // Probe the system once at start + whenever the connections panel
   // closes (so a refresh inside it can update the dot color).
@@ -850,7 +890,12 @@ export default function App() {
       let saved: { id: string; name: string } | undefined;
       let savedArtifact: { id: string; title: string } | undefined;
       try {
-        const stream = client.chat('manager', text, sId, { mode: 'task', permission });
+        const stream = client.chat('manager', text, sId, {
+          mode: 'task',
+          permission,
+          temperature: TONE_TEMP[tone],
+          ...(modelOverride ? { model: modelOverride } : {}),
+        });
         for await (const ev of stream) {
           if (ac.signal.aborted) break;
           if (ev.type === 'token' && ev.delta) {
@@ -1319,6 +1364,12 @@ export default function App() {
             <div className="flex flex-wrap items-center gap-1.5 px-1.5 pb-1.5">
               <ModeSelector value={mode} onChange={setMode} />
               <PermissionSelector value={permission} onChange={setPermission} />
+              <ToneSelector value={tone} onChange={setTone} />
+              <ModelOverrideSelector
+                value={modelOverride}
+                onChange={setModelOverride}
+                models={availableModels}
+              />
               <span className="hidden text-[11px] text-[var(--metis-fg-dim)] sm:inline">
                 <kbd className="rounded border border-[var(--metis-border)] bg-[var(--metis-code-bg)] px-1.5 py-0.5 text-[10px] text-[var(--metis-code-fg)]">↵</kbd> {mode === 'job' ? 'schedule' : 'send'} · <kbd className="rounded border border-[var(--metis-border)] bg-[var(--metis-code-bg)] px-1.5 py-0.5 text-[10px] text-[var(--metis-code-fg)]">⇧↵</kbd> newline
               </span>
@@ -2307,6 +2358,124 @@ function Splash({ reduceMotion }: { reduceMotion: boolean }) {
           </motion.button>
         )}
       </motion.div>
+    </div>
+  );
+}
+
+// ── Tone selector (MVP 8: per-turn temperature preset) ─────────────────────
+
+const TONE_META: Record<Tone, { label: string; tip: string }> = {
+  precise:  { label: 'Precise',  tip: 'Lower temperature — focused, deterministic answers (0.2).' },
+  balanced: { label: 'Balanced', tip: 'Default temperature — natural, varied (0.7).' },
+  creative: { label: 'Creative', tip: 'Higher temperature — more diverse, exploratory (1.0).' },
+};
+
+function ToneSelector({ value, onChange }: { value: Tone; onChange: (v: Tone) => void }) {
+  const order: Tone[] = ['precise', 'balanced', 'creative'];
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Tone"
+      className="inline-flex items-center gap-0.5 rounded-full border border-[var(--metis-border)] bg-[var(--metis-bg)] p-0.5"
+    >
+      {order.map((t) => {
+        const meta = TONE_META[t];
+        const sel  = value === t;
+        return (
+          <button
+            key={t}
+            type="button"
+            role="radio"
+            aria-checked={sel}
+            onClick={() => onChange(t)}
+            title={meta.tip}
+            className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] transition ${
+              sel
+                ? 'border border-violet-500/40 bg-violet-500/10 text-violet-200'
+                : 'border border-transparent text-[var(--metis-fg-muted)] hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]'
+            }`}
+          >
+            {meta.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Model override (MVP 8: per-conversation model picker in composer) ─────
+
+function ModelOverrideSelector({
+  value, onChange, models,
+}: {
+  value: string;
+  onChange: (id: string) => void;
+  models: { id: string; label: string; kind: 'local' | 'cloud' }[];
+}) {
+  const [open, setOpen] = useState(false);
+  const current = value
+    ? (models.find((m) => m.id === value)?.label || value)
+    : 'Auto';
+  // Click-outside close
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      const tgt = e.target as HTMLElement;
+      if (!tgt.closest('[data-model-override]')) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
+
+  return (
+    <div className="relative" data-model-override>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        title={value ? `Using model: ${value}` : 'Auto picks the cloud-first cascade or the saved manager_model.'}
+        className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] transition ${
+          value
+            ? 'border-violet-500/40 bg-violet-500/10 text-violet-200'
+            : 'border-[var(--metis-border)] bg-[var(--metis-bg)] text-[var(--metis-fg-muted)] hover:bg-[var(--metis-hover-surface)]'
+        }`}
+      >
+        <span className="max-w-[140px] truncate">{current}</span>
+        <ChevronDown className="h-3 w-3 opacity-70" />
+      </button>
+      {open && (
+        <div className="absolute bottom-full left-0 z-30 mb-1 w-60 overflow-hidden rounded-xl border border-[var(--metis-border)] bg-[var(--metis-elevated-2)] shadow-2xl">
+          <button
+            type="button"
+            onClick={() => { onChange(''); setOpen(false); }}
+            className={`flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] transition hover:bg-[var(--metis-hover-surface)] ${
+              value === '' ? 'text-violet-200' : 'text-[var(--metis-fg)]'
+            }`}
+          >
+            <Sparkles className="h-3.5 w-3.5 text-violet-400" />
+            <span className="flex-1 font-medium">Auto</span>
+            <span className="text-[10px] text-[var(--metis-fg-dim)]">cloud → local</span>
+          </button>
+          {models.length > 0 && <div className="h-px bg-[var(--metis-border)]" />}
+          <div className="max-h-60 overflow-y-auto">
+            {models.map((m) => {
+              const sel = value === m.id;
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => { onChange(m.id); setOpen(false); }}
+                  className={`flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] transition hover:bg-[var(--metis-hover-surface)] ${
+                    sel ? 'text-violet-200' : 'text-[var(--metis-fg)]'
+                  }`}
+                >
+                  <span className={`inline-block h-1.5 w-1.5 rounded-full ${m.kind === 'cloud' ? 'bg-emerald-400' : 'bg-violet-400'}`} />
+                  <span className="flex-1 truncate">{m.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

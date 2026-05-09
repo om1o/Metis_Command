@@ -324,6 +324,8 @@ def orchestrate(
     user_msg: str,
     user_id: str = "default",
     session_id: str | None = None,
+    model_override: str | None = None,
+    temperature_override: float | None = None,
 ) -> Generator[dict, None, None]:
     """
     Run a manager-orchestrated chat turn.  Yields SSE-shaped event dicts.
@@ -331,11 +333,16 @@ def orchestrate(
     Honors the user's saved Manager configuration (persona, model, specialists).
     When ``session_id`` is provided the Manager receives prior turns from the
     conversation so it can give context-aware answers (Phase 2).
+
+    ``model_override`` and ``temperature_override`` are MVP-8 per-turn
+    overrides — they win over manager_config without persisting, so the
+    user can try a different model / tone for one message.
     """
     import manager_config as _mc
     cfg = _mc.get_config(user_id)
     persona_prompt = _mc.render_system_prompt(cfg)
-    manager_model = cfg.manager_model or None  # None → brain_engine default
+    # Per-turn override beats saved config; saved beats brain_engine default.
+    manager_model = model_override or cfg.manager_model or None
     allowed_specialists = cfg.specialists or list(DELEGATABLE.keys())
 
     started = time.time()
@@ -474,7 +481,8 @@ def orchestrate(
         synth_messages.append({"role": "user", "content": user_msg})
 
     yield {"type": "manager_synthesis", "role": "manager"}
-    for ev in stream_chat("manager", synth_messages, model=manager_model):
+    synth_temp = temperature_override if temperature_override is not None else 0.7
+    for ev in stream_chat("manager", synth_messages, model=manager_model, temperature=synth_temp):
         if ev.get("type") in ("token", "reasoning"):
             yield ev
 

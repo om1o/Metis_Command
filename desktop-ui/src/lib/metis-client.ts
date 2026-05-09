@@ -409,7 +409,13 @@ export class MetisClient {
     role: string,
     message: string,
     sessionId = 'default',
-    options: { mode?: RunMode; permission?: RunPermission } = {},
+    options: {
+      mode?: RunMode;
+      permission?: RunPermission;
+      // MVP 8: per-turn overrides. Win over saved manager_config.
+      model?: string;
+      temperature?: number;
+    } = {},
   ): AsyncGenerator<StreamEvent> {
     const res = await fetch(`${this.baseUrl}/chat`, {
       method: 'POST',
@@ -420,6 +426,8 @@ export class MetisClient {
         role,
         mode: options.mode ?? 'task',
         permission: options.permission ?? 'balanced',
+        ...(options.model       ? { model: options.model } : {}),
+        ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
       }),
     });
     if (!res.ok) throw new Error(`Metis chat: ${res.status}`);
