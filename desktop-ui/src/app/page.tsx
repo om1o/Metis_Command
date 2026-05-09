@@ -445,6 +445,59 @@ export default function App() {
 
     let cancelled = false;
     (async () => {
+      // ── 0. OAuth fallback — when Supabase drops the user back at "/"
+      // instead of "/oauth/callback" (because the redirect URL isn't
+      // in the project's Redirect URLs allowlist), the code arrives in
+      // *our* URL. Detect and finish the flow inline so the user isn't
+      // bounced to LoginScreen with their auth code thrown away.
+      try {
+        const here = new URL(window.location.href);
+        const code = here.searchParams.get('code');
+        const state = here.searchParams.get('state') || undefined;
+        const err = here.searchParams.get('error_description') || here.searchParams.get('error');
+        if (code) {
+          const fallback = createLocalClient('');
+          try {
+            const result = await fallback.oauthComplete(code, state);
+            const tok = result.session?.access_token;
+            const u = result.user;
+            if (tok && u) {
+              try {
+                localStorage.setItem('metis-token', tok);
+                localStorage.setItem('metis-auth-mode', 'oauth');
+                localStorage.setItem('metis-user', JSON.stringify(u));
+              } catch {}
+              if (!cancelled) {
+                setClient(createLocalClient(tok));
+                setUser(u);
+              }
+            }
+          } catch (e) {
+            // OAuth completion failed — leave token state alone, the
+            // LoginScreen will render and surface the error.
+            console.warn('[metis] OAuth code on / failed to exchange:', e);
+          }
+          // Clean the code/state out of the URL so a refresh doesn't
+          // double-spend it (codes are single-use).
+          here.searchParams.delete('code');
+          here.searchParams.delete('state');
+          here.searchParams.delete('error');
+          here.searchParams.delete('error_description');
+          window.history.replaceState({}, '', here.pathname + (here.searchParams.toString() ? '?' + here.searchParams.toString() : ''));
+          if (!cancelled) setAuthResolved(true);
+          return;
+        }
+        if (err) {
+          console.warn('[metis] OAuth error returned to /:', err);
+          here.searchParams.delete('error');
+          here.searchParams.delete('error_description');
+          window.history.replaceState({}, '', here.pathname);
+        }
+      } catch (e) {
+        console.warn('[metis] OAuth fallback check failed:', e);
+      }
+
+      // ── 1. Saved-session probe ──────────────────────────────────────
       let token: string | null = null;
       let savedUser: AuthUser | null = null;
       try {
@@ -456,29 +509,41 @@ export default function App() {
         if (!cancelled) setAuthResolved(true);
         return;
       }
-      // Hard 4-second cap on the saved-session probe so a dead or slow
-      // bridge can never strand the splash. On timeout we fall through
-      // to the LoginScreen, which has its own bridge-down banner.
+      // 8-second cap on the saved-session probe. Supabase JWT validation
+      // hops to the Supabase API and can take a couple seconds on a slow
+      // network — 4s was too tight and was wiping freshly-OAuth'd
+      // sessions. On timeout we KEEP the saved user (optimistic) and
+      // let the next real API call surface the failure if the token is
+      // actually dead.
+      const probe = createLocalClient(token);
       try {
-        const probe = createLocalClient(token);
         const meP = probe.getMe();
         const timeoutP = new Promise<never>((_, rej) =>
-          setTimeout(() => rej(new Error('saved-session probe timed out')), 4000),
+          setTimeout(() => rej(new Error('TIMEOUT')), 8000),
         );
         const me = await Promise.race([meP, timeoutP]);
         if (cancelled) return;
         setClient(probe);
         setUser(me.user || savedUser);
         try { localStorage.setItem('metis-user', JSON.stringify(me.user || savedUser)); } catch {}
-      } catch {
-        // Saved token didn't validate (or timed out). Clear it and ask
-        // the user to sign in fresh. We DO NOT keep a half-set client
-        // because the next API call would just hang again.
-        try {
-          localStorage.removeItem('metis-token');
-          localStorage.removeItem('metis-user');
-          localStorage.removeItem('metis-auth-mode');
-        } catch {}
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg === 'TIMEOUT' && savedUser) {
+          // Slow network, not a bad token — let the user in optimistically.
+          // If the token is genuinely dead, the first real API call will
+          // 401 and we can re-gate then.
+          if (!cancelled) {
+            setClient(probe);
+            setUser(savedUser);
+          }
+        } else {
+          // Definite failure (401/403/JSON parse). Clear and re-login.
+          try {
+            localStorage.removeItem('metis-token');
+            localStorage.removeItem('metis-user');
+            localStorage.removeItem('metis-auth-mode');
+          } catch {}
+        }
       } finally {
         if (!cancelled) setAuthResolved(true);
       }
