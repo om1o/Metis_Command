@@ -320,12 +320,20 @@ def stream_chat(
                     return
                 model = local_fb  # fall through to the Ollama path below
 
+    # num_ctx caps the model's working window. Default in Ollama is 2048
+    # for many models but ramps with prompt size — capping at 4096 keeps
+    # KV-cache setup fast on small models without truncating typical
+    # multi-turn chats. Operators can override with METIS_NUM_CTX.
+    num_ctx = int(os.getenv("METIS_NUM_CTX", "4096"))
     payload = {
         "model": model,
         "messages": messages,
         "stream": True,
         "keep_alive": -1,   # keep model permanently in VRAM
-        "options": {"temperature": temperature},
+        "options": {
+            "temperature": temperature,
+            "num_ctx": num_ctx,
+        },
     }
     started = time.time()
     tokens = 0

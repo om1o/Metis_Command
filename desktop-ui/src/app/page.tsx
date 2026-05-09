@@ -175,6 +175,45 @@ function deriveStatus(content: string): string {
   return 'Thinking';
 }
 
+// Pre-token "thinking" cycler — gives the user something alive to look
+// at during the first-token wait on a slow local model. Cycles through
+// short status phrases every ~2.5s and folds in an elapsed-time hint
+// once we've been waiting more than a beat.
+const _PRE_TOKEN_PHRASES = [
+  'Thinking',
+  'Working it out',
+  'Picking the right words',
+  'Getting set up',
+  'Composing the answer',
+];
+
+function useStreamingStatus(streaming: boolean, hasContent: boolean, content: string): string {
+  // tick = which phrase to show, elapsed = whole seconds since start.
+  // Both are updated by the interval; we never read Date.now() during
+  // render (that would be impure).
+  const [tick, setTick] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    if (!streaming) return;
+    const t0 = Date.now();
+    const id = setInterval(() => {
+      setTick((t) => t + 1);
+      setElapsed(Math.floor((Date.now() - t0) / 1000));
+    }, 1000);
+    return () => {
+      clearInterval(id);
+      setTick(0);
+      setElapsed(0);
+    };
+  }, [streaming]);
+
+  if (!streaming) return '';
+  if (hasContent) return deriveStatus(content);
+  const phrase = _PRE_TOKEN_PHRASES[Math.floor(tick / 2.5) % _PRE_TOKEN_PHRASES.length];
+  if (elapsed > 5) return `${phrase} · ${elapsed}s`;
+  return `${phrase}…`;
+}
+
 // ── Light markdown renderer ────────────────────────────────────────────────
 // Supports: # H1/## H2/### H3, **bold**, *italic*, `inline`, ```code blocks```,
 // - bullets, 1. numbered, paragraphs, [text](url) links.
@@ -1002,10 +1041,11 @@ export default function App() {
             <Sparkles className="h-4 w-4 text-violet-400" />
             <div className="truncate text-sm font-medium">{active?.title ?? 'New conversation'}</div>
             {streaming && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[11px] text-violet-300">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                {lastAgentMsg ? deriveStatus(lastAgentMsg.content) : 'Thinking'}
-              </span>
+              <HeaderStatus
+                streaming={streaming}
+                hasContent={!!lastAgentMsg?.content}
+                content={lastAgentMsg?.content || ''}
+              />
             )}
           </div>
           <div className="ml-auto flex items-center gap-1">
@@ -1482,6 +1522,23 @@ function ModeSelector({ value, onChange }: { value: Mode; onChange: (v: Mode) =>
         );
       })}
     </div>
+  );
+}
+
+// ── Streaming header status pill ──────────────────────────────────────────
+
+function HeaderStatus({ streaming, hasContent, content }: {
+  streaming: boolean;
+  hasContent: boolean;
+  content: string;
+}) {
+  const label = useStreamingStatus(streaming, hasContent, content);
+  if (!streaming) return null;
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[11px] text-violet-300">
+      <Loader2 className="h-3 w-3 animate-spin" />
+      {label}
+    </span>
   );
 }
 
