@@ -1211,6 +1211,12 @@ def mission_get(mission_id: str) -> dict:
     return mission.to_dict()
 
 
+@app.post("/missions/{mission_id}/cancel")
+def mission_cancel(mission_id: str) -> dict:
+    from concurrency import cancel_mission
+    return {"ok": cancel_mission(mission_id), "id": mission_id}
+
+
 # ── Marketplace ──────────────────────────────────────────────────────────────
 
 @app.get("/marketplace")

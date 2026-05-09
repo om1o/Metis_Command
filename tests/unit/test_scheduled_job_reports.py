@@ -161,3 +161,26 @@ def test_mission_status_api_returns_record(_sandbox_paths, monkeypatch):
     assert data["id"] == "mission123"
     assert data["status"] == "running"
     assert data["tag"] == "scheduled:job123"
+
+
+def test_mission_cancel_api_returns_result(_sandbox_paths, monkeypatch):
+    import api_bridge
+    from fastapi.testclient import TestClient
+
+    seen: dict[str, str] = {}
+
+    def fake_cancel_mission(mission_id: str) -> bool:
+        seen["mission_id"] = mission_id
+        return True
+
+    monkeypatch.setattr("concurrency.cancel_mission", fake_cancel_mission)
+
+    client = TestClient(api_bridge.app)
+    response = client.post(
+        "/missions/mission123/cancel",
+        headers=api_bridge.auth_local.bearer_header(),
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"ok": True, "id": "mission123"}
+    assert seen["mission_id"] == "mission123"

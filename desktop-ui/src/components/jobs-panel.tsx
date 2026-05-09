@@ -183,6 +183,28 @@ export default function JobsPanel({ client, reduceMotion, onClose, onOpenArtifac
     }
   };
 
+  const onCancelRun = async (id: string, missionId?: string) => {
+    if (!missionId) return;
+    setBusyId(id);
+    try {
+      const result = await client.cancelMission(missionId);
+      if (!result.ok) {
+        setError('That run is already active and could not be cancelled.');
+        return;
+      }
+      setRunState((current) => ({
+        ...current,
+        [id]: { missionId, status: 'cancelled' },
+      }));
+      setError(null);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const userJobs = (items || []).filter((s) => !s.action);
   const builtIns = (items || []).filter((s) => !!s.action);
 
@@ -248,6 +270,7 @@ export default function JobsPanel({ client, reduceMotion, onClose, onOpenArtifac
                       onToggle={() => onToggle(s.id)}
                       onDelete={() => onDelete(s.id)}
                       onRunNow={() => onRunNow(s.id)}
+                      onCancelRun={() => onCancelRun(s.id, runState[s.id]?.missionId)}
                       runState={runState[s.id]}
                       report={reports[s.id]}
                       onOpenReport={() => reports[s.id] && onOpenArtifact(reports[s.id].id)}
@@ -272,6 +295,7 @@ export default function JobsPanel({ client, reduceMotion, onClose, onOpenArtifac
                         onToggle={() => onToggle(s.id)}
                         onDelete={() => onDelete(s.id)}
                         onRunNow={() => onRunNow(s.id)}
+                        onCancelRun={() => onCancelRun(s.id, runState[s.id]?.missionId)}
                         runState={runState[s.id]}
                         report={reports[s.id]}
                         onOpenReport={() => reports[s.id] && onOpenArtifact(reports[s.id].id)}
@@ -308,6 +332,7 @@ function JobRow({
   onToggle,
   onDelete,
   onRunNow,
+  onCancelRun,
   runState,
   report,
   onOpenReport,
@@ -318,11 +343,14 @@ function JobRow({
   onToggle: () => void;
   onDelete: () => void;
   onRunNow: () => void;
+  onCancelRun: () => void;
   runState?: { missionId?: string; status: string };
   report?: Artifact;
   onOpenReport: () => void;
   readonly?: boolean;
 }) {
+  const canCancelRun = !!runState?.missionId && ['queued', 'running'].includes(runState.status);
+
   return (
     <div className="rounded-xl border border-[var(--metis-border)] bg-[var(--metis-bg)] px-3 py-2.5">
       <div className="flex items-start gap-2.5">
@@ -367,6 +395,18 @@ function JobRow({
               {['queued', 'running'].includes(runState.status) ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
               <span className="capitalize">{runState.status}</span>
               {runState.missionId && <span className="font-mono text-[10px] text-violet-300/80">{runState.missionId}</span>}
+              {canCancelRun && (
+                <button
+                  type="button"
+                  onClick={onCancelRun}
+                  disabled={busy}
+                  className="-mr-1 rounded px-1 text-violet-200/80 hover:bg-violet-400/15 hover:text-violet-100 disabled:opacity-40"
+                  aria-label="Cancel run"
+                  title="Cancel queued run"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
             </div>
           )}
         </div>

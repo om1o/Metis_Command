@@ -551,6 +551,10 @@ export class MetisClient {
     return this.get(`/missions/${id}`);
   }
 
+  async cancelMission(id: string): Promise<{ ok: boolean; id: string }> {
+    return this.post(`/missions/${id}/cancel`, {});
+  }
+
   // ── Relationships ───────────────────────────────────────────────────────
 
   async listRelationships(): Promise<Relationship[]> {
