@@ -30,6 +30,7 @@ except ImportError:
     _croniter = None  # type: ignore
 
 from safety import audit, audited
+from run_contracts import build_run_contract, normalize_mode, normalize_permission
 
 
 from safety import PATHS, file_lock  # noqa: E402
@@ -93,6 +94,8 @@ class Schedule:
     project_slug: str | None = None
     auto_approve: bool = True   # scheduled tasks usually run unattended
     notify: bool = False        # text/email the operator when this fires
+    mode: str = "job"
+    permission: str = "balanced"
     last_run: float | None = None
     next_run: float | None = None
     created_at: float = field(default_factory=time.time)
@@ -135,6 +138,8 @@ def add(
     auto_approve: bool = True,
     action: str = "",
     notify: bool = False,
+    mode: str = "job",
+    permission: str = "balanced",
 ) -> Schedule:
     sched = Schedule(
         kind=kind,
@@ -144,6 +149,8 @@ def add(
         project_slug=project_slug,
         auto_approve=auto_approve,
         notify=notify,
+        mode=normalize_mode(mode),
+        permission=normalize_permission(permission),
     )
     sched.next_run = _compute_next(sched, reference=time.time())
     with file_lock("scheduler"), _lock:
@@ -365,7 +372,7 @@ def start_scheduler(runner: Callable[[Schedule], None] | None = None) -> None:
             try:
                 from concurrency import submit_mission
                 submit_mission(
-                    goal=s.goal,
+                    goal=build_run_contract(s.goal, mode=s.mode, permission=s.permission),
                     tag=f"scheduled:{s.id}",
                     auto_approve=s.auto_approve,
                     project_slug=s.project_slug,

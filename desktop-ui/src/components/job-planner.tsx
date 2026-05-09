@@ -3,7 +3,7 @@
 import { useMemo, useState, FormEvent } from 'react';
 import { motion } from 'framer-motion';
 import { Bell, CalendarClock, Loader2, Repeat, Sparkles, X } from 'lucide-react';
-import { MetisClient, Schedule, ScheduleKind } from '@/lib/metis-client';
+import { MetisClient, RunPermission, Schedule, ScheduleKind } from '@/lib/metis-client';
 import { Mark } from '@/components/brand';
 
 type Cadence = 'daily' | 'hourly' | 'every_n_hours' | 'cron';
@@ -11,6 +11,7 @@ type Cadence = 'daily' | 'hourly' | 'every_n_hours' | 'cron';
 interface Props {
   goal: string;
   client: MetisClient;
+  permission: RunPermission;
   reduceMotion: boolean;
   onClose: () => void;
   onCreated: (s: Schedule) => void;
@@ -52,7 +53,7 @@ const CADENCES: { id: Cadence; label: string }[] = [
   { id: 'cron', label: 'Cron' },
 ];
 
-export default function JobPlanner({ goal, client, reduceMotion, onClose, onCreated }: Props) {
+export default function JobPlanner({ goal, client, permission, reduceMotion, onClose, onCreated }: Props) {
   const [cadence, setCadence] = useState<Cadence>('daily');
   const now = new Date();
   const defaultTime = `${pad(now.getHours())}:00`;
@@ -86,6 +87,8 @@ export default function JobPlanner({ goal, client, reduceMotion, onClose, onCrea
         spec: payload.spec,
         auto_approve: autoApprove,
         notify,
+        mode: 'job',
+        permission,
       });
       onCreated(s);
     } catch (err) {

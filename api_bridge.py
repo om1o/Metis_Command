@@ -28,6 +28,7 @@ from pydantic import BaseModel  # noqa: E402
 from brain_engine import ROLE_MODELS, list_local_models, stream_chat  # noqa: E402
 from artifacts import list_artifacts, get_artifact  # noqa: E402
 from metis_version import METIS_VERSION  # noqa: E402
+from run_contracts import build_run_contract, normalize_mode, normalize_permission  # noqa: E402
 
 
 import auth_local  # noqa: E402
@@ -237,6 +238,8 @@ class ChatRequest(BaseModel):
     message: str
     role: str = "manager"
     direct: bool = False   # True = skip orchestrator, stream directly to model
+    mode: str = "task"     # task | job
+    permission: str = "balanced"  # read | balanced | full
 
 
 class ForgeRequest(BaseModel):
@@ -430,6 +433,11 @@ async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
         API consumers / scripts that want a specific role directly).
     """
     user_id = _user_id_from_request(request)
+    wire_message = build_run_contract(
+        req.message,
+        mode=normalize_mode(req.mode),
+        permission=normalize_permission(req.permission),
+    )
 
     def sse() -> Any:
         full_answer = ""
@@ -453,7 +461,7 @@ async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
                     "http://127.0.0.1:11434/api/generate",
                     json={
                         "model": model_id,
-                        "prompt": req.message,
+                        "prompt": wire_message,
                         "stream": True,
                         "keep_alive": -1,
                         "options": {"num_ctx": 4096},
@@ -481,7 +489,7 @@ async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
         elif req.role == "manager":
             from manager_orchestrator import orchestrate
             try:
-                for ev in orchestrate(req.message, user_id=user_id, session_id=req.session_id):
+                for ev in orchestrate(wire_message, user_id=user_id, session_id=req.session_id):
                     if ev.get("type") == "token":
                         full_answer += ev.get("delta", "")
                     yield f"data: {json.dumps(ev)}\n\n"
@@ -490,7 +498,7 @@ async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
         else:
             for ev in stream_chat(
                 req.role,
-                [{"role": "user", "content": req.message}],
+                [{"role": "user", "content": wire_message}],
             ):
                 if ev.get("type") == "token":
                     full_answer += ev.get("delta", "")
@@ -1048,6 +1056,8 @@ class ScheduleAddRequest(BaseModel):
     auto_approve: bool = True
     action: str = ""
     notify: bool = False    # text + email the operator when this fires
+    mode: str = "job"
+    permission: str = "balanced"
 
 
 @app.get("/schedules")
@@ -1067,6 +1077,8 @@ def schedules_add(req: ScheduleAddRequest) -> dict:
         auto_approve=req.auto_approve,
         action=req.action,
         notify=req.notify,
+        mode=normalize_mode(req.mode),
+        permission=normalize_permission(req.permission),
     )
     return s.to_dict()
 

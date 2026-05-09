@@ -45,7 +45,7 @@ import {
   Brain,
 } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { createLocalClient, MetisClient, AuthUser, Schedule } from '@/lib/metis-client';
+import { createLocalClient, MetisClient, AuthUser, Schedule, RunMode, RunPermission } from '@/lib/metis-client';
 import { Mark, Wordmark } from '@/components/brand';
 import LoginScreen, { AuthSuccess } from '@/components/login-screen';
 import JobPlanner from '@/components/job-planner';
@@ -61,8 +61,8 @@ import type { SystemHealth } from '@/lib/metis-client';
 type Theme = 'dark' | 'light' | 'system';
 type EffectiveTheme = 'dark' | 'light';
 type AgentStatus = 'idle' | 'thinking' | 'working' | 'done' | 'error';
-type Permission = 'full' | 'balanced' | 'read';
-type Mode = 'task' | 'job';
+type Permission = RunPermission;
+type Mode = RunMode;
 
 interface Message {
   id: string;
@@ -88,7 +88,7 @@ interface Session {
 
 const PERMISSION_META: Record<
   Permission,
-  { label: string; short: string; tone: string; chip: string; icon: typeof ShieldCheck; system: string }
+  { label: string; short: string; tone: string; chip: string; icon: typeof ShieldCheck }
 > = {
   full: {
     label: 'Full',
@@ -96,8 +96,6 @@ const PERMISSION_META: Record<
     tone: 'rose',
     chip: 'border-rose-500/40 bg-rose-500/10 text-rose-200',
     icon: ShieldAlert,
-    system:
-      'Permission level: FULL. You may read and write files, run shell commands, install dependencies, and browse the web. Confirm only for destructive actions (delete, force-push, payments).',
   },
   balanced: {
     label: 'Balanced',
@@ -105,8 +103,6 @@ const PERMISSION_META: Record<
     tone: 'violet',
     chip: 'border-violet-500/40 bg-violet-500/10 text-violet-200',
     icon: ShieldCheck,
-    system:
-      'Permission level: BALANCED. You may read files and browse the web freely. Ask the user before writing files, running commands, installing packages, or making any external changes.',
   },
   read: {
     label: 'Read-only',
@@ -114,8 +110,6 @@ const PERMISSION_META: Record<
     tone: 'emerald',
     chip: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200',
     icon: Eye,
-    system:
-      'Permission level: READ-ONLY. You may answer questions, research, and explain. Do not write files, run commands, or perform any action that changes the user\'s system.',
   },
 };
 
@@ -778,10 +772,7 @@ export default function App() {
       let acc = '';
       let saved: { id: string; name: string } | undefined;
       try {
-        // Prepend the permission contract so the agent respects scope
-        // without surfacing the directive in the user-visible chat bubble.
-        const wireMessage = `${PERMISSION_META[permission].system}\n\n${text}`;
-        const stream = client.chat('manager', wireMessage, sId);
+        const stream = client.chat('manager', text, sId, { mode: 'task', permission });
         for await (const ev of stream) {
           if (ac.signal.aborted) break;
           if (ev.type === 'token' && ev.delta) {
@@ -1304,6 +1295,7 @@ export default function App() {
           <JobPlanner
             goal={jobPlanner.goal}
             client={client}
+            permission={permission}
             reduceMotion={!!reduceMotion}
             onClose={() => setJobPlanner(null)}
             onCreated={handleJobCreated}

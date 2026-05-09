@@ -129,6 +129,8 @@ export interface AuthResult {
 }
 
 export type OAuthProvider = 'google' | 'github';
+export type RunMode = 'task' | 'job';
+export type RunPermission = 'read' | 'balanced' | 'full';
 
 export interface LocalTokenResult {
   token: string;
@@ -334,11 +336,22 @@ export class MetisClient {
 
   // ── Streaming chat (SSE) ────────────────────────────────────────────────
 
-  async *chat(role: string, message: string, sessionId = 'default'): AsyncGenerator<StreamEvent> {
+  async *chat(
+    role: string,
+    message: string,
+    sessionId = 'default',
+    options: { mode?: RunMode; permission?: RunPermission } = {},
+  ): AsyncGenerator<StreamEvent> {
     const res = await fetch(`${this.baseUrl}/chat`, {
       method: 'POST',
       headers: this.headers(),
-      body: JSON.stringify({ session_id: sessionId, message, role }),
+      body: JSON.stringify({
+        session_id: sessionId,
+        message,
+        role,
+        mode: options.mode ?? 'task',
+        permission: options.permission ?? 'balanced',
+      }),
     });
     if (!res.ok) throw new Error(`Metis chat: ${res.status}`);
     if (!res.body) return;
@@ -470,6 +483,8 @@ export class MetisClient {
     project_slug?: string | null;
     action?: string;
     notify?: boolean;
+    mode?: RunMode;
+    permission?: RunPermission;
   }): Promise<Schedule> {
     return this.post('/schedules', {
       goal: input.goal,
@@ -479,6 +494,8 @@ export class MetisClient {
       project_slug: input.project_slug ?? null,
       action: input.action ?? '',
       notify: input.notify ?? false,
+      mode: input.mode ?? 'job',
+      permission: input.permission ?? 'balanced',
     });
   }
 
