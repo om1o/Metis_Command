@@ -9,6 +9,8 @@ from typing import Any, Literal
 
 from supabase_client import get_client
 
+OAuthProvider = Literal["google", "github"]
+
 # Verbose by default while we're debugging OAuth — flip METIS_AUTH_DEBUG=0
 # in .env to silence once it's stable.
 _DEBUG = os.getenv("METIS_AUTH_DEBUG", "1") not in ("0", "false", "False")
@@ -21,8 +23,10 @@ if _DEBUG and not _log.handlers:
 
 
 def _redact(s: str | None, keep: int = 6) -> str:
-    if not s: return "<empty>"
-    if len(s) <= keep * 2: return f"{s[:keep]}…"
+    if not s:
+        return "<empty>"
+    if len(s) <= keep * 2:
+        return f"{s[:keep]}…"
     return f"{s[:keep]}…{s[-keep:]} ({len(s)} chars)"
 
 # ── PKCE verifier disk cache ─────────────────────────────────────────────────
@@ -48,8 +52,10 @@ def _load_verifier(state: str | None = None) -> str | None:
         if p.exists():
             v = p.read_text(encoding="utf-8").strip()
             # Cleanup after use
-            try: p.unlink()
-            except Exception: pass
+            try:
+                p.unlink()
+            except Exception:
+                pass
             return v or None
     # Fallback: return the most-recently-modified verifier file
     files = list(_PKCE_DIR.glob("*.txt"))

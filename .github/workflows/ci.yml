@@ -38,8 +38,7 @@ jobs:
         env:
           PYTHONIOENCODING: utf-8
           OLLAMA_BASE: http://127.0.0.1:65535   # unreachable on purpose
-        run: |
-          python scripts/release_gate.py || echo "release gate smoke had Ollama-dependent failures (expected in CI)"
+        run: python scripts/release_gate.py --allow-smoke-failure
 
   site-build:
     name: site build

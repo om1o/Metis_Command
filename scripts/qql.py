@@ -69,8 +69,8 @@ CHECKS: dict[str, Check] = {
     ),
     "tests.qql": Check(
         key="tests.qql",
-        description="QQL parser, dry-run, and command-resolution tests.",
-        command=_py("-m", "pytest", "tests/unit/test_qql.py", "-q"),
+        description="QQL and release quality gate tests.",
+        command=_py("-m", "pytest", "tests/unit/test_qql.py", "tests/unit/test_release_gate.py", "-q"),
     ),
     "tests.unit": Check(
         key="tests.unit",
