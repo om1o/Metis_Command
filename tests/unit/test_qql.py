@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 import pytest
 
 from scripts import qql
@@ -194,6 +196,47 @@ def test_latest_cli_returns_two_when_no_reports(monkeypatch: pytest.MonkeyPatch,
 
     assert rc == 2
     assert "no reports found" in capsys.readouterr().err
+
+
+def test_report_history_returns_newest_first_and_honors_limit(tmp_path) -> None:
+    oldest = tmp_path / "oldest.json"
+    middle = tmp_path / "middle.json"
+    newest = tmp_path / "newest.json"
+    ignored = tmp_path / "newest.json.tmp"
+    for path in [oldest, middle, newest, ignored]:
+        path.write_text("{}", encoding="utf-8")
+    os.utime(oldest, (1, 1))
+    os.utime(middle, (2, 2))
+    os.utime(newest, (3, 3))
+
+    assert qql.report_history(tmp_path, limit=2) == [newest, middle]
+
+
+def test_format_history_includes_status_query_and_filename(tmp_path) -> None:
+    report = tmp_path / "qql-e2e.json"
+    qql.write_report(
+        report,
+        {
+            "schema": "metis.qql.report.v1",
+            "ok": True,
+            "query": "e2e",
+            "results": [],
+        },
+    )
+
+    output = qql.format_history([report])
+
+    assert "[qql] report history" in output
+    assert "- qql-e2e.json: ok e2e" in output
+
+
+def test_history_cli_returns_two_when_empty(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    monkeypatch.setattr(qql, "report_history", lambda: [])
+
+    rc = qql.main(["--history"])
+
+    assert rc == 2
+    assert "no reports found" in capsys.readouterr().out
 
 
 def test_build_doctor_report_marks_all_checks_ok(monkeypatch: pytest.MonkeyPatch) -> None:

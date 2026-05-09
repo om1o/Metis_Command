@@ -15,6 +15,7 @@ Examples:
     python scripts/qql.py ai.basic --json
     python scripts/qql.py --doctor
     python scripts/qql.py --latest
+    python scripts/qql.py --history
     python scripts/qql.py --summarize artifacts/quality/qql-e2e-latest.json
 """
 
@@ -446,6 +447,36 @@ def latest_report_path(directory: Path | None = None) -> Path | None:
     return max(reports, key=lambda path: path.stat().st_mtime)
 
 
+def report_history(directory: Path | None = None, *, limit: int = 8) -> list[Path]:
+    report_dir = directory or (ROOT / "artifacts" / "quality")
+    if not report_dir.exists():
+        return []
+    reports = [
+        path
+        for path in report_dir.glob("*.json")
+        if path.is_file() and not path.name.endswith(".tmp")
+    ]
+    return sorted(reports, key=lambda path: path.stat().st_mtime, reverse=True)[:limit]
+
+
+def format_history(paths: Sequence[Path]) -> str:
+    if not paths:
+        return "[qql] no reports found in artifacts/quality"
+    lines = ["[qql] report history"]
+    for path in paths:
+        try:
+            report = json.loads(path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            lines.append(f"- {path.name}: unreadable ({exc})")
+            continue
+        schema = str(report.get("schema", "unknown"))
+        status = "ok" if report.get("ok") else "failed"
+        label = str(report.get("query") or report.get("direct_chat_repeats") or schema)
+        mtime = dt.datetime.fromtimestamp(path.stat().st_mtime).isoformat(timespec="seconds")
+        lines.append(f"- {path.name}: {status} {label} {mtime}")
+    return "\n".join(lines)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run Metis quality checks by QQL selector.")
     parser.add_argument("query", nargs="?", default="quality", help="QQL selector, alias, or comma-separated selectors")
@@ -456,6 +487,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json", action="store_true", help="print machine-readable result JSON")
     parser.add_argument("--report", type=Path, help="write a durable JSON quality report to this path")
     parser.add_argument("--latest", action="store_true", help="summarize the newest report in artifacts/quality")
+    parser.add_argument("--history", action="store_true", help="list recent reports in artifacts/quality")
     parser.add_argument("--summarize", type=Path, help="print a concise summary for a QQL or AI smoke report")
     args = parser.parse_args(argv)
 
@@ -482,6 +514,11 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         print(summary)
         return 0 if ok else 1
+
+    if args.history:
+        paths = report_history()
+        print(format_history(paths))
+        return 0 if paths else 2
 
     if args.summarize:
         try:
