@@ -664,6 +664,20 @@ async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
 
         if session_title:
             yield f"data: {json.dumps({'type': 'session_title', 'session_id': req.session_id, 'title': session_title})}\n\n"
+
+        # Fire an in-app notification for background job completions so the
+        # user's bell badge lights up even when they navigate away.
+        if full_answer and run_mode == "job":
+            try:
+                title_label = session_title or req.message.strip()[:60] or "Job complete"
+                _notifs.add(
+                    title=f"Job complete: {title_label}",
+                    body="",
+                    notif_type="success",
+                )
+            except Exception:
+                pass
+
         yield "event: close\ndata: {}\n\n"
 
     return StreamingResponse(sse(), media_type="text/event-stream")
@@ -1145,6 +1159,32 @@ def sessions_export(
     )
 
 
+@app.get("/sessions/search")
+def sessions_search(
+    request: Request,
+    q: str = Query("", description="Full-text search query over chat history"),
+    session_id: str | None = Query(None, description="Restrict to a single session"),
+    limit: int = Query(20, ge=1, le=100),
+) -> list[dict]:
+    """Full-text search over local chat history (FTS5).
+
+    Returns up to ``limit`` message snippets that match ``q``, newest first.
+    Each result includes ``session_id``, ``session_title``, ``role``,
+    ``created_at``, and a highlighted ``snippet``.
+
+    Returns an empty list for cloud users (Supabase full-text search is
+    outside the local store scope).
+    """
+    user_id = _user_id_from_request(request)
+    if not q.strip():
+        return []
+    from memory import search_messages
+    try:
+        return search_messages(q, user_id=user_id, limit=limit, session_id=session_id)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
 # ── Schedules ────────────────────────────────────────────────────────────────
 
 class ScheduleAddRequest(BaseModel):
@@ -1385,6 +1425,59 @@ def inbox_delete_one(iid: str) -> dict:
 @app.delete("/inbox")
 def inbox_clear() -> dict:
     return {"ok": True, "cleared": _inbox.clear()}
+
+
+# ── Notifications ────────────────────────────────────────────────────────────
+# In-app notification bell.  Agents, the scheduler, and the orchestrator
+# can POST here; the UI polls GET /notifications for the unread badge.
+
+import notifications as _notifs
+
+
+class NotificationCreate(BaseModel):
+    title: str
+    body: str = ""
+    type: str = "info"  # info | success | warning | error | agent
+
+
+@app.get("/notifications")
+def notifications_list(
+    limit: int = Query(50, ge=1, le=200),
+    unread_only: bool = Query(False),
+) -> list[dict]:
+    """Return recent notifications, newest first."""
+    return _notifs.list_notifications(limit=limit, unread_only=unread_only)
+
+
+@app.get("/notifications/count")
+def notifications_count() -> dict:
+    """Return the unread notification count for the bell badge."""
+    return {"unread": _notifs.unread_count()}
+
+
+@app.post("/notifications")
+def notifications_create(req: NotificationCreate) -> dict:
+    """Post a new notification (agents, scheduler, external tools)."""
+    valid_types = {"info", "success", "warning", "error", "agent"}
+    notif_type = req.type if req.type in valid_types else "info"
+    return _notifs.add(title=req.title, body=req.body, notif_type=notif_type)  # type: ignore[arg-type]
+
+
+@app.post("/notifications/{notif_id}/read")
+def notifications_mark_read(notif_id: str) -> dict:
+    if not _notifs.mark_read(notif_id):
+        raise HTTPException(status_code=404, detail="notification not found")
+    return {"ok": True, "id": notif_id}
+
+
+@app.post("/notifications/read-all")
+def notifications_read_all() -> dict:
+    return {"ok": True, "marked": _notifs.mark_all_read()}
+
+
+@app.delete("/notifications")
+def notifications_clear() -> dict:
+    return {"ok": True, "cleared": _notifs.clear()}
 
 
 # ── Skills ───────────────────────────────────────────────────────────────────

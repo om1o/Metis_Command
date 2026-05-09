@@ -57,6 +57,31 @@ def _get_local_db() -> sqlite3.Connection:
             );
             CREATE INDEX IF NOT EXISTS idx_messages_session
                 ON messages(session_id);
+
+            -- FTS5 virtual table for full-text search over chat history.
+            -- content=messages keeps the FTS index in sync via triggers below.
+            CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts
+                USING fts5(content, session_id UNINDEXED, role UNINDEXED,
+                           content='messages', content_rowid='id');
+
+            -- Keep FTS index in sync with the messages table.
+            CREATE TRIGGER IF NOT EXISTS messages_ai
+                AFTER INSERT ON messages BEGIN
+                    INSERT INTO messages_fts(rowid, content, session_id, role)
+                    VALUES (new.id, new.content, new.session_id, new.role);
+                END;
+            CREATE TRIGGER IF NOT EXISTS messages_ad
+                AFTER DELETE ON messages BEGIN
+                    INSERT INTO messages_fts(messages_fts, rowid, content, session_id, role)
+                    VALUES ('delete', old.id, old.content, old.session_id, old.role);
+                END;
+            CREATE TRIGGER IF NOT EXISTS messages_au
+                AFTER UPDATE ON messages BEGIN
+                    INSERT INTO messages_fts(messages_fts, rowid, content, session_id, role)
+                    VALUES ('delete', old.id, old.content, old.session_id, old.role);
+                    INSERT INTO messages_fts(rowid, content, session_id, role)
+                    VALUES (new.id, new.content, new.session_id, new.role);
+                END;
         """)
         conn.commit()
         _local_conn = conn
@@ -253,3 +278,61 @@ def rename_session(session_id: str, title: str, user_id: str | None = None) -> N
         db.commit()
         return
     # Cloud: no-op for now (Supabase has no title column).
+
+
+def search_messages(
+    query: str,
+    user_id: str | None = None,
+    limit: int = 20,
+    session_id: str | None = None,
+) -> list[dict]:
+    """Full-text search over local chat history using SQLite FTS5.
+
+    Returns matches with session title, snippet, role, and timestamp,
+    newest first.  Each result includes a highlighted snippet of the
+    matched content (FTS5 snippet() function, ~60 chars).
+
+    Cloud users fall back to an empty list — Supabase full-text search
+    is outside the local store's scope.
+    """
+    if not _is_local(user_id):
+        return []
+
+    query = query.strip()
+    if not query:
+        return []
+
+    db = _get_local_db()
+
+    # Rebuild FTS index if it looks empty (covers databases created before FTS
+    # was introduced — triggers only fire for new writes, not old rows).
+    fts_count = db.execute("SELECT COUNT(*) FROM messages_fts").fetchone()[0]
+    msg_count = db.execute("SELECT COUNT(*) FROM messages").fetchone()[0]
+    if msg_count > 0 and fts_count == 0:
+        db.execute("INSERT INTO messages_fts(messages_fts) VALUES ('rebuild')")
+        db.commit()
+
+    params: list[object] = [query]
+    session_filter = ""
+    if session_id:
+        session_filter = "AND m.session_id = ?"
+        params.append(session_id)
+    params.append(limit)
+
+    sql = f"""
+        SELECT
+            m.session_id,
+            s.title        AS session_title,
+            m.role,
+            m.created_at,
+            snippet(messages_fts, 0, '<b>', '</b>', '…', 15) AS snippet
+        FROM messages_fts
+        JOIN messages m  ON messages_fts.rowid = m.id
+        JOIN sessions s  ON m.session_id = s.id
+        WHERE messages_fts MATCH ?
+        {session_filter}
+        ORDER BY m.created_at DESC
+        LIMIT ?
+    """
+    rows = db.execute(sql, params).fetchall()
+    return [dict(r) for r in rows]

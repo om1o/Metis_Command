@@ -39,9 +39,9 @@
 
 ### Known Gaps
 - No MFA/2FA
-- No notification system (push/email)
+- Notification bell UI not yet wired (backend + routes done; desktop-ui bell needs polling `GET /notifications/count`)
 - No plugin UI in sidebar (API exists, no frontend)
-- No search across conversations (full-text DB; sidebar filter exists)
+- Search backend done (`GET /sessions/search` with FTS5); no search UI in desktop-ui yet
 - No rate limit UI feedback
 - Legacy Streamlit UI (`dynamic_ui.py`) remains in the tree for reference; `launch.py` only starts FastAPI
 
@@ -51,8 +51,10 @@
 - ✅ Session titles auto-generated (Phase 3)
 - ✅ File/image upload + drag-drop (Phase 4)
 - ✅ Export conversations — MD / JSON / TXT (Phase 5)
+- ✅ Search across conversations — FTS5 SQLite + `GET /sessions/search` (Phase 6)
 - ✅ Voice input (browser Web Speech API, Phase 8)
 - ✅ Dark / Light / Auto theme toggle (Phase 9)
+- ✅ Notification system — `notifications.py`, ring buffer + SQLite, 6 API routes, job-complete bell (Phase 10)
 - ✅ Onboarding tour — 5-step spotlight (Phase 11)
 - ✅ Keyboard shortcuts: ⌘Shift+C copy, ⌘Shift+R regen, ↑ edit last (Phase 12)
 
@@ -321,11 +323,11 @@
 | 3. Session Titles | 🟡 High | Small | Soon |
 | 4. File Upload | 🟡 High | Medium | Soon |
 | 5. Export | 🟢 Medium | Small | Soon |
-| 6. Search | 🟡 High | Medium | Q3 |
+| 6. Search | 🟡 High | Medium | ✅ Done |
 | 7. Marketplace UI | 🟢 Medium | Small | Q3 |
 | 8. Voice Input | 🟢 Medium | Small | Q3 |
 | 9. Themes | 🟢 Medium | Medium | Q3 |
-| 10. Notifications | 🟢 Medium | Medium | Q3 |
+| 10. Notifications | 🟢 Medium | Medium | ✅ Done |
 | 11. Onboarding | 🟡 High | Small | Q3 |
 | 12. Keyboard Power | 🟢 Medium | Small | Q3 |
 | 13. Model Compare | 🟢 Medium | Large | Q4 |
