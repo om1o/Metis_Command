@@ -124,6 +124,27 @@ def _boot_services() -> None:
         start_scheduler()
     except Exception as e:
         print(f"[api_bridge] scheduler boot skipped: {e}")
+    # MVP 20.1: pre-warm the manager model so the first user chat
+    # doesn't pay model-load latency. This used to make "hello"
+    # take 30s on cold-start (Ollama swaps the model out of VRAM
+    # the moment another model runs); pre-warming keeps it pinned
+    # via keep_alive=-1 in chat_by_role's payload.
+    try:
+        import threading
+        def _warmup() -> None:
+            try:
+                from brain_engine import chat_by_role, get_active_model
+                role = "manager"
+                model = get_active_model(role)
+                # Cheap one-token call just to load the model into VRAM.
+                chat_by_role(role, [{"role": "user", "content": "."}],
+                             model=model, temperature=0.0)
+                print(f"[api_bridge] warmup ok: {role} -> {model}")
+            except Exception as e:
+                print(f"[api_bridge] warmup skipped: {e}")
+        threading.Thread(target=_warmup, name="brain-warmup", daemon=True).start()
+    except Exception as e:
+        print(f"[api_bridge] warmup thread failed: {e}")
     try:
         from agent_roster import resume_persistent_from_disk
         resume_persistent_from_disk()
