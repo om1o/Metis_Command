@@ -1628,6 +1628,55 @@ def mission_cancel(mission_id: str) -> dict:
     return {"ok": cancel_mission(mission_id), "id": mission_id}
 
 
+# MVP 21: persisted-mission endpoints. The store covers autonomous_loop
+# runs from MVP 19; the /missions endpoints above cover the older
+# in-memory MissionPool (scheduled jobs, briefings). Two stores, two
+# endpoints — UI shows them under different tabs to keep the model
+# clear.
+
+@app.get("/persisted_missions")
+def persisted_missions_list(
+    limit: int = 50,
+    status: str | None = None,
+) -> list[dict]:
+    """List autonomous_loop missions from the SQLite store, newest first."""
+    import mission_store as _ms
+    statuses = [s for s in (status.split(",") if status else []) if s]
+    return _ms.list_recent(statuses=statuses or None, limit=int(limit))
+
+
+@app.get("/persisted_missions/{mission_id}")
+def persisted_missions_get(mission_id: str) -> dict:
+    """Full mission state (with all steps + observations)."""
+    import mission_store as _ms
+    state = _ms.load_state(mission_id)
+    if not state:
+        raise HTTPException(status_code=404, detail="mission not found in store")
+    return state
+
+
+@app.post("/persisted_missions/{mission_id}/resume")
+def persisted_missions_resume(mission_id: str) -> dict:
+    """Kick off autonomous_loop.resume_mission in a worker thread.
+    Returns immediately with the mission id; clients poll
+    /persisted_missions/{id} for progress."""
+    import threading as _threading
+    from autonomous_loop import resume_mission
+    def _runner() -> None:
+        try:
+            resume_mission(mission_id, max_steps=12, auto_approve=False)
+        except Exception as e:
+            print(f"[api_bridge] resume_mission({mission_id}) failed: {e}")
+    _threading.Thread(target=_runner, name=f"resume:{mission_id[:8]}", daemon=True).start()
+    return {"ok": True, "id": mission_id, "started": True}
+
+
+@app.delete("/persisted_missions/{mission_id}")
+def persisted_missions_delete(mission_id: str) -> dict:
+    import mission_store as _ms
+    return {"ok": _ms.delete(mission_id), "id": mission_id}
+
+
 # ── Marketplace ──────────────────────────────────────────────────────────────
 
 @app.get("/marketplace")

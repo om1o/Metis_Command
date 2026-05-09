@@ -330,6 +330,30 @@ export interface NotificationItem {
   [key: string]: unknown;
 }
 
+export interface PersistedMission {
+  id: string;
+  goal: string;
+  status: 'pending' | 'running' | 'paused' | 'success' | 'failed' | 'stopped' | string;
+  started_at: number;
+  ended_at: number | null;
+  final_answer: string | null;
+}
+
+export interface PersistedMissionStep {
+  index: number;
+  description: string;
+  tool: string | null;
+  args: Record<string, unknown>;
+  observation: unknown;
+  ok: boolean;
+  duration_ms: number;
+}
+
+export interface PersistedMissionDetail extends PersistedMission {
+  steps: PersistedMissionStep[];
+  id: string;
+}
+
 export interface SessionMeta {
   id: string;
   title: string;
@@ -740,6 +764,33 @@ export class MetisClient {
       headers: this.headers(),
     });
     if (!res.ok) throw new Error(`delete notification: ${res.status}`);
+    return res.json();
+  }
+
+  // ── Persisted missions (autonomous_loop, MVP 19/21) ─────────────────────
+
+  async listPersistedMissions(opts?: { limit?: number; status?: string }): Promise<PersistedMission[]> {
+    const qs = new URLSearchParams();
+    if (opts?.limit) qs.set('limit', String(opts.limit));
+    if (opts?.status) qs.set('status', opts.status);
+    const tail = qs.toString() ? `?${qs.toString()}` : '';
+    return this.get(`/persisted_missions${tail}`);
+  }
+
+  async getPersistedMission(id: string): Promise<PersistedMissionDetail> {
+    return this.get(`/persisted_missions/${encodeURIComponent(id)}`);
+  }
+
+  async resumePersistedMission(id: string): Promise<{ ok: boolean; id: string; started: boolean }> {
+    return this.post(`/persisted_missions/${encodeURIComponent(id)}/resume`, {});
+  }
+
+  async deletePersistedMission(id: string): Promise<{ ok: boolean; id: string }> {
+    const res = await fetch(`${this.baseUrl}/persisted_missions/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: this.headers(),
+    });
+    if (!res.ok) throw new Error(`delete persisted mission: ${res.status}`);
     return res.json();
   }
 

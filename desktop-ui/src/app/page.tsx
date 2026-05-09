@@ -46,6 +46,7 @@ import {
   BarChart3,
   Search,
   Sunrise,
+  Workflow,
 } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { createLocalClient, MetisClient, AuthUser, Schedule, Artifact, RunMode, RunPermission, SessionMessage, SessionSearchResult } from '@/lib/metis-client';
@@ -58,6 +59,7 @@ import InboxPanel from '@/components/inbox-panel';
 import ConnectionsPanel from '@/components/connections-panel';
 import InstallAppButton from '@/components/install-app-button';
 import BriefingPanel from '@/components/briefing-panel';
+import MissionsPanel from '@/components/missions-panel';
 import VoiceButton from '@/components/voice-button';
 import MemoryPanel from '@/components/memory-panel';
 import ReportsPanel from '@/components/reports-panel';
@@ -490,6 +492,7 @@ export default function App() {
   const [reportsOpen, setReportsOpen] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
   const [briefingOpen, setBriefingOpen] = useState(false);
+  const [missionsOpen, setMissionsOpen] = useState(false);
   const [health, setHealth] = useState<SystemHealth | null>(null);
   const [activeArtifactId, setActiveArtifactId] = useState<string | null>(null);
   const [reportArtifact, setReportArtifact] = useState<Artifact | null>(null);
@@ -783,6 +786,7 @@ export default function App() {
       else if (k === 'p')   { e.preventDefault(); setReportsOpen((v) => !v); }
       else if (k === 'a')   { e.preventDefault(); setAnalyticsOpen((v) => !v); }
       else if (k === 'd')   { e.preventDefault(); setBriefingOpen((v) => !v); }
+      else if (k === 'o')   { e.preventDefault(); setMissionsOpen((v) => !v); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -1219,6 +1223,16 @@ export default function App() {
               <Sunrise className="h-4 w-4 shrink-0 text-violet-400" />
               <span>Briefing</span>
               <span className="ml-auto text-[10px] text-[var(--metis-fg-dim)]">⌘D</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMissionsOpen(true)}
+              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] text-[var(--metis-fg-muted)] transition hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]"
+              title="Missions (⌘O)"
+            >
+              <Workflow className="h-4 w-4 shrink-0 text-violet-400" />
+              <span>Missions</span>
+              <span className="ml-auto text-[10px] text-[var(--metis-fg-dim)]">⌘O</span>
             </button>
             <button
               type="button"
@@ -1713,6 +1727,17 @@ export default function App() {
             client={client}
             reduceMotion={!!reduceMotion}
             onClose={() => setBriefingOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Missions — autonomous_loop runs, with resume + delete */}
+      <AnimatePresence>
+        {missionsOpen && client && (
+          <MissionsPanel
+            client={client}
+            reduceMotion={!!reduceMotion}
+            onClose={() => setMissionsOpen(false)}
           />
         )}
       </AnimatePresence>
