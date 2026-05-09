@@ -54,6 +54,7 @@ def _tool_registry() -> dict[str, Callable[..., Any]]:
     from tools import browser_agent as _ba
     from tools import computer_use as _cu
     from tools import voice_io as _vo
+    from tools import gmail_api as _gm
     from custom_tools import internet_search as _search
 
     from tools import multi_lang as _ml
@@ -111,6 +112,21 @@ def _tool_registry() -> dict[str, Callable[..., Any]]:
         "browser_save_state":  _perm.gate("browser_save_state",  _ba.save_state),
         "browser_clear_state": _perm.gate("browser_clear_state", _ba.clear_state),
         "browser_login_helper": _perm.gate("browser_login_helper", _ba.login_helper, summary_args=["start_url"]),
+
+        # MVP 16: Gmail via OAuth + Gmail API. Browser automation
+        # against Gmail loses to Google's bot detection every time;
+        # OAuth wins. oauth_login pops Google's official consent
+        # screen (which works in any browser) and saves a refresh
+        # token; everything else is silent thereafter.
+        "gmail_oauth_login":     _perm.gate("gmail_oauth_login",     _gm.oauth_login),
+        "gmail_logout":          _perm.gate("gmail_logout",          _gm.logout),
+        "gmail_is_logged_in":    _gm.is_logged_in,                                       # read-only
+        "gmail_recent_emails":   lambda hours=24, max_results=25: _gm.to_dicts(
+                                     _gm.list_recent(hours=int(hours), max_results=int(max_results))),
+        "gmail_briefing_payload": lambda hours=24, max_results=25: _gm.briefing_payload(
+                                     hours=int(hours), max_results=int(max_results)),
+        "gmail_message_body":    lambda message_id, max_chars=4000: _gm.get_body(
+                                     str(message_id), max_chars=int(max_chars)),
 
         # Subagents recursively run their own loop; their internal tools
         # inherit the same permission tier via the session emitter, so

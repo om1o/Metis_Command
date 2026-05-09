@@ -202,19 +202,26 @@ Native control tools, all permission-gated except screenshot/clipboard:
   - key_combo            : send a hotkey, e.g. ["ctrl", "c"]
   - write_clipboard      : place text on the clipboard
 
-Persistent browser login. The headless browser used for
-researcher tasks starts in a fresh profile each run, so
-authenticated sites (Gmail, Twitter, LinkedIn) won't work
-out of the box. To fix that ONCE per provider:
-  1. call browser_login_helper(start_url="https://mail.google.com")
-     — this opens a HEADED browser the user can sign into
-  2. user signs in normally; the cookies are saved to
-     identity/browser_state.json and reused on every later run
+Gmail. Do NOT drive Gmail with browser tools — Google's bot
+detection blocks every Playwright variant, headed or headless.
+Use the Gmail API tools instead:
+  - gmail_is_logged_in()                                : returns True/False
+  - gmail_oauth_login()                                 : one-time consent screen
+  - gmail_recent_emails(hours=24, max_results=25)       : metadata list
+  - gmail_briefing_payload(hours=24, max_results=25)    : LLM-friendly bundle
+  - gmail_message_body(message_id)                      : plain-text body
 
-After that the regular browser_* tools can read the user's Gmail
-/ Twitter / etc without re-prompting. If a headless run hits a
-login wall, suggest browser_login_helper rather than trying to
-type credentials yourself.
+If gmail_is_logged_in is False, the user needs to run a one-time
+OAuth setup (see identity/gmail_credentials.json). Tell them clearly
+rather than trying browser-side workarounds — those don't work and
+waste time.
+
+Persistent browser login (NON-Google sites). For sites without
+Google's bot detection (LinkedIn, Twitter, GitHub, internal
+dashboards), browser_login_helper still works:
+  1. call browser_login_helper(start_url="https://...")
+  2. user signs in once in the headed window
+  3. cookies persist to identity/browser_state.json forever
 
 Screenshots are free; everything else above pops a permission card
 the user must approve. State the steps and ask before chaining
