@@ -24,7 +24,9 @@ from typing import Any, Callable
 
 from brain_engine import chat_by_role
 from safety import audit, confirm_gate, ConfirmRequired
-from tool_runtime import SessionExecutionLog, ToolRunner
+from pydantic import ValidationError
+
+from tool_runtime import SessionExecutionLog, ToolRunner, ToolSpec, build_pydantic_model_from_callable
 
 
 # ── Public registry of atomic tools ──────────────────────────────────────────
@@ -281,18 +283,51 @@ def _plan(goal: str) -> list[str]:
 
 def _choose_tool(step_desc: str) -> dict[str, Any] | None:
     reg_names = ", ".join(sorted(tool_registry().keys()))
-    reply = chat_by_role("manager", [
+    messages = [
         {"role": "system", "content": EXECUTOR_SYSTEM},
         {"role": "user", "content":
             f"STEP: {step_desc}\n\nAVAILABLE TOOLS: {reg_names}\n\nReturn one JSON object."},
-    ])
-    m = _JSON_OBJ.search(reply or "")
-    if not m:
+    ]
+    last_decision: dict[str, Any] | None = None
+    for _attempt in range(2):
+        reply = chat_by_role("manager", messages)
+        m = _JSON_OBJ.search(reply or "")
+        if not m:
+            return None
+        try:
+            decision = json.loads(m.group(0))
+        except Exception:
+            return None
+        if not isinstance(decision, dict):
+            return None
+        last_decision = decision
+        error = _tool_arg_error(decision.get("tool"), decision.get("args") or {})
+        if not error:
+            return decision
+        messages.append({"role": "assistant", "content": json.dumps(decision)})
+        messages.append({"role": "user", "content":
+            f"That tool call is invalid: {error}\n"
+            "Return one corrected JSON object with every required argument."})
+    return last_decision
+
+
+def _tool_arg_error(tool: Any, args: Any) -> str | None:
+    name = str(tool or "none")
+    if name == "none":
         return None
+    reg = tool_registry()
+    if name not in reg:
+        return f"unknown tool: {name}"
+    if not isinstance(args, dict):
+        return "args must be an object"
     try:
-        return json.loads(m.group(0))
-    except Exception:
-        return None
+        model = build_pydantic_model_from_callable(reg[name], name)
+        model.model_validate(args)
+    except ValidationError as ve:
+        return f"validation_error: {ve.errors(include_url=False)}"
+    except Exception as e:
+        return f"validation_error: {e}"
+    return None
 
 
 def _run_tool(
@@ -323,7 +358,13 @@ def _run_tool(
     # ToolRunner emits tool_start/tool_end/error events for the UI, validates args,
     # supports retry/backoff, and persists a per-session tool run log.
     log = SessionExecutionLog(session_id) if session_id else None
-    runner = ToolRunner(reg, on_event=on_event, session_log=log)
+    input_model = None
+    try:
+        input_model = build_pydantic_model_from_callable(reg[name], name)
+    except Exception:
+        input_model = None
+    specs = {name: ToolSpec(name=name, input_model=input_model)} if input_model is not None else None
+    runner = ToolRunner(reg, specs=specs, on_event=on_event, session_log=log)
 
     # Keep confirm-gate semantics: a destructive tool can raise ConfirmRequired.
     def _wrapped(**kw: Any) -> Any:

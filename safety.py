@@ -23,6 +23,7 @@ import re
 import threading
 import time
 from collections import deque
+from functools import wraps
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
@@ -373,6 +374,7 @@ def tail_audit(n: int = 50) -> list[dict[str, Any]]:
 def audited(action: str) -> Callable:
     """Wrap any function so its calls land in the audit log."""
     def wrap(fn: Callable) -> Callable:
+        @wraps(fn)
         def inner(*args, **kwargs):
             audit({"event": "tool_call", "action": action,
                    "args": _redact_args(kwargs), "arity": len(args)})
@@ -383,7 +385,5 @@ def audited(action: str) -> Callable:
             except Exception as e:
                 audit({"event": "tool_error", "action": action, "error": str(e)})
                 raise
-        inner.__name__ = fn.__name__
-        inner.__doc__ = fn.__doc__
         return inner
     return wrap

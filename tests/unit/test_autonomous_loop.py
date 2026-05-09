@@ -76,3 +76,54 @@ def test_unknown_tool_returns_clean_error():
     )
     assert ok is False
     assert "unknown tool" in obs
+
+
+def test_run_tool_validates_original_signature_when_confirm_wrapped(monkeypatch):
+    import autonomous_loop
+
+    def needs_pattern(pattern: str) -> str:
+        return pattern
+
+    monkeypatch.setattr(
+        autonomous_loop,
+        "tool_registry",
+        lambda: {"needs_pattern": needs_pattern},
+    )
+
+    obs, ok, _ = autonomous_loop._run_tool(
+        "needs_pattern", {}, auto_approve=False, on_event=None, cancel=None,
+    )
+
+    assert ok is False
+    assert "validation_error" in str(obs)
+    assert "pattern" in str(obs)
+    assert "TypeError" not in str(obs)
+
+
+def test_choose_tool_retries_invalid_arguments(monkeypatch):
+    import autonomous_loop
+
+    def fake_grep(pattern: str, path: str = ".") -> list[str]:
+        return [pattern, path]
+
+    replies = iter([
+        '{"tool": "grep", "args": {}}',
+        '{"tool": "grep", "args": {"pattern": "needle", "path": "."}}',
+    ])
+
+    monkeypatch.setattr(autonomous_loop, "tool_registry", lambda: {"grep": fake_grep})
+    monkeypatch.setattr(autonomous_loop, "chat_by_role", lambda *_args, **_kw: next(replies))
+
+    decision = autonomous_loop._choose_tool("Search for needle")
+
+    assert decision == {"tool": "grep", "args": {"pattern": "needle", "path": "."}}
+
+
+def test_audited_tools_keep_signatures_for_validation():
+    import inspect
+    from tools import file_system
+
+    sig = inspect.signature(file_system.grep)
+
+    assert "pattern" in sig.parameters
+    assert sig.parameters["pattern"].default is inspect.Parameter.empty
