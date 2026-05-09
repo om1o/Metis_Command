@@ -19,6 +19,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Callable
 
 from safety import PATHS, audit
+from artifacts import Artifact, save_artifact
 
 
 MISSIONS_LOG = PATHS.logs / "missions.jsonl"
@@ -138,6 +139,7 @@ class MissionPool:
                 finally:
                     with self._lock:
                         record.ended_at = time.time()
+                    self._save_scheduled_report(record)
                     self._persist(record)
 
         future = self._executor.submit(run)
@@ -194,6 +196,74 @@ class MissionPool:
                 f.write(json.dumps(clone, ensure_ascii=False, default=str) + "\n")
         except Exception:
             pass
+
+    def _save_scheduled_report(self, record: MissionRecord) -> None:
+        if not record.tag.startswith("scheduled:"):
+            return
+        schedule_id = record.tag.split(":", 1)[1].strip()
+        duration_ms = int(((record.ended_at or time.time()) - (record.started_at or record.submitted_at)) * 1000)
+        first_line = record.goal.splitlines()[0][:80] or schedule_id
+        event_lines = []
+        for event in record.events[-20:]:
+            event_type = event.get("type", "event")
+            detail = event.get("description") or event.get("answer") or event.get("error") or event.get("status") or ""
+            event_lines.append(f"- `{event_type}` {str(detail)[:240]}".rstrip())
+        content = "\n".join([
+            f"# Scheduled Job Report: {first_line}",
+            "",
+            f"- Mission: `{record.id}`",
+            f"- Schedule: `{schedule_id}`",
+            f"- Status: `{record.status}`",
+            f"- Duration: `{duration_ms} ms`",
+            "",
+            "## Goal",
+            record.goal.strip(),
+            "",
+            "## Result",
+            record.final_answer.strip() or "No final answer was produced.",
+            "",
+            "## Run Events",
+            "\n".join(event_lines) if event_lines else "No run events were recorded.",
+            "",
+        ])
+        try:
+            artifact = save_artifact(Artifact(
+                type="doc",
+                title=f"Scheduled job: {first_line}",
+                language="markdown",
+                content=content,
+                metadata={
+                    "kind": "scheduled_job_report",
+                    "mission_id": record.id,
+                    "schedule_id": schedule_id,
+                    "status": record.status,
+                    "tag": record.tag,
+                },
+            ))
+            audit({
+                "event": "scheduled_job_report_saved",
+                "mission_id": record.id,
+                "schedule_id": schedule_id,
+                "artifact_id": artifact.id,
+            })
+            try:
+                import inbox as _inbox
+                _inbox.append(
+                    title=f"Job report saved - {first_line}",
+                    body=f"Scheduled job finished with status `{record.status}`.\n\nReport: {artifact.title}",
+                    source=record.tag,
+                    schedule_id=schedule_id,
+                    artifact_id=artifact.id,
+                )
+            except Exception:
+                pass
+        except Exception as e:
+            audit({
+                "event": "scheduled_job_report_failed",
+                "mission_id": record.id,
+                "schedule_id": schedule_id,
+                "error": str(e),
+            })
 
 
 # Module-level singleton.
