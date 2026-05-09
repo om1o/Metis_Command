@@ -1,20 +1,8 @@
-"""
-Notification system for Metis — agents and scheduled jobs can post
-in-app alerts that the UI picks up via GET /notifications.
+"""Persistent in-app notifications for Metis.
 
-Design:
-- In-memory ring buffer (deque, max 200 entries) — zero-config, fast.
-- Persisted to SQLite alongside chat memory so notifications survive
-  restarts (optional: enabled by default for the local-install path).
-- Thread-safe via a module-level lock.
-
-Notification types
-------------------
-  info     — generic informational message
-  success  — task / mission completed
-  warning  — something needs the user's attention
-  error    — something failed
-  agent    — a persistent agent has something to say
+Agents, scheduled jobs, and API clients can post alerts that the desktop UI can
+poll through the notifications API routes. Notifications are kept in a small
+in-memory queue and persisted to the local identity SQLite database.
 """
 
 from __future__ import annotations
@@ -27,27 +15,31 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
 
+from safety import PATHS
+
 
 NotificationType = Literal["info", "success", "warning", "error", "agent"]
 
 _MAX_QUEUE = 200
-_SQLITE_PATH = Path("identity") / "local_chat.db"
-
 _lock = threading.Lock()
 _queue: deque[dict] = deque(maxlen=_MAX_QUEUE)
 _db_conn: sqlite3.Connection | None = None
 _db_ready = False
+_hydrated = False
 
 
-# ── SQLite persistence ────────────────────────────────────────────────────────
+def _sqlite_path() -> Path:
+    return Path(PATHS.identity) / "local_chat.db"
+
 
 def _get_db() -> sqlite3.Connection | None:
     global _db_conn, _db_ready
     if _db_ready:
         return _db_conn
     try:
-        _SQLITE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        conn = sqlite3.connect(str(_SQLITE_PATH), check_same_thread=False)
+        sqlite_path = _sqlite_path()
+        sqlite_path.parent.mkdir(parents=True, exist_ok=True)
+        conn = sqlite3.connect(str(sqlite_path), check_same_thread=False)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA journal_mode=WAL")
         conn.executescript("""
@@ -59,7 +51,7 @@ def _get_db() -> sqlite3.Connection | None:
                 read       INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL
             );
-            CREATE INDEX IF NOT EXISTS idx_notif_created
+            CREATE INDEX IF NOT EXISTS idx_notifications_created
                 ON notifications(created_at DESC);
         """)
         conn.commit()
@@ -67,7 +59,7 @@ def _get_db() -> sqlite3.Connection | None:
         _db_ready = True
         return conn
     except Exception:
-        _db_ready = True  # mark done even on failure so we don't retry every call
+        _db_ready = True
         return None
 
 
@@ -103,7 +95,7 @@ def _load_from_db(limit: int = _MAX_QUEUE) -> list[dict]:
             "ORDER BY created_at DESC LIMIT ?",
             (limit,),
         ).fetchall()
-        return [dict(r) for r in rows]
+        return [{**dict(row), "read": bool(row["read"])} for row in rows]
     except Exception:
         return []
 
@@ -130,32 +122,17 @@ def _clear_db() -> None:
         pass
 
 
-# ── Bootstrap: hydrate in-memory queue from DB on first use ──────────────────
-
-_hydrated = False
-
-
 def _ensure_hydrated() -> None:
     global _hydrated
     if _hydrated:
         return
     _hydrated = True
-    for row in _load_from_db():
+    for row in reversed(_load_from_db()):
         _queue.appendleft(row)
 
 
-# ── Public API ────────────────────────────────────────────────────────────────
-
-def add(
-    title: str,
-    body: str = "",
-    notif_type: NotificationType = "info",
-) -> dict:
-    """Create a new notification and return it.
-
-    Thread-safe.  The notification is added to both the in-memory ring
-    buffer and the SQLite persistence store.
-    """
+def add(title: str, body: str = "", notif_type: NotificationType = "info") -> dict:
+    """Create and persist a notification."""
     notif: dict = {
         "id": str(uuid.uuid4()),
         "type": notif_type,
@@ -171,22 +148,18 @@ def add(
     return notif
 
 
-def list_notifications(
-    limit: int = 50,
-    unread_only: bool = False,
-) -> list[dict]:
+def list_notifications(limit: int = 50, unread_only: bool = False) -> list[dict]:
     """Return recent notifications, newest first."""
     with _lock:
         _ensure_hydrated()
         items = list(_queue)
-
     if unread_only:
-        items = [n for n in items if not n.get("read")]
+        items = [item for item in items if not item.get("read")]
     return items[:limit]
 
 
 def mark_read(notif_id: str) -> bool:
-    """Mark a single notification as read.  Returns True if found."""
+    """Mark a single notification as read."""
     with _lock:
         _ensure_hydrated()
         for notif in _queue:
@@ -198,7 +171,7 @@ def mark_read(notif_id: str) -> bool:
 
 
 def mark_all_read() -> int:
-    """Mark every notification as read.  Returns the count marked."""
+    """Mark every unread notification as read."""
     count = 0
     with _lock:
         _ensure_hydrated()
@@ -211,7 +184,7 @@ def mark_all_read() -> int:
 
 
 def clear() -> int:
-    """Delete all notifications.  Returns the count removed."""
+    """Delete all notifications."""
     with _lock:
         _ensure_hydrated()
         count = len(_queue)
@@ -223,4 +196,4 @@ def clear() -> int:
 def unread_count() -> int:
     with _lock:
         _ensure_hydrated()
-        return sum(1 for n in _queue if not n.get("read"))
+        return sum(1 for notif in _queue if not notif.get("read"))

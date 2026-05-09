@@ -19,12 +19,17 @@ import threading
 from datetime import datetime, timezone
 from pathlib import Path
 
+from safety import PATHS
+
 
 # ── SQLite local store ──────────────────────────────────────────────────────
 
-_SQLITE_PATH = Path("identity") / "local_chat.db"
 _local_conn: sqlite3.Connection | None = None
 _lock = threading.Lock()
+
+
+def _sqlite_path() -> Path:
+    return Path(PATHS.identity) / "local_chat.db"
 
 
 def _get_local_db() -> sqlite3.Connection:
@@ -35,8 +40,9 @@ def _get_local_db() -> sqlite3.Connection:
     with _lock:
         if _local_conn is not None:          # double-check after lock
             return _local_conn
-        _SQLITE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        conn = sqlite3.connect(str(_SQLITE_PATH), check_same_thread=False)
+        sqlite_path = _sqlite_path()
+        sqlite_path.parent.mkdir(parents=True, exist_ok=True)
+        conn = sqlite3.connect(str(sqlite_path), check_same_thread=False)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA foreign_keys=ON")

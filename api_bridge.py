@@ -1049,6 +1049,24 @@ def sessions_list(request: Request, limit: int = 50) -> list[dict]:
         return []
 
 
+@app.get("/sessions/search")
+def sessions_search(
+    request: Request,
+    q: str = Query("", description="Full-text search query over chat history"),
+    session_id: str | None = Query(None, description="Restrict to a single session"),
+    limit: int = Query(20, ge=1, le=100),
+) -> list[dict]:
+    """Full-text search over local chat history (FTS5)."""
+    user_id = _user_id_from_request(request)
+    if not q.strip():
+        return []
+    from memory import search_messages
+    try:
+        return search_messages(q, user_id=user_id, limit=limit, session_id=session_id)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
 @app.get("/sessions/{session_id}")
 def sessions_load(session_id: str, request: Request, limit: int = 200) -> list[dict]:
     user_id = _user_id_from_request(request)
@@ -1157,32 +1175,6 @@ def sessions_export(
         media_type="text/markdown",
         headers={"Content-Disposition": f'attachment; filename="metis-{session_id[:12]}.md"'},
     )
-
-
-@app.get("/sessions/search")
-def sessions_search(
-    request: Request,
-    q: str = Query("", description="Full-text search query over chat history"),
-    session_id: str | None = Query(None, description="Restrict to a single session"),
-    limit: int = Query(20, ge=1, le=100),
-) -> list[dict]:
-    """Full-text search over local chat history (FTS5).
-
-    Returns up to ``limit`` message snippets that match ``q``, newest first.
-    Each result includes ``session_id``, ``session_title``, ``role``,
-    ``created_at``, and a highlighted ``snippet``.
-
-    Returns an empty list for cloud users (Supabase full-text search is
-    outside the local store scope).
-    """
-    user_id = _user_id_from_request(request)
-    if not q.strip():
-        return []
-    from memory import search_messages
-    try:
-        return search_messages(q, user_id=user_id, limit=limit, session_id=session_id)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 # ── Schedules ────────────────────────────────────────────────────────────────
