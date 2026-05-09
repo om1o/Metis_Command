@@ -42,6 +42,7 @@ import {
   Users,
   Bell,
   Monitor,
+  Brain,
 } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { createLocalClient, MetisClient, AuthUser, Schedule } from '@/lib/metis-client';
@@ -52,6 +53,7 @@ import JobsPanel from '@/components/jobs-panel';
 import RelationshipsPanel from '@/components/relationships-panel';
 import InboxPanel from '@/components/inbox-panel';
 import ConnectionsPanel from '@/components/connections-panel';
+import MemoryPanel from '@/components/memory-panel';
 import type { SystemHealth } from '@/lib/metis-client';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -453,6 +455,7 @@ export default function App() {
   const [inboxOpen, setInboxOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [connectionsOpen, setConnectionsOpen] = useState(false);
+  const [memoryOpen, setMemoryOpen] = useState(false);
   const [health, setHealth] = useState<SystemHealth | null>(null);
 
   const composerRef = useRef<HTMLTextAreaElement>(null);
@@ -686,6 +689,7 @@ export default function App() {
       else if (k === 'n')   { e.preventDefault(); newSession(); }
       else if (k === 'j')   { e.preventDefault(); setJobsOpen((v) => !v); }
       else if (k === 'r')   { e.preventDefault(); setRelationshipsOpen((v) => !v); }
+      else if (k === 'm')   { e.preventDefault(); setMemoryOpen((v) => !v); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -1015,6 +1019,16 @@ export default function App() {
               <span>Relationships</span>
               <span className="ml-auto text-[10px] text-[var(--metis-fg-dim)]">⌘R</span>
             </button>
+            <button
+              type="button"
+              onClick={() => setMemoryOpen(true)}
+              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] text-[var(--metis-fg-muted)] transition hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]"
+              title="Memory (⌘M)"
+            >
+              <Brain className="h-4 w-4 shrink-0 text-violet-400" />
+              <span>Memory</span>
+              <span className="ml-auto text-[10px] text-[var(--metis-fg-dim)]">⌘M</span>
+            </button>
           </div>
         )}
         <div className="flex gap-1 border-t border-[var(--metis-border)] p-2">
@@ -1337,6 +1351,17 @@ export default function App() {
             client={client}
             reduceMotion={!!reduceMotion}
             onClose={() => setConnectionsOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Memory — recall + pin facts */}
+      <AnimatePresence>
+        {memoryOpen && client && (
+          <MemoryPanel
+            client={client}
+            reduceMotion={!!reduceMotion}
+            onClose={() => setMemoryOpen(false)}
           />
         )}
       </AnimatePresence>

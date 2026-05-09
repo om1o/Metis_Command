@@ -130,6 +130,18 @@ export interface AuthResult {
 
 export type OAuthProvider = 'google' | 'github';
 
+// ── Memory ──────────────────────────────────────────────────────────────────
+
+export interface MemoryHit {
+  id?: string;
+  text: string;
+  kind?: 'episodic' | 'semantic' | 'procedural' | string;
+  score?: number;
+  meta?: Record<string, unknown>;
+  // Some brains return additional fields like "source" or "ts" — keep open.
+  [key: string]: unknown;
+}
+
 // ── Models + manager config ─────────────────────────────────────────────────
 
 export interface AvailableModel {
@@ -370,7 +382,7 @@ export class MetisClient {
     return this.post('/brains/remember', { text, kind });
   }
 
-  async recall(query: string, k = 5): Promise<unknown[]> {
+  async recall(query: string, k = 5): Promise<MemoryHit[]> {
     return this.get(`/brains/recall?q=${encodeURIComponent(query)}&k=${k}`);
   }
 
