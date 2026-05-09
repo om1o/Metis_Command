@@ -949,56 +949,44 @@ export default function App() {
         </div>
 
         {sidebarOpen && (
-          <div className="px-3 pt-3 pb-1.5">
-            <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--metis-chats-label)]">Recent</p>
+          <SessionsList
+            sessions={sessions}
+            activeId={activeId}
+            setActiveId={setActiveId}
+            deleteSession={deleteSession}
+            clearAll={() => {
+              if (sessions.length === 0) return;
+              const ok = window.confirm(`Delete all ${sessions.length} session${sessions.length === 1 ? '' : 's'}? This can't be undone.`);
+              if (!ok) return;
+              setSessions([]);
+              setActiveId(null);
+            }}
+          />
+        )}
+        {!sidebarOpen && (
+          <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+            {sessions.length > 0 && (
+              <ul className="space-y-0.5">
+                {sessions.map((s) => (
+                  <li key={s.id}>
+                    <button
+                      type="button"
+                      onClick={() => setActiveId(s.id)}
+                      className={`group flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition ${
+                        activeId === s.id
+                          ? 'bg-[var(--metis-hover-surface)] text-[var(--metis-fg)]'
+                          : 'text-[var(--metis-chats-item)] hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]'
+                      }`}
+                      title={s.title}
+                    >
+                      <span className={`inline-flex h-1.5 w-1.5 shrink-0 rounded-full ${activeId === s.id ? 'bg-violet-400' : 'bg-[var(--metis-fg-faint)]'}`} aria-hidden />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         )}
-
-        <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
-          {sessions.length === 0 ? (
-            sidebarOpen && (
-              <div className="mx-2 mt-2 rounded-xl border border-dashed border-[var(--metis-border)] p-3 text-xs text-[var(--metis-fg-dim)]">
-                Sessions will appear here.
-              </div>
-            )
-          ) : (
-            <ul className="space-y-0.5">
-              {sessions.map((s) => (
-                <li key={s.id}>
-                  <button
-                    type="button"
-                    onClick={() => setActiveId(s.id)}
-                    className={`group flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition ${
-                      activeId === s.id
-                        ? 'bg-[var(--metis-hover-surface)] text-[var(--metis-fg)]'
-                        : 'text-[var(--metis-chats-item)] hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]'
-                    }`}
-                    title={s.title}
-                  >
-                    <span className={`inline-flex h-1.5 w-1.5 shrink-0 rounded-full ${activeId === s.id ? 'bg-violet-400' : 'bg-[var(--metis-fg-faint)]'}`} aria-hidden />
-                    {sidebarOpen && (
-                      <>
-                        <span className="truncate text-[13px]">{s.title}</span>
-                        <span
-                          role="button"
-                          tabIndex={0}
-                          onClick={(e) => { e.stopPropagation(); deleteSession(s.id); }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); deleteSession(s.id); }
-                          }}
-                          className="ml-auto inline-flex cursor-pointer items-center justify-center rounded p-1 text-[var(--metis-fg-dim)] opacity-0 transition hover:text-rose-400 group-hover:opacity-100"
-                          title="Delete"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </span>
-                      </>
-                    )}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
 
         {sidebarOpen && user && (
           <div className="px-3 pt-2 pb-1 text-[11px] text-[var(--metis-fg-dim)] truncate" title={user.email}>
@@ -1544,6 +1532,106 @@ function ModeSelector({ value, onChange }: { value: Mode; onChange: (v: Mode) =>
         );
       })}
     </div>
+  );
+}
+
+// ── Sessions list (sidebar, when expanded) ───────────────────────────────
+
+function SessionsList({
+  sessions, activeId, setActiveId, deleteSession, clearAll,
+}: {
+  sessions: Session[];
+  activeId: string | null;
+  setActiveId: (id: string) => void;
+  deleteSession: (id: string) => void;
+  clearAll: () => void;
+}) {
+  const [query, setQuery] = useState('');
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return sessions;
+    return sessions.filter((s) =>
+      s.title.toLowerCase().includes(q) ||
+      s.messages.some((m) => m.content.toLowerCase().includes(q)),
+    );
+  }, [sessions, query]);
+
+  return (
+    <>
+      <div className="px-3 pt-3 pb-2">
+        <div className="flex items-center gap-2">
+          <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--metis-chats-label)]">
+            Recent
+          </p>
+          {sessions.length > 0 && (
+            <span className="text-[10px] text-[var(--metis-fg-dim)]">{sessions.length}</span>
+          )}
+          {sessions.length > 1 && (
+            <button
+              type="button"
+              onClick={clearAll}
+              className="ml-auto text-[10px] text-[var(--metis-fg-dim)] hover:text-rose-400"
+              title="Delete all sessions"
+            >
+              Clear all
+            </button>
+          )}
+        </div>
+        {sessions.length > 3 && (
+          <input
+            type="search"
+            placeholder="Search sessions…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="mt-2 w-full rounded-md border border-[var(--metis-border)] bg-[var(--metis-input-bg)] px-2 py-1 text-[12px] outline-none placeholder:text-[var(--metis-fg-dim)] focus:border-violet-500/50 focus:ring-1 focus:ring-[var(--metis-focus)]"
+          />
+        )}
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+        {sessions.length === 0 ? (
+          <div className="mx-2 mt-2 rounded-xl border border-dashed border-[var(--metis-border)] p-3 text-xs text-[var(--metis-fg-dim)]">
+            Sessions will appear here as you chat.
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="mx-2 mt-2 rounded-xl border border-dashed border-[var(--metis-border)] p-3 text-xs text-[var(--metis-fg-dim)]">
+            No matches for &ldquo;{query}&rdquo;.
+          </div>
+        ) : (
+          <ul className="space-y-0.5">
+            {filtered.map((s) => (
+              <li key={s.id}>
+                <button
+                  type="button"
+                  onClick={() => setActiveId(s.id)}
+                  className={`group flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition ${
+                    activeId === s.id
+                      ? 'bg-[var(--metis-hover-surface)] text-[var(--metis-fg)]'
+                      : 'text-[var(--metis-chats-item)] hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]'
+                  }`}
+                  title={s.title}
+                >
+                  <span className={`inline-flex h-1.5 w-1.5 shrink-0 rounded-full ${activeId === s.id ? 'bg-violet-400' : 'bg-[var(--metis-fg-faint)]'}`} aria-hidden />
+                  <span className="truncate text-[13px]">{s.title}</span>
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => { e.stopPropagation(); deleteSession(s.id); }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); deleteSession(s.id); }
+                    }}
+                    className="ml-auto inline-flex cursor-pointer items-center justify-center rounded p-1 text-[var(--metis-fg-dim)] opacity-0 transition hover:text-rose-400 group-hover:opacity-100"
+                    title="Delete"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </>
   );
 }
 
