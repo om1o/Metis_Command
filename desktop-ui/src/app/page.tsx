@@ -44,7 +44,6 @@ import {
   Monitor,
   Brain,
   BarChart3,
-  Search,
 } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { createLocalClient, MetisClient, AuthUser, Schedule, Artifact, RunMode, RunPermission } from '@/lib/metis-client';
@@ -457,7 +456,6 @@ export default function App() {
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
-  const [sessionSearch, setSessionSearch] = useState('');
   const [health, setHealth] = useState<SystemHealth | null>(null);
   const [activeArtifactId, setActiveArtifactId] = useState<string | null>(null);
   const [reportArtifact, setReportArtifact] = useState<Artifact | null>(null);
@@ -1007,42 +1005,19 @@ export default function App() {
         </div>
 
         {sidebarOpen && (
-          <>
-            {sessions.length > 4 && (
-              <div className="px-2 pb-1.5">
-                <div className="flex items-center gap-1.5 rounded-lg border border-[var(--metis-border)] bg-[var(--metis-bg)] px-2.5 py-1.5">
-                  <Search className="h-3.5 w-3.5 shrink-0 text-[var(--metis-fg-dim)]" />
-                  <input
-                    type="search"
-                    value={sessionSearch}
-                    onChange={(e) => setSessionSearch(e.target.value)}
-                    placeholder="Search sessions…"
-                    className="min-w-0 flex-1 bg-transparent text-[12.5px] text-[var(--metis-fg)] placeholder:text-[var(--metis-fg-dim)] outline-none"
-                    aria-label="Search sessions"
-                  />
-                  {sessionSearch && (
-                    <button type="button" onClick={() => setSessionSearch('')} className="shrink-0 text-[var(--metis-fg-dim)] hover:text-[var(--metis-fg)]" aria-label="Clear search">
-                      <X className="h-3 w-3" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-            <SessionsList
-              sessions={sessionSearch ? sessions.filter((s) => s.title.toLowerCase().includes(sessionSearch.toLowerCase())) : sessions}
-              activeId={activeId}
-              setActiveId={setActiveId}
-              deleteSession={deleteSession}
-              clearAll={() => {
-                if (sessions.length === 0) return;
-                const ok = window.confirm(`Delete all ${sessions.length} session${sessions.length === 1 ? '' : 's'}? This can't be undone.`);
-                if (!ok) return;
-                setSessions([]);
-                setActiveId(null);
-                setSessionSearch('');
-              }}
-            />
-          </>
+          <SessionsList
+            sessions={sessions}
+            activeId={activeId}
+            setActiveId={setActiveId}
+            deleteSession={deleteSession}
+            clearAll={() => {
+              if (sessions.length === 0) return;
+              const ok = window.confirm(`Delete all ${sessions.length} session${sessions.length === 1 ? '' : 's'}? This can't be undone.`);
+              if (!ok) return;
+              setSessions([]);
+              setActiveId(null);
+            }}
+          />
         )}
         {!sidebarOpen && (
           <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
