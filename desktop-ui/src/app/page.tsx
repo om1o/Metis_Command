@@ -370,13 +370,45 @@ function MarkdownView({ source }: { source: string }) {
             {b.items.map((it, j) => <li key={`${k}-${j}`}>{renderInline(it, `${k}-${j}`)}</li>)}
           </ol>
         );
-        return (
-          <pre key={k} className="overflow-x-auto rounded-xl border border-[var(--metis-border)] bg-[var(--metis-bg)] p-4 text-[13px] leading-6 text-[var(--metis-fg)]">
-            {b.lang && <div className="mb-2 text-[10px] uppercase tracking-widest text-[var(--metis-fg-dim)]">{b.lang}</div>}
-            <code className="font-mono">{b.text}</code>
-          </pre>
-        );
+        return <CodeBlock key={k} lang={b.lang} text={b.text} />;
       })}
+    </div>
+  );
+}
+
+// Code block with header (language label) + copy button. The pre body
+// stays selectable + scrollable; the header floats above it.
+function CodeBlock({ lang, text }: { lang: string; text: string }) {
+  const [copied, setCopied] = useState(false);
+  const onCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch {}
+  };
+  const lineCount = text.split('\n').length;
+  return (
+    <div className="metis-code-block group overflow-hidden rounded-xl border border-[var(--metis-border)] bg-[var(--metis-bg)]">
+      <div className="flex items-center gap-2 border-b border-[var(--metis-border)] bg-[var(--metis-elevated)] px-3 py-1.5">
+        <span className="text-[10px] uppercase tracking-widest text-[var(--metis-fg-dim)]">
+          {lang || 'code'}
+        </span>
+        <span className="text-[10px] text-[var(--metis-fg-dim)]">·</span>
+        <span className="text-[10px] text-[var(--metis-fg-dim)]">{lineCount} {lineCount === 1 ? 'line' : 'lines'}</span>
+        <button
+          type="button"
+          onClick={onCopy}
+          className="ml-auto inline-flex items-center gap-1 rounded-md border border-[var(--metis-border)] bg-[var(--metis-bg)] px-1.5 py-0.5 text-[10px] text-[var(--metis-fg-muted)] transition hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]"
+          title="Copy code"
+        >
+          {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+      </div>
+      <pre className="overflow-x-auto p-3.5 text-[12.5px] leading-6 text-[var(--metis-fg)]">
+        <code className="font-mono">{text}</code>
+      </pre>
     </div>
   );
 }
