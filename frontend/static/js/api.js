@@ -169,6 +169,25 @@ export const api = {
     body: JSON.stringify({ prompt, duration: opts.duration || 4 }),
   }),
 
+  // Notifications
+  notifications: (limit = 50, unreadOnly = false) =>
+    _fetch(`/notifications?limit=${limit}&unread_only=${unreadOnly}`),
+  notificationCount: () => _fetch('/notifications/count'),
+  markNotificationRead: (id) => _fetch(`/notifications/${encodeURIComponent(id)}/read`, { method: 'POST' }),
+  markAllNotificationsRead: () => _fetch('/notifications/read-all', { method: 'POST' }),
+  clearNotifications: () => _fetch('/notifications', { method: 'DELETE' }),
+
+  // Sessions full-text search
+  searchSessions: (q, limit = 20) =>
+    _fetch(`/sessions/search?q=${encodeURIComponent(q)}&limit=${limit}`),
+
+  // Analytics summary
+  analytics: () => _fetch('/analytics'),
+
+  // Artifacts
+  artifacts: (limit = 50) => _fetch(`/artifacts?limit=${limit}`),
+  deleteArtifact: (id) => _fetch(`/artifacts/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
   // Streaming chat (Server-Sent Events)
   chatStream: async function* (sessionId, message, role = 'manager', signal, direct = false) {
     const token = getToken();

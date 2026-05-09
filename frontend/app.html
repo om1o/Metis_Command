@@ -8,9 +8,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/polish/global-polish.v2.css?v=v17">
-<link rel="stylesheet" href="/static/styles/wordmark.css?v=v17">
-<script src="/static/js/wordmark.js?v=v17" defer></script>
+<link rel="stylesheet" href="/static/polish/global-polish.v2.css?v=v18">
+<link rel="stylesheet" href="/static/styles/wordmark.css?v=v18">
+<script src="/static/js/wordmark.js?v=v18" defer></script>
 <style>
 :root{
   --vi:#7C3AED; --vi2:#A78BFA; --co:#FB7185; --am:#F59E0B; --bl:#3B82F6; --gr:#22C55E;
@@ -549,6 +549,46 @@ pre:hover .code-copy{opacity:1}
 .tour-btn.next{background:var(--grad);color:#fff}
 .tour-btn.next:hover{transform:translateY(-1px);box-shadow:0 4px 12px var(--accent-glow)}
 
+/* ── Notification bell ── */
+.notif-bell-wrap{position:relative}
+.notif-bell-btn{background:transparent;border:none;color:var(--subtle);cursor:pointer;padding:7px;border-radius:7px;transition:all .15s;display:flex;align-items:center;justify-content:center;position:relative}
+.notif-bell-btn:hover{color:var(--text);background:var(--panel)}
+.notif-bell-btn svg{width:17px;height:17px}
+.notif-badge{position:absolute;top:3px;right:3px;min-width:16px;height:16px;border-radius:8px;background:var(--co);color:#fff;font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;line-height:16px;text-align:center;padding:0 4px;border:1.5px solid var(--bg);animation:badge-pop .25s cubic-bezier(.34,1.4,.64,1)}
+@keyframes badge-pop{from{transform:scale(0)}to{transform:scale(1)}}
+
+/* ── Notification panel ── */
+.notif-overlay{position:fixed;inset:0;z-index:300;background:rgba(7,7,26,.6);backdrop-filter:blur(4px);display:none;animation:fadeIn .2s ease}
+.notif-overlay.show{display:block}
+.notif-panel{position:fixed;top:0;right:0;bottom:0;width:360px;max-width:90vw;z-index:310;background:rgba(13,13,36,.97);backdrop-filter:blur(28px);border-left:1px solid var(--border-2);box-shadow:-16px 0 48px rgba(0,0,0,.4);transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column}
+.notif-panel.open{transform:translateX(0)}
+.notif-panel-head{padding:20px 24px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.notif-panel-head h3{font-family:'Sora',sans-serif;font-size:16px;font-weight:700;color:var(--text);flex:1}
+.notif-panel-head .notif-head-count{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--subtle);background:var(--panel);padding:2px 8px;border-radius:10px;border:1px solid var(--border)}
+.notif-head-action{background:transparent;border:none;color:var(--subtle);cursor:pointer;padding:5px 9px;border-radius:6px;font-family:inherit;font-size:11.5px;font-weight:600;transition:all .15s}
+.notif-head-action:hover{color:var(--text);background:var(--panel)}
+.notif-close{background:transparent;border:none;color:var(--subtle);cursor:pointer;padding:6px;border-radius:7px;transition:all .15s;display:flex;align-items:center;justify-content:center}
+.notif-close:hover{color:var(--text);background:var(--panel)}
+.notif-close svg{width:18px;height:18px;stroke:currentColor;stroke-width:2;fill:none}
+.notif-panel-body{flex:1;overflow-y:auto;padding:10px 16px}
+.notif-item{display:flex;gap:10px;padding:10px 12px;border-radius:10px;margin-bottom:6px;border:1px solid var(--border);background:var(--panel);cursor:pointer;transition:all .15s;position:relative}
+.notif-item:hover{background:var(--panel-2)}
+.notif-item.unread{background:rgba(124,58,237,.06);border-color:rgba(124,58,237,.18)}
+.notif-item.unread::before{content:"";position:absolute;left:8px;top:50%;transform:translateY(-50%);width:5px;height:5px;border-radius:50%;background:var(--accent)}
+.notif-item .ni-icon{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.notif-item .ni-icon.info{background:rgba(59,130,246,.15)}
+.notif-item .ni-icon.success{background:rgba(34,197,94,.15)}
+.notif-item .ni-icon.warning{background:rgba(245,158,11,.15)}
+.notif-item .ni-icon.error{background:rgba(251,113,133,.15)}
+.notif-item .ni-icon.agent{background:rgba(124,58,237,.15)}
+.notif-item .ni-body{flex:1;min-width:0}
+.notif-item .ni-title{font-size:12.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3}
+.notif-item .ni-body-text{font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.notif-item .ni-time{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--subtle);margin-top:3px}
+.notif-empty{padding:40px 20px;text-align:center;color:var(--subtle)}
+.notif-empty svg{width:32px;height:32px;stroke:var(--subtle);stroke-width:1.5;fill:none;opacity:.4;margin-bottom:12px}
+.notif-empty p{font-size:13px}
+
 /* Tablet + mobile: collapse sidebar, show hamburger */
 @media(max-width:880px){
   .layout{grid-template-columns:1fr}
@@ -587,7 +627,7 @@ pre:hover .code-copy{opacity:1}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver">v16.5</span>
+      <span class="ver">v18.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -683,6 +723,13 @@ pre:hover .code-copy{opacity:1}
         <div class="model-menu" id="modelMenu"></div>
       </div>
 
+      <!-- Notification bell -->
+      <div class="notif-bell-wrap" id="notifBellWrap">
+        <button class="notif-bell-btn" id="notifBellBtn" title="Notifications">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="notif-badge" id="notifBadge" style="display:none">0</span>
+        </button>
+      </div>
       <div class="health-pill" id="healthPill"><span class="health-dot" id="healthDot"></span><span id="healthText">Connecting…</span></div>
     </div>
 
@@ -836,6 +883,25 @@ pre:hover .code-copy{opacity:1}
   </div>
 </div>
 
+<!-- Notification panel -->
+<div class="notif-overlay" id="notifOverlay"></div>
+<div class="notif-panel" id="notifPanel">
+  <div class="notif-panel-head">
+    <h3>Notifications</h3>
+    <span class="notif-head-count" id="notifPanelCount">0 unread</span>
+    <button class="notif-head-action" id="notifMarkAllBtn" title="Mark all read">Mark all read</button>
+    <button class="notif-close" id="notifClose" title="Close">
+      <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="notif-panel-body" id="notifPanelBody">
+    <div class="notif-empty">
+      <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <p>No notifications yet</p>
+    </div>
+  </div>
+</div>
+
 <!-- Onboarding tour overlay -->
 <div class="tour-overlay" id="tourOverlay">
   <div class="tour-spotlight" id="tourSpotlight"></div>
@@ -851,7 +917,7 @@ pre:hover .code-copy{opacity:1}
 </div>
 
 <script type="module">
-import { api, ensureAuthed, clearSession, getUser } from '/static/js/api.js?v=v17';
+import { api, ensureAuthed, clearSession, getUser } from '/static/js/api.js?v=v18';
 
 window.addEventListener('load', () => {
   const g = document.getElementById('mp-grain');
@@ -1195,15 +1261,7 @@ document.getElementById('modelDropdown').addEventListener('click', (e) => e.stop
 
 renderModeDropdown();
 
-// ── Session search ─────────────────────────────────────────────────────
-document.getElementById('sessionSearchInput').addEventListener('input', (e) => {
-  const q = e.target.value.toLowerCase();
-  document.querySelectorAll('.session-item').forEach(item => {
-    const label = item.querySelector('.session-label');
-    const text = (label ? label.textContent : '').toLowerCase();
-    item.style.display = text.includes(q) ? '' : 'none';
-  });
-});
+// ── Session search — wired below with FTS5 API (see Phase 11 section) ──
 
 // ── Status polling ──────────────────────────────────────────────────────
 async function refreshStatus() {
@@ -2069,7 +2127,14 @@ async function sendMessage() {
         clearInterval(thinkingInterval);
         replyBubble.textContent = `Error: ${ev.message}`;
         if (window.toast) toast('error', 'Manager error', ev.message, 5000);
+      } else if (ev.type === 'run_artifact_saved') {
+        if (window.toast) toast('success', 'Run report saved', ev.title || 'Manager run report', 2500);
+        refreshNotifBadge();
+      } else if (ev.type === 'relationship_saved') {
+        refreshNotifBadge();
       } else if (ev.type === 'done') {
+        // Refresh notification badge in case a job notification was posted
+        refreshNotifBadge();
         // Mark mission as complete
         if (missionStatEl) {
           missionStatEl.classList.add('done');
@@ -2669,6 +2734,176 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+// ── Notification bell + panel ──────────────────────────────────────────
+const notifBellBtn   = document.getElementById('notifBellBtn');
+const notifBadge     = document.getElementById('notifBadge');
+const notifOverlay   = document.getElementById('notifOverlay');
+const notifPanel     = document.getElementById('notifPanel');
+const notifPanelBody = document.getElementById('notifPanelBody');
+const notifPanelCount= document.getElementById('notifPanelCount');
+
+const NOTIF_ICONS = {
+  info:    '💬', success: '✅', warning: '⚠️', error: '❌', agent: '🤖',
+};
+
+function _relTime(isoStr) {
+  const ms = Date.now() - new Date(isoStr).getTime();
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return 'just now';
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h/24)}d ago`;
+}
+
+function openNotifPanel() {
+  notifOverlay.classList.add('show');
+  notifPanel.classList.add('open');
+  renderNotifPanel();
+}
+function closeNotifPanel() {
+  notifOverlay.classList.remove('show');
+  notifPanel.classList.remove('open');
+}
+
+notifBellBtn.addEventListener('click', (e) => { e.stopPropagation(); openNotifPanel(); });
+notifOverlay.addEventListener('click', closeNotifPanel);
+document.getElementById('notifClose').addEventListener('click', closeNotifPanel);
+
+document.getElementById('notifMarkAllBtn').addEventListener('click', async () => {
+  try {
+    await api.markAllNotificationsRead();
+    await refreshNotifBadge();
+    renderNotifPanel();
+  } catch {}
+});
+
+async function renderNotifPanel() {
+  try {
+    const items = await api.notifications(50);
+    const unread = items.filter(n => !n.read).length;
+    notifPanelCount.textContent = unread ? `${unread} unread` : 'all read';
+
+    if (!items.length) {
+      notifPanelBody.innerHTML = `<div class="notif-empty">
+        <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <p>No notifications yet</p>
+      </div>`;
+      return;
+    }
+
+    notifPanelBody.innerHTML = items.map(n => `
+      <div class="notif-item ${n.read ? '' : 'unread'}" data-id="${escapeHtml(n.id)}">
+        <div class="ni-icon ${escapeHtml(n.type || 'info')}">${NOTIF_ICONS[n.type] || '💬'}</div>
+        <div class="ni-body">
+          <div class="ni-title">${escapeHtml(n.title || '')}</div>
+          ${n.body ? `<div class="ni-body-text">${escapeHtml(n.body)}</div>` : ''}
+          <div class="ni-time">${_relTime(n.created_at)}</div>
+        </div>
+      </div>
+    `).join('');
+
+    // Mark individual as read on click
+    notifPanelBody.querySelectorAll('.notif-item').forEach(el => {
+      el.addEventListener('click', async () => {
+        const id = el.dataset.id;
+        el.classList.remove('unread');
+        try { await api.markNotificationRead(id); } catch {}
+        refreshNotifBadge();
+      });
+    });
+  } catch (e) {
+    console.warn('renderNotifPanel failed:', e);
+  }
+}
+
+async function refreshNotifBadge() {
+  try {
+    const { unread } = await api.notificationCount();
+    if (unread > 0) {
+      notifBadge.textContent = unread > 99 ? '99+' : String(unread);
+      notifBadge.style.display = '';
+    } else {
+      notifBadge.style.display = 'none';
+    }
+  } catch {}
+}
+
+// Poll unread count every 30s
+refreshNotifBadge();
+setInterval(refreshNotifBadge, 30000);
+
+// Add to command palette
+COMMANDS.push({
+  id: 'notifications', icon: '🔔', t: 'Open notifications',
+  d: 'View recent alerts and agent updates', kbd: '',
+  run: openNotifPanel,
+});
+
+// ── Server-side FTS5 session search ───────────────────────────────────
+let _searchTimer = null;
+let _searchActive = false;
+
+document.getElementById('sessionSearchInput').addEventListener('input', (e) => {
+  const q = e.target.value.trim();
+  clearTimeout(_searchTimer);
+
+  if (!q) {
+    // No query — restore full session list
+    _searchActive = false;
+    document.querySelectorAll('.session-item').forEach(item => {
+      item.style.display = '';
+    });
+    return;
+  }
+
+  // Debounce 280ms then hit the FTS5 API
+  _searchTimer = setTimeout(async () => {
+    _searchActive = true;
+    try {
+      const results = await api.searchSessions(q, 30);
+      const list = document.getElementById('sessionList');
+      if (!results.length) {
+        list.innerHTML = `<div class="session-empty"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>No matches for "${escapeHtml(q)}"</div>`;
+        return;
+      }
+      // Group by session, show top hit per session as snippet
+      const bySession = new Map();
+      results.forEach(r => {
+        if (!bySession.has(r.session_id)) bySession.set(r.session_id, r);
+      });
+      list.innerHTML = '';
+      bySession.forEach((r, sid) => {
+        const div = document.createElement('div');
+        div.className = 'session-item';
+        div.dataset.id = sid;
+        const snippet = (r.snippet || r.content || '').substring(0, 60);
+        div.innerHTML = `<span class="session-label" title="${escapeHtml(sid)}">${escapeHtml(r.title || sid)}</span>`;
+        if (snippet) {
+          const sub = document.createElement('div');
+          sub.style.cssText = 'font-size:10.5px;color:var(--subtle);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+          sub.textContent = snippet;
+          div.appendChild(sub);
+        }
+        div.addEventListener('click', () => {
+          document.getElementById('sessionSearchInput').value = '';
+          _searchActive = false;
+          loadSessions();
+          loadSession(sid);
+        });
+        list.appendChild(div);
+      });
+    } catch {
+      // Fall back to DOM filter
+      document.querySelectorAll('.session-item').forEach(item => {
+        const text = (item.querySelector('.session-label')?.textContent || '').toLowerCase();
+        item.style.display = text.includes(q.toLowerCase()) ? '' : 'none';
+      });
+    }
+  }, 280);
+});
+
 // ── Onboarding tour (Phase 11) ──────────────────────────────────────────
 const TOUR_KEY = 'metis.tour_done';
 
@@ -2792,6 +3027,6 @@ function maybeStartTour() {
 }
 maybeStartTour();
 </script>
-<script src="/static/polish/global-polish.v2.js?v=v17"></script>
+<script src="/static/polish/global-polish.v2.js?v=v18"></script>
 </body>
 </html>

@@ -34,7 +34,7 @@ from run_contracts import build_run_contract, normalize_mode, normalize_permissi
 import auth_local  # noqa: E402
 import auth_engine  # noqa: E402
 
-app = FastAPI(title="Metis API Bridge", version="16.4.0")
+app = FastAPI(title="Metis API Bridge", version="18.0.0")
 
 # Frontend lives in ./frontend (HTML + static)
 _FRONTEND_DIR = Path(__file__).parent / "frontend"
@@ -1181,7 +1181,7 @@ def sessions_export(
         lines.append("")
         lines.append(m.get("content", ""))
         lines.append("")
-    return _Resp(
+    return Response(
         content="\n".join(lines),
         media_type="text/markdown",
         headers={"Content-Disposition": f'attachment; filename="metis-{session_id[:12]}.md"'},
