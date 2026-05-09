@@ -1,8 +1,8 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Analytics · Metis</title>
+<title>Analytics Â· Metis</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="icon" href="/static/assets/favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -104,17 +104,17 @@ body::before{content:"";position:fixed;inset:0;background:
 <div class="page" id="page">
   <div class="loading" id="loadingState">
     <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-    <p>Loading analytics…</p>
+    <p>Loading analyticsâ€¦</p>
   </div>
 </div>
 
 <script type="module">
-import { api, ensureAuthed } from '/static/js/api.js?v=v18';
+import { api, ensureAuthed } from '/static/js/api.js?v=v20';
 
 const page = document.getElementById('page');
 
 function fmt(n) {
-  if (n === undefined || n === null) return '—';
+  if (n === undefined || n === null) return 'â€”';
   if (n >= 1_000_000) return (n/1_000_000).toFixed(1) + 'M';
   if (n >= 1_000)     return (n/1_000).toFixed(1) + 'K';
   return String(n);
@@ -141,9 +141,9 @@ async function load() {
     data = await api.analytics();
   } catch (e) {
     page.innerHTML = `<div class="error-msg">
-      <p style="font-size:32px;margin-bottom:12px">⚠️</p>
+      <p style="font-size:32px;margin-bottom:12px">âš ï¸</p>
       <p>Could not load analytics: ${esc(e.message)}</p>
-      <a href="/app" style="display:inline-block;margin-top:18px;color:var(--vi2)">← Back to Metis</a>
+      <a href="/app" style="display:inline-block;margin-top:18px;color:var(--vi2)">â† Back to Metis</a>
     </div>`;
     return;
   }
@@ -204,37 +204,37 @@ async function load() {
 
     <div class="stat-grid">
       <div class="stat-card accent">
-        <div class="stat-icon">💬</div>
+        <div class="stat-icon">ðŸ’¬</div>
         <div class="stat-value">${fmt(s.total)}</div>
         <div class="stat-label">Total sessions</div>
         <div class="stat-sub">${fmt(s.active_last_7d)} active last 7 days</div>
       </div>
       <div class="stat-card green">
-        <div class="stat-icon">🎯</div>
+        <div class="stat-icon">ðŸŽ¯</div>
         <div class="stat-value">${fmt(m.total)}</div>
         <div class="stat-label">Missions run</div>
-        <div class="stat-sub">${fmt(m.success)} succeeded · ${fmt(m.failed)} failed</div>
+        <div class="stat-sub">${fmt(m.success)} succeeded Â· ${fmt(m.failed)} failed</div>
       </div>
       <div class="stat-card blue">
-        <div class="stat-icon">⚡</div>
+        <div class="stat-icon">âš¡</div>
         <div class="stat-value">${fmt(sc.total)}</div>
         <div class="stat-label">Automations</div>
         <div class="stat-sub">${fmt(sc.active)} currently active</div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon">🧠</div>
+        <div class="stat-icon">ðŸ§ </div>
         <div class="stat-value">${fmt(t.total)}</div>
         <div class="stat-label">Tokens used</div>
-        <div class="stat-sub">${fmt(t.calls)} AI calls · ${fmtUsd(t.cost_usd)} est.</div>
+        <div class="stat-sub">${fmt(t.calls)} AI calls Â· ${fmtUsd(t.cost_usd)} est.</div>
       </div>
       <div class="stat-card amber">
-        <div class="stat-icon">📬</div>
+        <div class="stat-icon">ðŸ“¬</div>
         <div class="stat-value">${fmt(ib.total)}</div>
         <div class="stat-label">Inbox items</div>
         <div class="stat-sub">${fmt(ib.unread)} unread</div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon">💳</div>
+        <div class="stat-icon">ðŸ’³</div>
         <div class="stat-value">${fmtCents(w.spent_cents)}</div>
         <div class="stat-label">Monthly spend</div>
         <div class="stat-sub">cap: ${fmtCents(w.cap_cents)}</div>
@@ -284,7 +284,7 @@ async function load() {
   `;
 
   document.getElementById('refreshBtn').addEventListener('click', () => {
-    page.innerHTML = '<div class="loading" id="loadingState"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg><p>Refreshing…</p></div>';
+    page.innerHTML = '<div class="loading" id="loadingState"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg><p>Refreshingâ€¦</p></div>';
     load();
   });
 }

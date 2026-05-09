@@ -4,7 +4,7 @@
 
 ---
 
-## Current State (v0.19.0)
+## Current State (v0.20.0)
 
 ### Working
 - Manager orchestrator with 4 specialists (Researcher, Coder, Thinker, Scholar)
@@ -36,6 +36,17 @@
 - Streaming timeout UI (30s warning)
 - Specialist cap at 2 per turn
 - Default model: qwen3.5:4b (stronger than 1.5b)
+
+### Completed (v0.20.0)
+- ✅ Sidebar collapse toggle — Ctrl+B collapses/expands the left panel; state persisted in localStorage; sidebar toggle button added to main header (desktop only)
+- ✅ Keyboard shortcuts reference modal — Ctrl+/ opens a full cheat-sheet modal covering navigation, conversation, and all slash commands
+- ✅ Slash command inline menu — typing `/` in the chat input shows a floating autocomplete menu for `/code`, `/plan`, `/search`, `/model`, `/remember`, `/forget`, `/clear`, `/export`; arrow keys + Tab/Enter to select
+- ✅ Direct mode header badge — ⚡ Direct pill appears in the header when Direct mode is active
+- ✅ Ctrl+M push-to-talk — global shortcut triggers the mic button
+- ✅ Always-visible pin star — pinned sessions show the star permanently (not just on hover)
+- ✅ Ctrl+/ → shortcuts modal (previously focused input); Ctrl+B, Ctrl+M wired globally
+- ✅ Shortcuts modal added to command palette
+- ✅ Sidebar toggle added to command palette
 
 ### Known Gaps
 - Notification bell UI is wired (polls `/notifications/count` every 30s — ✅ done)

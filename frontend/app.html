@@ -15,9 +15,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/polish/global-polish.v2.css?v=v19">
-<link rel="stylesheet" href="/static/styles/wordmark.css?v=v19">
-<script src="/static/js/wordmark.js?v=v19" defer></script>
+<link rel="stylesheet" href="/static/polish/global-polish.v2.css?v=v20">
+<link rel="stylesheet" href="/static/styles/wordmark.css?v=v20">
+<script src="/static/js/wordmark.js?v=v20" defer></script>
 <style>
 :root{
   --vi:#7C3AED; --vi2:#A78BFA; --co:#FB7185; --am:#F59E0B; --bl:#3B82F6; --gr:#22C55E;
@@ -694,6 +694,50 @@ pre:hover .code-copy{opacity:1}
 .cmp-col-copy svg{width:14px;height:14px;stroke:currentColor;stroke-width:2;fill:none}
 .cmp-spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,.15);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;display:inline-block}
 @keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Sidebar collapse ───────────────────────────────────────────────── */
+.layout{transition:grid-template-columns .25s cubic-bezier(.4,0,.2,1)}
+.side{transition:opacity .2s ease,transform .25s cubic-bezier(.4,0,.2,1);min-width:0}
+.layout.sidebar-collapsed{grid-template-columns:0 1fr}
+.layout.sidebar-collapsed .side{opacity:0;pointer-events:none;transform:translateX(-20px);overflow:hidden}
+.side-toggle-btn{background:transparent;border:none;color:var(--subtle);cursor:pointer;padding:7px;border-radius:7px;transition:all .15s;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.side-toggle-btn:hover{color:var(--text);background:var(--panel)}
+.side-toggle-btn svg{width:16px;height:16px;stroke:currentColor;stroke-width:2;fill:none}
+@media(max-width:880px){.side-toggle-btn{display:none}}
+
+/* ── Direct mode badge ──────────────────────────────────────────────── */
+.direct-badge{display:none;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.3);font-family:'JetBrains Mono',monospace;font-size:10.5px;color:#FBBF24;letter-spacing:.04em;flex-shrink:0;white-space:nowrap}
+.direct-badge.visible{display:flex}
+
+/* ── Pin always visible when pinned ──────────────────────────────────── */
+.session-item.pinned .session-rename{opacity:1;color:var(--am)}
+.session-item.pinned .session-rename:hover{color:var(--am);background:rgba(245,158,11,.15)}
+
+/* ── Keyboard shortcuts modal ────────────────────────────────────────── */
+.shortcuts-overlay{position:fixed;inset:0;z-index:400;background:rgba(7,7,26,.75);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;animation:fadeIn .2s ease}
+.shortcuts-overlay.show{display:flex}
+.shortcuts-modal{width:640px;max-width:94vw;max-height:82vh;background:rgba(13,13,36,.97);backdrop-filter:blur(32px);border:1px solid var(--border-2);border-radius:16px;box-shadow:0 32px 80px rgba(0,0,0,.55);overflow:hidden;display:flex;flex-direction:column;animation:popIn .25s cubic-bezier(.34,1.4,.64,1)}
+.shortcuts-head{padding:18px 22px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.shortcuts-head h3{font-family:'Sora',sans-serif;font-size:15px;font-weight:700;color:var(--text)}
+.shortcuts-close-btn{background:transparent;border:none;color:var(--subtle);cursor:pointer;padding:6px 10px;border-radius:7px;transition:all .15s;font-size:16px;line-height:1;font-family:inherit}
+.shortcuts-close-btn:hover{color:var(--text);background:var(--panel)}
+.shortcuts-body{overflow-y:auto;padding:18px 22px}
+.shortcuts-section{margin-bottom:18px}
+.shortcuts-section-title{font-family:'Sora',sans-serif;font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--subtle);margin-bottom:8px}
+.shortcuts-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+@media(max-width:560px){.shortcuts-grid{grid-template-columns:1fr}}
+.shortcut-row{display:flex;align-items:center;justify-content:space-between;padding:7px 11px;border-radius:7px;background:var(--panel);border:1px solid var(--border)}
+.shortcut-row .s-desc{font-size:12px;color:var(--muted)}
+.shortcut-row .s-keys{display:flex;gap:3px;align-items:center;flex-shrink:0;margin-left:8px}
+.shortcut-row .s-keys kbd{font-family:'JetBrains Mono',monospace;font-size:10px;background:rgba(255,255,255,.07);border:1px solid var(--border-2);border-radius:4px;padding:2px 6px;color:var(--text);white-space:nowrap}
+
+/* ── Slash command menu ───────────────────────────────────────────────── */
+.slash-menu{position:absolute;bottom:calc(100% + 10px);left:0;width:300px;background:rgba(13,13,36,.97);backdrop-filter:blur(28px);border:1px solid var(--border-2);border-radius:11px;box-shadow:0 -16px 48px rgba(0,0,0,.55);padding:6px;z-index:70;display:none}
+.slash-menu.open{display:block;animation:dropUp .18s ease-out}
+.slash-cmd{padding:9px 12px;border-radius:7px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:background .12s}
+.slash-cmd:hover,.slash-cmd.active{background:var(--panel-2)}
+.slash-cmd .sc-name{font-weight:700;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;min-width:84px;flex-shrink:0}
+.slash-cmd .sc-desc{font-size:11.5px;color:var(--subtle)}
 </style>
 </head>
 <body>
@@ -708,7 +752,7 @@ pre:hover .code-copy{opacity:1}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v18.0</span>
+      <span class="ver" id="versionPill">v20.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -788,12 +832,16 @@ pre:hover .code-copy{opacity:1}
       <button class="hamburger" id="hamburgerBtn" title="Menu">
         <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
       </button>
+      <button class="side-toggle-btn" id="sideToggleBtn" title="Toggle sidebar (⌘B)">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+      </button>
       <div class="manager-badge" id="managerBadge">
         <span class="pulse"></span>
         <span class="name" id="managerName">Manager</span>
         <span class="role">orchestrator</span>
       </div>
       <span class="session-title-header" id="sessionTitleHeader"></span>
+      <span class="direct-badge" id="directBadge">⚡ Direct</span>
       <div class="spacer"></div>
       <div class="kbd-hint"><kbd>⌘</kbd><kbd>K</kbd></div>
 
@@ -882,6 +930,8 @@ pre:hover .code-copy{opacity:1}
             <svg id="sendIcon" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
           </button>
         </div>
+        <!-- Slash command menu (upward, left-aligned) -->
+        <div class="slash-menu" id="slashMenu"></div>
         <!-- Mode dropdown (upward) -->
         <div class="input-dropdown left" id="modeDropdown"></div>
         <!-- Model dropdown (upward) -->
@@ -1102,8 +1152,55 @@ pre:hover .code-copy{opacity:1}
   </div>
 </div>
 
+<!-- Keyboard shortcuts modal -->
+<div class="shortcuts-overlay" id="shortcutsOverlay">
+  <div class="shortcuts-modal" role="dialog" aria-label="Keyboard shortcuts">
+    <div class="shortcuts-head">
+      <h3>⌨️ Keyboard Shortcuts</h3>
+      <button class="shortcuts-close-btn" id="shortcutsClose" title="Close (Esc)">×</button>
+    </div>
+    <div class="shortcuts-body">
+      <div class="shortcuts-section">
+        <div class="shortcuts-section-title">Navigation</div>
+        <div class="shortcuts-grid">
+          <div class="shortcut-row"><span class="s-desc">Command palette</span><span class="s-keys"><kbd>⌘</kbd><kbd>K</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">New conversation</span><span class="s-keys"><kbd>⌘</kbd><kbd>L</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Toggle sidebar</span><span class="s-keys"><kbd>⌘</kbd><kbd>B</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">This cheat sheet</span><span class="s-keys"><kbd>⌘</kbd><kbd>/</kbd></span></div>
+        </div>
+      </div>
+      <div class="shortcuts-section">
+        <div class="shortcuts-section-title">Conversation</div>
+        <div class="shortcuts-grid">
+          <div class="shortcut-row"><span class="s-desc">Send message</span><span class="s-keys"><kbd>↵</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Newline</span><span class="s-keys"><kbd>⇧</kbd><kbd>↵</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Stop generation</span><span class="s-keys"><kbd>Esc</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Edit last message</span><span class="s-keys"><kbd>↑</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Copy last response</span><span class="s-keys"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>C</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Regenerate</span><span class="s-keys"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>R</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Push-to-talk mic</span><span class="s-keys"><kbd>⌘</kbd><kbd>M</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Focus input</span><span class="s-keys"><kbd>⌘</kbd><kbd>Shift</kbd><kbd>N</kbd></span></div>
+        </div>
+      </div>
+      <div class="shortcuts-section">
+        <div class="shortcuts-section-title">Slash Commands</div>
+        <div class="shortcuts-grid">
+          <div class="shortcut-row"><span class="s-desc">Coder persona</span><span class="s-keys"><kbd>/code</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Plan a task</span><span class="s-keys"><kbd>/plan</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Search sessions</span><span class="s-keys"><kbd>/search</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Change model</span><span class="s-keys"><kbd>/model</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Remember a fact</span><span class="s-keys"><kbd>/remember</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Forget a fact</span><span class="s-keys"><kbd>/forget</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Clear conversation</span><span class="s-keys"><kbd>/clear</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Export session</span><span class="s-keys"><kbd>/export</kbd></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script type="module">
-import { api, ensureAuthed, clearSession, getUser } from '/static/js/api.js?v=v19';
+import { api, ensureAuthed, clearSession, getUser } from '/static/js/api.js?v=v20';
 
 window.addEventListener('load', () => {
   const g = document.getElementById('mp-grain');
@@ -1387,6 +1484,7 @@ function renderModeDropdown() {
     el.addEventListener('click', (e) => {
       e.stopPropagation();
       currentMode = el.dataset.mode;
+      updateDirectBadge();
       const placeholders = {
         chat: 'Ask the Manager…  (⌘K for commands)',
         direct: 'Direct model prompt — no orchestration, raw output…',
@@ -1521,7 +1619,7 @@ async function loadSessions() {
       const isPinned = pinned.has(id);
 
       const div = document.createElement('div');
-      div.className = 'session-item';
+      div.className = 'session-item' + (isPinned ? ' pinned' : '');
       div.dataset.id = id;
       div.title = id;
       if (id === currentSession) div.classList.add('active');
@@ -2717,10 +2815,18 @@ document.addEventListener('keydown', (e) => {
     newChat();
   } else if (meta && e.key === '/') {
     e.preventDefault();
-    msgInput.focus();
+    openShortcutsModal();
+  } else if (meta && e.key === 'b') {
+    e.preventDefault();
+    toggleSidebar();
+  } else if (meta && e.key === 'm') {
+    e.preventDefault();
+    document.getElementById('micBtn')?.click();
   } else if (e.key === 'Escape') {
     if (overlay.classList.contains('show')) closePalette();
     if (document.getElementById('settingsPanel').classList.contains('open')) closeSettings();
+    if (document.getElementById('shortcutsOverlay').classList.contains('show')) closeShortcutsModal();
+    hideSlashMenu();
   }
 });
 
@@ -3729,8 +3835,149 @@ COMMANDS.push({
   d: 'Visually connect specialists into reusable pipelines', kbd: '',
   run: () => window.open('/workflows/page/builder', '_blank'),
 });
+
+// ── Sidebar collapse (Ctrl+B) ───────────────────────────────────────────
+function toggleSidebar() {
+  const layout = document.querySelector('.layout');
+  const collapsed = layout.classList.toggle('sidebar-collapsed');
+  localStorage.setItem('metis.sidebar_collapsed', collapsed ? '1' : '0');
+  const btn = document.getElementById('sideToggleBtn');
+  if (btn) btn.title = (collapsed ? 'Show sidebar' : 'Hide sidebar') + ' (⌘B)';
+}
+
+document.getElementById('sideToggleBtn').addEventListener('click', toggleSidebar);
+
+// Restore collapsed state from previous session
+if (localStorage.getItem('metis.sidebar_collapsed') === '1') {
+  document.querySelector('.layout').classList.add('sidebar-collapsed');
+}
+
+COMMANDS.push({
+  id: 'sidebar', icon: '◧', t: 'Toggle sidebar',
+  d: 'Collapse or expand the left sidebar', kbd: '⌘B',
+  run: toggleSidebar,
+});
+
+// ── Keyboard shortcuts modal (Ctrl+/) ───────────────────────────────────
+function openShortcutsModal() {
+  document.getElementById('shortcutsOverlay').classList.add('show');
+}
+function closeShortcutsModal() {
+  document.getElementById('shortcutsOverlay').classList.remove('show');
+}
+
+document.getElementById('shortcutsClose').addEventListener('click', closeShortcutsModal);
+document.getElementById('shortcutsOverlay').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeShortcutsModal();
+});
+
+COMMANDS.push({
+  id: 'shortcuts', icon: '⌨️', t: 'Keyboard shortcuts',
+  d: 'View all keyboard shortcuts and slash commands', kbd: '⌘/',
+  run: openShortcutsModal,
+});
+
+// ── Direct mode header badge ─────────────────────────────────────────────
+function updateDirectBadge() {
+  document.getElementById('directBadge')?.classList.toggle('visible', currentMode === 'direct');
+}
+
+// ── Slash command menu ───────────────────────────────────────────────────
+const SLASH_CMDS = [
+  { cmd: '/code',     icon: '⚙️',  desc: 'Switch to Coder mode',          action: () => { currentMode = 'chat'; renderModeDropdown(); if (window.toast) toast('info', 'Coder mode', 'Routing to Coder specialist', 1500); } },
+  { cmd: '/plan',     icon: '🗺️',  desc: 'Plan a task step-by-step',      action: () => { msgInput.value = 'Create a detailed step-by-step plan for: '; msgInput.focus(); msgInput.dispatchEvent(new Event('input')); } },
+  { cmd: '/search',   icon: '🔍',  desc: 'Search past sessions',           action: () => { const s = document.getElementById('sessionSearchInput'); if (s) { s.focus(); s.select(); } } },
+  { cmd: '/model',    icon: '🧠',  desc: 'Switch model',                   action: () => document.getElementById('inputModelBtn')?.click() },
+  { cmd: '/remember', icon: '📌',  desc: 'Save a fact to memory',          action: () => { msgInput.value = '/remember '; msgInput.focus(); msgInput.setSelectionRange(10, 10); msgInput.dispatchEvent(new Event('input')); } },
+  { cmd: '/forget',   icon: '🗑️',  desc: 'Remove a fact from memory',     action: () => { msgInput.value = '/forget '; msgInput.focus(); msgInput.setSelectionRange(8, 8); msgInput.dispatchEvent(new Event('input')); } },
+  { cmd: '/clear',    icon: '🧹',  desc: 'Start a new conversation',       action: () => newChat() },
+  { cmd: '/export',   icon: '📥',  desc: 'Export session as Markdown',     action: () => api.exportSession(currentSession, 'md').then(() => { if (window.toast) toast('success', 'Exported', 'Markdown file downloaded', 2000); }).catch(e => { if (window.toast) toast('error', 'Export failed', e.message, 3000); }) },
+];
+
+let _slashActive = false;
+let _slashIdx = 0;
+let _slashFiltered = [];
+
+function showSlashMenu(query) {
+  const menu = document.getElementById('slashMenu');
+  if (!menu) return;
+  const q = (query || '').toLowerCase();
+  _slashFiltered = SLASH_CMDS.filter(c => c.cmd.startsWith(q));
+  if (!_slashFiltered.length) { hideSlashMenu(); return; }
+  _slashActive = true;
+  _slashIdx = 0;
+  renderSlashMenu();
+  menu.classList.add('open');
+}
+
+function renderSlashMenu() {
+  const menu = document.getElementById('slashMenu');
+  if (!menu) return;
+  menu.innerHTML = _slashFiltered.map((c, i) =>
+    `<div class="slash-cmd${i === _slashIdx ? ' active' : ''}" data-idx="${i}">
+      <span class="sc-name">${escapeHtml(c.cmd)}</span>
+      <span class="sc-desc">${escapeHtml(c.desc)}</span>
+    </div>`
+  ).join('');
+  menu.querySelectorAll('.slash-cmd').forEach((el) => {
+    const i = parseInt(el.dataset.idx);
+    el.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      _slashFiltered[i]?.action();
+      hideSlashMenu();
+      if (!msgInput.value.startsWith('/remember') && !msgInput.value.startsWith('/forget') && !msgInput.value.startsWith('/plan')) {
+        msgInput.value = '';
+        msgInput.style.height = 'auto';
+        sendBtn.disabled = true;
+      }
+    });
+    el.addEventListener('mouseenter', () => { _slashIdx = i; renderSlashMenu(); });
+  });
+}
+
+function hideSlashMenu() {
+  _slashActive = false;
+  document.getElementById('slashMenu')?.classList.remove('open');
+}
+
+// Hook slash menu into the input event (extend existing handler)
+const _origInputHandler = msgInput.oninput;
+msgInput.addEventListener('input', () => {
+  const val = msgInput.value;
+  if (val.startsWith('/') && !val.includes(' ') && val.length <= 12) {
+    showSlashMenu(val);
+  } else {
+    hideSlashMenu();
+  }
+});
+
+// Arrow keys navigate slash menu; Enter selects
+msgInput.addEventListener('keydown', (e) => {
+  if (!_slashActive) return;
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    _slashIdx = (_slashIdx + 1) % _slashFiltered.length;
+    renderSlashMenu();
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    _slashIdx = (_slashIdx - 1 + _slashFiltered.length) % _slashFiltered.length;
+    renderSlashMenu();
+  } else if (e.key === 'Tab' || (e.key === 'Enter' && _slashActive)) {
+    e.preventDefault();
+    _slashFiltered[_slashIdx]?.action();
+    hideSlashMenu();
+    if (!msgInput.value.startsWith('/remember') && !msgInput.value.startsWith('/forget') && !msgInput.value.startsWith('/plan')) {
+      msgInput.value = '';
+      msgInput.style.height = 'auto';
+      sendBtn.disabled = true;
+    }
+  } else if (e.key === 'Escape') {
+    hideSlashMenu();
+  }
+}, true); // capture phase so it runs before the send-on-Enter handler
+
 </script>
-<script src="/static/polish/global-polish.v2.js?v=v19"></script>
+<script src="/static/polish/global-polish.v2.js?v=v20"></script>
 <script>
 // ── PWA Service Worker registration (Phase 18) ─────────────────────────
 if ('serviceWorker' in navigator) {

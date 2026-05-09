@@ -1,16 +1,16 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Create account · Metis</title>
+<title>Create account Â· Metis</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="icon" href="/static/assets/favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/polish/global-polish.v2.css?v=v17">
-<link rel="stylesheet" href="/static/styles/wordmark.css?v=v17">
-<script src="/static/js/wordmark.js?v=v17" defer></script>
+<link rel="stylesheet" href="/static/polish/global-polish.v2.css?v=v20">
+<link rel="stylesheet" href="/static/styles/wordmark.css?v=v20">
+<script src="/static/js/wordmark.js?v=v20" defer></script>
 <style>
 :root{--vi:#7C3AED;--vi2:#A78BFA;--co:#FB7185;--am:#F59E0B;--bg:#07071a;--text:#F8FAFF;--muted:rgba(248,250,255,.55);--subtle:rgba(248,250,255,.28);--grad:linear-gradient(135deg,var(--vi),var(--co) 55%,var(--am))}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -74,7 +74,7 @@ html,body{min-height:100vh;background:var(--bg);color:var(--text);font-family:'I
     <div class="card-head">
       <img class="card-logo" src="/static/assets/metis-logomark-transparent.png" width="52" height="52" alt="">
       <h1>Create your account</h1>
-      <p>Join Metis — free, no credit card</p>
+      <p>Join Metis â€” free, no credit card</p>
     </div>
 
     <div id="banner" class="banner"></div>
@@ -95,13 +95,13 @@ html,body{min-height:100vh;background:var(--bg);color:var(--text);font-family:'I
     </form>
 
     <div class="signin-link">
-      Already have an account? <a href="/login">Sign in →</a>
+      Already have an account? <a href="/login">Sign in â†’</a>
     </div>
   </div>
 </div>
 
 <script type="module">
-import { api, setSession, getToken } from '/static/js/api.js?v=v17';
+import { api, setSession, getToken } from '/static/js/api.js?v=v20';
 
 if (getToken()) window.location.replace('/splash');
 
@@ -115,7 +115,7 @@ document.getElementById('signupForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const btn = document.getElementById('submitBtn');
   btn.disabled = true;
-  btn.textContent = 'Creating account…';
+  btn.textContent = 'Creating accountâ€¦';
   try {
     const email = document.getElementById('email').value.trim();
     const password = document.getElementById('password').value;

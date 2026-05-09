@@ -1,8 +1,8 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Setup · Metis</title>
+<title>Setup Â· Metis</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="icon" href="/static/assets/favicon.svg">
 <link rel="manifest" href="/manifest.json">
@@ -13,9 +13,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/polish/global-polish.v2.css?v=v17">
-<link rel="stylesheet" href="/static/styles/wordmark.css?v=v17">
-<script src="/static/js/wordmark.js?v=v17" defer></script>
+<link rel="stylesheet" href="/static/polish/global-polish.v2.css?v=v20">
+<link rel="stylesheet" href="/static/styles/wordmark.css?v=v20">
+<script src="/static/js/wordmark.js?v=v20" defer></script>
 <style>
 :root{--vi:#7C3AED;--vi2:#A78BFA;--co:#FB7185;--am:#F59E0B;--bl:#3B82F6;--gr:#22C55E;--bg:#07071a;--text:#F8FAFF;--muted:rgba(248,250,255,.6);--subtle:rgba(248,250,255,.32);--border:rgba(255,255,255,.1);--border-2:rgba(255,255,255,.18);--panel:rgba(255,255,255,.05);--panel-2:rgba(255,255,255,.08);--grad:linear-gradient(135deg,var(--vi),var(--co) 55%,var(--am))}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -146,7 +146,7 @@ body{cursor:auto}
     <img class="mm-glyph" src="/static/assets/metis-logomark-transparent.png" alt="">
     <span class="mm-word">Metis</span>
   </button>
-  <div class="step-counter">Setup · <b id="counter">1 / 6</b></div>
+  <div class="step-counter">Setup Â· <b id="counter">1 / 6</b></div>
 </header>
 
 <div class="dots" id="dots"></div>
@@ -156,7 +156,7 @@ body{cursor:auto}
 </div>
 
 <script type="module">
-import { api, ensureAuthed, clearSession } from '/static/js/api.js?v=v17';
+import { api, ensureAuthed, clearSession } from '/static/js/api.js?v=v20';
 
 const TOTAL_STEPS = 6;
 let stepIdx = 0;
@@ -176,7 +176,7 @@ let cfg = {
   specialists: ['Genius', 'Researcher', 'Coder', 'Thinker', 'Scholar'],
 };
 
-// ── Boot ─────────────────────────────────────────────────────────────────
+// â”€â”€ Boot â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const user = await ensureAuthed();
 if (user) {
   const guess = (user.email || '').split('@')[0] || '';
@@ -204,7 +204,7 @@ if (!cfg.manager_model && availableModels.length) {
   cfg.manager_model = preferred ? preferred.id : (local[0] || availableModels[0]).id;
 }
 
-// ── Step renderers ──────────────────────────────────────────────────────
+// â”€â”€ Step renderers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const COLORS = ['#7C3AED', '#FB7185', '#F59E0B', '#3B82F6', '#22C55E', '#EC4899'];
 
 function header(eyebrow, title, sub) {
@@ -214,7 +214,7 @@ function header(eyebrow, title, sub) {
 }
 
 const STEPS = [
-  // Step 1 — Welcome / Company
+  // Step 1 â€” Welcome / Company
   () => `${header('Step 1 of 6', 'Welcome to <em>your</em> AI company.', 'Let\'s set up the Manager who will run the room. First, what do you want to call your company?')}
     <div class="field">
       <label>Company name</label>
@@ -224,10 +224,10 @@ const STEPS = [
     <div class="field">
       <label>Mission / what you do <span style="color:var(--subtle)">(optional)</span></label>
       <textarea id="companyMission" maxlength="240" placeholder="e.g. Help me ship products faster, write better, and make better decisions.">${esc(cfg.company_mission)}</textarea>
-      <div class="hint">A 1–2 sentence north star your Manager will keep in mind.</div>
+      <div class="hint">A 1â€“2 sentence north star your Manager will keep in mind.</div>
     </div>`,
 
-  // Step 2 — Manager identity
+  // Step 2 â€” Manager identity
   () => `${header('Step 2 of 6', 'Name your <em>Manager</em>.', 'Give them a name and a color. This is who you\'ll talk to every day.')}
     <div class="field">
       <label>Manager name</label>
@@ -237,7 +237,7 @@ const STEPS = [
       <div class="avatar-disc" id="avPrev" style="background:${cfg.accent_color}">${initials(cfg.manager_name)}</div>
       <div class="avatar-meta">
         <div class="n" id="avName">${esc(cfg.manager_name) || 'Atlas'}</div>
-        <div class="s" id="avSub">Manager · ${esc(cfg.company_name)}</div>
+        <div class="s" id="avSub">Manager Â· ${esc(cfg.company_name)}</div>
       </div>
     </div>
     <div class="field">
@@ -247,8 +247,8 @@ const STEPS = [
       </div>
     </div>`,
 
-  // Step 3 — Personality
-  () => `${header('Step 3 of 6', 'Pick a <em>personality</em>.', 'How should ' + esc(cfg.manager_name) + ' talk to you? Each preset fills in a starting prompt — you can edit it directly below.')}
+  // Step 3 â€” Personality
+  () => `${header('Step 3 of 6', 'Pick a <em>personality</em>.', 'How should ' + esc(cfg.manager_name) + ' talk to you? Each preset fills in a starting prompt â€” you can edit it directly below.')}
     <div class="preset-grid">
       ${presets.map(p => `
         <button type="button" class="preset-card ${p.key === cfg.persona_key ? 'selected' : ''}" data-key="${p.key}">
@@ -258,13 +258,13 @@ const STEPS = [
       `).join('')}
     </div>
     <div class="field" id="customWrap">
-      <label>System prompt <span style="color:var(--subtle)">— edit anything you want</span></label>
-      <textarea id="customPersona" rows="8" placeholder="You are {manager_name}, the Manager of {company_name}. You're…">${esc(currentPersonaText())}</textarea>
+      <label>System prompt <span style="color:var(--subtle)">â€” edit anything you want</span></label>
+      <textarea id="customPersona" rows="8" placeholder="You are {manager_name}, the Manager of {company_name}. You'reâ€¦">${esc(currentPersonaText())}</textarea>
       <div class="hint">Use <code>{manager_name}</code>, <code>{company_name}</code>, <code>{director_name}</code> as placeholders. Pick a preset above to load its starting text, or write your own from scratch.</div>
-      <button type="button" id="resetPersonaBtn" class="btn btn-ghost" style="margin-top:10px;height:36px;padding:0 14px;font-size:12.5px">↺ Reset to preset</button>
+      <button type="button" id="resetPersonaBtn" class="btn btn-ghost" style="margin-top:10px;height:36px;padding:0 14px;font-size:12.5px">â†º Reset to preset</button>
     </div>`,
 
-  // Step 4 — Model
+  // Step 4 â€” Model
   () => availableModels.length ? `${header('Step 4 of 6', 'Choose your <em>model</em>.', 'Which AI brain should power the Manager? Local models are private (run on your machine). Cloud models are faster + smarter but cost API credits.')}
     <div class="model-grid">
       ${availableModels.map(m => `
@@ -279,20 +279,20 @@ const STEPS = [
       `).join('')}
     </div>` : `${header('Step 4 of 6', 'Choose your <em>model</em>.', 'No models found yet. Make sure Ollama is running, or set GLM_API_KEY / GROQ_API_KEY in your .env to enable cloud routes.')}<div class="banner show error">No models available. You can finish setup and we'll detect them when they come online.</div>`,
 
-  // Step 5 — Director profile
-  () => `${header('Step 5 of 6', 'Tell <em>' + esc(cfg.manager_name) + '</em> about you.', 'Whatever ' + esc(cfg.manager_name) + ' knows about you can be used to give better answers. Keep it short or write paragraphs — your call.')}
+  // Step 5 â€” Director profile
+  () => `${header('Step 5 of 6', 'Tell <em>' + esc(cfg.manager_name) + '</em> about you.', 'Whatever ' + esc(cfg.manager_name) + ' knows about you can be used to give better answers. Keep it short or write paragraphs â€” your call.')}
     <div class="field">
       <label>What should ${esc(cfg.manager_name)} call you?</label>
       <input type="text" id="directorName" maxlength="40" value="${esc(cfg.director_name)}" placeholder="Your name">
     </div>
     <div class="field">
-      <label>About you <span style="color:var(--subtle)">(role, projects, preferences — anything)</span></label>
+      <label>About you <span style="color:var(--subtle)">(role, projects, preferences â€” anything)</span></label>
       <textarea id="directorAbout" rows="7" placeholder="e.g. Software engineer building a product company. Prefer concise answers with code samples. Working on Metis (an AI orchestrator). I read fast, ship fast.">${esc(cfg.director_about)}</textarea>
       <div class="hint">This is added to ${esc(cfg.manager_name)}'s system prompt so it persists across every conversation.</div>
     </div>`,
 
-  // Step 6 — Specialists / Crew
-  () => `${header('Step 6 of 6', 'Build your <em>crew</em>.', esc(cfg.manager_name) + ' delegates to specialists when their depth helps. Toggle which ones are part of your team — you can always change this later.')}
+  // Step 6 â€” Specialists / Crew
+  () => `${header('Step 6 of 6', 'Build your <em>crew</em>.', esc(cfg.manager_name) + ' delegates to specialists when their depth helps. Toggle which ones are part of your team â€” you can always change this later.')}
     <div class="spec-list">
       ${specOptions.map(s => `
         <div class="spec-row ${cfg.specialists.includes(s.key) ? 'on' : ''}" data-key="${s.key}">
@@ -306,7 +306,7 @@ const STEPS = [
     </div>`,
 ];
 
-// ── Render ──────────────────────────────────────────────────────────────
+// â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const stage = document.getElementById('stage');
 const dots = document.getElementById('dots');
 
@@ -326,9 +326,9 @@ function renderStep() {
   card.className = 'step-card';
   card.innerHTML = STEPS[stepIdx]() + `
     <div class="actions">
-      ${stepIdx > 0 ? '<button class="btn btn-ghost" id="backBtn">← Back</button>' : ''}
+      ${stepIdx > 0 ? '<button class="btn btn-ghost" id="backBtn">â† Back</button>' : ''}
       <div class="spacer"></div>
-      <button class="btn btn-primary" id="nextBtn">${stepIdx === TOTAL_STEPS - 1 ? '✨ Finish setup' : 'Continue →'}</button>
+      <button class="btn btn-primary" id="nextBtn">${stepIdx === TOTAL_STEPS - 1 ? 'âœ¨ Finish setup' : 'Continue â†’'}</button>
     </div>`;
   stage.innerHTML = '';
   stage.appendChild(card);
@@ -424,17 +424,17 @@ async function next() {
     renderStep();
     return;
   }
-  // Finish — save config and route to splash → app.
+  // Finish â€” save config and route to splash â†’ app.
   const btn = document.getElementById('nextBtn');
   btn.disabled = true;
-  btn.innerHTML = '<span style="opacity:.8">Saving…</span>';
+  btn.innerHTML = '<span style="opacity:.8">Savingâ€¦</span>';
   try {
     await api.saveManagerConfig(cfg);
     if (window.toast) toast('success', 'Setup complete', `${cfg.manager_name} is ready.`, 2500);
     setTimeout(() => window.location.replace('/splash'), 700);
   } catch (e) {
     btn.disabled = false;
-    btn.innerHTML = '✨ Finish setup';
+    btn.innerHTML = 'âœ¨ Finish setup';
     const card = document.querySelector('.step-card');
     const banner = document.createElement('div');
     banner.className = 'banner show error';
@@ -457,6 +457,6 @@ function currentPersonaText() {
 
 renderStep();
 </script>
-<script src="/static/polish/global-polish.v2.js?v=v17"></script>
+<script src="/static/polish/global-polish.v2.js?v=v20"></script>
 </body>
 </html>

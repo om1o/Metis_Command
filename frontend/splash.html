@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -13,8 +13,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;700;800&family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/styles/wordmark.css?v=v17">
-<script src="/static/js/wordmark.js?v=v17" defer></script>
+<link rel="stylesheet" href="/static/styles/wordmark.css?v=v20">
+<script src="/static/js/wordmark.js?v=v20" defer></script>
 <style>
 :root{--vi:#7C3AED;--vi2:#A78BFA;--co:#FB7185;--am:#F59E0B;--bl:#3B82F6;--gr:#22C55E;--bg:#07071a;--text:#F8FAFF;--muted:rgba(248,250,255,.55);--subtle:rgba(248,250,255,.32);--grad:linear-gradient(135deg,var(--vi),var(--co) 55%,var(--am))}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -104,10 +104,10 @@ body.leaving{animation:fadeOut .5s cubic-bezier(.4,0,.6,1) forwards}
   </div>
 </div>
 
-<div class="foot">Boot sequence · <span id="ver">v—</span></div>
+<div class="foot">Boot sequence Â· <span id="ver">vâ€”</span></div>
 
 <script type="module">
-import { api, getToken, ensureAuthed, setSession } from '/static/js/api.js?v=v17';
+import { api, getToken, ensureAuthed, setSession } from '/static/js/api.js?v=v20';
 
 const STEPS = [
   { id: 'boot',    label: 'Initializing runtime',         run: bootRuntime },
@@ -150,7 +150,7 @@ async function runBoot() {
       const ms = Math.max(1, performance.now() - t0) | 0;
       el.classList.remove('active');
       el.classList.add('done');
-      el.querySelector('.meta').textContent = `${ms}ms${res ? ' · ' + res : ''}`;
+      el.querySelector('.meta').textContent = `${ms}ms${res ? ' Â· ' + res : ''}`;
       bar.style.width = `${((i + 1) / STEPS.length * 100).toFixed(1)}%`;
       // Brief pause between steps so the animation feels purposeful, not jittery.
       await new Promise(r => setTimeout(r, 90));
@@ -163,13 +163,13 @@ async function runBoot() {
       return;
     }
   }
-  // All green — fade out and route into the app.
+  // All green â€” fade out and route into the app.
   await new Promise(r => setTimeout(r, 250));
   document.body.classList.add('leaving');
   setTimeout(() => window.location.replace(routeNext), 460);
 }
 
-// ── Step implementations ────────────────────────────────────────────────
+// â”€â”€ Step implementations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function bootRuntime() {
   // No-op; lets the animation breathe.
   await new Promise(r => setTimeout(r, 180));
@@ -191,7 +191,7 @@ async function bootAuth() {
   }
   if (!getToken()) {
     routeNext = '/login';
-    return 'no session — going to login';
+    return 'no session â€” going to login';
   }
   const u = await ensureAuthed();
   if (!u) {

@@ -1,8 +1,8 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Sign in · Metis</title>
+<title>Sign in Â· Metis</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="icon" href="/static/assets/favicon.svg">
 <link rel="manifest" href="/manifest.json">
@@ -13,9 +13,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/polish/global-polish.v2.css?v=v17">
-<link rel="stylesheet" href="/static/styles/wordmark.css?v=v17">
-<script src="/static/js/wordmark.js?v=v17" defer></script>
+<link rel="stylesheet" href="/static/polish/global-polish.v2.css?v=v20">
+<link rel="stylesheet" href="/static/styles/wordmark.css?v=v20">
+<script src="/static/js/wordmark.js?v=v20" defer></script>
 <style>
 :root{--vi:#7C3AED;--vi2:#A78BFA;--co:#FB7185;--am:#F59E0B;--bg:#07071a;--text:#F8FAFF;--muted:rgba(248,250,255,.55);--subtle:rgba(248,250,255,.28);--border:rgba(255,255,255,.1);--grad:linear-gradient(135deg,var(--vi),var(--co) 55%,var(--am))}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -138,7 +138,7 @@ html,body{min-height:100vh;background:var(--bg);color:var(--text);font-family:'I
 
     <div class="welcome-text">
       <h2>Good to have<br>you <em>back</em>.</h2>
-      <p>Pick up exactly where you left off — your missions, chats, and automations are all waiting.</p>
+      <p>Pick up exactly where you left off â€” your missions, chats, and automations are all waiting.</p>
     </div>
 
     <div class="testimonial">
@@ -190,27 +190,27 @@ html,body{min-height:100vh;background:var(--bg);color:var(--text);font-family:'I
 
         <div class="form-field">
           <div class="field-row"><label>Password</label><a id="forgotLink">Forgot?</a></div>
-          <input type="password" id="password" placeholder="••••••••" autocomplete="current-password" required>
+          <input type="password" id="password" placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" autocomplete="current-password" required>
           <span class="pw-toggle" id="pwToggle"><svg id="pwIcon" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></span>
         </div>
 
         <div class="form-footer">
           <label class="check-wrap"><input type="checkbox" checked> Stay signed in</label>
-          <span>Privacy protected ✓</span>
+          <span>Privacy protected âœ“</span>
         </div>
 
         <button type="submit" class="submit-btn" id="submitBtn">
           <div class="shimmer"></div>
-          <span id="submitText">Sign in to Metis →</span>
+          <span id="submitText">Sign in to Metis â†’</span>
         </button>
       </form>
 
       <div class="signup-link">
-        Don't have an account? <a href="/signup">Create one free →</a>
+        Don't have an account? <a href="/signup">Create one free â†’</a>
       </div>
       <div id="localLoginWrap" style="display:none;margin-top:14px;text-align:center">
         <button id="localLoginBtn" type="button" style="background:transparent;border:1px solid rgba(255,255,255,.12);color:rgba(248,250,255,.55);font-family:inherit;font-size:12.5px;padding:9px 20px;border-radius:9px;cursor:pointer;transition:all .2s;width:100%">
-          🖥️ Continue as local install (no account needed)
+          ðŸ–¥ï¸ Continue as local install (no account needed)
         </button>
       </div>
     </div>
@@ -218,7 +218,7 @@ html,body{min-height:100vh;background:var(--bg);color:var(--text);font-family:'I
     <!-- MFA challenge card (hidden until needed) -->
     <div class="glass-card" id="mfaCard" style="display:none">
       <div class="card-head">
-        <div style="font-size:44px;margin-bottom:12px;line-height:1">🔐</div>
+        <div style="font-size:44px;margin-bottom:12px;line-height:1">ðŸ”</div>
         <h1>Two-factor verification</h1>
         <p>Enter the 6-digit code from your authenticator app</p>
       </div>
@@ -234,12 +234,12 @@ html,body{min-height:100vh;background:var(--bg);color:var(--text);font-family:'I
 
       <button type="button" class="submit-btn" id="mfaVerifyBtn">
         <div class="shimmer"></div>
-        <span id="mfaVerifyText">Verify →</span>
+        <span id="mfaVerifyText">Verify â†’</span>
       </button>
 
       <div style="text-align:center;margin-top:14px">
         <button type="button" id="mfaBackBtn" style="background:transparent;border:none;color:var(--vi2);font-family:inherit;font-size:13px;cursor:pointer;padding:6px">
-          ← Back to sign in
+          â† Back to sign in
         </button>
       </div>
     </div>
@@ -273,12 +273,12 @@ html,body{min-height:100vh;background:var(--bg);color:var(--text);font-family:'I
 </div>
 
 <script type="module">
-import { api, setSession, getToken } from '/static/js/api.js?v=v17';
+import { api, setSession, getToken } from '/static/js/api.js?v=v20';
 
 // If already signed in, hop straight to /splash
 if (getToken()) window.location.replace('/splash');
 
-// Auto-login for local installs — try to get the local token silently
+// Auto-login for local installs â€” try to get the local token silently
 (async () => {
   try {
     const res = await fetch('/auth/local-token');
@@ -304,7 +304,7 @@ function clearErr() {
   errBanner.classList.remove('show');
 }
 
-// ── MFA state ──────────────────────────────────────────────────────────────
+// â”€â”€ MFA state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 let _mfaFactorId = null;
 
 const loginCard = document.querySelector('.glass-card:not(#mfaCard)');
@@ -328,7 +328,7 @@ function hideMfaChallenge() {
   loginCard.style.display = '';
   _mfaFactorId = null;
   submitBtn.disabled = false;
-  submitText.textContent = 'Sign in to Metis →';
+  submitText.textContent = 'Sign in to Metis â†’';
 }
 
 document.getElementById('mfaBackBtn').addEventListener('click', hideMfaChallenge);
@@ -342,7 +342,7 @@ mfaVerifyBtn.addEventListener('click', async () => {
   }
   mfaErrBanner.classList.remove('show');
   mfaVerifyBtn.disabled = true;
-  mfaVerifyText.textContent = 'Verifying…';
+  mfaVerifyText.textContent = 'Verifyingâ€¦';
   try {
     const token = localStorage.getItem('metis.access_token');
     const res = await fetch('/auth/mfa/verify', {
@@ -361,7 +361,7 @@ mfaVerifyBtn.addEventListener('click', async () => {
     mfaErrBanner.textContent = err.message || 'Verification failed. Check the code and try again.';
     mfaErrBanner.classList.add('show');
     mfaVerifyBtn.disabled = false;
-    mfaVerifyText.textContent = 'Verify →';
+    mfaVerifyText.textContent = 'Verify â†’';
     mfaCode.select();
   }
 });
@@ -383,12 +383,12 @@ document.getElementById('pwToggle').addEventListener('click', () => {
     : '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
 });
 
-// Email + password sign-in — check for MFA requirement after success
+// Email + password sign-in â€” check for MFA requirement after success
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   clearErr();
   submitBtn.disabled = true;
-  submitText.textContent = 'Signing in…';
+  submitText.textContent = 'Signing inâ€¦';
   try {
     const out = await api.signin(
       document.getElementById('email').value.trim(),
@@ -416,7 +416,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
   } catch (err) {
     showErr(err.message || 'Sign-in failed');
     submitBtn.disabled = false;
-    submitText.textContent = 'Sign in to Metis →';
+    submitText.textContent = 'Sign in to Metis â†’';
   }
 });
 
@@ -453,7 +453,7 @@ document.getElementById('forgotLink').addEventListener('click', async () => {
   }
 });
 
-// Local install button — show after a short delay if auto-login didn't fire
+// Local install button â€” show after a short delay if auto-login didn't fire
 setTimeout(() => {
   const wrap = document.getElementById('localLoginWrap');
   if (wrap && !getToken()) wrap.style.display = '';
@@ -484,6 +484,6 @@ document.addEventListener('mousemove', e => {
   document.querySelector('.orb2').style.transform = `translate(calc(70% + ${-x*.5}px),calc(60% + ${-y*.5}px))`;
 });
 </script>
-<script src="/static/polish/global-polish.v2.js?v=v17"></script>
+<script src="/static/polish/global-polish.v2.js?v=v20"></script>
 </body>
 </html>
