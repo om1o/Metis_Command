@@ -7,7 +7,6 @@ from fastapi.testclient import TestClient
 
 def test_setup_code_round_trip(_sandbox_paths):
     import api_bridge
-    import auth_local
 
     client = TestClient(api_bridge.app)
     response = client.get("/auth/setup-code", headers={"host": "127.0.0.1:7331"})
@@ -18,7 +17,7 @@ def test_setup_code_round_trip(_sandbox_paths):
     assert payload["code"].startswith(api_bridge.SETUP_CODE_PREFIX)
 
     token = api_bridge.setup_code_to_token(payload["code"])
-    assert auth_local.verify(token)
+    assert api_bridge.auth_local.verify(token)
 
     me = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
     assert me.status_code == 200

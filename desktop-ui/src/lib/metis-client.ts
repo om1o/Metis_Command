@@ -97,6 +97,7 @@ export interface StreamEvent {
     | 'agent_done'
     | 'session_title'
     | 'relationship_saved'
+    | 'run_artifact_saved'
     | 'error';
   delta?: string;
   duration_ms?: number;
@@ -104,6 +105,7 @@ export interface StreamEvent {
   // relationship_saved
   id?: string;
   name?: string;
+  title?: string;
   // generic passthrough — the SSE shape on the wire is wider than this type;
   // unknown fields are accepted so we never drop an event for being too rich.
   [key: string]: unknown;

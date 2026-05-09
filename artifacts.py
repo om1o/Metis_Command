@@ -15,10 +15,16 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Literal
 
+from safety import PATHS
+
 
 ArtifactType = Literal["code", "doc", "diff", "image", "chart", "upsell"]
 
-ARTIFACTS_DIR = Path("artifacts")
+ARTIFACTS_DIR = PATHS.artifacts
+
+
+def _artifacts_dir() -> Path:
+    return Path(PATHS.artifacts)
 
 
 @dataclass
@@ -37,12 +43,12 @@ class Artifact:
 
 
 def _sidecar_path(artifact_id: str) -> Path:
-    return ARTIFACTS_DIR / f"{artifact_id}.json"
+    return _artifacts_dir() / f"{artifact_id}.json"
 
 
 def save_artifact(artifact: Artifact) -> Artifact:
     """Write the sidecar JSON so the UI's watchdog picks it up."""
-    ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
+    _artifacts_dir().mkdir(parents=True, exist_ok=True)
     _sidecar_path(artifact.id).write_text(
         json.dumps(artifact.to_dict(), indent=2),
         encoding="utf-8",
@@ -51,9 +57,9 @@ def save_artifact(artifact: Artifact) -> Artifact:
 
 
 def list_artifacts(limit: int | None = 100) -> list[Artifact]:
-    ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
+    _artifacts_dir().mkdir(parents=True, exist_ok=True)
     rows: list[Artifact] = []
-    for fp in ARTIFACTS_DIR.glob("*.json"):
+    for fp in _artifacts_dir().glob("*.json"):
         try:
             data = json.loads(fp.read_text(encoding="utf-8"))
             rows.append(Artifact(**data))

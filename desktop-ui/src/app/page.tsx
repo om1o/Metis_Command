@@ -74,6 +74,7 @@ interface Message {
   // of this message; the UI shows a "Saved <name>" pill linking to the
   // Relationships panel.
   savedRelationship?: { id: string; name: string };
+  savedArtifact?: { id: string; title: string };
 }
 
 interface Session {
@@ -771,6 +772,7 @@ export default function App() {
     (async () => {
       let acc = '';
       let saved: { id: string; name: string } | undefined;
+      let savedArtifact: { id: string; title: string } | undefined;
       try {
         const stream = client.chat('manager', text, sId, { mode: 'task', permission });
         for await (const ev of stream) {
@@ -793,6 +795,8 @@ export default function App() {
             saved = { id: ev.id, name: ev.name };
             // Optimistic bump; the next /inbox poll will reconcile.
             setUnreadCount((c) => c + 1);
+          } else if (ev.type === 'run_artifact_saved' && typeof ev.id === 'string') {
+            savedArtifact = { id: ev.id, title: typeof ev.title === 'string' ? ev.title : 'Manager run report' };
           }
         }
         if (!ac.signal.aborted) {
@@ -804,7 +808,7 @@ export default function App() {
                     ...s,
                     messages: s.messages.map((m) =>
                       m.id === agentMsg.id
-                        ? { ...m, content: finalContent, status: 'done', savedRelationship: saved }
+                        ? { ...m, content: finalContent, status: 'done', savedRelationship: saved, savedArtifact }
                         : m,
                     ),
                   }
@@ -1507,6 +1511,12 @@ function MessageBubble({
             <Users className="h-3 w-3" />
             Saved <span className="font-medium">{msg.savedRelationship.name}</span>
             <span className="text-[10px] text-violet-300/80">to Relationships</span>
+          </div>
+        )}
+        {msg.savedArtifact && (
+          <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-200">
+            <FileText className="h-3 w-3" />
+            Saved <span className="font-medium">{msg.savedArtifact.title}</span>
           </div>
         )}
       </div>

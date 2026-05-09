@@ -26,7 +26,7 @@ from fastapi.staticfiles import StaticFiles  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
 from brain_engine import ROLE_MODELS, list_local_models, stream_chat  # noqa: E402
-from artifacts import list_artifacts, get_artifact  # noqa: E402
+from artifacts import Artifact, list_artifacts, get_artifact, save_artifact  # noqa: E402
 from metis_version import METIS_VERSION  # noqa: E402
 from run_contracts import build_run_contract, normalize_mode, normalize_permission  # noqa: E402
 
@@ -433,14 +433,69 @@ async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
         API consumers / scripts that want a specific role directly).
     """
     user_id = _user_id_from_request(request)
+    run_mode = normalize_mode(req.mode)
+    run_permission = normalize_permission(req.permission)
     wire_message = build_run_contract(
         req.message,
-        mode=normalize_mode(req.mode),
-        permission=normalize_permission(req.permission),
+        mode=run_mode,
+        permission=run_permission,
     )
+
+    def save_run_report(
+        *,
+        answer: str,
+        duration_ms: int | None,
+        agents_used: list[str] | None,
+        plan: dict[str, Any] | None,
+        agent_outputs: list[dict[str, Any]],
+    ) -> Artifact | None:
+        if not answer.strip():
+            return None
+        title = (req.message.strip().splitlines()[0] or "Manager run")[:80]
+        plan_summary = (plan or {}).get("summary", "")
+        lines = [
+            f"# Manager Run Report: {title}",
+            "",
+            f"- Session: `{req.session_id}`",
+            f"- Mode: `{run_mode}`",
+            f"- Permission: `{run_permission}`",
+            f"- Duration: `{duration_ms or 0} ms`",
+            f"- Agents used: {', '.join(agents_used or []) or 'manager only'}",
+            "",
+            "## Request",
+            req.message.strip(),
+            "",
+        ]
+        if plan_summary:
+            lines.extend(["## Manager Plan", str(plan_summary), ""])
+        if agent_outputs:
+            lines.append("## Subagent Reports")
+            for item in agent_outputs:
+                lines.extend([
+                    f"### {item.get('agent', 'agent')}",
+                    str(item.get("output", "")).strip(),
+                    "",
+                ])
+        lines.extend(["## Manager Answer", answer.strip(), ""])
+        return save_artifact(Artifact(
+            type="doc",
+            title=f"Manager run: {title}",
+            language="markdown",
+            content="\n".join(lines),
+            metadata={
+                "kind": "manager_run_report",
+                "session_id": req.session_id,
+                "mode": run_mode,
+                "permission": run_permission,
+                "agents_used": agents_used or [],
+                "user_id": user_id,
+            },
+        ))
 
     def sse() -> Any:
         full_answer = ""
+        run_plan: dict[str, Any] | None = None
+        agent_outputs: list[dict[str, Any]] = []
         # Instant heartbeat — browser knows we're alive before model loads
         yield f"data: {json.dumps({'type': 'heartbeat', 'message': 'Processing…'})}\n\n"
 
@@ -482,6 +537,15 @@ async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
                         yield f"data: {json.dumps({'type': 'token', 'delta': token})}\n\n"
                     if chunk.get("done"):
                         dur_ms = int((__import__('time').time() - t0) * 1000)
+                        art = save_run_report(
+                            answer=full_answer,
+                            duration_ms=dur_ms,
+                            agents_used=[],
+                            plan=run_plan,
+                            agent_outputs=agent_outputs,
+                        )
+                        if art:
+                            yield f"data: {json.dumps({'type': 'run_artifact_saved', 'id': art.id, 'title': art.title})}\n\n"
                         yield f"data: {json.dumps({'type': 'done', 'duration_ms': dur_ms, 'agents_used': []})}\n\n"
                         break
             except Exception as e:
@@ -492,6 +556,20 @@ async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
                 for ev in orchestrate(wire_message, user_id=user_id, session_id=req.session_id):
                     if ev.get("type") == "token":
                         full_answer += ev.get("delta", "")
+                    elif ev.get("type") == "manager_plan":
+                        run_plan = dict(ev)
+                    elif ev.get("type") == "agent_done":
+                        agent_outputs.append(dict(ev))
+                    elif ev.get("type") == "done":
+                        art = save_run_report(
+                            answer=full_answer,
+                            duration_ms=ev.get("duration_ms"),
+                            agents_used=ev.get("agents_used") if isinstance(ev.get("agents_used"), list) else [],
+                            plan=run_plan,
+                            agent_outputs=agent_outputs,
+                        )
+                        if art:
+                            yield f"data: {json.dumps({'type': 'run_artifact_saved', 'id': art.id, 'title': art.title})}\n\n"
                     yield f"data: {json.dumps(ev)}\n\n"
             except Exception as e:
                 yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
@@ -502,6 +580,16 @@ async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
             ):
                 if ev.get("type") == "token":
                     full_answer += ev.get("delta", "")
+                elif ev.get("type") == "done":
+                    art = save_run_report(
+                        answer=full_answer,
+                        duration_ms=ev.get("duration_ms"),
+                        agents_used=ev.get("agents_used") if isinstance(ev.get("agents_used"), list) else [],
+                        plan=run_plan,
+                        agent_outputs=agent_outputs,
+                    )
+                    if art:
+                        yield f"data: {json.dumps({'type': 'run_artifact_saved', 'id': art.id, 'title': art.title})}\n\n"
                 yield f"data: {json.dumps(ev)}\n\n"
 
         # Auto-extract relationship blocks the manager emitted at the end.
