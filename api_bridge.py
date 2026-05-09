@@ -21,7 +21,7 @@ from pathlib import Path  # noqa: E402
 
 from fastapi import FastAPI, HTTPException, Query, Request  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
-from fastapi.responses import StreamingResponse, FileResponse, RedirectResponse  # noqa: E402
+from fastapi.responses import Response, StreamingResponse, FileResponse, RedirectResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
@@ -857,6 +857,78 @@ def sessions_rename(session_id: str, req: RenameRequest, request: Request) -> di
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"rename failed: {e}")
     return {"ok": True, "session_id": session_id, "title": req.title.strip()[:120]}
+
+
+@app.get("/sessions/{session_id}/export")
+def sessions_export(
+    session_id: str,
+    request: Request,
+    format: str = "md",
+) -> Response:
+    """Export a conversation as Markdown, JSON, or plain text.
+
+    Query param ``format``: ``md`` (default), ``json``, ``txt``.
+    """
+    import json as _json
+    from datetime import datetime as _dt
+
+    user_id = _user_id_from_request(request)
+    from memory import load_session, list_sessions_with_meta
+
+    messages = load_session(session_id, limit=500, user_id=user_id) or []
+
+    # Try to get session title
+    title = session_id
+    try:
+        meta = list_sessions_with_meta(user_id)
+        for s in meta:
+            if s.get("id") == session_id and s.get("title"):
+                title = s["title"]
+                break
+    except Exception:
+        pass
+
+    fmt = (format or "md").lower().strip()
+
+    if fmt == "json":
+        payload = {
+            "session_id": session_id,
+            "title": title,
+            "exported_at": _dt.utcnow().isoformat() + "Z",
+            "messages": messages,
+        }
+        return Response(
+            content=_json.dumps(payload, indent=2, ensure_ascii=False),
+            media_type="application/json",
+            headers={"Content-Disposition": f'attachment; filename="metis-{session_id[:12]}.json"'},
+        )
+
+    if fmt == "txt":
+        lines = [f"Conversation: {title}", f"Session: {session_id}", ""]
+        for m in messages:
+            role = "You" if m.get("role") == "user" else "Manager"
+            lines.append(f"{role}: {m.get('content', '')}\n")
+        return Response(
+            content="\n".join(lines),
+            media_type="text/plain",
+            headers={"Content-Disposition": f'attachment; filename="metis-{session_id[:12]}.txt"'},
+        )
+
+    # Default: Markdown
+    lines = [f"# {title}", f"", f"*Session: {session_id}*", f"*Exported: {_dt.utcnow().strftime('%Y-%m-%d %H:%M UTC')}*", ""]
+    for m in messages:
+        role = m.get("role", "assistant")
+        role_label = "**You**" if role == "user" else "**Manager**"
+        ts = m.get("created_at", "")[:10]
+        lines.append(f"### {role_label}{' · ' + ts if ts else ''}")
+        lines.append("")
+        lines.append(m.get("content", ""))
+        lines.append("")
+    return _Resp(
+        content="\n".join(lines),
+        media_type="text/markdown",
+        headers={"Content-Disposition": f'attachment; filename="metis-{session_id[:12]}.md"'},
+    )
 
 
 # ── Schedules ────────────────────────────────────────────────────────────────

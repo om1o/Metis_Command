@@ -38,19 +38,23 @@
 - Default model: qwen3.5:4b (stronger than 1.5b)
 
 ### Known Gaps
-- No conversation memory in the frontend (sessions are empty for local-install users)
-- No file/image upload in chat
-- No voice I/O
 - No MFA/2FA
-- No dark/light theme toggle
-- No export/share conversations
 - No notification system (push/email)
 - No plugin UI in sidebar (API exists, no frontend)
-- No search across conversations
-- No multi-turn context window management
+- No search across conversations (full-text DB; sidebar filter exists)
 - No rate limit UI feedback
-- No onboarding tour
 - Legacy Streamlit UI (`dynamic_ui.py`) remains in the tree for reference; `launch.py` only starts FastAPI
+
+### Completed (v0.16.5)
+- ✅ Local conversation memory (SQLite, Phase 1)
+- ✅ Multi-turn context window (Phase 2)
+- ✅ Session titles auto-generated (Phase 3)
+- ✅ File/image upload + drag-drop (Phase 4)
+- ✅ Export conversations — MD / JSON / TXT (Phase 5)
+- ✅ Voice input (browser Web Speech API, Phase 8)
+- ✅ Dark / Light / Auto theme toggle (Phase 9)
+- ✅ Onboarding tour — 5-step spotlight (Phase 11)
+- ✅ Keyboard shortcuts: ⌘Shift+C copy, ⌘Shift+R regen, ↑ edit last (Phase 12)
 
 ---
 

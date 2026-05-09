@@ -496,6 +496,58 @@ pre:hover .code-copy{opacity:1}
 .settings-wizard-link{display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;border-radius:10px;border:1px solid var(--border-2);background:var(--panel-2);color:var(--text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all .18s;text-decoration:none;width:100%}
 .settings-wizard-link:hover{background:var(--accent-soft);border-color:var(--accent)}
 .settings-wizard-link svg{width:14px;height:14px;stroke:currentColor;stroke-width:2;fill:none}
+.theme-opt-btn{padding:5px 10px;border-radius:7px;border:1px solid var(--border);background:var(--panel);color:var(--muted);font-family:inherit;font-size:11.5px;cursor:pointer;transition:all .15s}
+.theme-opt-btn:hover{background:var(--panel-2);color:var(--text)}
+.theme-opt-btn.active{background:var(--accent-soft);border-color:var(--accent);color:var(--text)}
+
+/* ── Light theme overrides ── */
+[data-theme="light"]{
+  --bg:#F3F4F8; --bg-2:#EAECF2; --panel:rgba(0,0,0,.04); --panel-2:rgba(0,0,0,.07);
+  --text:#0F0F20; --muted:rgba(15,15,32,.62); --subtle:rgba(15,15,32,.38);
+  --border:rgba(0,0,0,.09); --border-2:rgba(0,0,0,.15);
+}
+[data-theme="light"] body{background:var(--bg)}
+[data-theme="light"] body::before{
+  background:radial-gradient(circle at 12% 8%,rgba(124,58,237,.06),transparent 50%),
+             radial-gradient(circle at 90% 100%,rgba(251,113,133,.04),transparent 55%)
+}
+[data-theme="light"] .side{background:rgba(243,244,248,.88)}
+[data-theme="light"] .main-head{background:rgba(243,244,248,.7)}
+[data-theme="light"] .input-wrap{background:rgba(243,244,248,.8)}
+[data-theme="light"] .msg.assistant .msg-bubble{background:rgba(255,255,255,.9);border-color:rgba(0,0,0,.1)}
+[data-theme="light"] .msg.user .msg-bubble{background:rgba(124,58,237,.1);border-color:rgba(124,58,237,.25)}
+[data-theme="light"] .palette{background:rgba(243,244,248,.97)}
+[data-theme="light"] .model-menu,.model-menu,[data-theme="light"] .input-dropdown{background:rgba(240,241,247,.97)}
+[data-theme="light"] .settings-panel{background:rgba(240,241,247,.98)}
+[data-theme="light"] .mission{background:rgba(245,246,250,.9)}
+
+/* ── Theme toggle button ── */
+.theme-toggle{background:transparent;border:none;color:var(--subtle);cursor:pointer;padding:7px;border-radius:7px;transition:all .15s;display:flex;align-items:center;justify-content:center;font-size:15px;line-height:1}
+.theme-toggle:hover{color:var(--text);background:var(--panel)}
+
+/* ── Export button (session item) ── */
+.session-export{flex-shrink:0;background:transparent;border:none;color:var(--subtle);cursor:pointer;padding:4px;border-radius:4px;opacity:0;transition:all .15s;display:flex;align-items:center;justify-content:center}
+.session-item:hover .session-export{opacity:1}
+.session-export:hover{color:var(--bl);background:rgba(59,130,246,.12)}
+.session-export svg{width:11px;height:11px;stroke:currentColor;stroke-width:2;fill:none}
+
+/* ── Onboarding tour ── */
+.tour-overlay{position:fixed;inset:0;z-index:900;pointer-events:none}
+.tour-overlay.active{pointer-events:auto}
+.tour-backdrop{position:absolute;inset:0;background:rgba(7,7,26,.65);backdrop-filter:blur(2px);transition:opacity .3s}
+.tour-spotlight{position:absolute;border-radius:10px;box-shadow:0 0 0 9999px rgba(7,7,26,.65);border:2px solid var(--accent);transition:all .35s cubic-bezier(.4,0,.2,1);pointer-events:none}
+.tour-card{position:absolute;width:320px;background:rgba(13,13,36,.97);backdrop-filter:blur(24px);border:1px solid var(--border-2);border-radius:14px;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.5);animation:popIn .25s cubic-bezier(.34,1.4,.64,1)}
+.tour-card h4{font-family:'Sora',sans-serif;font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px}
+.tour-card p{font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:16px}
+.tour-foot{display:flex;align-items:center;gap:8px}
+.tour-dots{display:flex;gap:4px;flex:1}
+.tour-dot{width:6px;height:6px;border-radius:50%;background:var(--border-2);transition:background .2s}
+.tour-dot.active{background:var(--accent)}
+.tour-btn{padding:7px 14px;border-radius:8px;border:none;font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;transition:all .18s}
+.tour-btn.skip{background:var(--panel-2);color:var(--muted)}
+.tour-btn.skip:hover{color:var(--text)}
+.tour-btn.next{background:var(--grad);color:#fff}
+.tour-btn.next:hover{transform:translateY(-1px);box-shadow:0 4px 12px var(--accent-glow)}
 
 /* Tablet + mobile: collapse sidebar, show hamburger */
 @media(max-width:880px){
@@ -535,7 +587,7 @@ pre:hover .code-copy{opacity:1}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver">v16.4</span>
+      <span class="ver">v16.5</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -591,6 +643,7 @@ pre:hover .code-copy{opacity:1}
         <div class="name" id="userName">Loading…</div>
         <div class="role">Director</div>
       </div>
+      <button class="theme-toggle" id="themeToggleBtn" title="Toggle theme">🌙</button>
       <button class="icon-btn" id="paletteBtn" title="Command palette (⌘K)">
         <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       </button>
@@ -758,6 +811,14 @@ pre:hover .code-copy{opacity:1}
     <div class="settings-group">
       <div class="settings-group-label">Appearance</div>
       <div class="settings-row">
+        <span class="s-label">Theme</span>
+        <div style="display:flex;gap:6px">
+          <button class="theme-opt-btn" data-theme-val="dark"  title="Dark">🌙 Dark</button>
+          <button class="theme-opt-btn" data-theme-val="light" title="Light">☀️ Light</button>
+          <button class="theme-opt-btn" data-theme-val="system" title="Follow system">💻 Auto</button>
+        </div>
+      </div>
+      <div class="settings-row" style="margin-top:6px">
         <span class="s-label">Accent color</span>
         <div style="display:flex;align-items:center;gap:8px">
           <span class="color-swatch" id="settingsColorSwatch"></span>
@@ -771,6 +832,20 @@ pre:hover .code-copy{opacity:1}
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         Open full setup wizard
       </a>
+    </div>
+  </div>
+</div>
+
+<!-- Onboarding tour overlay -->
+<div class="tour-overlay" id="tourOverlay">
+  <div class="tour-spotlight" id="tourSpotlight"></div>
+  <div class="tour-card" id="tourCard">
+    <h4 id="tourTitle">Welcome to Metis</h4>
+    <p id="tourBody">Let's take a quick 30-second tour.</p>
+    <div class="tour-foot">
+      <div class="tour-dots" id="tourDots"></div>
+      <button class="tour-btn skip" id="tourSkip">Skip</button>
+      <button class="tour-btn next" id="tourNext">Next →</button>
     </div>
   </div>
 </div>
@@ -1204,6 +1279,22 @@ async function loadSessions() {
         });
       });
       div.appendChild(renameBtn);
+
+      // Export button (download icon)
+      const exportBtn = document.createElement('button');
+      exportBtn.className = 'session-export';
+      exportBtn.title = 'Export as Markdown';
+      exportBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+      exportBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        try {
+          await api.exportSession(id, 'md');
+          if (window.toast) toast('success', 'Exported', `${title.substring(0, 30)} downloaded`, 2000);
+        } catch (err) {
+          if (window.toast) toast('error', 'Export failed', err.message, 3000);
+        }
+      });
+      div.appendChild(exportBtn);
 
       // Delete button
       const del = document.createElement('button');
@@ -2452,6 +2543,254 @@ sidebar.addEventListener('click', (e) => {
   const btn = e.target.closest('.session-item, .new-btn, .icon-btn');
   if (btn && window.innerWidth <= 880) setTimeout(closeSidebar, 150);
 });
+
+// ── Theme management (Phase 9) ─────────────────────────────────────────
+const THEME_KEY = 'metis.theme';
+
+function applyTheme(mode) {
+  const root = document.documentElement;
+  if (mode === 'system') {
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    root.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+  } else {
+    root.setAttribute('data-theme', mode || 'dark');
+  }
+  // Update toggle button emoji
+  const effective = root.getAttribute('data-theme');
+  const themeBtn = document.getElementById('themeToggleBtn');
+  if (themeBtn) themeBtn.textContent = effective === 'light' ? '☀️' : '🌙';
+  // Highlight active option in settings
+  document.querySelectorAll('.theme-opt-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.themeVal === mode);
+  });
+}
+
+function cycleTheme() {
+  const modes = ['dark', 'light', 'system'];
+  const cur = localStorage.getItem(THEME_KEY) || 'dark';
+  const next = modes[(modes.indexOf(cur) + 1) % modes.length];
+  localStorage.setItem(THEME_KEY, next);
+  applyTheme(next);
+  const labels = { dark: 'Dark mode', light: 'Light mode', system: 'Auto (system)' };
+  if (window.toast) toast('info', labels[next], '', 1500);
+}
+
+// Apply saved theme immediately
+applyTheme(localStorage.getItem(THEME_KEY) || 'dark');
+
+document.getElementById('themeToggleBtn').addEventListener('click', cycleTheme);
+
+// Settings panel theme buttons
+document.querySelectorAll('.theme-opt-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const mode = btn.dataset.themeVal;
+    localStorage.setItem(THEME_KEY, mode);
+    applyTheme(mode);
+  });
+});
+
+// Sync when system preference changes (for 'system' mode)
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  if ((localStorage.getItem(THEME_KEY) || 'dark') === 'system') applyTheme('system');
+});
+
+// ── Add theme + export to command palette ──────────────────────────────
+COMMANDS.push({
+  id: 'theme', icon: '🌙', t: 'Toggle theme',
+  d: 'Cycle between Dark → Light → System (auto)', kbd: '',
+  run: cycleTheme,
+});
+COMMANDS.push({
+  id: 'export-md',  icon: '📥', t: 'Export conversation (Markdown)',
+  d: 'Download the current session as a .md file', kbd: '',
+  run: async () => {
+    try {
+      await api.exportSession(currentSession, 'md');
+      if (window.toast) toast('success', 'Exported', 'Markdown file downloaded', 2000);
+    } catch (err) { if (window.toast) toast('error', 'Export failed', err.message, 3000); }
+  },
+});
+COMMANDS.push({
+  id: 'export-json', icon: '📋', t: 'Export conversation (JSON)',
+  d: 'Download the current session as a .json file', kbd: '',
+  run: async () => {
+    try {
+      await api.exportSession(currentSession, 'json');
+      if (window.toast) toast('success', 'Exported', 'JSON file downloaded', 2000);
+    } catch (err) { if (window.toast) toast('error', 'Export failed', err.message, 3000); }
+  },
+});
+
+// ── Keyboard power shortcuts (Phase 12) ──────────────────────────────────
+// Additional shortcuts on top of the existing global handler.
+// We append to the existing keydown listener by adding a second one.
+document.addEventListener('keydown', (e) => {
+  const meta = e.metaKey || e.ctrlKey;
+
+  // Ctrl+Shift+C → copy last assistant response
+  if (meta && e.shiftKey && e.key === 'C') {
+    e.preventDefault();
+    const bubbles = chatInner.querySelectorAll('.msg.assistant .msg-bubble');
+    const last = bubbles[bubbles.length - 1];
+    if (last) {
+      navigator.clipboard.writeText(last.textContent || '');
+      if (window.toast) toast('success', 'Copied', 'Last response copied', 1500);
+    }
+    return;
+  }
+
+  // Ctrl+Shift+R → regenerate last message
+  if (meta && e.shiftKey && e.key === 'R') {
+    e.preventDefault();
+    const userBubbles = chatInner.querySelectorAll('.msg.user .msg-bubble');
+    const lastUser = userBubbles[userBubbles.length - 1];
+    if (lastUser && !isStreaming) {
+      msgInput.value = lastUser.textContent || '';
+      msgInput.dispatchEvent(new Event('input'));
+      sendMessage();
+    }
+    return;
+  }
+
+  // Up arrow in empty input → restore last sent message for editing
+  if (e.key === 'ArrowUp' && !msgInput.value.trim() && document.activeElement === msgInput) {
+    e.preventDefault();
+    const userBubbles = chatInner.querySelectorAll('.msg.user .msg-bubble');
+    const lastUser = userBubbles[userBubbles.length - 1];
+    if (lastUser) {
+      const txt = lastUser.textContent || '';
+      msgInput.value = txt;
+      msgInput.style.height = 'auto';
+      msgInput.style.height = Math.min(msgInput.scrollHeight, 200) + 'px';
+      msgInput.dispatchEvent(new Event('input'));
+      // Move cursor to end
+      msgInput.setSelectionRange(txt.length, txt.length);
+    }
+  }
+});
+
+// ── Onboarding tour (Phase 11) ──────────────────────────────────────────
+const TOUR_KEY = 'metis.tour_done';
+
+const TOUR_STEPS = [
+  {
+    targetId: 'sessionList',
+    title: 'Your conversation history',
+    body: 'All your past sessions live here. Click any to reload it, hover to rename or export.',
+    pos: 'right',
+  },
+  {
+    targetId: 'crewPanel',
+    title: 'Your specialist crew',
+    body: 'The Manager delegates to Researcher, Coder, Thinker, and Scholar automatically. Dots light up as they work.',
+    pos: 'right',
+  },
+  {
+    targetId: 'managerBadge',
+    title: 'Your Manager',
+    body: 'The pulsing dot means your Manager is ready. Click Settings (⚙) to rename it or change its personality.',
+    pos: 'bottom',
+  },
+  {
+    targetId: 'modelSelect',
+    title: 'Model picker',
+    body: 'Switch between ⚡ Fast, 🔄 Auto, 🔥 Super, and 💎 Mega models. Fast = instant, Mega = maximum quality.',
+    pos: 'bottom',
+  },
+  {
+    targetId: 'msgInput',
+    title: 'You\'re all set!',
+    body: 'Ask anything here. Use ⌘K for the command palette, ⌘Shift+C to copy last response, and ↑ to edit your last message.',
+    pos: 'top',
+    last: true,
+  },
+];
+
+let tourStep = 0;
+const tourOverlay = document.getElementById('tourOverlay');
+const tourSpotlight = document.getElementById('tourSpotlight');
+const tourCard = document.getElementById('tourCard');
+const tourTitle = document.getElementById('tourTitle');
+const tourBody = document.getElementById('tourBody');
+const tourDots = document.getElementById('tourDots');
+
+function positionTourCard(targetEl, pos) {
+  const rect = targetEl.getBoundingClientRect();
+  const pad = 16;
+  const cardW = 320;
+  const cardH = 180; // approximate
+
+  // Spotlight
+  tourSpotlight.style.left = (rect.left - 6) + 'px';
+  tourSpotlight.style.top = (rect.top - 6) + 'px';
+  tourSpotlight.style.width = (rect.width + 12) + 'px';
+  tourSpotlight.style.height = (rect.height + 12) + 'px';
+
+  // Card placement
+  let top, left;
+  if (pos === 'right') {
+    top = rect.top + rect.height / 2 - cardH / 2;
+    left = rect.right + pad;
+    if (left + cardW > window.innerWidth - 10) left = rect.left - cardW - pad;
+  } else if (pos === 'bottom') {
+    top = rect.bottom + pad;
+    left = rect.left + rect.width / 2 - cardW / 2;
+  } else { // top
+    top = rect.top - cardH - pad;
+    left = rect.left + rect.width / 2 - cardW / 2;
+  }
+  // Clamp to viewport
+  top  = Math.max(10, Math.min(top, window.innerHeight - cardH - 10));
+  left = Math.max(10, Math.min(left, window.innerWidth - cardW - 10));
+
+  tourCard.style.top = top + 'px';
+  tourCard.style.left = left + 'px';
+}
+
+function renderTourStep(idx) {
+  const step = TOUR_STEPS[idx];
+  const target = document.getElementById(step.targetId);
+  if (!target) { advanceTour(); return; }
+
+  tourTitle.textContent = step.title;
+  tourBody.textContent = step.body;
+
+  // Dots
+  tourDots.innerHTML = TOUR_STEPS.map((_, i) =>
+    `<div class="tour-dot${i === idx ? ' active' : ''}"></div>`).join('');
+
+  // Next/finish button
+  document.getElementById('tourNext').textContent = step.last ? '✓ Got it' : 'Next →';
+
+  positionTourCard(target, step.pos);
+  tourOverlay.classList.add('active');
+}
+
+function advanceTour() {
+  tourStep++;
+  if (tourStep >= TOUR_STEPS.length) {
+    endTour();
+  } else {
+    renderTourStep(tourStep);
+  }
+}
+
+function endTour() {
+  tourOverlay.classList.remove('active');
+  localStorage.setItem(TOUR_KEY, '1');
+}
+
+document.getElementById('tourNext').addEventListener('click', advanceTour);
+document.getElementById('tourSkip').addEventListener('click', endTour);
+
+// Show tour only once, after the first config load completes, for fresh setups
+function maybeStartTour() {
+  if (localStorage.getItem(TOUR_KEY)) return;
+  if (!cfg?.configured_at) return; // only after setup wizard
+  // Small delay so the page finishes rendering
+  setTimeout(() => renderTourStep(0), 800);
+}
+maybeStartTour();
 </script>
 <script src="/static/polish/global-polish.v2.js?v=v17"></script>
 </body>

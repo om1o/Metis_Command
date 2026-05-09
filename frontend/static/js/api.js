@@ -92,6 +92,29 @@ export const api = {
   renameSession: (id, title) => _fetch(`/sessions/${encodeURIComponent(id)}/rename`, {
     method: 'POST', body: JSON.stringify({ title }),
   }),
+  exportSession: (id, format = 'md') => {
+    const token = getToken();
+    const url = `/sessions/${encodeURIComponent(id)}/export?format=${encodeURIComponent(format)}`;
+    const a = document.createElement('a');
+    a.href = url + (token ? `&_t=${encodeURIComponent(token)}` : '');
+    // Use fetch so we can attach the auth header, then trigger download
+    return fetch(url, { headers: token ? { 'Authorization': `Bearer ${token}` } : {} })
+      .then(r => {
+        if (!r.ok) throw new Error(r.statusText);
+        const cd = r.headers.get('content-disposition') || '';
+        const fn = cd.match(/filename="([^"]+)"/)?.[1] || `metis-export.${format}`;
+        return r.blob().then(b => {
+          const url2 = URL.createObjectURL(b);
+          const link = document.createElement('a');
+          link.href = url2;
+          link.download = fn;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          setTimeout(() => URL.revokeObjectURL(url2), 5000);
+        });
+      });
+  },
 
   // Manager configuration + available models
   managerConfig: () => _fetch('/manager/config'),
