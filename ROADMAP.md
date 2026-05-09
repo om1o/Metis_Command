@@ -40,7 +40,6 @@
 ### Known Gaps
 - No MFA/2FA
 - Notification bell UI not yet wired (backend + routes done; desktop-ui bell needs polling `GET /notifications/count`)
-- No plugin UI in sidebar (API exists, no frontend)
 - Search backend done (`GET /sessions/search` with FTS5); no search UI in desktop-ui yet
 - No rate limit UI feedback
 - Legacy Streamlit UI (`dynamic_ui.py`) remains in the tree for reference; `launch.py` only starts FastAPI
@@ -57,6 +56,11 @@
 - ✅ Notification system — `notifications.py`, ring buffer + SQLite, 6 API routes, job-complete bell (Phase 10)
 - ✅ Onboarding tour — 5-step spotlight (Phase 11)
 - ✅ Keyboard shortcuts: ⌘Shift+C copy, ⌘Shift+R regen, ↑ edit last (Phase 12)
+- ✅ Plugin Marketplace UI — slide-out panel, filter tabs, install/buy buttons (Phase 7)
+- ✅ Analytics Dashboard — /analytics-ui with stat cards, mission bars, token breakdown (Phase 16)
+- ✅ Image/Video generation — modes fully live (label cleanup); `POST /generate/image`, `POST /generate/video`
+- ✅ memory_loop vector memory opt-in — guard ChromaDB behind METIS_CHAT_VECTOR_MEMORY env flag
+- ✅ Model picker priority — fast models float to top; FAST_MANAGER_MODEL = qwen2.5-coder:1.5b
 
 ---
 
@@ -324,7 +328,7 @@
 | 4. File Upload | 🟡 High | Medium | Soon |
 | 5. Export | 🟢 Medium | Small | Soon |
 | 6. Search | 🟡 High | Medium | ✅ Done |
-| 7. Marketplace UI | 🟢 Medium | Small | Q3 |
+| 7. Marketplace UI | 🟢 Medium | Small | ✅ Done |
 | 8. Voice Input | 🟢 Medium | Small | Q3 |
 | 9. Themes | 🟢 Medium | Medium | Q3 |
 | 10. Notifications | 🟢 Medium | Medium | ✅ Done |
@@ -333,6 +337,6 @@
 | 13. Model Compare | 🟢 Medium | Large | Q4 |
 | 14. MFA | 🟡 High | Medium | Q4 |
 | 15. Workflows | 🟢 Medium | Large | Q4 |
-| 16. Analytics | 🟢 Medium | Medium | Q4 |
+| 16. Analytics | 🟢 Medium | Medium | ✅ Done |
 | 17. Desktop Native | 🔴 Critical | Large | Q4 |
 | 18. Mobile PWA | 🟡 High | Medium | 2027 |
