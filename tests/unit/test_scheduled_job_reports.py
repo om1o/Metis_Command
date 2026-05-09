@@ -163,6 +163,25 @@ def test_mission_status_api_returns_record(_sandbox_paths, monkeypatch):
     assert data["tag"] == "scheduled:job123"
 
 
+def test_missions_list_api_returns_records(_sandbox_paths, monkeypatch):
+    import api_bridge
+    from fastapi.testclient import TestClient
+
+    monkeypatch.setattr("concurrency.list_missions", lambda limit=50: [_ApiMission()])
+
+    client = TestClient(api_bridge.app)
+    response = client.get(
+        "/missions?limit=10",
+        headers=api_bridge.auth_local.bearer_header(),
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["id"] == "mission123"
+    assert data[0]["status"] == "running"
+
+
 def test_mission_cancel_api_returns_result(_sandbox_paths, monkeypatch):
     import api_bridge
     from fastapi.testclient import TestClient

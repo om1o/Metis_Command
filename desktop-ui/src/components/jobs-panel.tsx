@@ -15,7 +15,7 @@ import {
   Repeat,
   Sparkles,
 } from 'lucide-react';
-import { Artifact, MetisClient, Schedule } from '@/lib/metis-client';
+import { Artifact, MetisClient, Mission, Schedule } from '@/lib/metis-client';
 import { Mark } from '@/components/brand';
 
 interface Props {
@@ -57,9 +57,29 @@ function artifactTs(artifact: Artifact): number {
   return Number.isFinite(parsed) ? parsed / 1000 : 0;
 }
 
+function missionTitle(mission: Mission): string {
+  return mission.goal
+    .replace(/^\[Metis run contract\][\s\S]*?\[\/Metis run contract\]\s*/i, '')
+    .split('\n')[0]
+    .trim()
+    .slice(0, 120) || mission.id;
+}
+
+function fmtMissionTime(ts?: number): string {
+  if (!ts) return '';
+  const d = new Date(ts * 1000);
+  if (isNaN(d.getTime())) return '';
+  const diff = Date.now() - d.getTime();
+  if (diff < 60_000) return 'just now';
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
+  return `${Math.floor(diff / 86_400_000)}d ago`;
+}
+
 export default function JobsPanel({ client, reduceMotion, onClose, onOpenArtifact }: Props) {
   const [items, setItems] = useState<Schedule[] | null>(null);
   const [reports, setReports] = useState<Record<string, Artifact>>({});
+  const [missions, setMissions] = useState<Mission[]>([]);
   const [runState, setRunState] = useState<Record<string, { missionId?: string; status: string }>>({});
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -69,8 +89,11 @@ export default function JobsPanel({ client, reduceMotion, onClose, onOpenArtifac
     setRefreshing(true);
     setError(null);
     try {
-      const list = await client.listSchedules();
-      const artifacts = await client.getArtifacts(100);
+      const [list, artifacts, missionList] = await Promise.all([
+        client.listSchedules(),
+        client.getArtifacts(100),
+        client.listMissions(20),
+      ]);
       // Newest first; built-in actions (daily_briefing etc.) sink below user jobs.
       list.sort((a, b) => {
         const aBuilt = a.action ? 1 : 0;
@@ -89,6 +112,7 @@ export default function JobsPanel({ client, reduceMotion, onClose, onOpenArtifac
         if (!current || artifactTs(artifact) > artifactTs(current)) latestReports[scheduleId] = artifact;
       }
       setReports(latestReports);
+      setMissions(missionList.filter((m) => m.tag?.startsWith('scheduled:')).slice(0, 8));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -305,10 +329,40 @@ export default function JobsPanel({ client, reduceMotion, onClose, onOpenArtifac
                   </div>
                 </details>
               )}
+
+              {missions.length > 0 && (
+                <section className="mt-4">
+                  <div className="mb-2 text-[11px] uppercase tracking-widest text-[var(--metis-fg-dim)]">
+                    Recent runs
+                  </div>
+                  <div className="grid gap-1.5">
+                    {missions.map((mission) => (
+                      <MissionRow key={mission.id} mission={mission} />
+                    ))}
+                  </div>
+                </section>
+              )}
             </>
           )}
         </div>
       </motion.div>
+    </div>
+  );
+}
+
+function MissionRow({ mission }: { mission: Mission }) {
+  const active = ['queued', 'running'].includes(mission.status);
+  return (
+    <div className="flex items-start gap-2 rounded-xl border border-[var(--metis-border)] bg-[var(--metis-bg)] px-3 py-2">
+      <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${active ? 'bg-violet-400' : mission.status === 'success' ? 'bg-emerald-400' : mission.status === 'failed' ? 'bg-rose-400' : 'bg-[var(--metis-fg-dim)]'}`} />
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[12.5px] text-[var(--metis-fg)]">{missionTitle(mission)}</p>
+        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[10.5px] text-[var(--metis-fg-dim)]">
+          <span className="capitalize">{mission.status}</span>
+          <span className="font-mono">{mission.id}</span>
+          {fmtMissionTime(mission.submitted_at) && <span>{fmtMissionTime(mission.submitted_at)}</span>}
+        </div>
+      </div>
     </div>
   );
 }
