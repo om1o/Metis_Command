@@ -146,6 +146,11 @@ def test_summarize_ai_report_outputs_load_details(tmp_path) -> None:
             "ok": False,
             "api_base": "http://127.0.0.1:7331",
             "direct_chat_repeats": 3,
+            "selected_checks": ["system_health", "direct_chat", "direct_chat_load_3"],
+            "environment": {
+                "python": "C:/Python/python.exe",
+                "token_file_exists": True,
+            },
             "duration_s": 4.2,
             "results": [
                 {"name": "direct_chat_load_3", "status": "failed", "duration_s": 1.25, "error": "bad token"},
@@ -158,6 +163,9 @@ def test_summarize_ai_report_outputs_load_details(tmp_path) -> None:
     assert ok is False
     assert "schema: metis.ai_smoke.report.v1" in summary
     assert "direct_chat_repeats: 3" in summary
+    assert "selected_checks: system_health, direct_chat, direct_chat_load_3" in summary
+    assert "python: C:/Python/python.exe" in summary
+    assert "token_file_exists: True" in summary
     assert "- direct_chat_load_3: failed (1.2s) error=bad token" in summary
 
 

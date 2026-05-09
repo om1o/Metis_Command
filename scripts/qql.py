@@ -420,6 +420,13 @@ def summarize_report(path: Path) -> tuple[str, bool]:
     elif schema == "metis.ai_smoke.report.v1":
         lines.append(f"api_base: {report.get('api_base', '<unknown>')}")
         lines.append(f"direct_chat_repeats: {report.get('direct_chat_repeats', '<unknown>')}")
+        selected = report.get("selected_checks")
+        if isinstance(selected, list) and selected:
+            lines.append(f"selected_checks: {', '.join(str(item) for item in selected)}")
+        env = report.get("environment") if isinstance(report.get("environment"), dict) else {}
+        if env:
+            lines.append(f"python: {env.get('python', '<unknown>')}")
+            lines.append(f"token_file_exists: {env.get('token_file_exists', '<unknown>')}")
         lines.append(f"duration: {_fmt_duration(report.get('duration_s'))}")
         for row in report.get("results", []):
             if not isinstance(row, dict):

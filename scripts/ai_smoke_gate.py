@@ -18,6 +18,7 @@ import argparse
 import datetime as dt
 import json
 import os
+import platform
 import sys
 import time
 from pathlib import Path
@@ -243,10 +244,22 @@ def run_gate(checks: Sequence[tuple[str, CheckFn]]) -> tuple[list[dict[str, obje
     return results, time.time() - started
 
 
+def environment_snapshot() -> dict[str, object]:
+    return {
+        "api_base": API_BASE,
+        "metis_api_base_set": "METIS_API_BASE" in os.environ,
+        "python": sys.executable,
+        "platform": platform.platform(),
+        "repo_root": str(ROOT),
+        "token_file_exists": TOKEN_FILE.exists(),
+    }
+
+
 def build_report(
     *,
     manager_chat: bool,
     direct_chat_repeats: int,
+    check_names: Sequence[str],
     results: list[dict[str, object]],
     duration_s: float,
 ) -> dict[str, object]:
@@ -255,7 +268,9 @@ def build_report(
         "ok": all(row["status"] == "ok" for row in results),
         "manager_chat": manager_chat,
         "direct_chat_repeats": direct_chat_repeats,
+        "selected_checks": list(check_names),
         "api_base": API_BASE,
+        "environment": environment_snapshot(),
         "created_at": dt.datetime.now(dt.timezone.utc).isoformat(),
         "duration_s": round(duration_s, 3),
         "results": results,
@@ -279,15 +294,15 @@ def main(argv: list[str] | None = None) -> int:
     if args.direct_chat_repeats < 1:
         parser.error("--direct-chat-repeats must be at least 1")
 
-    results, duration_s = run_gate(
-        selected_checks(
-            manager_chat=args.manager_chat,
-            direct_chat_repeats=args.direct_chat_repeats,
-        )
+    checks = selected_checks(
+        manager_chat=args.manager_chat,
+        direct_chat_repeats=args.direct_chat_repeats,
     )
+    results, duration_s = run_gate(checks)
     report = build_report(
         manager_chat=args.manager_chat,
         direct_chat_repeats=args.direct_chat_repeats,
+        check_names=[name for name, _check in checks],
         results=results,
         duration_s=duration_s,
     )

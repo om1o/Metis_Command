@@ -58,6 +58,7 @@ def test_build_report_marks_failed_result_not_ok() -> None:
     report = ai_smoke_gate.build_report(
         manager_chat=True,
         direct_chat_repeats=3,
+        check_names=["system_health", "direct_chat"],
         duration_s=1.25,
         results=[{"name": "direct_chat", "status": "failed", "duration_s": 0.2, "error": "bad"}],
     )
@@ -66,6 +67,10 @@ def test_build_report_marks_failed_result_not_ok() -> None:
     assert report["ok"] is False
     assert report["manager_chat"] is True
     assert report["direct_chat_repeats"] == 3
+    assert report["selected_checks"] == ["system_health", "direct_chat"]
+    assert report["environment"]["api_base"] == ai_smoke_gate.API_BASE
+    assert report["environment"]["repo_root"] == str(ai_smoke_gate.ROOT)
+    assert isinstance(report["environment"]["token_file_exists"], bool)
     assert report["duration_s"] == 1.25
     assert report["results"] == [{"name": "direct_chat", "status": "failed", "duration_s": 0.2, "error": "bad"}]
 
