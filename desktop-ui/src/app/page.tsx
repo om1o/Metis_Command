@@ -59,6 +59,7 @@ import InboxPanel from '@/components/inbox-panel';
 import ConnectionsPanel from '@/components/connections-panel';
 import InstallAppButton from '@/components/install-app-button';
 import BriefingPanel from '@/components/briefing-panel';
+import VoiceButton from '@/components/voice-button';
 import MemoryPanel from '@/components/memory-panel';
 import ReportsPanel from '@/components/reports-panel';
 import AnalyticsPanel from '@/components/analytics-panel';
@@ -1388,7 +1389,15 @@ export default function App() {
               <span className="hidden text-[11px] text-[var(--metis-fg-dim)] sm:inline">
                 <kbd className="rounded border border-[var(--metis-border)] bg-[var(--metis-code-bg)] px-1.5 py-0.5 text-[10px] text-[var(--metis-code-fg)]">↵</kbd> {mode === 'job' ? 'schedule' : 'send'} · <kbd className="rounded border border-[var(--metis-border)] bg-[var(--metis-code-bg)] px-1.5 py-0.5 text-[10px] text-[var(--metis-code-fg)]">⇧↵</kbd> newline
               </span>
-              <div className="ml-auto">
+              <div className="ml-auto inline-flex items-center gap-1.5">
+                <VoiceButton
+                  onAppend={(t) => {
+                    const sep = input && !/\s$/.test(input) ? ' ' : '';
+                    setInput(input + sep + t);
+                  }}
+                  onInterim={() => { /* live preview reserved for future */ }}
+                  disabled={streaming}
+                />
                 {streaming ? (
                   <button
                     type="button"
