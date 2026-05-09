@@ -588,15 +588,59 @@ async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
             except Exception as e:
                 yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
         elif req.role == "manager":
+            # MVP 14: run the orchestrator on a worker thread so the SSE
+            # generator can keep yielding events to the browser even
+            # while a tool deep inside autonomous_loop is blocked
+            # waiting for the user to click Approve / Deny on a
+            # permission card. Two queues: the orchestrator's own event
+            # generator + the permissions module's emitter, multiplexed
+            # into one ev_queue.
+            import queue as _queue
+            import threading as _threading
+            import permissions as _perm
             from manager_orchestrator import orchestrate
+
+            ev_queue: _queue.Queue = _queue.Queue()
+            DONE = object()
+
+            # Tier comes from the composer pill. The orchestrator thread
+            # registers the session id + tier + emit-callback so any
+            # tool gated through permissions.gate() can find it.
+            _perm.set_session(
+                req.session_id,
+                tier=(req.permission if req.permission in ("read", "balanced", "full") else "balanced"),
+                emit=lambda ev, q=ev_queue: q.put(ev),
+            )
+
+            def _runner():
+                try:
+                    for ev in orchestrate(
+                        wire_message,
+                        user_id=user_id,
+                        session_id=req.session_id,
+                        model_override=req.model,
+                        temperature_override=req.temperature,
+                    ):
+                        ev_queue.put(ev)
+                except Exception as e:
+                    ev_queue.put({"type": "error", "message": str(e)})
+                finally:
+                    ev_queue.put(DONE)
+
+            t = _threading.Thread(target=_runner, daemon=True, name=f"orch:{req.session_id[:8]}")
+            t.start()
+
             try:
-                for ev in orchestrate(
-                    wire_message,
-                    user_id=user_id,
-                    session_id=req.session_id,
-                    model_override=req.model,
-                    temperature_override=req.temperature,
-                ):
+                while True:
+                    try:
+                        ev = ev_queue.get(timeout=15)
+                    except _queue.Empty:
+                        # Idle heartbeat — keeps the SSE connection alive
+                        # while a tool is sitting on an approval prompt.
+                        yield "data: {\"type\": \"heartbeat\", \"message\": \"awaiting approval\"}\n\n"
+                        continue
+                    if ev is DONE:
+                        break
                     if ev.get("type") == "token":
                         full_answer += ev.get("delta", "")
                     elif ev.get("type") == "manager_plan":
@@ -614,8 +658,8 @@ async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
                         if art:
                             yield f"data: {json.dumps({'type': 'run_artifact_saved', 'id': art.id, 'title': art.title})}\n\n"
                     yield f"data: {json.dumps(ev)}\n\n"
-            except Exception as e:
-                yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+            finally:
+                _perm.clear_session(req.session_id)
         else:
             for ev in stream_chat(
                 req.role,
@@ -1888,6 +1932,27 @@ def notifications_delete_one(notif_id: str) -> dict:
     if not _notifs.remove(notif_id):
         raise HTTPException(status_code=404, detail="notification not found")
     return {"ok": True, "id": notif_id}
+
+
+# ── Permission gate (MVP 14): user-side decision on tool approval ──
+
+class ActionDecisionRequest(BaseModel):
+    decision: str  # "approve" | "deny"
+
+
+@app.post("/actions/{action_id}/decision")
+def action_decide(action_id: str, req: ActionDecisionRequest) -> dict:
+    """User clicked Approve or Deny on an approval_required card.
+
+    The orchestrator thread is parked on a threading.Event for this
+    action_id; we set the decision and fire it.
+    """
+    import permissions as _perm
+    if req.decision not in ("approve", "deny"):
+        raise HTTPException(status_code=400, detail="decision must be 'approve' or 'deny'")
+    if not _perm.decide(action_id, req.decision):
+        raise HTTPException(status_code=404, detail="no pending action with that id (already handled or expired)")
+    return {"ok": True, "id": action_id, "decision": req.decision}
 
 
 # ── Daily briefings ──────────────────────────────────────────────────────────

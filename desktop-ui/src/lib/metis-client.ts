@@ -99,6 +99,8 @@ export interface StreamEvent {
     | 'session_title'
     | 'relationship_saved'
     | 'run_artifact_saved'
+    | 'approval_required'
+    | 'approval_expired'
     | 'error';
   delta?: string;
   duration_ms?: number;
@@ -107,6 +109,10 @@ export interface StreamEvent {
   id?: string;
   name?: string;
   title?: string;
+  // approval_required
+  tool?: string;
+  summary?: string;
+  args?: { args?: string[]; kwargs?: Record<string, string> };
   // generic passthrough — the SSE shape on the wire is wider than this type;
   // unknown fields are accepted so we never drop an event for being too rich.
   [key: string]: unknown;
@@ -720,6 +726,12 @@ export class MetisClient {
     });
     if (!res.ok) throw new Error(`clear notifications: ${res.status}`);
     return res.json();
+  }
+
+  // ── Permission gate (MVP 14) ──────────────────────────────────────────
+
+  async decideAction(actionId: string, decision: 'approve' | 'deny'): Promise<{ ok: boolean; id: string; decision: string }> {
+    return this.post(`/actions/${encodeURIComponent(actionId)}/decision`, { decision });
   }
 
   async deleteNotification(id: string): Promise<{ ok: boolean; id: string }> {

@@ -90,6 +90,11 @@ interface Message {
   // from the manager_identity SSE event. Shown as a small "via X" badge
   // so the user can see what's behind the answer without picking a model.
   routedModel?: string;
+  // MVP 14 — pending tool approvals from the permission gate. The
+  // orchestrator parks until the user clicks Approve or Deny on each.
+  pendingApprovals?: Array<{ id: string; tool: string; summary: string }>;
+  // History of decisions for this turn (handled = clicked, expired = timed out)
+  approvalLog?: Array<{ id: string; tool: string; summary: string; outcome: 'approved' | 'denied' | 'expired' }>;
 }
 
 interface Session {
@@ -925,6 +930,46 @@ export default function App() {
             // Auto-router decision — capture so we can show "via X" on the
             // finished message. Both direct + orchestrator paths emit this.
             routedModel = ev.model;
+          } else if (ev.type === 'approval_required' && typeof ev.id === 'string' && typeof ev.tool === 'string') {
+            // The permission gate is parked on a tool call. Push a card
+            // onto the agent message so the user can Approve / Deny.
+            const approval = { id: ev.id, tool: ev.tool, summary: typeof ev.summary === 'string' ? ev.summary : ev.tool };
+            setSessions((all) =>
+              all.map((s) =>
+                s.id === sId
+                  ? {
+                      ...s,
+                      messages: s.messages.map((m) =>
+                        m.id === agentMsg.id
+                          ? { ...m, pendingApprovals: [...(m.pendingApprovals || []), approval] }
+                          : m,
+                      ),
+                    }
+                  : s,
+              ),
+            );
+          } else if (ev.type === 'approval_expired' && typeof ev.id === 'string') {
+            // Card sat too long — gate already default-denied. Strike it.
+            setSessions((all) =>
+              all.map((s) =>
+                s.id === sId
+                  ? {
+                      ...s,
+                      messages: s.messages.map((m) => {
+                        if (m.id !== agentMsg.id) return m;
+                        const expired = (m.pendingApprovals || []).find((a) => a.id === ev.id);
+                        return {
+                          ...m,
+                          pendingApprovals: (m.pendingApprovals || []).filter((a) => a.id !== ev.id),
+                          approvalLog: expired
+                            ? [...(m.approvalLog || []), { ...expired, outcome: 'expired' as const }]
+                            : (m.approvalLog || []),
+                        };
+                      }),
+                    }
+                  : s,
+              ),
+            );
           }
         }
         if (!ac.signal.aborted) {
@@ -1344,6 +1389,34 @@ export default function App() {
                       setActiveArtifactId(id);
                       setWorkspaceOpen(true);
                     }}
+                    onApproval={async (actionId, decision) => {
+                      if (!client) return;
+                      // Optimistic: move from pending → log immediately so
+                      // the user sees feedback even before the server
+                      // round-trip lands.
+                      setSessions((all) =>
+                        all.map((s) =>
+                          s.id !== active!.id
+                            ? s
+                            : {
+                                ...s,
+                                messages: s.messages.map((mm) => {
+                                  if (mm.id !== m.id) return mm;
+                                  const found = (mm.pendingApprovals || []).find((a) => a.id === actionId);
+                                  return {
+                                    ...mm,
+                                    pendingApprovals: (mm.pendingApprovals || []).filter((a) => a.id !== actionId),
+                                    approvalLog: found
+                                      ? [...(mm.approvalLog || []), { ...found, outcome: decision === 'approve' ? 'approved' as const : 'denied' as const }]
+                                      : (mm.approvalLog || []),
+                                  };
+                                }),
+                              },
+                        ),
+                      );
+                      try { await client.decideAction(actionId, decision); }
+                      catch (e) { console.warn('[metis] decision POST failed:', e); }
+                    }}
                   />
                 ))}
                 <div ref={chatBottomRef} className="h-2" />
@@ -1747,6 +1820,7 @@ function MessageBubble({
   reduceMotion,
   agentName,
   onOpenArtifact,
+  onApproval,
 }: {
   msg: Message;
   isLast: boolean;
@@ -1754,6 +1828,7 @@ function MessageBubble({
   reduceMotion: boolean;
   agentName: string;
   onOpenArtifact: (id: string) => void;
+  onApproval?: (actionId: string, decision: 'approve' | 'deny') => void;
 }) {
   const isUser = msg.role === 'user';
   const liveAgent = !isUser && streaming && isLast;
@@ -1862,6 +1937,57 @@ function MessageBubble({
             <FileText className="h-3 w-3" />
             Saved <span className="font-medium">{msg.savedArtifact.title}</span>
           </button>
+        )}
+        {/* MVP 14 — pending tool approvals */}
+        {(msg.pendingApprovals || []).map((a) => (
+          <div
+            key={a.id}
+            className="mt-2 grid gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-[12.5px] text-amber-100"
+          >
+            <div className="flex items-start gap-2">
+              <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-300" />
+              <div className="min-w-0 flex-1">
+                <div className="text-[11px] uppercase tracking-widest text-amber-300/80">Approval needed</div>
+                <code className="mt-0.5 block break-words font-mono text-[11.5px] text-amber-50">{a.summary}</code>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => onApproval?.(a.id, 'deny')}
+                className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-[11.5px] text-amber-100 hover:bg-amber-500/20"
+              >
+                Deny
+              </button>
+              <button
+                type="button"
+                onClick={() => onApproval?.(a.id, 'approve')}
+                className="ml-auto inline-flex items-center gap-1 rounded-md bg-emerald-500 px-2.5 py-1 text-[11.5px] font-medium text-white hover:brightness-110"
+              >
+                <Check className="h-3 w-3" /> Approve
+              </button>
+            </div>
+          </div>
+        ))}
+        {(msg.approvalLog || []).length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {(msg.approvalLog || []).map((a) => {
+              const cls = a.outcome === 'approved'
+                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'
+                : a.outcome === 'denied'
+                ? 'border-rose-500/30 bg-rose-500/10 text-rose-200'
+                : 'border-[var(--metis-border)] bg-[var(--metis-bg)] text-[var(--metis-fg-muted)]';
+              return (
+                <span
+                  key={a.id}
+                  className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] ${cls}`}
+                  title={a.summary}
+                >
+                  {a.outcome === 'approved' ? '✓' : a.outcome === 'denied' ? '✗' : '⌛'} {a.tool}
+                </span>
+              );
+            })}
+          </div>
         )}
       </div>
     </motion.div>

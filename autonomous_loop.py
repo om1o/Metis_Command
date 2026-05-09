@@ -34,6 +34,18 @@ from tool_runtime import SessionExecutionLog, ToolRunner, ToolSpec, build_pydant
 # proposes gets rejected. Keeps the surface area tight and auditable.
 
 def _tool_registry() -> dict[str, Callable[..., Any]]:
+    """Atomic tools the LLM is allowed to propose during a mission.
+
+    State-changing tools (writes, shell, browser actions, native-app
+    clicks/typing) are wrapped through ``permissions.gate``. The wrapper
+    consults the active session's tier:
+      * ``read``     → instant deny
+      * ``balanced`` → block until user clicks Approve / Deny
+      * ``full``     → pass-through
+
+    Read-only tools (read_file, grep, parse_file, web_search,
+    screenshot) skip the gate.
+    """
     reg: dict[str, Callable[..., Any]] = {}
     from tools import file_system as _fs
     from tools import code_interpreter as _ci
@@ -46,28 +58,36 @@ def _tool_registry() -> dict[str, Callable[..., Any]]:
 
     from tools import multi_lang as _ml
     from subagents import spawn as _spawn_subagent
+    import permissions as _perm
 
     reg.update({
-        "read_file":         _fs.read_file,
-        "write_file":        _fs.write_file,
-        "edit_file":         _fs.edit_file,
-        "list_dir":          _fs.list_dir,
-        "grep":              _fs.grep,
-        "find_files":        _fs.find_files,
-        "parse_file":        _fp.parse,
-        "python":            _ci.run,
-        "run_code":          _ml.run,                                  # multi-language eval
-        "shell":             lambda cmd: _sh.run(cmd, confirm=False),
-        "browser_goto":      _ba.goto,
-        "browser_click":     _ba.click,
-        "browser_fill":      _ba.fill,
-        "browser_extract":   _ba.extract,
+        # Read-only / observational — no gate.
+        "read_file":          _fs.read_file,
+        "list_dir":           _fs.list_dir,
+        "grep":               _fs.grep,
+        "find_files":         _fs.find_files,
+        "parse_file":         _fp.parse,
+        "browser_extract":    _ba.extract,
         "browser_screenshot": _ba.screenshot,
-        "screenshot":        _cu.screenshot,
-        "speak":             _vo.speak,
+        "screenshot":         _cu.screenshot,
         "web_search": lambda query: _search.run(query) if hasattr(_search, "run") else _search(query),
-        "subagent":          lambda subagent_type, goal, readonly=False: _spawn_subagent(
-                                 subagent_type, goal, readonly=readonly).to_dict(),
+
+        # State-changing — gated through Read/Balanced/Full.
+        "write_file":   _perm.gate("write_file",   _fs.write_file,                    summary_args=["path"]),
+        "edit_file":    _perm.gate("edit_file",    _fs.edit_file,                     summary_args=["path"]),
+        "python":       _perm.gate("python",       _ci.run,                           summary_args=["code"]),
+        "run_code":     _perm.gate("run_code",     _ml.run,                           summary_args=["language", "code"]),
+        "shell":        _perm.gate("shell",        lambda cmd: _sh.run(cmd, confirm=False), summary_args=["cmd"]),
+        "browser_goto": _perm.gate("browser_goto", _ba.goto,                          summary_args=["url"]),
+        "browser_click": _perm.gate("browser_click", _ba.click,                       summary_args=["target"]),
+        "browser_fill": _perm.gate("browser_fill", _ba.fill,                          summary_args=["selector", "value"]),
+        "speak":        _perm.gate("speak",        _vo.speak,                         summary_args=["text"]),
+
+        # Subagents recursively run their own loop; their internal tools
+        # inherit the same permission tier via the session emitter, so
+        # we don't need to gate the spawn itself.
+        "subagent": lambda subagent_type, goal, readonly=False: _spawn_subagent(
+            subagent_type, goal, readonly=readonly).to_dict(),
     })
     return reg
 
