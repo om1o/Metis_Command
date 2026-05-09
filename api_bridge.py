@@ -1766,6 +1766,13 @@ def notifications_clear() -> dict:
     return {"ok": True, "cleared": _notifs.clear()}
 
 
+@app.delete("/notifications/{notif_id}")
+def notifications_delete_one(notif_id: str) -> dict:
+    if not _notifs.remove(notif_id):
+        raise HTTPException(status_code=404, detail="notification not found")
+    return {"ok": True, "id": notif_id}
+
+
 # ── Skills ───────────────────────────────────────────────────────────────────
 
 @app.get("/skills")

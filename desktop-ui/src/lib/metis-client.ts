@@ -706,6 +706,15 @@ export class MetisClient {
     return res.json();
   }
 
+  async deleteNotification(id: string): Promise<{ ok: boolean; id: string }> {
+    const res = await fetch(`${this.baseUrl}/notifications/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: this.headers(),
+    });
+    if (!res.ok) throw new Error(`delete notification: ${res.status}`);
+    return res.json();
+  }
+
   // ── Analytics ────────────────────────────────────────────────────────────
 
   async getAnalytics(): Promise<AnalyticsSummary> {
