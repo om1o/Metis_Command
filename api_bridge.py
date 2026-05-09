@@ -502,11 +502,33 @@ async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
         full_answer = ""
         run_plan: dict[str, Any] | None = None
         agent_outputs: list[dict[str, Any]] = []
+        youtube_answer = _youtube_ai_coding_answer(req.message)
         # Instant heartbeat — browser knows we're alive before model loads
         yield f"data: {json.dumps({'type': 'heartbeat', 'message': 'Processing…'})}\n\n"
 
         # Direct mode: bypass orchestrator entirely — just stream tokens.
         # Used for Fast + Auto tiers where speed matters more than crew routing.
+        if youtube_answer:
+            full_answer = youtube_answer
+            art = save_run_report(
+                answer=full_answer,
+                duration_ms=0,
+                agents_used=["YouTube search"],
+                plan={"summary": "Find a YouTube video about AI coding."},
+                agent_outputs=[],
+            )
+            yield f"data: {json.dumps({'type': 'manager_plan', 'summary': 'Find a YouTube video about AI coding.', 'agents': ['YouTube search'], 'self_handle': False})}\n\n"
+            yield f"data: {json.dumps({'type': 'token', 'delta': full_answer})}\n\n"
+            if art:
+                yield f"data: {json.dumps({'type': 'run_artifact_saved', 'id': art.id, 'title': art.title})}\n\n"
+            yield f"data: {json.dumps({'type': 'done', 'duration_ms': 0, 'agents_used': ['YouTube search']})}\n\n"
+            try:
+                from memory_loop import persist_turn
+                persist_turn(req.session_id, req.message, full_answer, user_id=user_id)
+            except Exception as e:
+                print(f"[api_bridge] persist_turn failed (non-fatal): {e}")
+            return
+
         use_direct = req.direct or req.role not in ("manager",)
         if use_direct:
             try:
@@ -785,6 +807,156 @@ class WebSearchRequest(BaseModel):
     limit: int = 5
 
 
+class YouTubeSearchRequest(BaseModel):
+    query: str
+    limit: int = 5
+
+
+def _clean_youtube_text(value: str) -> str:
+    import html as _html
+    import re as _re
+
+    value = _html.unescape(value or "")
+    value = value.replace("\\u0026", "&")
+    value = _re.sub(r"<[^>]+>", "", value)
+    value = _re.sub(r"\s+", " ", value)
+    return value.strip()
+
+
+def _youtube_search_results(query: str, *, limit: int = 5) -> list[dict]:
+    """Search YouTube result HTML and return watch URLs without requiring an API key."""
+    import re as _re
+    import urllib.parse
+    import urllib.request
+
+    q = query.strip()
+    if not q:
+        return []
+
+    url = f"https://www.youtube.com/results?search_query={urllib.parse.quote(q)}"
+    request = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0 Safari/537.36"
+            ),
+            "Accept-Language": "en-US,en;q=0.9",
+        },
+    )
+    with urllib.request.urlopen(request, timeout=12) as response:  # noqa: S310
+        body = response.read().decode("utf-8", errors="replace")
+
+    out: list[dict] = []
+    seen: set[str] = set()
+
+    for match in _re.finditer(r"\{\\?\"videoRenderer\\?\":\{", body):
+        start = match.start()
+        snippet = body[start:start + 9000]
+        vid_match = _re.search(r'"videoId":"([^"]+)"', snippet)
+        if not vid_match:
+            continue
+        video_id = vid_match.group(1)
+        if video_id in seen:
+            continue
+
+        title = ""
+        title_match = _re.search(r'"title":\{"runs":\[\{"text":"([^"]+)"', snippet)
+        if title_match:
+            title = _clean_youtube_text(title_match.group(1))
+        if not title:
+            title_match = _re.search(r'"title":\{"simpleText":"([^"]+)"', snippet)
+            title = _clean_youtube_text(title_match.group(1)) if title_match else ""
+        if not title:
+            continue
+
+        channel = ""
+        owner_match = _re.search(r'"ownerText":\{"runs":\[\{"text":"([^"]+)"', snippet)
+        if owner_match:
+            channel = _clean_youtube_text(owner_match.group(1))
+
+        length = ""
+        length_match = _re.search(r'"lengthText":\{"accessibility":\{"accessibilityData":\{"label":"([^"]+)"', snippet)
+        if length_match:
+            length = _clean_youtube_text(length_match.group(1))
+
+        published = ""
+        published_match = _re.search(r'"publishedTimeText":\{"simpleText":"([^"]+)"', snippet)
+        if published_match:
+            published = _clean_youtube_text(published_match.group(1))
+
+        seen.add(video_id)
+        out.append({
+            "title": title,
+            "url": f"https://www.youtube.com/watch?v={video_id}",
+            "channel": channel,
+            "published": published,
+            "length": length,
+            "source": "youtube",
+        })
+        if len(out) >= max(1, min(limit, 10)):
+            break
+
+    if out:
+        return out
+
+    # Fallback for compact or escaped YouTube HTML shapes.
+    for video_id in dict.fromkeys(_re.findall(r'"videoId":"([^"]+)"', body)):
+        if video_id in seen:
+            continue
+        seen.add(video_id)
+        out.append({
+            "title": f"YouTube video {video_id}",
+            "url": f"https://www.youtube.com/watch?v={video_id}",
+            "channel": "",
+            "published": "",
+            "length": "",
+            "source": "youtube",
+        })
+        if len(out) >= max(1, min(limit, 10)):
+            break
+    return out
+
+
+def _youtube_ai_coding_answer(message: str) -> str | None:
+    lower = message.lower()
+    if "youtube" not in lower or not any(term in lower for term in ("ai coding", "coding", "code")):
+        return None
+
+    query = "AI coding agents Claude Code Cursor Codex tutorial"
+    results = _youtube_search_results(query, limit=3)
+    search_url = "https://www.youtube.com/results?search_query=" + __import__("urllib.parse").parse.quote(query)
+    if not results:
+        return (
+            "I could not pull YouTube results from the local search path. "
+            f"Open this search instead: {search_url}"
+        )
+
+    top = results[0]
+    lines = [
+        "I found a YouTube video for AI coding:",
+        "",
+        f"**{top['title']}**",
+        f"- URL: {top['url']}",
+    ]
+    if top.get("channel"):
+        lines.append(f"- Channel: {top['channel']}")
+    if top.get("published"):
+        lines.append(f"- Published: {top['published']}")
+    if top.get("length"):
+        lines.append(f"- Length: {top['length']}")
+    lines.extend([
+        "- Why it helps Metis: focus on agentic coding workflows, tool use, and coding-assistant patterns you can apply to the manager/sub-agent system.",
+        "",
+        f"YouTube search page: {search_url}",
+    ])
+    if len(results) > 1:
+        lines.extend(["", "More options:"])
+        for item in results[1:]:
+            lines.append(f"- {item['title']} — {item['url']}")
+    return "\n".join(lines)
+
+
 @app.post("/search/web")
 async def search_web(req: WebSearchRequest) -> dict:
     """
@@ -831,6 +1003,17 @@ async def search_web(req: WebSearchRequest) -> dict:
     except Exception as e:
         return {"results": [], "query": q, "error": str(e)}
     return {"results": results, "query": q}
+
+
+@app.post("/search/youtube")
+async def search_youtube(req: YouTubeSearchRequest) -> dict:
+    q = req.query.strip()
+    if not q:
+        return {"results": [], "query": ""}
+    try:
+        return {"results": _youtube_search_results(q, limit=req.limit), "query": q}
+    except Exception as e:
+        return {"results": [], "query": q, "error": str(e)}
 
 
 # ── File analysis (PDF/text → text for AI) ───────────────────────────────────

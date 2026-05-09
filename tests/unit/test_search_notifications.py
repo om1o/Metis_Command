@@ -66,6 +66,63 @@ def test_sessions_search_api_returns_matches(_sandbox_paths):
     assert "<b>landlord</b>" in payload[0]["snippet"]
 
 
+def test_youtube_search_api_returns_video_results(_sandbox_paths, monkeypatch):
+    import api_bridge
+
+    monkeypatch.setattr(
+        api_bridge,
+        "_youtube_search_results",
+        lambda query, limit=5: [
+            {
+                "title": "AI Coding Agents for Real Apps",
+                "url": "https://www.youtube.com/watch?v=abc123",
+                "channel": "Builder Lab",
+                "published": "1 week ago",
+                "length": "12 minutes",
+                "source": "youtube",
+            }
+        ],
+    )
+
+    client = TestClient(api_bridge.app)
+    response = client.post(
+        "/search/youtube",
+        json={"query": "AI coding agents", "limit": 3},
+        headers=api_bridge.auth_local.bearer_header(),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["query"] == "AI coding agents"
+    assert payload["results"][0]["url"] == "https://www.youtube.com/watch?v=abc123"
+
+
+def test_youtube_ai_coding_answer_uses_fast_search_path(_sandbox_paths, monkeypatch):
+    import api_bridge
+
+    monkeypatch.setattr(
+        api_bridge,
+        "_youtube_search_results",
+        lambda query, limit=3: [
+            {
+                "title": "Claude Code vs Cursor for AI Coding",
+                "url": "https://www.youtube.com/watch?v=def456",
+                "channel": "AI Builders",
+                "published": "2 days ago",
+                "length": "18 minutes",
+                "source": "youtube",
+            }
+        ],
+    )
+
+    answer = api_bridge._youtube_ai_coding_answer("Open YouTube and find a video on AI coding")
+
+    assert answer is not None
+    assert "Claude Code vs Cursor for AI Coding" in answer
+    assert "https://www.youtube.com/watch?v=def456" in answer
+    assert "YouTube search page:" in answer
+
+
 def test_notifications_module_persists_metadata_and_marks_read(_sandbox_paths):
     notifications = _fresh_notifications()
 
