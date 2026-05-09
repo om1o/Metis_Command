@@ -9,6 +9,7 @@ Examples:
     python scripts/qql.py --list
     python scripts/qql.py ai.basic
     python scripts/qql.py ai.full,tests.backend
+    python scripts/qql.py e2e
     python scripts/qql.py all --dry-run
     python scripts/qql.py ai.basic --json
 """
@@ -121,12 +122,15 @@ CHECKS: dict[str, Check] = {
 
 ALIASES: dict[str, tuple[str, ...]] = {
     "ai": ("ai.basic",),
+    "ai.e2e": ("quality.diff", "tests.qql", "tests.backend", "ui.desktop.lint", "ui.desktop.build", "ai.load"),
+    "build": ("ui.desktop.lint", "ui.desktop.build"),
+    "e2e": ("quality.diff", "tests.qql", "tests.backend", "ui.desktop.lint", "ui.desktop.build", "ai.load"),
     "load": ("ai.load",),
     "quality": ("quality.diff", "tests.qql", "tests.backend"),
     "backend": ("tests.backend",),
     "ui": ("ui.desktop.lint", "ui.desktop.build"),
     "ui.desktop": ("ui.desktop.lint", "ui.desktop.build"),
-    "all": ("quality.diff", "tests.qql", "tests.backend", "ui.desktop.lint", "ui.desktop.build", "ai.basic"),
+    "all": ("quality.diff", "tests.qql", "tests.backend", "ui.desktop.lint", "ui.desktop.build", "ai.load"),
 }
 
 

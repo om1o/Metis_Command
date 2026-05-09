@@ -37,6 +37,32 @@ def test_parse_load_alias_selects_ai_load() -> None:
     assert "--direct-chat-repeats" in checks[0].command
 
 
+def test_parse_build_alias_selects_desktop_lint_and_build() -> None:
+    checks = qql.parse_query("build")
+
+    assert [check.key for check in checks] == ["ui.desktop.lint", "ui.desktop.build"]
+
+
+def test_parse_e2e_alias_uses_ai_load_not_basic() -> None:
+    checks = qql.parse_query("e2e")
+
+    assert [check.key for check in checks] == [
+        "quality.diff",
+        "tests.qql",
+        "tests.backend",
+        "ui.desktop.lint",
+        "ui.desktop.build",
+        "ai.load",
+    ]
+
+
+def test_parse_all_uses_ai_load_gate() -> None:
+    checks = qql.parse_query("all")
+
+    assert [check.key for check in checks][-1] == "ai.load"
+    assert "ai.basic" not in [check.key for check in checks]
+
+
 def test_parse_query_rejects_unknown_selector() -> None:
     with pytest.raises(ValueError, match="unknown QQL selector"):
         qql.parse_query("missing.check")
