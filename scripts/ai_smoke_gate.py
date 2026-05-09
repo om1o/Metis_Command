@@ -8,6 +8,7 @@ tool loop can ground exact answers from real files instead of hallucinating.
 Usage:
     python scripts/ai_smoke_gate.py
     python scripts/ai_smoke_gate.py --manager-chat
+    python scripts/ai_smoke_gate.py --direct-chat-repeats 3
     python scripts/ai_smoke_gate.py --report artifacts/quality/ai-smoke.json
 """
 
@@ -118,6 +119,27 @@ def check_direct_chat() -> None:
     _ok("direct chat", expected)
 
 
+def check_direct_chat_load(*, repeats: int) -> None:
+    for index in range(1, repeats + 1):
+        expected = f"METIS_LOAD_GATE_READY_{index}"
+        answer, events = _stream_chat(
+            {
+                "session_id": f"ai-load-direct-{int(time.time())}-{index}",
+                "message": f"Reply with exactly: {expected}",
+                "role": "manager",
+                "direct": True,
+                "mode": "task",
+                "permission": "read",
+            },
+            timeout_s=180,
+        )
+        if expected not in answer:
+            _fail("direct chat load", f"run {index}: expected {expected!r}, got {answer!r}; events={events}")
+        if "done" not in events:
+            _fail("direct chat load", f"run {index}: missing done event; events={events}")
+        _ok("direct chat load", expected)
+
+
 def check_manager_chat() -> None:
     expected = "METIS_MANAGER_GATE_READY"
     answer, events = _stream_chat(
@@ -181,14 +203,17 @@ def check_autonomous_exact_answers() -> None:
         _ok("autonomous mission", expected)
 
 
-def selected_checks(*, manager_chat: bool) -> list[tuple[str, CheckFn]]:
+def selected_checks(*, manager_chat: bool, direct_chat_repeats: int = 1) -> list[tuple[str, CheckFn]]:
     checks: list[tuple[str, CheckFn]] = [
         ("system_health", check_health),
         ("direct_chat", check_direct_chat),
         ("autonomous_exact_answers", check_autonomous_exact_answers),
     ]
+    if direct_chat_repeats > 1:
+        checks.insert(2, (f"direct_chat_load_{direct_chat_repeats}", lambda: check_direct_chat_load(repeats=direct_chat_repeats)))
     if manager_chat:
-        checks.insert(2, ("manager_chat", check_manager_chat))
+        load_offset = 3 if direct_chat_repeats > 1 else 2
+        checks.insert(load_offset, ("manager_chat", check_manager_chat))
     return checks
 
 
@@ -218,11 +243,18 @@ def run_gate(checks: Sequence[tuple[str, CheckFn]]) -> tuple[list[dict[str, obje
     return results, time.time() - started
 
 
-def build_report(*, manager_chat: bool, results: list[dict[str, object]], duration_s: float) -> dict[str, object]:
+def build_report(
+    *,
+    manager_chat: bool,
+    direct_chat_repeats: int,
+    results: list[dict[str, object]],
+    duration_s: float,
+) -> dict[str, object]:
     return {
         "schema": "metis.ai_smoke.report.v1",
         "ok": all(row["status"] == "ok" for row in results),
         "manager_chat": manager_chat,
+        "direct_chat_repeats": direct_chat_repeats,
         "api_base": API_BASE,
         "created_at": dt.datetime.now(dt.timezone.utc).isoformat(),
         "duration_s": round(duration_s, 3),
@@ -240,12 +272,25 @@ def write_report(path: Path, report: dict[str, object]) -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--manager-chat", action="store_true", help="also test full manager orchestration")
+    parser.add_argument("--direct-chat-repeats", type=int, default=1, help="repeat direct chat for a light AI load gate")
     parser.add_argument("--json", action="store_true", help="print machine-readable report JSON")
     parser.add_argument("--report", type=Path, help="write a durable JSON report to this path")
     args = parser.parse_args(argv)
+    if args.direct_chat_repeats < 1:
+        parser.error("--direct-chat-repeats must be at least 1")
 
-    results, duration_s = run_gate(selected_checks(manager_chat=args.manager_chat))
-    report = build_report(manager_chat=args.manager_chat, results=results, duration_s=duration_s)
+    results, duration_s = run_gate(
+        selected_checks(
+            manager_chat=args.manager_chat,
+            direct_chat_repeats=args.direct_chat_repeats,
+        )
+    )
+    report = build_report(
+        manager_chat=args.manager_chat,
+        direct_chat_repeats=args.direct_chat_repeats,
+        results=results,
+        duration_s=duration_s,
+    )
     if args.report:
         write_report(args.report, report)
         print(f"[ok] ai smoke report: {args.report}")

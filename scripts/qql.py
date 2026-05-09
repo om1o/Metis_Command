@@ -58,6 +58,17 @@ CHECKS: dict[str, Check] = {
             "artifacts/quality/ai-smoke-full.json",
         ),
     ),
+    "ai.load": Check(
+        key="ai.load",
+        description="Health, repeated direct AI chat, and autonomous exact-answer missions.",
+        command=_py(
+            "scripts/ai_smoke_gate.py",
+            "--direct-chat-repeats",
+            "3",
+            "--report",
+            "artifacts/quality/ai-smoke-load.json",
+        ),
+    ),
     "tests.backend": Check(
         key="tests.backend",
         description="Focused backend unit tests for AI, safety, reports, schedules, and contracts.",
@@ -110,6 +121,7 @@ CHECKS: dict[str, Check] = {
 
 ALIASES: dict[str, tuple[str, ...]] = {
     "ai": ("ai.basic",),
+    "load": ("ai.load",),
     "quality": ("quality.diff", "tests.qql", "tests.backend"),
     "backend": ("tests.backend",),
     "ui": ("ui.desktop.lint", "ui.desktop.build"),

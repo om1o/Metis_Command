@@ -17,6 +17,16 @@ def test_selected_checks_includes_manager_only_when_requested() -> None:
     ]
 
 
+def test_selected_checks_includes_direct_chat_load_before_manager() -> None:
+    assert [name for name, _check in ai_smoke_gate.selected_checks(manager_chat=True, direct_chat_repeats=3)] == [
+        "system_health",
+        "direct_chat",
+        "direct_chat_load_3",
+        "manager_chat",
+        "autonomous_exact_answers",
+    ]
+
+
 def test_run_gate_stops_after_first_failure() -> None:
     calls: list[str] = []
 
@@ -47,6 +57,7 @@ def test_run_gate_stops_after_first_failure() -> None:
 def test_build_report_marks_failed_result_not_ok() -> None:
     report = ai_smoke_gate.build_report(
         manager_chat=True,
+        direct_chat_repeats=3,
         duration_s=1.25,
         results=[{"name": "direct_chat", "status": "failed", "duration_s": 0.2, "error": "bad"}],
     )
@@ -54,6 +65,7 @@ def test_build_report_marks_failed_result_not_ok() -> None:
     assert report["schema"] == "metis.ai_smoke.report.v1"
     assert report["ok"] is False
     assert report["manager_chat"] is True
+    assert report["direct_chat_repeats"] == 3
     assert report["duration_s"] == 1.25
     assert report["results"] == [{"name": "direct_chat", "status": "failed", "duration_s": 0.2, "error": "bad"}]
 

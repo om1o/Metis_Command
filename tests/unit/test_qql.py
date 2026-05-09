@@ -30,6 +30,13 @@ def test_parse_query_dedupes_repeated_selectors() -> None:
     assert [check.key for check in checks] == ["ai.basic"]
 
 
+def test_parse_load_alias_selects_ai_load() -> None:
+    checks = qql.parse_query("load")
+
+    assert [check.key for check in checks] == ["ai.load"]
+    assert "--direct-chat-repeats" in checks[0].command
+
+
 def test_parse_query_rejects_unknown_selector() -> None:
     with pytest.raises(ValueError, match="unknown QQL selector"):
         qql.parse_query("missing.check")
