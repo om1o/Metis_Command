@@ -110,6 +110,89 @@ def test_write_report_creates_parent_and_json_file(tmp_path) -> None:
     assert report_path.read_text(encoding="utf-8") == '{\n  "schema": "metis.qql.report.v1",\n  "ok": true\n}\n'
 
 
+def test_summarize_qql_report_outputs_status_and_checks(tmp_path) -> None:
+    report_path = tmp_path / "qql-report.json"
+    qql.write_report(
+        report_path,
+        {
+            "schema": "metis.qql.report.v1",
+            "ok": True,
+            "query": "e2e",
+            "repo": {"branch": "main", "commit": "abcdef1234567890"},
+            "results": [
+                {"key": "quality.diff", "status": "ok", "duration_s": 0.12},
+                {"key": "ai.load", "status": "ok", "duration_s": 9.8},
+            ],
+        },
+    )
+
+    summary, ok = qql.summarize_report(report_path)
+
+    assert ok is True
+    assert "schema: metis.qql.report.v1" in summary
+    assert "query: e2e" in summary
+    assert "repo: main @ abcdef123456" in summary
+    assert "- ai.load: ok (9.8s)" in summary
+
+
+def test_summarize_ai_report_outputs_load_details(tmp_path) -> None:
+    report_path = tmp_path / "ai-smoke.json"
+    qql.write_report(
+        report_path,
+        {
+            "schema": "metis.ai_smoke.report.v1",
+            "ok": False,
+            "api_base": "http://127.0.0.1:7331",
+            "direct_chat_repeats": 3,
+            "duration_s": 4.2,
+            "results": [
+                {"name": "direct_chat_load_3", "status": "failed", "duration_s": 1.25, "error": "bad token"},
+            ],
+        },
+    )
+
+    summary, ok = qql.summarize_report(report_path)
+
+    assert ok is False
+    assert "schema: metis.ai_smoke.report.v1" in summary
+    assert "direct_chat_repeats: 3" in summary
+    assert "- direct_chat_load_3: failed (1.2s) error=bad token" in summary
+
+
+def test_tests_backend_includes_setup_code_auth() -> None:
+    checks = qql.parse_query("tests.backend")
+
+    assert len(checks) == 1
+    assert any("test_setup_code_auth.py" in arg for arg in checks[0].command)
+
+
+def test_parallel_dry_run_preserves_input_order_and_all_ok() -> None:
+    checks = qql.parse_query("quality")
+
+    results = qql.run_checks(checks, dry_run=True, parallel=True)
+
+    assert [r["key"] for r in results] == ["quality.diff", "tests.qql", "tests.backend"]
+    assert all(r["status"] == "dry-run" for r in results)
+    assert all(r["returncode"] == 0 for r in results)
+
+
+def test_parallel_and_sequential_dry_run_produce_identical_keys() -> None:
+    checks = qql.parse_query("quality")
+
+    seq = qql.run_checks(checks, dry_run=True, parallel=False)
+    par = qql.run_checks(checks, dry_run=True, parallel=True)
+
+    assert [r["key"] for r in seq] == [r["key"] for r in par]
+
+
+def test_build_report_includes_parallel_flag() -> None:
+    results = qql.run_checks(qql.parse_query("quality.diff"), dry_run=True, parallel=True)
+
+    report = qql.build_report(query="quality.diff", dry_run=True, parallel=True, results=results)
+
+    assert report["parallel"] is True
+
+
 def test_resolved_command_uses_path_executable(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(qql.shutil, "which", lambda name: f"C:/tools/{name}.cmd")
 

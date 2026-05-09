@@ -11,12 +11,15 @@ Examples:
     python scripts/qql.py ai.full,tests.backend
     python scripts/qql.py e2e
     python scripts/qql.py all --dry-run
+    python scripts/qql.py quality --parallel
     python scripts/qql.py ai.basic --json
+    python scripts/qql.py --summarize artifacts/quality/qql-e2e-latest.json
 """
 
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import datetime as dt
 import json
 import shutil
@@ -72,7 +75,7 @@ CHECKS: dict[str, Check] = {
     ),
     "tests.backend": Check(
         key="tests.backend",
-        description="Focused backend unit tests for AI, safety, reports, schedules, and contracts.",
+        description="Focused backend unit tests for AI, safety, reports, schedules, auth, and contracts.",
         command=_py(
             "-m",
             "pytest",
@@ -81,6 +84,7 @@ CHECKS: dict[str, Check] = {
             "tests/unit/test_scheduled_job_reports.py",
             "tests/unit/test_run_contracts.py",
             "tests/unit/test_manager_run_artifacts.py",
+            "tests/unit/test_setup_code_auth.py",
             "-q",
         ),
     ),
@@ -182,6 +186,22 @@ def _run_check(check: Check) -> int:
         return 127
 
 
+def _run_check_captured(check: Check) -> tuple[int, str]:
+    """Run a check and capture its combined stdout+stderr for atomic printing."""
+    try:
+        proc = subprocess.run(
+            _resolved_command(check.command),
+            cwd=check.cwd,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        output = (proc.stdout or "") + (proc.stderr or "")
+        return proc.returncode, output
+    except FileNotFoundError:
+        return 127, f"missing executable: {check.command[0]}\n"
+
+
 def _git_value(args: Sequence[str]) -> str:
     try:
         proc = subprocess.run(
@@ -198,7 +218,14 @@ def _git_value(args: Sequence[str]) -> str:
     return proc.stdout.strip()
 
 
-def run_checks(checks: Iterable[Check], *, dry_run: bool) -> list[dict[str, object]]:
+def run_checks(checks: Iterable[Check], *, dry_run: bool, parallel: bool = False) -> list[dict[str, object]]:
+    check_list = list(checks)
+    if parallel:
+        return _run_checks_parallel(check_list, dry_run=dry_run)
+    return _run_checks_sequential(check_list, dry_run=dry_run)
+
+
+def _run_checks_sequential(checks: list[Check], *, dry_run: bool) -> list[dict[str, object]]:
     results: list[dict[str, object]] = []
     for check in checks:
         started = time.time()
@@ -221,11 +248,49 @@ def run_checks(checks: Iterable[Check], *, dry_run: bool) -> list[dict[str, obje
     return results
 
 
-def build_report(*, query: str, dry_run: bool, results: list[dict[str, object]]) -> dict[str, object]:
+def _run_checks_parallel(checks: list[Check], *, dry_run: bool) -> list[dict[str, object]]:
+    """Run all checks concurrently; output from each check is printed atomically."""
+    order = {check.key: i for i, check in enumerate(checks)}
+
+    def _run_one(check: Check) -> dict[str, object]:
+        started = time.time()
+        if dry_run:
+            rc, captured = 0, ""
+        else:
+            rc, captured = _run_check_captured(check)
+        elapsed = time.time() - started
+        status = "dry-run" if dry_run else ("ok" if rc == 0 else "failed")
+        # Build output block and emit atomically so parallel lines don't interleave.
+        lines = [f"[qql/p] {check.key}: {_display_command(check)}"]
+        if captured:
+            lines.extend(f"        {ln}" for ln in captured.rstrip().splitlines())
+        lines.append(f"[qql/p] {check.key}: {status} ({elapsed:.1f}s)")
+        print("\n".join(lines), flush=True)
+        return {
+            "key": check.key,
+            "description": check.description,
+            "command": list(check.command),
+            "cwd": str(check.cwd),
+            "returncode": rc,
+            "status": status,
+            "duration_s": round(elapsed, 3),
+        }
+
+    results_map: dict[str, dict[str, object]] = {}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(checks) or 1) as pool:
+        futures = [pool.submit(_run_one, check) for check in checks]
+        for fut in concurrent.futures.as_completed(futures):
+            result = fut.result()
+            results_map[str(result["key"])] = result
+    return sorted(results_map.values(), key=lambda r: order[str(r["key"])])
+
+
+def build_report(*, query: str, dry_run: bool, parallel: bool = False, results: list[dict[str, object]]) -> dict[str, object]:
     return {
         "schema": "metis.qql.report.v1",
         "query": query,
         "dry_run": dry_run,
+        "parallel": parallel,
         "ok": all(int(row["returncode"]) == 0 for row in results),
         "created_at": dt.datetime.now(dt.timezone.utc).isoformat(),
         "repo": {
@@ -244,14 +309,67 @@ def write_report(path: Path, report: dict[str, object]) -> None:
     tmp_path.replace(path)
 
 
+def _fmt_duration(value: object) -> str:
+    try:
+        return f"{float(value):.1f}s"
+    except (TypeError, ValueError):
+        return "?s"
+
+
+def summarize_report(path: Path) -> tuple[str, bool]:
+    report = json.loads(path.read_text(encoding="utf-8"))
+    schema = str(report.get("schema", "unknown"))
+    ok = bool(report.get("ok"))
+    status = "ok" if ok else "failed"
+    lines = [f"[qql] summary: {path}", f"schema: {schema}", f"status: {status}"]
+
+    if schema == "metis.qql.report.v1":
+        repo = report.get("repo") if isinstance(report.get("repo"), dict) else {}
+        lines.append(f"query: {report.get('query', '<unknown>')}")
+        if repo:
+            lines.append(f"repo: {repo.get('branch', '<unknown>')} @ {str(repo.get('commit', ''))[:12]}")
+        for row in report.get("results", []):
+            if not isinstance(row, dict):
+                continue
+            lines.append(
+                f"- {row.get('key', '<unknown>')}: {row.get('status', '<unknown>')} "
+                f"({_fmt_duration(row.get('duration_s'))})"
+            )
+    elif schema == "metis.ai_smoke.report.v1":
+        lines.append(f"api_base: {report.get('api_base', '<unknown>')}")
+        lines.append(f"direct_chat_repeats: {report.get('direct_chat_repeats', '<unknown>')}")
+        lines.append(f"duration: {_fmt_duration(report.get('duration_s'))}")
+        for row in report.get("results", []):
+            if not isinstance(row, dict):
+                continue
+            detail = f"- {row.get('name', '<unknown>')}: {row.get('status', '<unknown>')} ({_fmt_duration(row.get('duration_s'))})"
+            if row.get("error"):
+                detail += f" error={row.get('error')}"
+            lines.append(detail)
+    else:
+        lines.append("results: unsupported report schema")
+    return "\n".join(lines), ok
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run Metis quality checks by QQL selector.")
     parser.add_argument("query", nargs="?", default="quality", help="QQL selector, alias, or comma-separated selectors")
     parser.add_argument("--list", action="store_true", help="list checks and aliases")
     parser.add_argument("--dry-run", action="store_true", help="show selected checks without running them")
+    parser.add_argument("--parallel", action="store_true", help="run all selected checks concurrently (no fail-fast)")
     parser.add_argument("--json", action="store_true", help="print machine-readable result JSON")
     parser.add_argument("--report", type=Path, help="write a durable JSON quality report to this path")
+    parser.add_argument("--summarize", type=Path, help="print a concise summary for a QQL or AI smoke report")
     args = parser.parse_args(argv)
+
+    if args.summarize:
+        try:
+            summary, ok = summarize_report(args.summarize)
+        except Exception as exc:
+            print(f"[qql] could not summarize {args.summarize}: {exc}", file=sys.stderr)
+            return 2
+        print(summary)
+        return 0 if ok else 1
 
     if args.list:
         print("Checks:")
@@ -268,8 +386,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[qql] {exc}", file=sys.stderr)
         return 2
 
-    results = run_checks(checks, dry_run=args.dry_run)
-    report = build_report(query=args.query, dry_run=args.dry_run, results=results)
+    results = run_checks(checks, dry_run=args.dry_run, parallel=args.parallel)
+    report = build_report(query=args.query, dry_run=args.dry_run, parallel=args.parallel, results=results)
     if args.report:
         write_report(args.report, report)
         print(f"[qql] report: {args.report}")
