@@ -250,6 +250,13 @@ def run_mission(
                              "duration_ms": step.duration_ms,
                              "observation_preview": str(step.observation)[:300]})
 
+        exact_answer = _deterministic_final_answer(mission).strip()
+        if exact_answer:
+            mission.final_answer = exact_answer
+            mission.status = "success"
+            _emit(on_event, {"type": "finish", "answer": mission.final_answer})
+            break
+
         # 3. REFLECT every 2 steps (and after failures)
         if not step.ok or step.index % 2 == 0:
             verdict = _reflect(mission)
@@ -363,10 +370,17 @@ def _step_has_useful_success(step: Step) -> bool:
 
 def _deterministic_final_answer(mission: Mission) -> str:
     goal = mission.goal.lower()
-    if "package name" in goal and "package.json" in goal:
+    if "package.json" in goal:
+        field = ""
+        if "package name" in goal:
+            field = "name"
+        elif "package version" in goal or "version string" in goal:
+            field = "version"
+        if not field:
+            return ""
         for step in mission.steps:
             text = str(step.observation or "")
-            match = re.search(r'"name"\s*:\s*"([^"]+)"', text)
+            match = re.search(rf'"{re.escape(field)}"\s*:\s*"([^"]+)"', text)
             if match:
                 return match.group(1)
     return ""

@@ -228,6 +228,33 @@ def test_package_json_package_name_uses_tool_observation_not_synthesis(monkeypat
     assert mission.final_answer == "desktop-ui"
 
 
+def test_package_json_version_finishes_immediately_from_tool_observation(monkeypatch):
+    import autonomous_loop
+
+    monkeypatch.setattr(autonomous_loop, "_plan", lambda _goal: ["read package", "bad extra step"])
+    monkeypatch.setattr(
+        autonomous_loop,
+        "_choose_tool",
+        lambda *_args, **_kw: {"tool": "read_file", "args": {"path": "desktop-ui/package.json"}},
+    )
+    calls = []
+
+    def fake_run_tool(*_args, **_kw):
+        calls.append("run")
+        return ('     3|  "version": "0.1.0",', True, 1)
+
+    monkeypatch.setattr(autonomous_loop, "_run_tool", fake_run_tool)
+
+    mission = autonomous_loop.run_mission(
+        "Find the package version in desktop-ui/package.json. Answer with only the version string.",
+        max_steps=3,
+    )
+
+    assert mission.status == "success"
+    assert mission.final_answer == "0.1.0"
+    assert calls == ["run"]
+
+
 def test_audited_tools_keep_signatures_for_validation():
     import inspect
     from tools import file_system
