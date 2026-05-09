@@ -46,12 +46,17 @@ CHECKS: dict[str, Check] = {
     "ai.basic": Check(
         key="ai.basic",
         description="Health, direct AI chat, and autonomous exact-answer missions.",
-        command=_py("scripts/ai_smoke_gate.py"),
+        command=_py("scripts/ai_smoke_gate.py", "--report", "artifacts/quality/ai-smoke-basic.json"),
     ),
     "ai.full": Check(
         key="ai.full",
         description="ai.basic plus full manager orchestration chat.",
-        command=_py("scripts/ai_smoke_gate.py", "--manager-chat"),
+        command=_py(
+            "scripts/ai_smoke_gate.py",
+            "--manager-chat",
+            "--report",
+            "artifacts/quality/ai-smoke-full.json",
+        ),
     ),
     "tests.backend": Check(
         key="tests.backend",
@@ -70,7 +75,14 @@ CHECKS: dict[str, Check] = {
     "tests.qql": Check(
         key="tests.qql",
         description="QQL and release quality gate tests.",
-        command=_py("-m", "pytest", "tests/unit/test_qql.py", "tests/unit/test_release_gate.py", "-q"),
+        command=_py(
+            "-m",
+            "pytest",
+            "tests/unit/test_qql.py",
+            "tests/unit/test_release_gate.py",
+            "tests/unit/test_ai_smoke_gate.py",
+            "-q",
+        ),
     ),
     "tests.unit": Check(
         key="tests.unit",

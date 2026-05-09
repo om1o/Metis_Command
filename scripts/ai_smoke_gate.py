@@ -8,23 +8,26 @@ tool loop can ground exact answers from real files instead of hallucinating.
 Usage:
     python scripts/ai_smoke_gate.py
     python scripts/ai_smoke_gate.py --manager-chat
+    python scripts/ai_smoke_gate.py --report artifacts/quality/ai-smoke.json
 """
 
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import json
 import os
 import sys
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, Sequence
 
 import requests
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).absolute().parent.parent
 API_BASE = os.getenv("METIS_API_BASE", "http://127.0.0.1:7331").rstrip("/")
 TOKEN_FILE = ROOT / "identity" / "local_auth.token"
+CheckFn = Callable[[], None]
 
 
 def _token() -> str:
@@ -178,24 +181,80 @@ def check_autonomous_exact_answers() -> None:
         _ok("autonomous mission", expected)
 
 
-def main() -> int:
+def selected_checks(*, manager_chat: bool) -> list[tuple[str, CheckFn]]:
+    checks: list[tuple[str, CheckFn]] = [
+        ("system_health", check_health),
+        ("direct_chat", check_direct_chat),
+        ("autonomous_exact_answers", check_autonomous_exact_answers),
+    ]
+    if manager_chat:
+        checks.insert(2, ("manager_chat", check_manager_chat))
+    return checks
+
+
+def run_gate(checks: Sequence[tuple[str, CheckFn]]) -> tuple[list[dict[str, object]], float]:
+    started = time.time()
+    results: list[dict[str, object]] = []
+    for name, check in checks:
+        check_started = time.time()
+        try:
+            check()
+        except Exception as exc:
+            elapsed = time.time() - check_started
+            print(f"[fail] {exc}", file=sys.stderr)
+            results.append({
+                "name": name,
+                "status": "failed",
+                "duration_s": round(elapsed, 3),
+                "error": str(exc),
+            })
+            break
+        elapsed = time.time() - check_started
+        results.append({
+            "name": name,
+            "status": "ok",
+            "duration_s": round(elapsed, 3),
+        })
+    return results, time.time() - started
+
+
+def build_report(*, manager_chat: bool, results: list[dict[str, object]], duration_s: float) -> dict[str, object]:
+    return {
+        "schema": "metis.ai_smoke.report.v1",
+        "ok": all(row["status"] == "ok" for row in results),
+        "manager_chat": manager_chat,
+        "api_base": API_BASE,
+        "created_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "duration_s": round(duration_s, 3),
+        "results": results,
+    }
+
+
+def write_report(path: Path, report: dict[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    tmp_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    tmp_path.replace(path)
+
+
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--manager-chat", action="store_true", help="also test full manager orchestration")
-    args = parser.parse_args()
+    parser.add_argument("--json", action="store_true", help="print machine-readable report JSON")
+    parser.add_argument("--report", type=Path, help="write a durable JSON report to this path")
+    args = parser.parse_args(argv)
 
-    checks = [check_health, check_direct_chat, check_autonomous_exact_answers]
-    if args.manager_chat:
-        checks.insert(2, check_manager_chat)
-
-    started = time.time()
-    try:
-        for check in checks:
-            check()
-    except Exception as exc:
-        print(f"[fail] {exc}", file=sys.stderr)
-        return 1
-    print(f"[ok] ai smoke gate complete in {time.time() - started:.1f}s")
-    return 0
+    results, duration_s = run_gate(selected_checks(manager_chat=args.manager_chat))
+    report = build_report(manager_chat=args.manager_chat, results=results, duration_s=duration_s)
+    if args.report:
+        write_report(args.report, report)
+        print(f"[ok] ai smoke report: {args.report}")
+    if args.json:
+        print(json.dumps(report, indent=2))
+    if report["ok"]:
+        print(f"[ok] ai smoke gate complete in {duration_s:.1f}s")
+        return 0
+    return 1
 
 
 if __name__ == "__main__":
