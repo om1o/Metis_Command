@@ -13,6 +13,7 @@ Examples:
     python scripts/qql.py all --dry-run
     python scripts/qql.py quality --parallel
     python scripts/qql.py ai.basic --json
+    python scripts/qql.py --doctor
     python scripts/qql.py --summarize artifacts/quality/qql-e2e-latest.json
 """
 
@@ -309,6 +310,85 @@ def write_report(path: Path, report: dict[str, object]) -> None:
     tmp_path.replace(path)
 
 
+def doctor_checks() -> list[dict[str, object]]:
+    checks = [
+        {
+            "key": "python",
+            "ok": bool(sys.executable) and Path(sys.executable).exists(),
+            "detail": sys.executable,
+        },
+        {
+            "key": "git",
+            "ok": shutil.which("git") is not None,
+            "detail": shutil.which("git") or "missing",
+        },
+        {
+            "key": "npm",
+            "ok": shutil.which("npm") is not None,
+            "detail": shutil.which("npm") or "missing",
+        },
+        {
+            "key": "desktop-ui",
+            "ok": (ROOT / "desktop-ui" / "package.json").exists(),
+            "detail": str(ROOT / "desktop-ui" / "package.json"),
+        },
+        {
+            "key": "ai-smoke-gate",
+            "ok": (ROOT / "scripts" / "ai_smoke_gate.py").exists(),
+            "detail": str(ROOT / "scripts" / "ai_smoke_gate.py"),
+        },
+        {
+            "key": "artifacts-ignored",
+            "ok": _is_ignored(ROOT / "artifacts" / "quality" / "qql-doctor.json"),
+            "detail": "artifacts/quality/qql-doctor.json",
+        },
+    ]
+    return checks
+
+
+def _is_ignored(path: Path) -> bool:
+    try:
+        proc = subprocess.run(
+            ("git", "check-ignore", "-q", str(path)),
+            cwd=ROOT,
+            check=False,
+        )
+    except FileNotFoundError:
+        return False
+    return proc.returncode == 0
+
+
+def build_doctor_report() -> dict[str, object]:
+    checks = doctor_checks()
+    return {
+        "schema": "metis.qql.doctor.v1",
+        "ok": all(bool(row["ok"]) for row in checks),
+        "created_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "repo": {
+            "root": str(ROOT),
+            "branch": _git_value(("branch", "--show-current")),
+            "commit": _git_value(("rev-parse", "HEAD")),
+        },
+        "checks": checks,
+    }
+
+
+def format_doctor_report(report: dict[str, object]) -> str:
+    lines = [
+        "[qql] doctor",
+        f"status: {'ok' if report.get('ok') else 'failed'}",
+    ]
+    repo = report.get("repo") if isinstance(report.get("repo"), dict) else {}
+    if repo:
+        lines.append(f"repo: {repo.get('branch', '<unknown>')} @ {str(repo.get('commit', ''))[:12]}")
+    for row in report.get("checks", []):
+        if not isinstance(row, dict):
+            continue
+        mark = "ok" if row.get("ok") else "missing"
+        lines.append(f"- {row.get('key', '<unknown>')}: {mark} ({row.get('detail', '')})")
+    return "\n".join(lines)
+
+
 def _fmt_duration(value: object) -> str:
     try:
         return f"{float(value):.1f}s"
@@ -357,10 +437,22 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--list", action="store_true", help="list checks and aliases")
     parser.add_argument("--dry-run", action="store_true", help="show selected checks without running them")
     parser.add_argument("--parallel", action="store_true", help="run all selected checks concurrently (no fail-fast)")
+    parser.add_argument("--doctor", action="store_true", help="check local QQL prerequisites without running gates")
     parser.add_argument("--json", action="store_true", help="print machine-readable result JSON")
     parser.add_argument("--report", type=Path, help="write a durable JSON quality report to this path")
     parser.add_argument("--summarize", type=Path, help="print a concise summary for a QQL or AI smoke report")
     args = parser.parse_args(argv)
+
+    if args.doctor:
+        report = build_doctor_report()
+        if args.report:
+            write_report(args.report, report)
+            print(f"[qql] report: {args.report}")
+        if args.json:
+            print(json.dumps(report, indent=2))
+        else:
+            print(format_doctor_report(report))
+        return 0 if report["ok"] else 1
 
     if args.summarize:
         try:

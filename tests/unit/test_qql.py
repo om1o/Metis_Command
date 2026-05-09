@@ -159,6 +159,63 @@ def test_summarize_ai_report_outputs_load_details(tmp_path) -> None:
     assert "- direct_chat_load_3: failed (1.2s) error=bad token" in summary
 
 
+def test_build_doctor_report_marks_all_checks_ok(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        qql,
+        "doctor_checks",
+        lambda: [
+            {"key": "python", "ok": True, "detail": "python.exe"},
+            {"key": "npm", "ok": True, "detail": "npm.cmd"},
+        ],
+    )
+    monkeypatch.setattr(qql, "_git_value", lambda args: "main" if args[0] == "branch" else "abc123")
+
+    report = qql.build_doctor_report()
+
+    assert report["schema"] == "metis.qql.doctor.v1"
+    assert report["ok"] is True
+    assert report["repo"] == {"root": str(qql.ROOT), "branch": "main", "commit": "abc123"}
+    assert report["checks"] == [
+        {"key": "python", "ok": True, "detail": "python.exe"},
+        {"key": "npm", "ok": True, "detail": "npm.cmd"},
+    ]
+
+
+def test_format_doctor_report_includes_missing_checks() -> None:
+    output = qql.format_doctor_report(
+        {
+            "ok": False,
+            "repo": {"branch": "main", "commit": "abcdef1234567890"},
+            "checks": [
+                {"key": "python", "ok": True, "detail": "python.exe"},
+                {"key": "npm", "ok": False, "detail": "missing"},
+            ],
+        }
+    )
+
+    assert "status: failed" in output
+    assert "repo: main @ abcdef123456" in output
+    assert "- python: ok (python.exe)" in output
+    assert "- npm: missing (missing)" in output
+
+
+def test_doctor_cli_returns_failure_when_requirement_missing(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    monkeypatch.setattr(
+        qql,
+        "build_doctor_report",
+        lambda: {
+            "schema": "metis.qql.doctor.v1",
+            "ok": False,
+            "checks": [{"key": "npm", "ok": False, "detail": "missing"}],
+        },
+    )
+
+    rc = qql.main(["--doctor"])
+
+    assert rc == 1
+    assert "- npm: missing (missing)" in capsys.readouterr().out
+
+
 def test_tests_backend_includes_setup_code_auth() -> None:
     checks = qql.parse_query("tests.backend")
 
