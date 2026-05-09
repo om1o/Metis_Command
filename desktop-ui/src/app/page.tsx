@@ -45,7 +45,6 @@ import {
   Brain,
   BarChart3,
   Search,
-  ChevronDown,
   Sunrise,
 } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
@@ -87,6 +86,10 @@ interface Message {
   // Relationships panel.
   savedRelationship?: { id: string; name: string };
   savedArtifact?: { id: string; title: string };
+  // The model id the auto-router actually used for this turn — captured
+  // from the manager_identity SSE event. Shown as a small "via X" badge
+  // so the user can see what's behind the answer without picking a model.
+  routedModel?: string;
 }
 
 interface Session {
@@ -151,6 +154,17 @@ function pickTitle(text: string): string {
   const t = text.trim().replace(/\s+/g, ' ');
   if (t.length <= 48) return t || 'New session';
   return `${t.slice(0, 45).trimEnd()}…`;
+}
+
+// Compress a model id into a short label for the inline "via X" badge.
+// "groq/llama-3.3-70b-versatile" → "groq · llama-3.3-70b". Long local
+// tags get cut at the first colon and shortened.
+function prettyModel(id: string): string {
+  if (id.startsWith('groq/'))   return `groq · ${id.slice('groq/'.length).replace(/-versatile$/, '')}`;
+  if (id.startsWith('glm-'))    return `glm · ${id.slice(4)}`;
+  if (id.startsWith('gpt-'))    return `openai · ${id}`;
+  if (id.includes(':'))         return id.split(':')[0];
+  return id;
 }
 
 // Removes the auto-save fenced JSON block the Manager appends when it
@@ -456,11 +470,11 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   const [permission, setPermission] = useState<Permission>('balanced');
   const [mode, setMode] = useState<Mode>('task');
-  // MVP 8 — per-turn overrides. Tone maps to a temperature value;
-  // modelOverride is "" (auto) or a model id from /models.
+  // MVP 8 — per-turn tone (temperature preset). Model selection itself
+  // is fully auto-routed: cloud-first cascade in brain_engine plus the
+  // manager_orchestrator's planner already pick the best model and
+  // delegate to specialists where appropriate. No manual override pill.
   const [tone, setTone] = useState<Tone>('balanced');
-  const [modelOverride, setModelOverride] = useState<string>('');
-  const [availableModels, setAvailableModels] = useState<{ id: string; label: string; kind: 'local' | 'cloud' }[]>([]);
   const [jobPlanner, setJobPlanner] = useState<{ goal: string } | null>(null);
   const [jobsOpen, setJobsOpen] = useState(false);
   const [relationshipsOpen, setRelationshipsOpen] = useState(false);
@@ -549,10 +563,8 @@ export default function App() {
       const t = localStorage.getItem('metis-tone');
       if (t === 'precise' || t === 'balanced' || t === 'creative') setTone(t);
     } catch {}
-    try {
-      const mo = localStorage.getItem('metis-model-override');
-      if (mo) setModelOverride(mo);
-    } catch {}
+    // Wipe any stale model-override left over from MVP 8's manual picker.
+    try { localStorage.removeItem('metis-model-override'); } catch {}
 
     let cancelled = false;
     (async () => {
@@ -673,26 +685,6 @@ export default function App() {
   useEffect(() => {
     try { localStorage.setItem('metis-tone', tone); } catch {}
   }, [tone]);
-  useEffect(() => {
-    try {
-      if (modelOverride) localStorage.setItem('metis-model-override', modelOverride);
-      else localStorage.removeItem('metis-model-override');
-    } catch {}
-  }, [modelOverride]);
-
-  // Pull the available-models list once we have a client. The composer
-  // pill uses it; cheap and bounded so we don't poll.
-  useEffect(() => {
-    if (!client) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const r = await client.listModels();
-        if (!cancelled) setAvailableModels(r.models);
-      } catch {/* offline — pill falls back to "Auto" */}
-    })();
-    return () => { cancelled = true; };
-  }, [client]);
 
   // Probe the system once at start + whenever the connections panel
   // closes (so a refresh inside it can update the dot color).
@@ -895,12 +887,15 @@ export default function App() {
       let acc = '';
       let saved: { id: string; name: string } | undefined;
       let savedArtifact: { id: string; title: string } | undefined;
+      let routedModel: string | undefined;
       try {
         const stream = client.chat('manager', text, sId, {
           mode: 'task',
           permission,
           temperature: TONE_TEMP[tone],
-          ...(modelOverride ? { model: modelOverride } : {}),
+          // No model override — the backend auto-routes via cloud cascade
+          // (Groq → GLM → OpenAI → local) and the manager planner picks
+          // specialists for sub-steps as needed.
         });
         for await (const ev of stream) {
           if (ac.signal.aborted) break;
@@ -926,6 +921,10 @@ export default function App() {
             savedArtifact = { id: ev.id, title: typeof ev.title === 'string' ? ev.title : 'Manager run report' };
             setActiveArtifactId(ev.id);
             setWorkspaceOpen(true);
+          } else if (ev.type === 'manager_identity' && typeof ev.model === 'string' && ev.model) {
+            // Auto-router decision — capture so we can show "via X" on the
+            // finished message. Both direct + orchestrator paths emit this.
+            routedModel = ev.model;
           }
         }
         if (!ac.signal.aborted) {
@@ -937,7 +936,7 @@ export default function App() {
                     ...s,
                     messages: s.messages.map((m) =>
                       m.id === agentMsg.id
-                        ? { ...m, content: finalContent, status: 'done', savedRelationship: saved, savedArtifact }
+                        ? { ...m, content: finalContent, status: 'done', savedRelationship: saved, savedArtifact, routedModel }
                         : m,
                     ),
                   }
@@ -1378,14 +1377,6 @@ export default function App() {
               aria-label="Message"
             />
             <div className="flex flex-wrap items-center gap-1.5 px-1.5 pb-1.5">
-              <ModeSelector value={mode} onChange={setMode} />
-              <PermissionSelector value={permission} onChange={setPermission} />
-              <ToneSelector value={tone} onChange={setTone} />
-              <ModelOverrideSelector
-                value={modelOverride}
-                onChange={setModelOverride}
-                models={availableModels}
-              />
               <span className="hidden text-[11px] text-[var(--metis-fg-dim)] sm:inline">
                 <kbd className="rounded border border-[var(--metis-border)] bg-[var(--metis-code-bg)] px-1.5 py-0.5 text-[10px] text-[var(--metis-code-fg)]">↵</kbd> {mode === 'job' ? 'schedule' : 'send'} · <kbd className="rounded border border-[var(--metis-border)] bg-[var(--metis-code-bg)] px-1.5 py-0.5 text-[10px] text-[var(--metis-code-fg)]">⇧↵</kbd> newline
               </span>
@@ -1424,6 +1415,16 @@ export default function App() {
               </div>
             </div>
           </form>
+
+          {/* Composer controls (Mode / Permission / Tone) — below the
+              prompt box but still in sight. The model picker is gone:
+              the backend auto-routes via the cloud cascade + the
+              manager-orchestrator planner. */}
+          <div className="mx-auto mt-2 flex max-w-[760px] flex-wrap items-center justify-center gap-1.5 px-1.5 text-center">
+            <ModeSelector value={mode} onChange={setMode} />
+            <PermissionSelector value={permission} onChange={setPermission} />
+            <ToneSelector value={tone} onChange={setTone} />
+          </div>
         </div>
       </main>
 
@@ -1807,6 +1808,14 @@ function MessageBubble({
           {msg.status === 'error' && (
             <span className="inline-flex items-center gap-1 text-[11px] text-rose-400">
               <CircleX className="h-3 w-3" /> Error
+            </span>
+          )}
+          {msg.routedModel && msg.status === 'done' && (
+            <span
+              className="inline-flex items-center gap-1 rounded-full border border-[var(--metis-border)] bg-[var(--metis-bg)] px-1.5 py-0.5 text-[10px] text-[var(--metis-fg-dim)]"
+              title={`Auto-routed to ${msg.routedModel}`}
+            >
+              via {prettyModel(msg.routedModel)}
             </span>
           )}
           <span className="ml-auto text-[10px] text-[var(--metis-fg-dim)]">{relTime(msg.ts)}</span>
@@ -2437,83 +2446,6 @@ function ToneSelector({ value, onChange }: { value: Tone; onChange: (v: Tone) =>
           </button>
         );
       })}
-    </div>
-  );
-}
-
-// ── Model override (MVP 8: per-conversation model picker in composer) ─────
-
-function ModelOverrideSelector({
-  value, onChange, models,
-}: {
-  value: string;
-  onChange: (id: string) => void;
-  models: { id: string; label: string; kind: 'local' | 'cloud' }[];
-}) {
-  const [open, setOpen] = useState(false);
-  const current = value
-    ? (models.find((m) => m.id === value)?.label || value)
-    : 'Auto';
-  // Click-outside close
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      const tgt = e.target as HTMLElement;
-      if (!tgt.closest('[data-model-override]')) setOpen(false);
-    };
-    document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
-  }, [open]);
-
-  return (
-    <div className="relative" data-model-override>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        title={value ? `Using model: ${value}` : 'Auto picks the cloud-first cascade or the saved manager_model.'}
-        className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] transition ${
-          value
-            ? 'border-violet-500/40 bg-violet-500/10 text-violet-200'
-            : 'border-[var(--metis-border)] bg-[var(--metis-bg)] text-[var(--metis-fg-muted)] hover:bg-[var(--metis-hover-surface)]'
-        }`}
-      >
-        <span className="max-w-[140px] truncate">{current}</span>
-        <ChevronDown className="h-3 w-3 opacity-70" />
-      </button>
-      {open && (
-        <div className="absolute bottom-full left-0 z-30 mb-1 w-60 overflow-hidden rounded-xl border border-[var(--metis-border)] bg-[var(--metis-elevated-2)] shadow-2xl">
-          <button
-            type="button"
-            onClick={() => { onChange(''); setOpen(false); }}
-            className={`flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] transition hover:bg-[var(--metis-hover-surface)] ${
-              value === '' ? 'text-violet-200' : 'text-[var(--metis-fg)]'
-            }`}
-          >
-            <Sparkles className="h-3.5 w-3.5 text-violet-400" />
-            <span className="flex-1 font-medium">Auto</span>
-            <span className="text-[10px] text-[var(--metis-fg-dim)]">cloud → local</span>
-          </button>
-          {models.length > 0 && <div className="h-px bg-[var(--metis-border)]" />}
-          <div className="max-h-60 overflow-y-auto">
-            {models.map((m) => {
-              const sel = value === m.id;
-              return (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => { onChange(m.id); setOpen(false); }}
-                  className={`flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] transition hover:bg-[var(--metis-hover-surface)] ${
-                    sel ? 'text-violet-200' : 'text-[var(--metis-fg)]'
-                  }`}
-                >
-                  <span className={`inline-block h-1.5 w-1.5 rounded-full ${m.kind === 'cloud' ? 'bg-emerald-400' : 'bg-violet-400'}`} />
-                  <span className="flex-1 truncate">{m.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
