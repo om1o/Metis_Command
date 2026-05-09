@@ -202,6 +202,7 @@ class MissionPool:
             return
         schedule_id = record.tag.split(":", 1)[1].strip()
         duration_ms = int(((record.ended_at or time.time()) - (record.started_at or record.submitted_at)) * 1000)
+        created_at = record.ended_at or time.time()
         first_line = record.goal.splitlines()[0][:80] or schedule_id
         event_lines = []
         for event in record.events[-20:]:
@@ -238,7 +239,9 @@ class MissionPool:
                     "schedule_id": schedule_id,
                     "status": record.status,
                     "tag": record.tag,
+                    "created_at": created_at,
                 },
+                created_at=created_at,
             ))
             audit({
                 "event": "scheduled_job_report_saved",

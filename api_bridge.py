@@ -451,6 +451,8 @@ async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
     ) -> Artifact | None:
         if not answer.strip():
             return None
+        import time as _time
+        created_at = _time.time()
         title = (req.message.strip().splitlines()[0] or "Manager run")[:80]
         plan_summary = (plan or {}).get("summary", "")
         lines = [
@@ -489,7 +491,9 @@ async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
                 "permission": run_permission,
                 "agents_used": agents_used or [],
                 "user_id": user_id,
+                "created_at": created_at,
             },
+            created_at=created_at,
         ))
 
     def sse() -> Any:

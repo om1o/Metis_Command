@@ -17,7 +17,6 @@ def _events(response_text: str) -> list[dict]:
 
 def test_chat_saves_manager_run_artifact(_sandbox_paths, monkeypatch):
     import api_bridge
-    import auth_local
     import manager_orchestrator
     from artifacts import get_artifact
 
@@ -44,7 +43,7 @@ def test_chat_saves_manager_run_artifact(_sandbox_paths, monkeypatch):
     client = TestClient(api_bridge.app)
     response = client.post(
         "/chat",
-        headers=auth_local.bearer_header(),
+        headers=api_bridge.auth_local.bearer_header(),
         json={
             "session_id": "artifact-smoke",
             "message": "Find me a lawyer.",
@@ -65,6 +64,8 @@ def test_chat_saves_manager_run_artifact(_sandbox_paths, monkeypatch):
     assert artifact.metadata["kind"] == "manager_run_report"
     assert artifact.metadata["mode"] == "task"
     assert artifact.metadata["permission"] == "read"
+    assert isinstance(artifact.created_at, float)
+    assert artifact.metadata["created_at"] == artifact.created_at
     assert "Find me a lawyer." in artifact.content
     assert "Use researcher then answer." in artifact.content
     assert "Found source data." in artifact.content

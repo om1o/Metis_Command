@@ -53,14 +53,22 @@ def test_scheduled_mission_saves_report_artifact(_sandbox_paths, monkeypatch):
     assert current is not None
     assert current.status == "success"
 
-    reports = [
-        artifact for artifact in list_artifacts()
-        if artifact.metadata.get("kind") == "scheduled_job_report"
-    ]
+    reports = []
+    deadline = time.time() + 5
+    while time.time() < deadline:
+        reports = [
+            artifact for artifact in list_artifacts()
+            if artifact.metadata.get("kind") == "scheduled_job_report"
+        ]
+        if reports:
+            break
+        time.sleep(0.05)
     assert len(reports) == 1
     report = reports[0]
     assert report.metadata["schedule_id"] == "market123"
     assert report.metadata["mission_id"] == record.id
+    assert isinstance(report.created_at, float)
+    assert report.metadata["created_at"] == report.created_at
     assert "Check market summary." in (report.content or "")
     assert "Scheduled job completed." in (report.content or "")
 

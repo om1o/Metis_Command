@@ -82,6 +82,7 @@ export interface Artifact {
   path?: string;
   content?: string;
   metadata?: Record<string, unknown>;
+  created_at?: number;
 }
 
 export interface StreamEvent {

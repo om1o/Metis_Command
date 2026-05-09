@@ -50,6 +50,13 @@ function fmtCadence(s: Schedule): string {
   return s.spec;
 }
 
+function artifactTs(artifact: Artifact): number {
+  const raw = artifact.created_at ?? artifact.metadata?.created_at ?? artifact.metadata?.ts ?? 0;
+  if (typeof raw === 'number') return raw > 10_000_000_000 ? raw / 1000 : raw;
+  const parsed = Date.parse(String(raw));
+  return Number.isFinite(parsed) ? parsed / 1000 : 0;
+}
+
 export default function JobsPanel({ client, reduceMotion, onClose, onOpenArtifact }: Props) {
   const [items, setItems] = useState<Schedule[] | null>(null);
   const [reports, setReports] = useState<Record<string, Artifact>>({});
@@ -72,13 +79,16 @@ export default function JobsPanel({ client, reduceMotion, onClose, onOpenArtifac
         return b.created_at - a.created_at;
       });
       setItems(list);
-      setReports(
-        Object.fromEntries(
-          artifacts
-            .filter((a) => a.metadata?.kind === 'scheduled_job_report' && typeof a.metadata.schedule_id === 'string')
-            .map((a) => [String(a.metadata!.schedule_id), a]),
-        ),
-      );
+      const latestReports: Record<string, Artifact> = {};
+      for (const artifact of artifacts) {
+        if (artifact.metadata?.kind !== 'scheduled_job_report' || typeof artifact.metadata.schedule_id !== 'string') {
+          continue;
+        }
+        const scheduleId = String(artifact.metadata.schedule_id);
+        const current = latestReports[scheduleId];
+        if (!current || artifactTs(artifact) > artifactTs(current)) latestReports[scheduleId] = artifact;
+      }
+      setReports(latestReports);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {

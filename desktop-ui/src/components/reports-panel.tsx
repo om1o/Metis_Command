@@ -27,10 +27,17 @@ function artifactIcon(type: string) {
   return <FileText className="h-3.5 w-3.5 text-violet-300" />;
 }
 
-function fmtTs(meta: Record<string, unknown> | undefined): string {
-  const ts = meta?.created_at ?? meta?.ts;
+function artifactTs(artifact: Artifact): number {
+  const raw = artifact.created_at ?? artifact.metadata?.created_at ?? artifact.metadata?.ts ?? 0;
+  if (typeof raw === 'number') return raw > 10_000_000_000 ? raw / 1000 : raw;
+  const parsed = Date.parse(String(raw));
+  return Number.isFinite(parsed) ? parsed / 1000 : 0;
+}
+
+function fmtTs(artifact: Artifact): string {
+  const ts = artifactTs(artifact);
   if (!ts) return '';
-  const d = new Date(typeof ts === 'number' ? ts * 1000 : String(ts));
+  const d = new Date(ts * 1000);
   if (isNaN(d.getTime())) return '';
   const diff = Date.now() - d.getTime();
   if (diff < 60_000) return 'just now';
@@ -49,9 +56,7 @@ export default function ReportsPanel({ client, reduceMotion, onClose, onOpen }: 
     setError(null);
     try {
       const all = await client.getArtifacts(100);
-      // Sort newest first; artifacts don't have a stable timestamp field in
-      // the type, but most have metadata.created_at; fall back to list order.
-      setItems(all);
+      setItems([...all].sort((a, b) => artifactTs(b) - artifactTs(a)));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -169,7 +174,7 @@ function ArtifactRow({
   onClose: () => void;
 }) {
   const isScheduled = artifact.metadata?.kind === 'scheduled_job_report';
-  const ts = fmtTs(artifact.metadata as Record<string, unknown> | undefined);
+  const ts = fmtTs(artifact);
 
   return (
     <li>
