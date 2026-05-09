@@ -6,6 +6,7 @@ import {
   Bell,
   CalendarClock,
   Loader2,
+  FileText,
   RefreshCw,
   Sparkles,
   Trash2,
@@ -19,6 +20,7 @@ interface Props {
   client: MetisClient;
   reduceMotion: boolean;
   onClose: () => void;
+  onOpenArtifact: (id: string) => void;
 }
 
 function fmtAgo(iso: string): string {
@@ -37,7 +39,7 @@ function sourceIcon(source: string) {
   return <Sparkles className="h-3.5 w-3.5 text-violet-300" />;
 }
 
-export default function InboxPanel({ client, reduceMotion, onClose }: Props) {
+export default function InboxPanel({ client, reduceMotion, onClose, onOpenArtifact }: Props) {
   const [items, setItems] = useState<InboxItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -191,6 +193,19 @@ export default function InboxPanel({ client, reduceMotion, onClose }: Props) {
                         <span>{fmtAgo(it.created_at)}</span>
                         <span className="font-mono">{it.source}</span>
                       </div>
+                      {it.artifact_id && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onOpenArtifact(it.artifact_id!);
+                            onMarkRead(it.id);
+                          }}
+                          className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-200 hover:bg-emerald-500/15"
+                        >
+                          <FileText className="h-3 w-3" />
+                          Open report
+                        </button>
+                      )}
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
                       {!it.read && (

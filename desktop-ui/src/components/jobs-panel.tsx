@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import {
   Bell,
   CalendarClock,
+  FileText,
   Loader2,
   Pause,
   Play,
@@ -14,13 +15,14 @@ import {
   Repeat,
   Sparkles,
 } from 'lucide-react';
-import { MetisClient, Schedule } from '@/lib/metis-client';
+import { Artifact, MetisClient, Schedule } from '@/lib/metis-client';
 import { Mark } from '@/components/brand';
 
 interface Props {
   client: MetisClient;
   reduceMotion: boolean;
   onClose: () => void;
+  onOpenArtifact: (id: string) => void;
 }
 
 function fmtNext(ts: number | null): string {
@@ -48,8 +50,9 @@ function fmtCadence(s: Schedule): string {
   return s.spec;
 }
 
-export default function JobsPanel({ client, reduceMotion, onClose }: Props) {
+export default function JobsPanel({ client, reduceMotion, onClose, onOpenArtifact }: Props) {
   const [items, setItems] = useState<Schedule[] | null>(null);
+  const [reports, setReports] = useState<Record<string, Artifact>>({});
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -59,6 +62,7 @@ export default function JobsPanel({ client, reduceMotion, onClose }: Props) {
     setError(null);
     try {
       const list = await client.listSchedules();
+      const artifacts = await client.getArtifacts(100);
       // Newest first; built-in actions (daily_briefing etc.) sink below user jobs.
       list.sort((a, b) => {
         const aBuilt = a.action ? 1 : 0;
@@ -67,6 +71,13 @@ export default function JobsPanel({ client, reduceMotion, onClose }: Props) {
         return b.created_at - a.created_at;
       });
       setItems(list);
+      setReports(
+        Object.fromEntries(
+          artifacts
+            .filter((a) => a.metadata?.kind === 'scheduled_job_report' && typeof a.metadata.schedule_id === 'string')
+            .map((a) => [String(a.metadata!.schedule_id), a]),
+        ),
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -95,6 +106,18 @@ export default function JobsPanel({ client, reduceMotion, onClose }: Props) {
     try {
       await client.deleteSchedule(id);
       await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const onRunNow = async (id: string) => {
+    setBusyId(id);
+    try {
+      await client.runScheduleNow(id);
+      setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -166,6 +189,9 @@ export default function JobsPanel({ client, reduceMotion, onClose }: Props) {
                       busy={busyId === s.id}
                       onToggle={() => onToggle(s.id)}
                       onDelete={() => onDelete(s.id)}
+                      onRunNow={() => onRunNow(s.id)}
+                      report={reports[s.id]}
+                      onOpenReport={() => reports[s.id] && onOpenArtifact(reports[s.id].id)}
                     />
                   ))}
                 </div>
@@ -186,6 +212,9 @@ export default function JobsPanel({ client, reduceMotion, onClose }: Props) {
                         busy={busyId === s.id}
                         onToggle={() => onToggle(s.id)}
                         onDelete={() => onDelete(s.id)}
+                        onRunNow={() => onRunNow(s.id)}
+                        report={reports[s.id]}
+                        onOpenReport={() => reports[s.id] && onOpenArtifact(reports[s.id].id)}
                         readonly
                       />
                     ))}
@@ -218,12 +247,18 @@ function JobRow({
   busy,
   onToggle,
   onDelete,
+  onRunNow,
+  report,
+  onOpenReport,
   readonly,
 }: {
   s: Schedule;
   busy: boolean;
   onToggle: () => void;
   onDelete: () => void;
+  onRunNow: () => void;
+  report?: Artifact;
+  onOpenReport: () => void;
   readonly?: boolean;
 }) {
   return (
@@ -255,8 +290,30 @@ function JobRow({
               </span>
             )}
           </div>
+          {report && (
+            <button
+              type="button"
+              onClick={onOpenReport}
+              className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-200 hover:bg-emerald-500/15"
+            >
+              <FileText className="h-3 w-3" />
+              Latest report
+            </button>
+          )}
         </div>
         <div className="flex shrink-0 items-center gap-1">
+          {!s.action && (
+            <button
+              type="button"
+              onClick={onRunNow}
+              disabled={busy}
+              className="metis-icon-btn text-violet-400/80 hover:text-violet-400 disabled:opacity-40"
+              aria-label="Run now"
+              title="Run now"
+            >
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+            </button>
+          )}
           <button
             type="button"
             onClick={onToggle}

@@ -1183,6 +1183,15 @@ def schedules_toggle(schedule_id: str) -> dict:
     return {"enabled": _toggle(schedule_id), "id": schedule_id}
 
 
+@app.post("/schedules/{schedule_id}/run")
+def schedules_run_now(schedule_id: str) -> dict:
+    from scheduler import run_now as _run_now
+    found = _run_now(schedule_id)
+    if not found:
+        raise HTTPException(status_code=404, detail="schedule not found")
+    return {"ok": True, "id": schedule_id}
+
+
 # ── Marketplace ──────────────────────────────────────────────────────────────
 
 @app.get("/marketplace")

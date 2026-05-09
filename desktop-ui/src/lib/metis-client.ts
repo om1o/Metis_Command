@@ -271,6 +271,7 @@ export interface InboxItem {
   // Optional structured link to the source artifact.
   schedule_id?: string;
   relationship_id?: string;
+  artifact_id?: string;
 }
 
 // ── Client ──────────────────────────────────────────────────────────────────
@@ -512,6 +513,10 @@ export class MetisClient {
 
   async toggleSchedule(id: string): Promise<{ enabled: boolean; id: string }> {
     return this.post(`/schedules/${id}/toggle`, {});
+  }
+
+  async runScheduleNow(id: string): Promise<{ ok: boolean; id: string }> {
+    return this.post(`/schedules/${id}/run`, {});
   }
 
   // ── Relationships ───────────────────────────────────────────────────────

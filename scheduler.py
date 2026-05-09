@@ -221,6 +221,41 @@ def toggle(schedule_id: str) -> bool:
     return False
 
 
+@audited("schedule.run_now")
+def run_now(schedule_id: str) -> bool:
+    """Fire a schedule immediately regardless of its next_run time.
+    Returns True if the schedule was found and dispatched."""
+    with _lock:
+        schedules = _load()
+        target = next((s for s in schedules if s.id == schedule_id), None)
+    if not target:
+        return False
+
+    if target.action:
+        try:
+            from daily_tasks import ACTIONS  # type: ignore
+            handler = ACTIONS.get(target.action)
+            if handler:
+                handler()
+                _notify_inbox_fired(target, body=f"Action `{target.action}` ran on demand.")
+        except Exception as e:
+            _notify_inbox_fired(target, body=f"Action `{target.action}` failed: {e}")
+    else:
+        try:
+            from concurrency import submit_mission  # type: ignore
+            from run_contracts import build_run_contract  # type: ignore
+            submit_mission(
+                goal=build_run_contract(target.goal, mode=target.mode, permission=target.permission),
+                tag=f"scheduled:{schedule_id}",
+                auto_approve=target.auto_approve,
+                project_slug=target.project_slug,
+            )
+            _notify_inbox_fired(target, body="Triggered manually. Check the chat or workspace for the result.")
+        except Exception as e:
+            _notify_inbox_fired(target, body=f"Could not trigger: {e}")
+    return True
+
+
 def list_schedules() -> list[Schedule]:
     with _lock:
         return _load()

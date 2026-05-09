@@ -59,3 +59,27 @@ def test_scheduled_mission_saves_report_artifact(_sandbox_paths, monkeypatch):
     assert items
     assert items[0]["artifact_id"] == report.id
     assert items[0]["schedule_id"] == "market123"
+
+
+def test_run_now_uses_scheduled_report_tag(_sandbox_paths, monkeypatch):
+    import scheduler
+
+    seen: dict[str, str] = {}
+
+    def fake_submit_mission(*, goal, tag, **_kw):
+        seen["goal"] = goal
+        seen["tag"] = tag
+
+    monkeypatch.setattr("concurrency.submit_mission", fake_submit_mission)
+
+    sched = scheduler.add(
+        "Run the market report now.",
+        kind="daily",
+        spec="09:00",
+        mode="job",
+        permission="balanced",
+    )
+
+    assert scheduler.run_now(sched.id) is True
+    assert seen["tag"] == f"scheduled:{sched.id}"
+    assert "Mode: Job" in seen["goal"]

@@ -54,6 +54,7 @@ import RelationshipsPanel from '@/components/relationships-panel';
 import InboxPanel from '@/components/inbox-panel';
 import ConnectionsPanel from '@/components/connections-panel';
 import MemoryPanel from '@/components/memory-panel';
+import ReportsPanel from '@/components/reports-panel';
 import type { SystemHealth } from '@/lib/metis-client';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -451,10 +452,13 @@ export default function App() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [connectionsOpen, setConnectionsOpen] = useState(false);
   const [memoryOpen, setMemoryOpen] = useState(false);
+  const [reportsOpen, setReportsOpen] = useState(false);
   const [health, setHealth] = useState<SystemHealth | null>(null);
   const [activeArtifactId, setActiveArtifactId] = useState<string | null>(null);
   const [reportArtifact, setReportArtifact] = useState<Artifact | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
+  const [managerName, setManagerName] = useState<string>('Agent');
+  const [appVersion, setAppVersion] = useState<string>('');
 
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
@@ -655,6 +659,21 @@ export default function App() {
     return () => { cancelled = true; };
   }, [client, connectionsOpen]);
 
+  // Load manager name + app version once on login.
+  useEffect(() => {
+    if (!client) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [cfg, ver] = await Promise.all([client.getManagerConfig(), client.getVersion()]);
+        if (cancelled) return;
+        if (cfg.config.manager_name) setManagerName(cfg.config.manager_name);
+        if (ver.version) setAppVersion(ver.version);
+      } catch { /* non-critical */ }
+    })();
+    return () => { cancelled = true; };
+  }, [client]);
+
   // Poll the inbox for the unread count so the bell badge stays fresh.
   // Cheap call; cap to once every 15s. Also re-checks when the panel is
   // closed so dismissing a notification updates the count immediately.
@@ -714,6 +733,7 @@ export default function App() {
       else if (k === 'j')   { e.preventDefault(); setJobsOpen((v) => !v); }
       else if (k === 'r')   { e.preventDefault(); setRelationshipsOpen((v) => !v); }
       else if (k === 'm')   { e.preventDefault(); setMemoryOpen((v) => !v); }
+      else if (k === 'p')   { e.preventDefault(); setReportsOpen((v) => !v); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -926,6 +946,7 @@ export default function App() {
 
   // ── App ────────────────────────────────────────────────────────────────
   const hasMessages = !!active && active.messages.length > 0;
+  const hasWorkspace = hasMessages || !!activeArtifactId;
 
   // While the saved-session probe is in flight, show a branded splash so
   // we don't flash the LoginScreen for users who are about to be
@@ -1055,6 +1076,16 @@ export default function App() {
               <span>Memory</span>
               <span className="ml-auto text-[10px] text-[var(--metis-fg-dim)]">⌘M</span>
             </button>
+            <button
+              type="button"
+              onClick={() => setReportsOpen(true)}
+              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] text-[var(--metis-fg-muted)] transition hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]"
+              title="Reports (⌘P)"
+            >
+              <FileText className="h-4 w-4 shrink-0 text-violet-400" />
+              <span>Reports</span>
+              <span className="ml-auto text-[10px] text-[var(--metis-fg-dim)]">⌘P</span>
+            </button>
           </div>
         )}
         <div className="flex gap-1 border-t border-[var(--metis-border)] p-2">
@@ -1113,7 +1144,7 @@ export default function App() {
       </aside>
 
       {/* Chat column */}
-      <main className={`flex min-w-0 flex-col ${workspaceOpen && hasMessages ? 'flex-[0_0_44%] border-r border-[var(--metis-border)]' : 'flex-1'}`}>
+      <main className={`flex min-w-0 flex-col ${workspaceOpen && hasWorkspace ? 'flex-[0_0_44%] border-r border-[var(--metis-border)]' : 'flex-1'}`}>
         <header className="flex h-12 shrink-0 items-center gap-2 border-b border-[var(--metis-border)] bg-[var(--metis-header-bg)] px-4 backdrop-blur-md sm:h-14">
           <div className="flex min-w-0 items-center gap-2">
             <Sparkles className="h-4 w-4 text-violet-400" />
@@ -1168,6 +1199,7 @@ export default function App() {
                     isLast={idx === active!.messages.length - 1}
                     streaming={streaming}
                     reduceMotion={!!reduceMotion}
+                    agentName={managerName}
                     onOpenArtifact={(id) => {
                       setActiveArtifactId(id);
                       setWorkspaceOpen(true);
@@ -1242,7 +1274,7 @@ export default function App() {
 
       {/* Workspace panel */}
       <AnimatePresence initial={false}>
-        {workspaceOpen && hasMessages && (
+        {workspaceOpen && hasWorkspace && (
           <motion.aside
             key="workspace"
             initial={reduceMotion ? false : { opacity: 0, x: 16 }}
@@ -1371,6 +1403,11 @@ export default function App() {
           <JobsPanel
             client={client}
             reduceMotion={!!reduceMotion}
+            onOpenArtifact={(id) => {
+              setActiveArtifactId(id);
+              setWorkspaceOpen(true);
+              setJobsOpen(false);
+            }}
             onClose={() => setJobsOpen(false)}
           />
         )}
@@ -1393,6 +1430,11 @@ export default function App() {
           <InboxPanel
             client={client}
             reduceMotion={!!reduceMotion}
+            onOpenArtifact={(id) => {
+              setActiveArtifactId(id);
+              setWorkspaceOpen(true);
+              setInboxOpen(false);
+            }}
             onClose={() => setInboxOpen(false)}
           />
         )}
@@ -1420,6 +1462,22 @@ export default function App() {
         )}
       </AnimatePresence>
 
+      {/* Reports — browse saved run artifacts */}
+      <AnimatePresence>
+        {reportsOpen && client && (
+          <ReportsPanel
+            client={client}
+            reduceMotion={!!reduceMotion}
+            onClose={() => setReportsOpen(false)}
+            onOpen={(id) => {
+              setActiveArtifactId(id);
+              setWorkspaceOpen(true);
+              setReportsOpen(false);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Settings */}
       <AnimatePresence>
         {settingsOpen && client && (
@@ -1430,6 +1488,7 @@ export default function App() {
               setTheme={setTheme}
               client={client}
               health={health}
+              appVersion={appVersion}
               onOpenConnections={() => { setSettingsOpen(false); setConnectionsOpen(true); }}
             />
           </Modal>
@@ -1493,16 +1552,22 @@ function MessageBubble({
   isLast,
   streaming,
   reduceMotion,
+  agentName,
   onOpenArtifact,
 }: {
   msg: Message;
   isLast: boolean;
   streaming: boolean;
   reduceMotion: boolean;
+  agentName: string;
   onOpenArtifact: (id: string) => void;
 }) {
   const isUser = msg.role === 'user';
   const liveAgent = !isUser && streaming && isLast;
+  const [expanded, setExpanded] = useState(false);
+  // Threshold: expand button appears when content exceeds ~8 visible lines.
+  const CLAMP_LINES = 8;
+  const isLong = !liveAgent && msg.content.split('\n').length > CLAMP_LINES;
   const motionProps = {
     initial: reduceMotion ? false : { opacity: 0, y: 6 },
     animate: { opacity: 1, y: 0 },
@@ -1532,7 +1597,7 @@ function MessageBubble({
       </div>
       <div className="min-w-0 flex-1 text-[14px] leading-6">
         <div className="mb-1 flex items-center gap-2">
-          <div className="text-[11px] font-medium text-[var(--metis-name-label)]">Agent</div>
+          <div className="text-[11px] font-medium text-[var(--metis-name-label)]">{agentName}</div>
           {msg.status === 'thinking' && (
             <span className="inline-flex items-center gap-1 text-[11px] text-violet-300">
               <Loader2 className="h-3 w-3 animate-spin" /> Thinking
@@ -1557,7 +1622,21 @@ function MessageBubble({
         </div>
         {msg.content ? (
           <div className="text-[var(--metis-bubble-fg)]">
-            <p className="line-clamp-6 whitespace-pre-wrap">{msg.content}</p>
+            <p
+              className={`whitespace-pre-wrap ${isLong && !expanded ? 'line-clamp-[8]' : ''}`}
+              style={isLong && !expanded ? { WebkitLineClamp: CLAMP_LINES } : undefined}
+            >
+              {msg.content}
+            </p>
+            {isLong && (
+              <button
+                type="button"
+                onClick={() => setExpanded((v) => !v)}
+                className="mt-1 text-[11px] text-violet-400 hover:text-violet-300"
+              >
+                {expanded ? 'Show less' : 'Show more'}
+              </button>
+            )}
           </div>
         ) : (
           <div className="flex gap-1 pt-1" aria-label="Loading">
@@ -1729,13 +1808,14 @@ function SessionsList({
 // ── Settings body (rendered inside the Settings modal) ───────────────────
 
 function SettingsBody({
-  theme, effectiveTheme, setTheme, client, health, onOpenConnections,
+  theme, effectiveTheme, setTheme, client, health, appVersion, onOpenConnections,
 }: {
   theme: Theme;
   effectiveTheme: EffectiveTheme;
   setTheme: (t: Theme) => void;
   client: MetisClient;
   health: SystemHealth | null;
+  appVersion: string;
   onOpenConnections: () => void;
 }) {
   const [models, setModels] = useState<{ id: string; label: string; kind: 'local' | 'cloud'; note?: string }[] | null>(null);
@@ -1883,12 +1963,14 @@ function SettingsBody({
         <div className="text-xs font-medium text-[var(--metis-fg-dim)]">Shortcuts</div>
         <div className="mt-2 space-y-1.5 text-sm text-[var(--metis-fg-muted)]">
           {[
-            ['New session',      '⌘ N'],
+            ['New session',       '⌘ N'],
             ['Focus message box', '⌘ K'],
             ['Toggle sidebar',    '⌘ B'],
             ['Toggle workspace',  '⌘ /'],
             ['Jobs panel',        '⌘ J'],
             ['Relationships',     '⌘ R'],
+            ['Memory',            '⌘ M'],
+            ['Reports',           '⌘ P'],
             ['Settings',          '⌘ ,'],
           ].map(([a, b]) => (
             <div key={a} className="flex items-center justify-between gap-4">
@@ -1898,6 +1980,13 @@ function SettingsBody({
           ))}
         </div>
       </div>
+
+      {/* Version */}
+      {appVersion && (
+        <p className="text-center text-[10px] text-[var(--metis-fg-dim)]">
+          Metis Command v{appVersion}
+        </p>
+      )}
     </div>
   );
 }
