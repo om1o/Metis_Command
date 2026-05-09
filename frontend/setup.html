@@ -193,7 +193,7 @@ try {
 
 // Pre-pick a sensible default Manager model (manager-class small local).
 if (!cfg.manager_model && availableModels.length) {
-  const preferOrder = ['qwen3.5:4b', 'qwen3:4b', 'qwen3.6', 'glm4:9b', 'llama3.2:3b', 'qwen2.5-coder:7b', 'qwen2.5-coder:1.5b'];
+  const preferOrder = ['qwen2.5-coder:1.5b', 'llama3.2:3b', 'qwen3:4b', 'qwen2.5-coder:7b', 'glm4:9b', 'qwen3.5:4b'];
   const local = availableModels.filter(m => m.kind === 'local');
   const preferred = preferOrder.map(p => local.find(m => m.id === p)).find(Boolean);
   cfg.manager_model = preferred ? preferred.id : (local[0] || availableModels[0]).id;

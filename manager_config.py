@@ -237,6 +237,32 @@ def render_system_prompt(cfg: ManagerConfig) -> str:
 #   - Configured cloud routes (GLM, Groq) when their API keys are set
 # Each entry: {id, label, kind: "local" | "cloud", note}
 
+FAST_MANAGER_MODEL = "qwen2.5-coder:1.5b"
+
+_MODEL_PRIORITY = {
+    "groq/llama-3.3-70b-versatile": 0,
+    "glm-4.6": 1,
+    FAST_MANAGER_MODEL: 2,
+    "llama3.2:3b": 3,
+    "qwen3:4b": 4,
+    "qwen2.5-coder:7b": 5,
+    "glm4:9b": 6,
+    "deepseek-r1:1.5b": 7,
+    "qwen3.5:4b": 90,
+}
+
+
+def _model_priority(model_id: str) -> tuple[int, str]:
+    return (_MODEL_PRIORITY.get(model_id, 50), model_id)
+
+
+def _model_note(model_id: str, provider: str) -> str:
+    if model_id == FAST_MANAGER_MODEL:
+        return f"{provider} · recommended fast"
+    if model_id == "qwen3.5:4b":
+        return f"{provider} · experimental slow"
+    return provider
+
 def list_available_models() -> list[dict[str, str]]:
     out: list[dict[str, str]] = []
 
@@ -250,7 +276,7 @@ def list_available_models() -> list[dict[str, str]]:
                 "id":    m,
                 "label": m,
                 "kind":  "local",
-                "note":  "Local · Ollama",
+                "note":  _model_note(m, "Local · Ollama"),
             })
     except Exception:
         pass
@@ -279,4 +305,4 @@ def list_available_models() -> list[dict[str, str]]:
             "note":  "Cloud · OpenAI",
         })
 
-    return out
+    return sorted(out, key=lambda item: _model_priority(item["id"]))

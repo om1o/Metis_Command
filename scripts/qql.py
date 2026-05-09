@@ -88,6 +88,7 @@ CHECKS: dict[str, Check] = {
             "tests/unit/test_scheduled_job_reports.py",
             "tests/unit/test_run_contracts.py",
             "tests/unit/test_manager_run_artifacts.py",
+            "tests/unit/test_manager_config_models.py",
             "tests/unit/test_setup_code_auth.py",
             "tests/unit/test_search_notifications.py",
             "-q",
