@@ -47,7 +47,7 @@ PUBLIC_PATHS = {"/", "/health", "/version", "/status",
                 "/auth/signup", "/auth/signin", "/auth/signout",
                 "/auth/oauth/start", "/auth/oauth/complete",
                 "/auth/me", "/auth/refresh", "/auth/reset_password",
-                "/auth/local-token",
+                "/auth/local-token", "/auth/setup-code",
                 # Ollama auto-start probes the splash screen calls before login
                 "/ollama/status", "/ollama/start"}
 
@@ -1391,6 +1391,29 @@ def _user_payload(user: Any) -> dict:
     }
 
 
+SETUP_CODE_PREFIX = "metis-local:"
+
+
+def _is_loopback_request(request: Request) -> bool:
+    host = request.headers.get("host", "")
+    client_host = getattr(request.client, "host", "")
+    loopback = {"127.0.0.1", "localhost", "::1"}
+    return any(h in host for h in loopback) or client_host in loopback
+
+
+def _setup_code_from_token(token: str) -> str:
+    return f"{SETUP_CODE_PREFIX}{token}"
+
+
+def setup_code_to_token(code: str | None) -> str:
+    if not code:
+        return ""
+    normalized = "".join(str(code).strip().strip("\"'").split())
+    if normalized.lower().startswith(SETUP_CODE_PREFIX):
+        return normalized[len(SETUP_CODE_PREFIX):]
+    return normalized
+
+
 @app.get("/auth/local-token")
 def auth_local_token(request: Request) -> dict:
     """
@@ -1400,18 +1423,31 @@ def auth_local_token(request: Request) -> dict:
     SECURITY: Only reachable at 127.0.0.1 (the server binds to localhost
     only). External traffic never reaches this; there is no secret to leak.
     """
-    host = request.headers.get("host", "")
-    client_host = getattr(request.client, "host", "")
-    # Block anything that isn't a loopback caller
-    loopback = {"127.0.0.1", "localhost", "::1"}
-    is_local = (
-        any(h in host for h in loopback)
-        or client_host in loopback
-    )
-    if not is_local:
+    if not _is_loopback_request(request):
         raise HTTPException(status_code=403, detail="local-only endpoint")
     token = auth_local.get_or_create()
-    return {"token": token, "type": "local-install"}
+    return {
+        "token": token,
+        "setup_code": _setup_code_from_token(token),
+        "type": "local-install",
+    }
+
+
+@app.get("/auth/setup-code")
+def auth_setup_code(request: Request) -> dict:
+    """
+    Return a copy-safe local setup code for this install.
+
+    The code wraps the existing local bearer token so users can paste a clearly
+    identified setup value without exposing a second credential format.
+    """
+    if not _is_loopback_request(request):
+        raise HTTPException(status_code=403, detail="local-only endpoint")
+    token = auth_local.get_or_create()
+    return {
+        "code": _setup_code_from_token(token),
+        "type": "local-install",
+    }
 
 
 @app.post("/auth/signup")

@@ -15,7 +15,7 @@ import {
   Check,
 } from 'lucide-react';
 import { Mark, Wordmark } from '@/components/brand';
-import { MetisClient, AuthUser, OAuthProvider } from '@/lib/metis-client';
+import { MetisClient, AuthUser, OAuthProvider, normalizeSetupCode } from '@/lib/metis-client';
 
 const API_BASE = 'http://127.0.0.1:7331';
 
@@ -62,7 +62,7 @@ export default function LoginScreen({ onAuth }: Props) {
   // Lazy initializer reads any OAuth error stashed by the / fallback or
   // /oauth/callback page. Using initializer instead of useEffect avoids
   // React 19's set-state-in-effect rule.
-  const [error, setError] = useState<string | null>(() => {
+  const [initialAuthError] = useState<string | null>(() => {
     if (typeof window === 'undefined') return null;
     try {
       const stashed = sessionStorage.getItem('metis-auth-error');
@@ -73,17 +73,16 @@ export default function LoginScreen({ onAuth }: Props) {
     } catch {}
     return null;
   });
+  const [error, setError] = useState<string | null>(initialAuthError);
   const [info, setInfo] = useState<string | null>(null);
   const [tokenOpen, setTokenOpen] = useState(false);
   // Auto-open the cloud panel if we landed here with an OAuth error so
   // the user sees the context they were last in.
-  const [cloudOpen, setCloudOpen] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    try { return !!sessionStorage.getItem('metis-auth-error'); } catch {}
-    return false;
-  });
+  const [cloudOpen, setCloudOpen] = useState<boolean>(() => !!initialAuthError);
   const [tokenInput, setTokenInput] = useState('');
   const [copied, setCopied] = useState(false);
+  const [setupCode, setSetupCode] = useState('');
+  const [setupCopied, setSetupCopied] = useState(false);
 
   // Bridge ping so we can show a "bridge offline" hint immediately.
   const [bridgeUp, setBridgeUp] = useState<boolean | null>(null);
@@ -174,7 +173,7 @@ export default function LoginScreen({ onAuth }: Props) {
 
   const handleTokenPaste = async (e: FormEvent) => {
     e.preventDefault();
-    const tok = tokenInput.trim();
+    const tok = normalizeSetupCode(tokenInput);
     if (!tok) return;
     guard('local');
     try {
@@ -185,6 +184,35 @@ export default function LoginScreen({ onAuth }: Props) {
       setError(humanizeError(err, 'local'));
     } finally {
       settle();
+    }
+  };
+
+  const showSetupCode = async () => {
+    setError(null);
+    setInfo(null);
+    setSetupCopied(false);
+    try {
+      const client = new MetisClient(API_BASE);
+      const result = await client.getSetupCode();
+      if (!result.code) {
+        setError('Local bridge did not issue a setup code.');
+        return;
+      }
+      setSetupCode(result.code);
+      setTokenOpen(true);
+    } catch (err) {
+      setError(humanizeError(err, 'setup code'));
+    }
+  };
+
+  const copySetupCode = async () => {
+    if (!setupCode) return;
+    try {
+      await navigator.clipboard.writeText(setupCode);
+      setSetupCopied(true);
+      setTimeout(() => setSetupCopied(false), 1200);
+    } catch {
+      setTokenInput(setupCode);
     }
   };
 
@@ -366,6 +394,25 @@ export default function LoginScreen({ onAuth }: Props) {
           </button>
           {tokenOpen && (
             <form onSubmit={handleTokenPaste} className="mt-2 grid gap-2 rounded-xl border border-[var(--metis-border)] bg-[var(--metis-bg)] p-3">
+              <div className="grid gap-2 rounded-lg border border-[var(--metis-border)] bg-[var(--metis-elevated)] p-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] text-[var(--metis-fg-muted)]">This device setup code</span>
+                  <button
+                    type="button"
+                    onClick={setupCode ? copySetupCode : showSetupCode}
+                    disabled={bridgeUp === false}
+                    className="inline-flex items-center gap-1 rounded-md border border-[var(--metis-border)] px-2 py-1 text-[11px] text-[var(--metis-fg)] hover:bg-[var(--metis-hover-surface)] disabled:opacity-50"
+                  >
+                    {setupCode ? (setupCopied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />) : <KeyRound className="h-3 w-3" />}
+                    {setupCode ? (setupCopied ? 'Copied' : 'Copy') : 'Show'}
+                  </button>
+                </div>
+                {setupCode && (
+                  <code className="block max-h-20 overflow-auto rounded-md bg-black/25 px-2 py-1.5 font-mono text-[11px] leading-relaxed text-[var(--metis-fg)]">
+                    {setupCode}
+                  </code>
+                )}
+              </div>
               <input
                 type="password"
                 placeholder="Paste setup code"

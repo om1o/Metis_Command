@@ -130,6 +130,23 @@ export interface AuthResult {
 
 export type OAuthProvider = 'google' | 'github';
 
+export interface LocalTokenResult {
+  token: string;
+  setup_code?: string;
+  type: string;
+}
+
+export interface SetupCodeResult {
+  code: string;
+  type: string;
+}
+
+export function normalizeSetupCode(code: string): string {
+  const compact = code.trim().replace(/^["']|["']$/g, '').replace(/\s+/g, '');
+  const prefix = 'metis-local:';
+  return compact.toLowerCase().startsWith(prefix) ? compact.slice(prefix.length) : compact;
+}
+
 // ── Memory ──────────────────────────────────────────────────────────────────
 
 export interface MemoryHit {
@@ -555,9 +572,15 @@ export class MetisClient {
     return res.json();
   }
 
-  async getLocalToken(): Promise<{ token: string; type: string }> {
+  async getLocalToken(): Promise<LocalTokenResult> {
     const res = await fetch(`${this.baseUrl}/auth/local-token`, { headers: { Accept: 'application/json' } });
     if (!res.ok) throw new Error(`local-token: ${res.status}`);
+    return res.json();
+  }
+
+  async getSetupCode(): Promise<SetupCodeResult> {
+    const res = await fetch(`${this.baseUrl}/auth/setup-code`, { headers: { Accept: 'application/json' } });
+    if (!res.ok) throw new Error(`setup-code: ${res.status}`);
     return res.json();
   }
 
