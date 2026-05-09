@@ -429,6 +429,22 @@ pre:hover .code-copy{opacity:1}
 .session-search svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);width:13px;height:13px;stroke:var(--subtle);stroke-width:2;fill:none;pointer-events:none}
 .session-count{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--subtle);background:var(--panel);padding:1px 6px;border-radius:10px;border:1px solid var(--border)}
 
+/* ── Session date group labels ─── */
+.session-group-label{padding:10px 12px 3px;font-family:'Sora',sans-serif;font-size:9.5px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--subtle)}
+.session-group-label:first-child{padding-top:4px}
+
+/* ── Message feedback buttons ──── */
+.msg-actions{display:flex;gap:4px;opacity:0;transition:opacity .2s;align-items:center;margin-top:6px}
+.msg.assistant:hover .msg-actions{opacity:1}
+.msg-actions.fb-given{opacity:.4}
+.act-btn{background:transparent;border:1px solid transparent;color:var(--subtle);font-size:11px;padding:4px 8px;border-radius:6px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px;transition:all .15s}
+.act-btn:hover{color:var(--text);background:var(--panel);border-color:var(--border)}
+.act-btn svg{width:11px;height:11px;stroke:currentColor;stroke-width:2;fill:none}
+.act-btn.fb-up:hover{color:var(--gr);border-color:rgba(34,197,94,.3);background:rgba(34,197,94,.08)}
+.act-btn.fb-down:hover{color:var(--co);border-color:rgba(251,113,133,.3);background:rgba(251,113,133,.08)}
+.act-btn.fb-active-up{color:var(--gr);border-color:rgba(34,197,94,.3);background:rgba(34,197,94,.08)}
+.act-btn.fb-active-down{color:var(--co);border-color:rgba(251,113,133,.3);background:rgba(251,113,133,.08)}
+
 /* ── Relationship items ── */
 .rel-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;font-size:12px;color:var(--muted);cursor:pointer;transition:all .15s;margin-bottom:2px}
 .rel-item:hover{background:var(--panel);color:var(--text)}
@@ -1167,6 +1183,8 @@ pre:hover .code-copy{opacity:1}
           <div class="shortcut-row"><span class="s-desc">New conversation</span><span class="s-keys"><kbd>⌘</kbd><kbd>L</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Toggle sidebar</span><span class="s-keys"><kbd>⌘</kbd><kbd>B</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">This cheat sheet</span><span class="s-keys"><kbd>⌘</kbd><kbd>/</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Previous session</span><span class="s-keys"><kbd>⌘</kbd><kbd>[</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Next session</span><span class="s-keys"><kbd>⌘</kbd><kbd>]</kbd></span></div>
         </div>
       </div>
       <div class="shortcuts-section">
@@ -1444,14 +1462,17 @@ function renderModelMenu() {
     });
   });
 
-  // Update inline model button label — show tier name (Fast/Auto/Super/Mega)
+  // Update inline model button label — show tier name + short model id
   const sel = sorted.find(m => m.id === cfg.manager_model) || sorted[0];
   if (sel) {
     const meta = getModelMeta(sel.id);
-    const tierLabel = { fast:'Fast', auto:'Auto', super:'Super', mega:'Mega', cloud:'Cloud' }[meta.tier] || meta.friendly;
-    const tierIcon  = { fast:'⚡', auto:'🔄', super:'🔥', mega:'💎', cloud:'☁️' }[meta.tier] || meta.icon;
+    const tierLabel = { fast:'Fast', auto:'Auto', super:'Super', mega:'Mega', cloud:'Cloud', experimental:'Exp' }[meta.tier] || meta.friendly;
+    const tierIcon  = { fast:'⚡', auto:'🔄', super:'🔥', mega:'💎', cloud:'☁️', experimental:'⚠️' }[meta.tier] || meta.icon;
+    // Show a short version of the model ID (strip tag like ":latest" or ":1.5b")
+    const shortId = sel.id.replace(/:latest$/i, '').replace(/^groq\//i, '').split('/').pop();
+    const shortLabel = shortId.length > 18 ? shortId.slice(0, 17) + '…' : shortId;
     modelBtn.innerHTML = `<span class="tier-dot ${meta.tier}"></span> ${escapeHtml(tierLabel)} <span class="caret">▾</span>`;
-    modelLabel.textContent = `${tierIcon} ${tierLabel}`;
+    modelLabel.innerHTML = `${escapeHtml(tierIcon)} ${escapeHtml(tierLabel)} <span style="font-family:'JetBrains Mono',monospace;font-size:10px;opacity:.6;margin-left:4px">${escapeHtml(shortLabel)}</span>`;
   }
 }
 
@@ -1606,13 +1627,9 @@ async function loadSessions() {
     countEl.textContent = sessions.length;
     list.innerHTML = '';
     const pinned = getPinned();
-    // Pinned first, then rest
-    const sorted = [
-      ...sessions.filter(s => pinned.has(typeof s === 'string' ? s : s.id)),
-      ...sessions.filter(s => !pinned.has(typeof s === 'string' ? s : s.id)),
-    ];
-    sorted.slice(0, 40).forEach(s => {
-      // Support both old format (plain string) and new format ({id, title, updated_at})
+
+    // Build a single session item DOM node
+    function buildSessionItem(s) {
       const id       = typeof s === 'string' ? s : s.id;
       const title    = (typeof s === 'object' && s.title) ? s.title : id;
       const updatedAt = typeof s === 'object' ? s.updated_at : null;
@@ -1621,10 +1638,9 @@ async function loadSessions() {
       const div = document.createElement('div');
       div.className = 'session-item' + (isPinned ? ' pinned' : '');
       div.dataset.id = id;
-      div.title = id;
+      div.title = title !== id ? `${title}\n${id}` : id;
       if (id === currentSession) div.classList.add('active');
 
-      // Session label — show human-readable title + relative time
       const label = document.createElement('span');
       label.className = 'session-label';
       label.dataset.title = title;
@@ -1632,35 +1648,27 @@ async function loadSessions() {
       label.innerHTML = `${escapeHtml(title)}${relTime ? `<span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--subtle);margin-left:5px">${escapeHtml(relTime)}</span>` : ''}`;
       div.appendChild(label);
 
-      // Pin button — star icon, always visible when pinned
       const pinBtn = document.createElement('button');
       pinBtn.className = 'session-rename';
       pinBtn.title = isPinned ? 'Unpin session' : 'Pin session';
       pinBtn.style.color = isPinned ? 'var(--am)' : '';
       pinBtn.style.opacity = isPinned ? '1' : '';
       pinBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="${isPinned ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`;
-      pinBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        togglePin(id);
-        loadSessions();
-      });
+      pinBtn.addEventListener('click', (e) => { e.stopPropagation(); togglePin(id); loadSessions(); });
       div.appendChild(pinBtn);
 
-      // Rename button (pencil icon) — only visible on hover
       const renameBtn = document.createElement('button');
       renameBtn.className = 'session-rename';
       renameBtn.title = 'Rename session';
       renameBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>';
       renameBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        // Turn label into an inline editable input
         const input = document.createElement('input');
         input.className = 'session-rename-input';
         input.value = label.dataset.title || label.textContent.split('\n')[0].trim();
         input.maxLength = 120;
         label.replaceWith(input);
-        input.focus();
-        input.select();
+        input.focus(); input.select();
         const finish = async () => {
           const newTitle = input.value.trim() || label.dataset.title || id;
           const span = document.createElement('span');
@@ -1678,7 +1686,6 @@ async function loadSessions() {
       });
       div.appendChild(renameBtn);
 
-      // Export button (download icon)
       const exportBtn = document.createElement('button');
       exportBtn.className = 'session-export';
       exportBtn.title = 'Export as Markdown';
@@ -1694,7 +1701,6 @@ async function loadSessions() {
       });
       div.appendChild(exportBtn);
 
-      // Delete button
       const del = document.createElement('button');
       del.className = 'session-del';
       del.title = 'Delete session';
@@ -1711,9 +1717,41 @@ async function loadSessions() {
         }
       });
       div.appendChild(del);
-
       div.addEventListener('click', () => loadSession(id));
-      list.appendChild(div);
+      return div;
+    }
+
+    // Date-bucket grouping helper
+    function _dateBucket(ts) {
+      if (!ts) return 'older';
+      const d = typeof ts === 'number'
+        ? new Date(ts < 1e12 ? ts * 1000 : ts)
+        : new Date(String(ts).replace('Z', '+00:00'));
+      const days = Math.floor((Date.now() - d.getTime()) / 86400000);
+      if (days === 0) return 'today';
+      if (days === 1) return 'yesterday';
+      if (days <= 7) return 'week';
+      return 'older';
+    }
+
+    const BUCKET_LABELS = { pinned: '📌 Pinned', today: 'Today', yesterday: 'Yesterday', week: 'This Week', older: 'Earlier' };
+    const buckets = { pinned: [], today: [], yesterday: [], week: [], older: [] };
+    sessions.slice(0, 60).forEach(s => {
+      const id = typeof s === 'string' ? s : s.id;
+      if (pinned.has(id)) { buckets.pinned.push(s); return; }
+      const ts = typeof s === 'object' ? s.updated_at : null;
+      const bk = _dateBucket(ts);
+      buckets[bk].push(s);
+    });
+
+    Object.entries(BUCKET_LABELS).forEach(([key, label]) => {
+      const items = buckets[key];
+      if (!items.length) return;
+      const hdr = document.createElement('div');
+      hdr.className = 'session-group-label';
+      hdr.textContent = label;
+      list.appendChild(hdr);
+      items.forEach(s => list.appendChild(buildSessionItem(s)));
     });
   } catch {}
 }
@@ -2505,12 +2543,14 @@ async function sendMessage() {
           timeEl.innerHTML = `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${(dur / 1000).toFixed(1)}s${ev.agents_used?.length ? ' · ' + ev.agents_used.join(', ') : ''}`;
           replyContent.appendChild(timeEl);
         }
-        // Action buttons
+        // Action buttons (copy + regen + thumbs feedback)
         const actions = document.createElement('div');
         actions.className = 'msg-actions';
         actions.innerHTML = `
-          <button class="act-btn" data-act="copy" title="Copy"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy</button>
-          <button class="act-btn" data-act="regen" title="Regenerate"><svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Regenerate</button>
+          <button class="act-btn" data-act="copy" title="Copy response"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy</button>
+          <button class="act-btn" data-act="regen" title="Regenerate response"><svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Regenerate</button>
+          <button class="act-btn fb-up" data-act="fb-up" title="Good response"><svg viewBox="0 0 24 24" fill="none"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg></button>
+          <button class="act-btn fb-down" data-act="fb-down" title="Poor response"><svg viewBox="0 0 24 24" fill="none"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z"/><path d="M17 2h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg></button>
         `;
         replyContent.appendChild(actions);
         actions.querySelector('[data-act=copy]').addEventListener('click', () => {
@@ -2522,6 +2562,28 @@ async function sendMessage() {
           msgInput.dispatchEvent(new Event('input'));
           sendMessage();
         });
+        // Feedback buttons
+        const fbUp = actions.querySelector('[data-act=fb-up]');
+        const fbDown = actions.querySelector('[data-act=fb-down]');
+        let _fbGiven = false;
+        async function submitFeedback(sentiment) {
+          if (_fbGiven) return;
+          _fbGiven = true;
+          fbUp.classList.toggle('fb-active-up', sentiment === 'up');
+          fbDown.classList.toggle('fb-active-down', sentiment === 'down');
+          actions.classList.add('fb-given');
+          try {
+            const token = localStorage.getItem('metis.access_token');
+            await fetch('/messages/feedback', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+              body: JSON.stringify({ session_id: currentSession, sentiment, preview: fullAnswer.slice(0, 120) }),
+            });
+          } catch {}
+          if (window.toast) toast(sentiment === 'up' ? 'success' : 'info', sentiment === 'up' ? 'Thanks for the feedback!' : 'Got it — noted', '', 1800);
+        }
+        fbUp.addEventListener('click', () => submitFeedback('up'));
+        fbDown.addEventListener('click', () => submitFeedback('down'));
       }
     }
   } catch (err) {
@@ -3245,6 +3307,20 @@ document.addEventListener('keydown', (e) => {
       msgInput.value = lastUser.textContent || '';
       msgInput.dispatchEvent(new Event('input'));
       sendMessage();
+    }
+    return;
+  }
+
+  // Ctrl+[ / Ctrl+] → navigate to previous / next session
+  if (meta && (e.key === '[' || e.key === ']')) {
+    e.preventDefault();
+    const items = [...document.querySelectorAll('.session-item[data-id]')];
+    if (!items.length) return;
+    const curIdx = items.findIndex(el => el.dataset.id === currentSession);
+    const nextIdx = e.key === '[' ? Math.max(0, curIdx - 1) : Math.min(items.length - 1, curIdx + 1);
+    if (nextIdx !== curIdx) {
+      const nextId = items[nextIdx].dataset.id;
+      loadSession(nextId);
     }
     return;
   }

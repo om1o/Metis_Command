@@ -35,7 +35,7 @@ from run_contracts import build_run_contract, normalize_mode, normalize_permissi
 import auth_local  # noqa: E402
 import auth_engine  # noqa: E402
 
-app = FastAPI(title="Metis API Bridge", version="20.0.0")
+app = FastAPI(title="Metis API Bridge", version="21.0.0")
 
 # Frontend lives in ./frontend (HTML + static)
 _FRONTEND_DIR = Path(__file__).parent / "frontend"
@@ -2559,6 +2559,52 @@ def workflows_run(workflow_id: str, req: _WorkflowRunIn) -> dict:
 @app.get("/workflows/page/builder")
 def page_workflow_builder() -> FileResponse:
     return FileResponse(_FRONTEND_DIR / "workflow.html")
+
+
+# ── Message feedback ─────────────────────────────────────────────────────────
+
+_FEEDBACK_FILE = Path(__file__).parent / "identity" / "feedback.jsonl"
+
+class FeedbackRequest(BaseModel):
+    session_id: str
+    sentiment: str          # "up" | "down"
+    preview: str = ""       # first 120 chars of the response
+
+@app.post("/messages/feedback")
+async def post_message_feedback(req: FeedbackRequest, request: Request) -> dict:
+    """Store thumbs-up / thumbs-down feedback for a response."""
+    import time as _time
+    if req.sentiment not in ("up", "down"):
+        raise HTTPException(status_code=422, detail="sentiment must be 'up' or 'down'")
+    _FEEDBACK_FILE.parent.mkdir(parents=True, exist_ok=True)
+    record = {
+        "ts": _time.time(),
+        "session_id": req.session_id,
+        "sentiment": req.sentiment,
+        "preview": req.preview[:120],
+        "user_id": _user_id_from_request(request),
+    }
+    with _FEEDBACK_FILE.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(record) + "\n")
+    return {"ok": True}
+
+@app.get("/messages/feedback/summary")
+async def get_feedback_summary() -> dict:
+    """Return aggregate thumbs-up / thumbs-down counts."""
+    if not _FEEDBACK_FILE.exists():
+        return {"up": 0, "down": 0, "total": 0}
+    up = down = 0
+    with _FEEDBACK_FILE.open(encoding="utf-8") as fh:
+        for line in fh:
+            try:
+                rec = json.loads(line)
+                if rec.get("sentiment") == "up":
+                    up += 1
+                elif rec.get("sentiment") == "down":
+                    down += 1
+            except Exception:
+                pass
+    return {"up": up, "down": down, "total": up + down}
 
 
 if __name__ == "__main__":

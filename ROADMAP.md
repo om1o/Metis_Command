@@ -4,7 +4,20 @@
 
 ---
 
-## Current State (v0.20.0)
+## Current State (v0.21.0)
+
+### Completed (v0.21.0)
+- ✅ Session date grouping — sidebar now groups conversations into Today / Yesterday / This Week / Earlier
+- ✅ Message feedback — thumbs up/down buttons on every assistant response; stored to `identity/feedback.jsonl`; `GET /messages/feedback/summary` for aggregate stats
+- ✅ Keyboard session navigation — `Ctrl+[` / `Ctrl+]` to jump to previous / next session in the list
+- ✅ Model ID display — the header model selector now shows the actual model slug alongside the tier name (Fast · qwen2.5-coder)
+- ✅ Five new workflow templates — Competitor Analysis, Bug Triage → Fix → Verify, Content Pipeline, Deep Research Loop added alongside the original four
+- ✅ Backend feedback endpoint — `POST /messages/feedback`, `GET /messages/feedback/summary`
+- ✅ Shortcuts modal updated — `⌘[` / `⌘]` session navigation documented
+
+---
+
+## Previous State (v0.20.0)
 
 ### Working
 - Manager orchestrator with 4 specialists (Researcher, Coder, Thinker, Scholar)
