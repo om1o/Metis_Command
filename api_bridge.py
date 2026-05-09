@@ -1205,17 +1205,31 @@ def schedules_run_now(schedule_id: str) -> dict:
 
 @app.get("/missions")
 def missions_list(limit: int = 50) -> list[dict]:
-    from concurrency import list_missions
-    return [m.to_dict() for m in list_missions(limit=limit)]
+    from concurrency import list_missions, load_persisted_history
+    live = [m.to_dict() for m in list_missions(limit=limit)]
+    persisted = load_persisted_history(limit=limit)
+    seen: set[str] = set()
+    rows: list[dict] = []
+    for row in [*live, *reversed(persisted)]:
+        mission_id = str(row.get("id", ""))
+        if not mission_id or mission_id in seen:
+            continue
+        seen.add(mission_id)
+        rows.append(row)
+    rows.sort(key=lambda r: float(r.get("submitted_at") or 0), reverse=True)
+    return rows[:limit]
 
 
 @app.get("/missions/{mission_id}")
 def mission_get(mission_id: str) -> dict:
-    from concurrency import get_mission
+    from concurrency import get_mission, load_persisted_history
     mission = get_mission(mission_id)
-    if mission is None:
-        raise HTTPException(status_code=404, detail="mission not found")
-    return mission.to_dict()
+    if mission is not None:
+        return mission.to_dict()
+    for row in reversed(load_persisted_history(limit=500)):
+        if str(row.get("id", "")) == mission_id:
+            return row
+    raise HTTPException(status_code=404, detail="mission not found")
 
 
 @app.post("/missions/{mission_id}/cancel")

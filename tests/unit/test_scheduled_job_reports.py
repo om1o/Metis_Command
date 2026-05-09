@@ -168,6 +168,7 @@ def test_missions_list_api_returns_records(_sandbox_paths, monkeypatch):
     from fastapi.testclient import TestClient
 
     monkeypatch.setattr("concurrency.list_missions", lambda limit=50: [_ApiMission()])
+    monkeypatch.setattr("concurrency.load_persisted_history", lambda limit=100: [])
 
     client = TestClient(api_bridge.app)
     response = client.get(
@@ -180,6 +181,55 @@ def test_missions_list_api_returns_records(_sandbox_paths, monkeypatch):
     assert len(data) == 1
     assert data[0]["id"] == "mission123"
     assert data[0]["status"] == "running"
+
+
+def test_missions_list_api_includes_persisted_history(_sandbox_paths, monkeypatch):
+    import api_bridge
+    from fastapi.testclient import TestClient
+
+    monkeypatch.setattr("concurrency.list_missions", lambda limit=50: [])
+    monkeypatch.setattr("concurrency.load_persisted_history", lambda limit=100: [{
+        "id": "persisted123",
+        "status": "success",
+        "tag": "scheduled:job123",
+        "goal": "Persisted job run.",
+        "submitted_at": 123.0,
+    }])
+
+    client = TestClient(api_bridge.app)
+    response = client.get(
+        "/missions?limit=10",
+        headers=api_bridge.auth_local.bearer_header(),
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["id"] == "persisted123"
+    assert data[0]["status"] == "success"
+
+
+def test_mission_status_api_falls_back_to_persisted_history(_sandbox_paths, monkeypatch):
+    import api_bridge
+    from fastapi.testclient import TestClient
+
+    monkeypatch.setattr("concurrency.get_mission", lambda mission_id: None)
+    monkeypatch.setattr("concurrency.load_persisted_history", lambda limit=500: [{
+        "id": "persisted123",
+        "status": "success",
+        "tag": "scheduled:job123",
+        "goal": "Persisted job run.",
+        "submitted_at": 123.0,
+    }])
+
+    client = TestClient(api_bridge.app)
+    response = client.get(
+        "/missions/persisted123",
+        headers=api_bridge.auth_local.bearer_header(),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["id"] == "persisted123"
 
 
 def test_mission_cancel_api_returns_result(_sandbox_paths, monkeypatch):
