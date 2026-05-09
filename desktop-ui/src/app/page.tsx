@@ -56,6 +56,7 @@ import JobsPanel from '@/components/jobs-panel';
 import RelationshipsPanel from '@/components/relationships-panel';
 import InboxPanel from '@/components/inbox-panel';
 import ConnectionsPanel from '@/components/connections-panel';
+import InstallAppButton from '@/components/install-app-button';
 import MemoryPanel from '@/components/memory-panel';
 import ReportsPanel from '@/components/reports-panel';
 import AnalyticsPanel from '@/components/analytics-panel';
@@ -2191,6 +2192,9 @@ function SettingsBody({
         </div>
         <ArrowRight className="h-4 w-4 text-[var(--metis-fg-dim)]" />
       </button>
+
+      {/* PWA install (MVP 10) */}
+      <InstallAppButton />
 
       {/* Shortcuts */}
       <div className="rounded-xl border border-[var(--metis-border)] bg-[var(--metis-elevated)] p-3">
