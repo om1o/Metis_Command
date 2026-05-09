@@ -27,6 +27,11 @@ VERSION = 0x01
 FLAG_ENCRYPTED = 0x01
 
 _PBKDF2_ITERATIONS = 200_000
+VECTOR_MEMORY_ENV = "METIS_CHAT_VECTOR_MEMORY"
+
+
+def _vector_memory_enabled() -> bool:
+    return os.getenv(VECTOR_MEMORY_ENV, "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 # ── Crypto helpers ───────────────────────────────────────────────────────────
@@ -88,14 +93,15 @@ def _collect_payload() -> dict[str, Any]:
         except Exception:
             pass
 
-    try:
-        from memory_vault import MemoryBank
-        bank = MemoryBank()
-        # Pull everything under the identity namespace.
-        hits = bank.search("identity durable fact about the Director", n_results=100)
-        payload["identity_facts"] = [h.get("document") for h in hits if h]
-    except Exception:
-        pass
+    if _vector_memory_enabled():
+        try:
+            from memory_vault import MemoryBank
+            bank = MemoryBank()
+            # Pull everything under the identity namespace.
+            hits = bank.search("identity durable fact about the Director", n_results=100)
+            payload["identity_facts"] = [h.get("document") for h in hits if h]
+        except Exception:
+            pass
 
     return payload
 
@@ -118,7 +124,7 @@ def _apply_payload(payload: dict[str, Any]) -> None:
         )
 
     facts = payload.get("identity_facts") or []
-    if facts:
+    if facts and _vector_memory_enabled():
         try:
             from memory_vault import MemoryBank
             bank = MemoryBank()

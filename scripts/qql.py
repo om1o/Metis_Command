@@ -90,6 +90,7 @@ CHECKS: dict[str, Check] = {
             "tests/unit/test_manager_run_artifacts.py",
             "tests/unit/test_manager_config_models.py",
             "tests/unit/test_memory_loop.py",
+            "tests/unit/test_mts_format.py",
             "tests/unit/test_setup_code_auth.py",
             "tests/unit/test_search_notifications.py",
             "-q",

@@ -313,6 +313,7 @@ def test_tests_backend_includes_user_facing_api_contracts() -> None:
     assert any("test_search_notifications.py" in arg for arg in checks[0].command)
     assert any("test_manager_config_models.py" in arg for arg in checks[0].command)
     assert any("test_memory_loop.py" in arg for arg in checks[0].command)
+    assert any("test_mts_format.py" in arg for arg in checks[0].command)
 
 
 def test_parallel_dry_run_preserves_input_order_and_all_ok() -> None:

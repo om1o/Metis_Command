@@ -21,7 +21,7 @@ def fail(msg: str) -> None: print(f"[FAIL] {msg}")
 def head(msg: str) -> None: print(f"\n==== {msg} ====")
 
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).absolute().parent.parent
 sys.path.insert(0, str(ROOT))
 
 
