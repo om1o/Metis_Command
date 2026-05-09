@@ -85,6 +85,7 @@ function eventText(event: Record<string, unknown>): string {
 export default function JobsPanel({ client, reduceMotion, onClose, onOpenArtifact }: Props) {
   const [items, setItems] = useState<Schedule[] | null>(null);
   const [reports, setReports] = useState<Record<string, Artifact>>({});
+  const [missionReports, setMissionReports] = useState<Record<string, Artifact>>({});
   const [missions, setMissions] = useState<Mission[]>([]);
   const [openMissionId, setOpenMissionId] = useState<string | null>(null);
   const [runState, setRunState] = useState<Record<string, { missionId?: string; status: string }>>({});
@@ -110,15 +111,24 @@ export default function JobsPanel({ client, reduceMotion, onClose, onOpenArtifac
       });
       setItems(list);
       const latestReports: Record<string, Artifact> = {};
+      const latestMissionReports: Record<string, Artifact> = {};
       for (const artifact of artifacts) {
-        if (artifact.metadata?.kind !== 'scheduled_job_report' || typeof artifact.metadata.schedule_id !== 'string') {
+        if (artifact.metadata?.kind !== 'scheduled_job_report') {
           continue;
         }
-        const scheduleId = String(artifact.metadata.schedule_id);
-        const current = latestReports[scheduleId];
-        if (!current || artifactTs(artifact) > artifactTs(current)) latestReports[scheduleId] = artifact;
+        if (typeof artifact.metadata.schedule_id === 'string') {
+          const scheduleId = String(artifact.metadata.schedule_id);
+          const current = latestReports[scheduleId];
+          if (!current || artifactTs(artifact) > artifactTs(current)) latestReports[scheduleId] = artifact;
+        }
+        if (typeof artifact.metadata.mission_id === 'string') {
+          const missionId = String(artifact.metadata.mission_id);
+          const current = latestMissionReports[missionId];
+          if (!current || artifactTs(artifact) > artifactTs(current)) latestMissionReports[missionId] = artifact;
+        }
       }
       setReports(latestReports);
+      setMissionReports(latestMissionReports);
       setMissions(missionList.filter((m) => m.tag?.startsWith('scheduled:')).slice(0, 8));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -349,6 +359,8 @@ export default function JobsPanel({ client, reduceMotion, onClose, onOpenArtifac
                         mission={mission}
                         open={openMissionId === mission.id}
                         onToggle={() => setOpenMissionId((current) => current === mission.id ? null : mission.id)}
+                        report={missionReports[mission.id]}
+                        onOpenReport={() => missionReports[mission.id] && onOpenArtifact(missionReports[mission.id].id)}
                       />
                     ))}
                   </div>
@@ -366,10 +378,14 @@ function MissionRow({
   mission,
   open,
   onToggle,
+  report,
+  onOpenReport,
 }: {
   mission: Mission;
   open: boolean;
   onToggle: () => void;
+  report?: Artifact;
+  onOpenReport: () => void;
 }) {
   const active = ['queued', 'running'].includes(mission.status);
   const events = (mission.events || []).slice(-4);
@@ -388,11 +404,22 @@ function MissionRow({
             <span className="capitalize">{mission.status}</span>
             <span className="font-mono">{mission.id}</span>
             {fmtMissionTime(mission.submitted_at) && <span>{fmtMissionTime(mission.submitted_at)}</span>}
+            {report && <span className="text-emerald-300">report saved</span>}
           </div>
         </div>
       </button>
       {open && (
         <div className="border-t border-[var(--metis-border)] px-3 py-2 text-[11.5px] text-[var(--metis-fg-muted)]">
+          {report && (
+            <button
+              type="button"
+              onClick={onOpenReport}
+              className="mb-2 inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-200 hover:bg-emerald-500/15"
+            >
+              <FileText className="h-3 w-3" />
+              Open report
+            </button>
+          )}
           {mission.final_answer && (
             <div>
               <div className="mb-1 text-[10px] uppercase tracking-widest text-[var(--metis-fg-dim)]">Result</div>
