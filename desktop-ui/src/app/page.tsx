@@ -45,6 +45,9 @@ import {
   Brain,
   BarChart3,
   Search,
+  Mic,
+  MicOff,
+  Paperclip,
 } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { createLocalClient, MetisClient, AuthUser, Schedule, Artifact, RunMode, RunPermission, SessionMessage, SessionSearchResult } from '@/lib/metis-client';
@@ -87,6 +90,12 @@ interface Session {
   createdAt: number;
   updatedAt: number;
   messages: Message[];
+}
+
+interface Attachment {
+  name: string;
+  content: string;
+  size: number;
 }
 
 // ── Permission tiers ──────────────────────────────────────────────────────
@@ -463,11 +472,17 @@ export default function App() {
   const [reportLoading, setReportLoading] = useState(false);
   const [managerName, setManagerName] = useState<string>('Agent');
   const [appVersion, setAppVersion] = useState<string>('');
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [listening, setListening] = useState(false);
+  const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
 
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
   const workspaceRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const voiceRef = useRef<any>(null);
   const reduceMotion = useReducedMotion();
 
   const active = useMemo(() => sessions.find((s) => s.id === activeId) || null, [sessions, activeId]);
@@ -740,6 +755,7 @@ export default function App() {
       else if (k === 'm')   { e.preventDefault(); setMemoryOpen((v) => !v); }
       else if (k === 'p')   { e.preventDefault(); setReportsOpen((v) => !v); }
       else if (k === 'a')   { e.preventDefault(); setAnalyticsOpen((v) => !v); }
+      else if (k === 'g')   { e.preventDefault(); setConnectionsOpen((v) => !v); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -804,8 +820,10 @@ export default function App() {
   // ── send ────────────────────────────────────────────────────────────────
   const send = (overrideText?: string) => {
     const text = (overrideText ?? input).trim();
-    if (!text || streaming) return;
+    if (!text && attachments.length === 0) return;
+    if (streaming) return;
     if (!client) return; // gated by LoginScreen above
+    const capturedAttachments = attachments;
 
     // Job mode short-circuits the chat stream and opens the scheduler.
     // We don't insert the goal as a user message — the user only commits
@@ -817,9 +835,10 @@ export default function App() {
 
     let session = active;
     if (!session) {
+      const titleSrc = text || (capturedAttachments[0]?.name ?? 'Attachment');
       session = {
         id: newId(),
-        title: pickTitle(text),
+        title: pickTitle(titleSrc),
         createdAt: Date.now(),
         updatedAt: Date.now(),
         messages: [],
@@ -828,7 +847,14 @@ export default function App() {
       setActiveId(session.id);
     }
 
-    const userMsg: Message = { id: newId(), role: 'user', content: text, ts: Date.now() };
+    const userMsg: Message = {
+      id: newId(),
+      role: 'user',
+      content: capturedAttachments.length > 0
+        ? (text ? text + '\n' : '') + capturedAttachments.map((a) => `📎 ${a.name}`).join('\n')
+        : text,
+      ts: Date.now(),
+    };
     const agentMsg: Message = { id: newId(), role: 'agent', content: '', ts: Date.now(), status: 'thinking' };
     const sId = session.id;
 
@@ -839,6 +865,7 @@ export default function App() {
     );
 
     if (!overrideText) setInput('');
+    if (!overrideText) setAttachments([]);
     if (composerRef.current) composerRef.current.style.height = 'auto';
     setStreaming(true);
 
@@ -850,7 +877,12 @@ export default function App() {
       let saved: { id: string; name: string } | undefined;
       let savedArtifact: { id: string; title: string } | undefined;
       try {
-        const stream = client.chat('manager', text, sId, { mode: 'task', permission });
+        const fullText = capturedAttachments.length > 0
+          ? (text ? text + '\n\n' : '') + capturedAttachments
+              .map((a) => `**Attached: ${a.name}**\n\`\`\`\n${a.content.slice(0, 8000)}\n\`\`\``)
+              .join('\n\n')
+          : text;
+        const stream = client.chat('manager', fullText, sId, { mode: 'task', permission });
         for await (const ev of stream) {
           if (ac.signal.aborted) break;
           if (ev.type === 'token' && ev.delta) {
@@ -969,6 +1001,58 @@ export default function App() {
   const copyAgent = async () => {
     if (!lastAgentMsg) return;
     try { await navigator.clipboard.writeText(lastAgentMsg.content); setCopied(true); setTimeout(() => setCopied(false), 1200); } catch {}
+  };
+
+  const copyMsg = async (id: string, content: string) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopiedMsgId(id);
+      setTimeout(() => setCopiedMsgId((prev) => (prev === id ? null : prev)), 1200);
+    } catch {}
+  };
+
+  const handleFiles = (files: FileList | File[]) => {
+    const allowed = ['.txt', '.md', '.py', '.js', '.ts', '.tsx', '.jsx', '.json', '.csv', '.yaml', '.yml', '.toml', '.html', '.css', '.sh'];
+    Array.from(files as FileList).forEach((file) => {
+      const hasAllowedExt = allowed.some((ext) => file.name.toLowerCase().endsWith(ext));
+      if (!hasAllowedExt && file.size > 512_000) return;
+      const r = new FileReader();
+      r.onload = (e) => {
+        const content = typeof e.target?.result === 'string' ? e.target.result : '';
+        setAttachments((a) => [...a, { name: file.name, content, size: file.size }]);
+      };
+      r.readAsText(file);
+    });
+  };
+
+  const removeAttachment = (i: number) => setAttachments((a) => a.filter((_, j) => j !== i));
+
+  const toggleVoice = () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const w = window as any;
+    const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
+    if (!SR) return;
+    if (listening) {
+      voiceRef.current?.stop();
+      setListening(false);
+      return;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const recog: any = new SR();
+    recog.continuous = false;
+    recog.interimResults = false;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    recog.onresult = (e: any) => {
+      const t = Array.from(e.results as ArrayLike<{ [k: number]: { transcript: string } }>)
+        .map((r) => r[0].transcript)
+        .join('');
+      setInput((v) => v + (v ? ' ' : '') + t);
+    };
+    recog.onend = () => setListening(false);
+    recog.onerror = () => setListening(false);
+    voiceRef.current = recog;
+    recog.start();
+    setListening(true);
   };
 
   // ── App ────────────────────────────────────────────────────────────────
@@ -1124,6 +1208,19 @@ export default function App() {
               <BarChart3 className="h-4 w-4 shrink-0 text-violet-400" />
               <span>Analytics</span>
               <span className="ml-auto text-[10px] text-[var(--metis-fg-dim)]">⌘A</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setConnectionsOpen(true)}
+              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] text-[var(--metis-fg-muted)] transition hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]"
+              title="Connections (⌘G)"
+            >
+              <Globe className="h-4 w-4 shrink-0 text-violet-400" />
+              <span>Connections</span>
+              {health && (
+                <span className={`ml-auto inline-block h-1.5 w-1.5 rounded-full ${health.ollama.ok || health.groq.ok || health.glm.ok || health.openai.ok ? 'bg-emerald-400' : 'bg-rose-400'}`} />
+              )}
+              <span className="text-[10px] text-[var(--metis-fg-dim)]">⌘G</span>
             </button>
           </div>
         )}
@@ -1284,6 +1381,8 @@ export default function App() {
                       setActiveArtifactId(id);
                       setWorkspaceOpen(true);
                     }}
+                    copiedMsgId={copiedMsgId}
+                    onCopy={copyMsg}
                   />
                 ))}
                 <div ref={chatBottomRef} className="h-2" />
@@ -1294,11 +1393,22 @@ export default function App() {
 
         {/* Composer */}
         <div className="shrink-0 px-3 pb-3 pt-2 sm:px-4 sm:pb-4">
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept=".txt,.md,.py,.js,.ts,.tsx,.jsx,.json,.csv,.yaml,.yml,.toml,.html,.css,.sh"
+            className="hidden"
+            onChange={(e) => { if (e.target.files) { handleFiles(e.target.files); e.target.value = ''; } }}
+          />
           <form
             onSubmit={handleSubmit}
             className="metis-glow-border mx-auto w-full max-w-[760px] rounded-[24px] border border-[var(--metis-composer-border)] p-1.5 transition-[box-shadow,border-color]"
             style={{ background: 'var(--metis-composer-bg)', boxShadow: 'var(--metis-composer-shadow)' }}
             aria-label="Send a message to your agent"
+            onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }}
+            onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); }}
           >
             <textarea
               ref={composerRef}
@@ -1316,13 +1426,59 @@ export default function App() {
               className="max-h-[220px] min-h-[44px] w-full resize-none bg-transparent px-3 py-3 text-[14.5px] text-[var(--metis-foreground)] placeholder:text-[var(--metis-fg-dim)] outline-none"
               aria-label="Message"
             />
+            {/* Attachment chips */}
+            {attachments.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 px-3 pb-2">
+                {attachments.map((a, i) => (
+                  <span
+                    key={i}
+                    className="inline-flex items-center gap-1 rounded-lg border border-[var(--metis-border)] bg-[var(--metis-elevated)] px-2 py-0.5 text-[11.5px] text-[var(--metis-fg-muted)]"
+                  >
+                    <Paperclip className="h-3 w-3 shrink-0" />
+                    <span className="max-w-[140px] truncate">{a.name}</span>
+                    <span className="text-[10px] text-[var(--metis-fg-dim)]">({(a.size / 1024).toFixed(1)}KB)</span>
+                    <button
+                      type="button"
+                      onClick={() => removeAttachment(i)}
+                      className="ml-0.5 text-[var(--metis-fg-dim)] hover:text-rose-400"
+                      aria-label={`Remove ${a.name}`}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
             <div className="flex flex-wrap items-center gap-1.5 px-1.5 pb-1.5">
               <ModeSelector value={mode} onChange={setMode} />
               <PermissionSelector value={permission} onChange={setPermission} />
+              {/* Paperclip attach button */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="metis-icon-btn h-7 w-7"
+                title="Attach file"
+                aria-label="Attach file"
+              >
+                <Paperclip className="h-3.5 w-3.5" />
+              </button>
               <span className="hidden text-[11px] text-[var(--metis-fg-dim)] sm:inline">
                 <kbd className="rounded border border-[var(--metis-border)] bg-[var(--metis-code-bg)] px-1.5 py-0.5 text-[10px] text-[var(--metis-code-fg)]">↵</kbd> {mode === 'job' ? 'schedule' : 'send'} · <kbd className="rounded border border-[var(--metis-border)] bg-[var(--metis-code-bg)] px-1.5 py-0.5 text-[10px] text-[var(--metis-code-fg)]">⇧↵</kbd> newline
               </span>
-              <div className="ml-auto">
+              <div className="ml-auto flex items-center gap-1.5">
+                {/* Voice mic button */}
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                {typeof window !== 'undefined' && !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) && (
+                  <button
+                    type="button"
+                    onClick={toggleVoice}
+                    className={`inline-flex h-9 w-9 items-center justify-center rounded-full transition ${listening ? 'bg-rose-500/20 text-rose-400 ring-2 ring-rose-500/30' : 'text-[var(--metis-fg-muted)] hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]'}`}
+                    aria-label={listening ? 'Stop listening' : 'Voice input'}
+                    title={listening ? 'Stop voice input' : 'Voice input (push to talk)'}
+                  >
+                    {listening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                  </button>
+                )}
                 {streaming ? (
                   <button
                     type="button"
@@ -1337,7 +1493,7 @@ export default function App() {
                 ) : (
                   <button
                     type="submit"
-                    disabled={!input.trim()}
+                    disabled={!input.trim() && attachments.length === 0}
                     className="inline-flex h-9 w-9 items-center justify-center rounded-full text-white transition hover:brightness-110 disabled:opacity-40"
                     style={{ background: 'var(--metis-accent)' }}
                     aria-label="Send"
@@ -1660,6 +1816,8 @@ function MessageBubble({
   reduceMotion,
   agentName,
   onOpenArtifact,
+  copiedMsgId,
+  onCopy,
 }: {
   msg: Message;
   isLast: boolean;
@@ -1667,6 +1825,8 @@ function MessageBubble({
   reduceMotion: boolean;
   agentName: string;
   onOpenArtifact: (id: string) => void;
+  copiedMsgId: string | null;
+  onCopy: (id: string, content: string) => void;
 }) {
   const isUser = msg.role === 'user';
   const liveAgent = !isUser && streaming && isLast;
@@ -1694,7 +1854,7 @@ function MessageBubble({
   }
 
   return (
-    <motion.div className="flex gap-3" {...motionProps}>
+    <motion.div className="group flex gap-3" {...motionProps}>
       <div className="shrink-0">
         <div className={`flex h-8 w-8 items-center justify-center rounded-full border border-[var(--metis-border)] bg-[var(--metis-elevated)] ${liveAgent ? 'ring-2 ring-violet-500/30' : ''}`}>
           <Sparkles className={`h-4 w-4 text-violet-400 ${liveAgent ? 'animate-pulse' : ''}`} />
@@ -1724,6 +1884,18 @@ function MessageBubble({
             </span>
           )}
           <span className="ml-auto text-[10px] text-[var(--metis-fg-dim)]">{relTime(msg.ts)}</span>
+          {msg.content && !liveAgent && (
+            <button
+              type="button"
+              onClick={() => onCopy(msg.id, msg.content)}
+              className="opacity-0 group-hover:opacity-100 inline-flex items-center gap-1 rounded-md border border-[var(--metis-border)] px-1.5 py-0.5 text-[10px] text-[var(--metis-fg-dim)] transition hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]"
+              title="Copy message"
+              aria-label="Copy message"
+            >
+              {copiedMsgId === msg.id ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+              {copiedMsgId === msg.id ? 'Copied' : 'Copy'}
+            </button>
+          )}
         </div>
         {msg.content ? (
           <div className="text-[var(--metis-bubble-fg)]">
