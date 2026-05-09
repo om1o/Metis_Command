@@ -50,7 +50,9 @@ PUBLIC_PATHS = {"/", "/health", "/version", "/status",
                 "/auth/me", "/auth/refresh", "/auth/reset_password",
                 "/auth/local-token", "/auth/setup-code",
                 # Ollama auto-start probes the splash screen calls before login
-                "/ollama/status", "/ollama/start"}
+                "/ollama/status", "/ollama/start",
+                # PWA assets must be public — browsers fetch these before auth
+                "/manifest.json", "/sw.js", "/logo-test"}
 
 PUBLIC_PREFIXES = ("/static/",)
 
@@ -692,6 +694,88 @@ async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
         yield "event: close\ndata: {}\n\n"
 
     return StreamingResponse(sse(), media_type="text/event-stream")
+
+
+# ── Multi-model comparison (Phase 13) ────────────────────────────────────────
+
+class CompareRequest(BaseModel):
+    message: str
+    models: list[str] = Field(default_factory=list)
+    session_id: str = ""
+
+
+@app.post("/chat/compare")
+async def chat_compare(req: CompareRequest, request: Request) -> dict:
+    """Run the same prompt against multiple models in parallel and return all responses.
+
+    Each entry in the returned ``results`` list is:
+      {"model": "<model_id>", "content": "<text>", "duration_ms": <int>, "error": null | "<msg>"}
+
+    The caller should POST with ``models`` as a list of Ollama model IDs.
+    If ``models`` is empty or omitted, the two top-ranked local models are used.
+    """
+    import time as _time
+    import requests as _req
+    import concurrent.futures
+
+    user_id = _user_id_from_request(request)
+
+    # Resolve model list — fall back to the two highest-priority local models
+    models = [m.strip() for m in (req.models or []) if m.strip()]
+    if not models:
+        try:
+            local = list_local_models()
+            models = [m["id"] for m in local[:2]] if local else []
+        except Exception:
+            models = []
+    if not models:
+        raise HTTPException(status_code=400, detail="No models available for comparison")
+    # Cap at 4 to avoid overwhelming Ollama
+    models = models[:4]
+
+    ollama_base = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
+    timeout_s = float(os.getenv("METIS_COMPARE_TIMEOUT", "90"))
+
+    def _run_one(model_id: str) -> dict:
+        t0 = _time.time()
+        try:
+            payload = {
+                "model": model_id,
+                "prompt": req.message,
+                "stream": False,
+                "options": {"temperature": 0.7, "num_predict": 1024},
+            }
+            resp = _req.post(
+                f"{ollama_base}/api/generate",
+                json=payload,
+                timeout=timeout_s,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            content = data.get("response", "").strip()
+            return {
+                "model": model_id,
+                "content": content,
+                "duration_ms": int((_time.time() - t0) * 1000),
+                "error": None,
+            }
+        except Exception as exc:
+            return {
+                "model": model_id,
+                "content": "",
+                "duration_ms": int((_time.time() - t0) * 1000),
+                "error": str(exc),
+            }
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(models)) as pool:
+        futures = {pool.submit(_run_one, m): m for m in models}
+        results = [f.result() for f in concurrent.futures.as_completed(futures)]
+
+    # Stable ordering: same as input models list
+    order = {m: i for i, m in enumerate(models)}
+    results.sort(key=lambda r: order.get(r["model"], 99))
+
+    return {"results": results, "prompt": req.message}
 
 
 # ── Web search ───────────────────────────────────────────────────────────────
@@ -1989,6 +2073,29 @@ def page_analytics() -> FileResponse:
 @app.get("/logo-test")
 def page_logo_test() -> FileResponse:
     return FileResponse(_FRONTEND_DIR / "logo-test.html")
+
+
+# ── PWA assets (Phase 18) ────────────────────────────────────────────────────
+
+@app.get("/manifest.json")
+def pwa_manifest() -> FileResponse:
+    """Web App Manifest — enables Add to Home Screen on iOS/Android."""
+    fp = _FRONTEND_DIR / "manifest.json"
+    if not fp.exists():
+        raise HTTPException(status_code=404, detail="manifest.json not found")
+    return FileResponse(fp, media_type="application/manifest+json",
+                        headers={"Cache-Control": "no-cache"})
+
+
+@app.get("/sw.js")
+def pwa_service_worker() -> FileResponse:
+    """Service worker served from root scope so it can control all pages."""
+    fp = _FRONTEND_DIR / "static" / "sw.js"
+    if not fp.exists():
+        raise HTTPException(status_code=404, detail="sw.js not found")
+    return FileResponse(fp, media_type="application/javascript",
+                        headers={"Cache-Control": "no-cache, no-store",
+                                 "Service-Worker-Allowed": "/"})
 
 
 # ── Manager config + models ──────────────────────────────────────────────────

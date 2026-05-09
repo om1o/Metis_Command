@@ -5,6 +5,13 @@
 <title>Metis</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="icon" href="/static/assets/favicon.svg">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#7C3AED">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Metis">
+<link rel="apple-touch-icon" href="/static/assets/metis-logomark-transparent.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -650,6 +657,43 @@ pre:hover .code-copy{opacity:1}
 .mktp-empty{padding:40px 20px;text-align:center;color:var(--subtle)}
 .mktp-empty svg{width:32px;height:32px;stroke:var(--subtle);stroke-width:1.5;fill:none;opacity:.4;margin-bottom:12px}
 .mktp-empty p{font-size:13px}
+
+/* ── Compare panel (Phase 13) ── */
+.cmp-overlay{position:fixed;inset:0;z-index:400;background:rgba(7,7,26,.75);backdrop-filter:blur(6px);display:none;animation:fadeIn .2s ease}
+.cmp-overlay.show{display:block}
+.cmp-panel{position:fixed;inset:0;z-index:410;display:flex;flex-direction:column;background:rgba(10,10,28,.98);backdrop-filter:blur(28px)}
+.cmp-panel{display:none}
+.cmp-panel.open{display:flex}
+.cmp-head{padding:16px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;flex-shrink:0}
+.cmp-head h3{font-family:'Sora',sans-serif;font-size:15px;font-weight:700;color:var(--text);flex:1}
+.cmp-prompt-preview{font-size:12px;color:var(--muted);max-width:420px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-style:italic}
+.cmp-close{background:transparent;border:none;color:var(--subtle);cursor:pointer;padding:7px;border-radius:7px;transition:all .15s;display:flex;align-items:center;justify-content:center}
+.cmp-close:hover{color:var(--text);background:var(--panel)}
+.cmp-close svg{width:18px;height:18px;stroke:currentColor;stroke-width:2;fill:none}
+.cmp-input-bar{padding:14px 24px;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:center;flex-shrink:0;background:rgba(255,255,255,.02)}
+.cmp-input-bar textarea{flex:1;background:var(--panel);border:1px solid var(--border-2);border-radius:10px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;padding:10px 14px;outline:none;resize:none;height:44px;transition:border-color .18s;line-height:1.5}
+.cmp-input-bar textarea:focus{border-color:color-mix(in srgb,var(--accent) 50%,transparent)}
+.cmp-model-chips{display:flex;gap:6px;flex-wrap:wrap;max-width:320px}
+.cmp-model-chip{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;border:1px solid var(--border-2);background:var(--panel);font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;transition:all .15s;font-family:'JetBrains Mono',monospace}
+.cmp-model-chip.selected{background:var(--accent-soft);border-color:var(--accent);color:var(--text)}
+.cmp-model-chip:hover{border-color:var(--border-2);color:var(--text)}
+.cmp-run-btn{padding:9px 20px;border-radius:10px;background:var(--accent);border:none;color:#fff;font-family:'Sora',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:opacity .15s;white-space:nowrap;display:flex;align-items:center;gap:7px}
+.cmp-run-btn:hover{opacity:.88}
+.cmp-run-btn:disabled{opacity:.45;cursor:not-allowed}
+.cmp-cols{flex:1;overflow:hidden;display:grid;gap:0}
+.cmp-col{display:flex;flex-direction:column;border-right:1px solid var(--border);overflow:hidden}
+.cmp-col:last-child{border-right:none}
+.cmp-col-head{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0;background:rgba(255,255,255,.02)}
+.cmp-col-model{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;color:var(--vi2);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmp-col-timing{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--subtle)}
+.cmp-col-body{flex:1;overflow-y:auto;padding:16px;font-size:13px;line-height:1.7;color:var(--muted);white-space:pre-wrap;word-break:break-word}
+.cmp-col-body.loading{display:flex;align-items:center;justify-content:center;color:var(--subtle);font-style:italic}
+.cmp-col-body.error{color:var(--co)}
+.cmp-col-copy{background:transparent;border:none;color:var(--subtle);cursor:pointer;padding:5px;border-radius:6px;transition:all .15s;display:flex;align-items:center;justify-content:center}
+.cmp-col-copy:hover{color:var(--text);background:var(--panel)}
+.cmp-col-copy svg{width:14px;height:14px;stroke:currentColor;stroke-width:2;fill:none}
+.cmp-spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,.15);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -762,6 +806,11 @@ pre:hover .code-copy{opacity:1}
         </button>
         <div class="model-menu" id="modelMenu"></div>
       </div>
+
+      <!-- Compare models button -->
+      <button class="icon-btn" id="cmpBtn" title="Compare models side-by-side">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="9" y2="18"/><line x1="15" y1="18" x2="21" y2="18"/></svg>
+      </button>
 
       <!-- Notification bell -->
       <div class="notif-bell-wrap" id="notifBellWrap">
@@ -969,6 +1018,28 @@ pre:hover .code-copy{opacity:1}
       </div>
     </div>
   </div>
+</div>
+
+<!-- Compare panel (Phase 13) -->
+<div class="cmp-overlay" id="cmpOverlay"></div>
+<div class="cmp-panel" id="cmpPanel">
+  <div class="cmp-head">
+    <h3>⚖️ Compare Models</h3>
+    <span class="cmp-prompt-preview" id="cmpPromptPreview"></span>
+    <div style="flex:1"></div>
+    <button class="cmp-close" id="cmpClose" title="Close">
+      <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="cmp-input-bar">
+    <textarea id="cmpPrompt" placeholder="Enter a prompt to compare across models…" rows="1"></textarea>
+    <div class="cmp-model-chips" id="cmpModelChips"></div>
+    <button class="cmp-run-btn" id="cmpRunBtn">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      Run
+    </button>
+  </div>
+  <div class="cmp-cols" id="cmpCols"></div>
 </div>
 
 <!-- Onboarding tour overlay -->
@@ -3118,6 +3189,124 @@ function maybeStartTour() {
 }
 maybeStartTour();
 
+// ── Compare panel (Phase 13) ──────────────────────────────────────────
+const cmpOverlay  = document.getElementById('cmpOverlay');
+const cmpPanel    = document.getElementById('cmpPanel');
+const cmpCols     = document.getElementById('cmpCols');
+const cmpPrompt   = document.getElementById('cmpPrompt');
+const cmpRunBtn   = document.getElementById('cmpRunBtn');
+const cmpChips    = document.getElementById('cmpModelChips');
+
+let _cmpSelectedModels = [];
+
+function openCmpPanel(prefillText = '') {
+  cmpOverlay.classList.add('show');
+  cmpPanel.classList.add('open');
+  if (prefillText) cmpPrompt.value = prefillText;
+  document.getElementById('cmpPromptPreview').textContent = prefillText ? `"${prefillText.substring(0, 60)}${prefillText.length > 60 ? '…' : ''}"` : '';
+  buildCmpChips();
+  cmpPrompt.focus();
+}
+function closeCmpPanel() {
+  cmpOverlay.classList.remove('show');
+  cmpPanel.classList.remove('open');
+}
+
+function buildCmpChips() {
+  const models = availableModels.slice(0, 6);
+  if (!_cmpSelectedModels.length && models.length >= 2) {
+    _cmpSelectedModels = [models[0]?.id, models[1]?.id].filter(Boolean);
+  }
+  cmpChips.innerHTML = models.map(m => {
+    const sel = _cmpSelectedModels.includes(m.id);
+    return `<span class="cmp-model-chip${sel ? ' selected' : ''}" data-id="${escapeHtml(m.id)}" title="${escapeHtml(m.id)}">${escapeHtml(m.label || m.id)}</span>`;
+  }).join('');
+  cmpChips.querySelectorAll('.cmp-model-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const id = chip.dataset.id;
+      if (_cmpSelectedModels.includes(id)) {
+        if (_cmpSelectedModels.length > 1) {
+          _cmpSelectedModels = _cmpSelectedModels.filter(m => m !== id);
+          chip.classList.remove('selected');
+        }
+      } else if (_cmpSelectedModels.length < 4) {
+        _cmpSelectedModels.push(id);
+        chip.classList.add('selected');
+      }
+    });
+  });
+}
+
+function renderCmpLoading() {
+  const n = _cmpSelectedModels.length || 2;
+  cmpCols.style.gridTemplateColumns = `repeat(${n}, 1fr)`;
+  cmpCols.innerHTML = _cmpSelectedModels.map(m => `
+    <div class="cmp-col">
+      <div class="cmp-col-head">
+        <span class="cmp-col-model">${escapeHtml(m)}</span>
+        <span class="cmp-col-timing" id="cmp-timing-${CSS.escape(m)}"></span>
+      </div>
+      <div class="cmp-col-body loading" id="cmp-body-${CSS.escape(m)}">
+        <span class="cmp-spinner"></span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderCmpResults(results) {
+  results.forEach(r => {
+    const safeId = CSS.escape(r.model);
+    const body = document.getElementById(`cmp-body-${safeId}`);
+    const timing = document.getElementById(`cmp-timing-${safeId}`);
+    if (!body) return;
+    body.classList.remove('loading');
+    if (r.error) {
+      body.classList.add('error');
+      body.textContent = `Error: ${r.error}`;
+    } else {
+      body.textContent = r.content || '(empty response)';
+    }
+    if (timing) timing.textContent = r.duration_ms ? `${(r.duration_ms / 1000).toFixed(1)}s` : '';
+  });
+}
+
+async function runCompare() {
+  const prompt = cmpPrompt.value.trim();
+  if (!prompt) { cmpPrompt.focus(); return; }
+  if (!_cmpSelectedModels.length) { if (window.toast) toast('warning', 'Select at least one model', '', 2000); return; }
+
+  cmpRunBtn.disabled = true;
+  cmpRunBtn.innerHTML = '<span class="cmp-spinner" style="width:14px;height:14px;border-width:2px"></span> Running…';
+  document.getElementById('cmpPromptPreview').textContent = `"${prompt.substring(0, 60)}${prompt.length > 60 ? '…' : ''}"`;
+  renderCmpLoading();
+
+  try {
+    const { results } = await api.compareModels(prompt, _cmpSelectedModels);
+    renderCmpResults(results);
+  } catch (err) {
+    if (window.toast) toast('error', 'Compare failed', err.message, 4000);
+    cmpCols.innerHTML = `<div style="padding:24px;color:var(--co);font-size:13px">Error: ${escapeHtml(err.message)}</div>`;
+  } finally {
+    cmpRunBtn.disabled = false;
+    cmpRunBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run';
+  }
+}
+
+document.getElementById('cmpBtn').addEventListener('click', (e) => { e.stopPropagation(); openCmpPanel(msgInput.value.trim()); });
+document.getElementById('cmpClose').addEventListener('click', closeCmpPanel);
+cmpOverlay.addEventListener('click', closeCmpPanel);
+cmpRunBtn.addEventListener('click', runCompare);
+cmpPrompt.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); runCompare(); }
+  if (e.key === 'Escape') closeCmpPanel();
+});
+
+COMMANDS.push({
+  id: 'compare', icon: '⚖️', t: 'Compare models side-by-side',
+  d: 'Run the same prompt against multiple local models at once', kbd: '',
+  run: () => openCmpPanel(msgInput.value.trim()),
+});
+
 // ── Plugin Marketplace panel ───────────────────────────────────────────
 const mktpOverlay   = document.getElementById('mktpOverlay');
 const mktpPanel     = document.getElementById('mktpPanel');
@@ -3241,5 +3430,14 @@ COMMANDS.push({
 });
 </script>
 <script src="/static/polish/global-polish.v2.js?v=v18"></script>
+<script>
+// ── PWA Service Worker registration (Phase 18) ─────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js', { scope: '/' })
+      .catch(() => {}); // silently ignore in dev
+  });
+}
+</script>
 </body>
 </html>

@@ -61,6 +61,9 @@
 - ✅ Image/Video generation — modes fully live (label cleanup); `POST /generate/image`, `POST /generate/video`
 - ✅ memory_loop vector memory opt-in — guard ChromaDB behind METIS_CHAT_VECTOR_MEMORY env flag
 - ✅ Model picker priority — fast models float to top; FAST_MANAGER_MODEL = qwen2.5-coder:1.5b
+- ✅ PWA foundation (Phase 18) — manifest.json, service worker at /sw.js (root scope), offline shell caching, push notification plumbing, Apple/Android Add-to-Home-Screen meta tags across all HTML pages
+- ✅ Multi-model comparison API (Phase 13 backend) — `POST /chat/compare` runs same prompt against N models in parallel via ThreadPoolExecutor, stable result ordering, 90s timeout; `compareModels()` added to api.js
+- ✅ Compare panel UI (Phase 13 frontend) — ⚖️ button in header, full-screen side-by-side panel, model chip selector (up to 4), Ctrl+Enter to run, per-column timing display, copy support via command palette
 
 ---
 
@@ -334,9 +337,9 @@
 | 10. Notifications | 🟢 Medium | Medium | ✅ Done |
 | 11. Onboarding | 🟡 High | Small | Q3 |
 | 12. Keyboard Power | 🟢 Medium | Small | Q3 |
-| 13. Model Compare | 🟢 Medium | Large | Q4 |
+| 13. Model Compare | 🟢 Medium | Large | ✅ Done |
 | 14. MFA | 🟡 High | Medium | Q4 |
 | 15. Workflows | 🟢 Medium | Large | Q4 |
 | 16. Analytics | 🟢 Medium | Medium | ✅ Done |
 | 17. Desktop Native | 🔴 Critical | Large | Q4 |
-| 18. Mobile PWA | 🟡 High | Medium | 2027 |
+| 18. Mobile PWA | 🟡 High | Medium | ✅ Foundation done |

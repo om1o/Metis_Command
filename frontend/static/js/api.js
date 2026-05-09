@@ -189,6 +189,12 @@ export const api = {
   artifacts: (limit = 50) => _fetch(`/artifacts?limit=${limit}`),
   deleteArtifact: (id) => _fetch(`/artifacts/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 
+  // Multi-model comparison (Phase 13)
+  compareModels: (message, models = []) => _fetch('/chat/compare', {
+    method: 'POST',
+    body: JSON.stringify({ message, models }),
+  }),
+
   // Streaming chat (Server-Sent Events)
   chatStream: async function* (sessionId, message, role = 'manager', signal, direct = false) {
     const token = getToken();
