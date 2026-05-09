@@ -67,6 +67,33 @@ jobs:
           METIS_VERSION: "0.16.4"
           METIS_DOWNLOAD_URL: "https://github.com/om1o/Metis_Command/releases/latest/download/metis-command-windows.zip"
 
+  desktop-ui-build:
+    name: desktop UI lint + build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: desktop-ui/package-lock.json
+
+      - name: Install desktop UI deps
+        working-directory: desktop-ui
+        run: npm ci --no-audit --no-fund
+
+      - name: Lint desktop UI
+        working-directory: desktop-ui
+        run: npm run lint
+
+      - name: Build desktop UI
+        working-directory: desktop-ui
+        run: npm run build
+
   release-packager:
     name: release packager smoke
     runs-on: windows-latest
