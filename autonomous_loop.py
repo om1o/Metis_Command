@@ -205,6 +205,20 @@ def run_mission(
     def _is_cancelled() -> bool:
         return bool(cancel is not None and getattr(cancel, "cancelled", False))
 
+    if _run_deterministic_mission_if_possible(
+        mission,
+        auto_approve=auto_approve,
+        on_event=on_event,
+        cancel=cancel,
+        session_id=session_id,
+    ):
+        mission.ended_at = time.time()
+        audit({"event": "mission_end", "status": mission.status,
+               "steps": len(mission.steps), "goal": goal})
+        _emit(on_event, {"type": "mission_end", "status": mission.status,
+                         "answer": mission.final_answer})
+        return mission
+
     # 1. PLAN
     plan = _plan(goal)
     for i, desc in enumerate(plan, 1):
@@ -262,6 +276,8 @@ def run_mission(
             verdict = _reflect(mission)
             if verdict.get("decision") == "finish":
                 answer = str(verdict.get("answer", "")).strip()
+                if _goal_needs_deterministic_answer(mission.goal) and not _deterministic_final_answer(mission).strip():
+                    answer = ""
                 if answer:
                     mission.final_answer = answer
                     mission.status = "success"
@@ -298,6 +314,10 @@ _JSON_ARR = re.compile(r"\[[\s\S]*\]")
 
 
 def _plan(goal: str) -> list[str]:
+    heuristic = _heuristic_plan(goal)
+    if heuristic:
+        return heuristic
+
     reply = chat_by_role("thinker", [
         {"role": "system", "content": PLANNER_SYSTEM},
         {"role": "user", "content": f"GOAL: {goal}"},
@@ -309,6 +329,60 @@ def _plan(goal: str) -> list[str]:
         except Exception:
             pass
     return [line.strip("- ") for line in (reply or "").splitlines() if line.strip()][:10]
+
+
+def _heuristic_plan(goal: str) -> list[str]:
+    lower = (goal or "").lower()
+    if "package.json" in lower and (
+        "package name" in lower
+        or "package version" in lower
+        or "version string" in lower
+    ):
+        matches = _PACKAGE_JSON_PATH.findall(goal)
+        if matches:
+            path = matches[0].replace("\\", "/").lstrip("./")
+            return [f"Read {path}"]
+    return []
+
+
+def _run_deterministic_mission_if_possible(
+    mission: Mission,
+    *,
+    auto_approve: bool,
+    on_event: Callable[[dict], None] | None,
+    cancel=None,
+    session_id: str | None = None,
+) -> bool:
+    plan = _heuristic_plan(mission.goal)
+    if not plan:
+        return False
+    _emit(on_event, {"type": "plan", "steps": plan})
+    step = Step(index=1, description=plan[0], tool="read_file")
+    path = plan[0].replace("Read ", "", 1)
+    step.args = {"path": path}
+    mission.steps.append(step)
+    _emit(on_event, {"type": "step_start", "step": step.index, "description": step.description})
+    step.observation, step.ok, step.duration_ms = _run_tool(
+        step.tool,
+        step.args,
+        auto_approve=auto_approve,
+        on_event=on_event,
+        cancel=cancel,
+        session_id=session_id,
+    )
+    _emit(on_event, {"type": "step_end", "step": step.index,
+                     "ok": step.ok, "tool": step.tool,
+                     "duration_ms": step.duration_ms,
+                     "observation_preview": str(step.observation)[:300]})
+    answer = _deterministic_final_answer(mission).strip()
+    if answer:
+        mission.final_answer = answer
+        mission.status = "success"
+        _emit(on_event, {"type": "finish", "answer": mission.final_answer})
+    else:
+        mission.final_answer = "Unable to complete the goal with the executed steps."
+        mission.status = "failed"
+    return True
 
 
 def _choose_tool(step_desc: str, *, goal: str = "") -> dict[str, Any] | None:
@@ -384,6 +458,15 @@ def _deterministic_final_answer(mission: Mission) -> str:
             if match:
                 return match.group(1)
     return ""
+
+
+def _goal_needs_deterministic_answer(goal: str) -> bool:
+    text = goal.lower()
+    return "package.json" in text and (
+        "package name" in text
+        or "package version" in text
+        or "version string" in text
+    )
 
 
 def _is_read_only_goal(goal: str) -> bool:

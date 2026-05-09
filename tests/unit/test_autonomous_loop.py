@@ -69,8 +69,9 @@ def test_tool_cancel_midway(monkeypatch):
     assert time.time() - t0 < 1.5
 
 
-def test_unknown_tool_returns_clean_error():
+def test_unknown_tool_returns_clean_error(monkeypatch):
     import autonomous_loop
+    monkeypatch.setattr(autonomous_loop, "tool_registry", lambda: {})
     obs, ok, _ = autonomous_loop._run_tool(
         "not_a_tool", {}, auto_approve=False, on_event=None, cancel=None,
     )
@@ -199,15 +200,22 @@ def test_package_json_goal_prefers_read_file_without_model_call(monkeypatch):
     assert decision == {"tool": "read_file", "args": {"path": "desktop-ui/package.json"}}
 
 
+def test_package_json_exact_goal_uses_deterministic_plan(monkeypatch):
+    import autonomous_loop
+
+    def fail_chat(*_args, **_kw):
+        raise AssertionError("planner model should not be needed for exact package.json lookup")
+
+    monkeypatch.setattr(autonomous_loop, "chat_by_role", fail_chat)
+
+    assert autonomous_loop._plan(
+        "Find the package name in desktop-ui/package.json. Answer with only the package name.",
+    ) == ["Read desktop-ui/package.json"]
+
+
 def test_package_json_package_name_uses_tool_observation_not_synthesis(monkeypatch):
     import autonomous_loop
 
-    monkeypatch.setattr(autonomous_loop, "_plan", lambda _goal: ["read package"])
-    monkeypatch.setattr(
-        autonomous_loop,
-        "_choose_tool",
-        lambda *_args, **_kw: {"tool": "read_file", "args": {"path": "desktop-ui/package.json"}},
-    )
     monkeypatch.setattr(
         autonomous_loop,
         "_run_tool",
@@ -226,17 +234,12 @@ def test_package_json_package_name_uses_tool_observation_not_synthesis(monkeypat
 
     assert mission.status == "success"
     assert mission.final_answer == "desktop-ui"
+    assert len(mission.steps) == 1
 
 
 def test_package_json_version_finishes_immediately_from_tool_observation(monkeypatch):
     import autonomous_loop
 
-    monkeypatch.setattr(autonomous_loop, "_plan", lambda _goal: ["read package", "bad extra step"])
-    monkeypatch.setattr(
-        autonomous_loop,
-        "_choose_tool",
-        lambda *_args, **_kw: {"tool": "read_file", "args": {"path": "desktop-ui/package.json"}},
-    )
     calls = []
 
     def fake_run_tool(*_args, **_kw):
@@ -253,6 +256,28 @@ def test_package_json_version_finishes_immediately_from_tool_observation(monkeyp
     assert mission.status == "success"
     assert mission.final_answer == "0.1.0"
     assert calls == ["run"]
+
+
+def test_exact_package_goal_rejects_ungrounded_reflector_finish(monkeypatch):
+    import autonomous_loop
+
+    monkeypatch.setattr(autonomous_loop, "_plan", lambda _goal: ["bad search"])
+    monkeypatch.setattr(
+        autonomous_loop,
+        "_choose_tool",
+        lambda *_args, **_kw: {"tool": "grep", "args": {"pattern": "missing"}},
+    )
+    monkeypatch.setattr(autonomous_loop, "_run_tool", lambda *_args, **_kw: ([], True, 1))
+    monkeypatch.setattr(autonomous_loop, "_reflect", lambda _mission: {"decision": "finish", "answer": "final answer"})
+    monkeypatch.setattr(autonomous_loop, "_synthesize", lambda _mission: "fake synthesis")
+
+    mission = autonomous_loop.run_mission(
+        "Find the package name in desktop-ui/package.json. Answer with only the package name.",
+        max_steps=1,
+    )
+
+    assert mission.status == "failed"
+    assert mission.final_answer == "Unable to complete the goal with the executed steps."
 
 
 def test_audited_tools_keep_signatures_for_validation():

@@ -298,6 +298,18 @@ export interface InboxItem {
   artifact_id?: string;
 }
 
+// ── Analytics ─────────────────────────────────────────────────────────────
+
+export interface AnalyticsSummary {
+  generated_at: string;
+  sessions: { total: number; active_last_7d: number };
+  missions: { total: number; success: number; failed: number; by_status: Record<string, number> };
+  schedules: { total: number; active: number };
+  inbox: { total: number; unread: number };
+  tokens: { calls: number; total: number; cost_usd: number; by_model: Record<string, { calls: number; tokens_in: number; tokens_out: number; cost: number }> };
+  wallet: { spent_cents: number; cap_cents: number };
+}
+
 // ── Client ──────────────────────────────────────────────────────────────────
 
 export class MetisClient {
@@ -621,6 +633,12 @@ export class MetisClient {
     });
     if (!res.ok) throw new Error(`clear inbox: ${res.status}`);
     return res.json();
+  }
+
+  // ── Analytics ────────────────────────────────────────────────────────────
+
+  async getAnalytics(): Promise<AnalyticsSummary> {
+    return this.get('/analytics');
   }
 
   // ── Auth ────────────────────────────────────────────────────────────────

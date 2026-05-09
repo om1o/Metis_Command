@@ -43,6 +43,8 @@ import {
   Bell,
   Monitor,
   Brain,
+  BarChart3,
+  Search,
 } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { createLocalClient, MetisClient, AuthUser, Schedule, Artifact, RunMode, RunPermission } from '@/lib/metis-client';
@@ -55,6 +57,7 @@ import InboxPanel from '@/components/inbox-panel';
 import ConnectionsPanel from '@/components/connections-panel';
 import MemoryPanel from '@/components/memory-panel';
 import ReportsPanel from '@/components/reports-panel';
+import AnalyticsPanel from '@/components/analytics-panel';
 import type { SystemHealth } from '@/lib/metis-client';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -453,6 +456,8 @@ export default function App() {
   const [connectionsOpen, setConnectionsOpen] = useState(false);
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
+  const [sessionSearch, setSessionSearch] = useState('');
   const [health, setHealth] = useState<SystemHealth | null>(null);
   const [activeArtifactId, setActiveArtifactId] = useState<string | null>(null);
   const [reportArtifact, setReportArtifact] = useState<Artifact | null>(null);
@@ -735,6 +740,7 @@ export default function App() {
       else if (k === 'r')   { e.preventDefault(); setRelationshipsOpen((v) => !v); }
       else if (k === 'm')   { e.preventDefault(); setMemoryOpen((v) => !v); }
       else if (k === 'p')   { e.preventDefault(); setReportsOpen((v) => !v); }
+      else if (k === 'a')   { e.preventDefault(); setAnalyticsOpen((v) => !v); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -1001,19 +1007,42 @@ export default function App() {
         </div>
 
         {sidebarOpen && (
-          <SessionsList
-            sessions={sessions}
-            activeId={activeId}
-            setActiveId={setActiveId}
-            deleteSession={deleteSession}
-            clearAll={() => {
-              if (sessions.length === 0) return;
-              const ok = window.confirm(`Delete all ${sessions.length} session${sessions.length === 1 ? '' : 's'}? This can't be undone.`);
-              if (!ok) return;
-              setSessions([]);
-              setActiveId(null);
-            }}
-          />
+          <>
+            {sessions.length > 4 && (
+              <div className="px-2 pb-1.5">
+                <div className="flex items-center gap-1.5 rounded-lg border border-[var(--metis-border)] bg-[var(--metis-bg)] px-2.5 py-1.5">
+                  <Search className="h-3.5 w-3.5 shrink-0 text-[var(--metis-fg-dim)]" />
+                  <input
+                    type="search"
+                    value={sessionSearch}
+                    onChange={(e) => setSessionSearch(e.target.value)}
+                    placeholder="Search sessions…"
+                    className="min-w-0 flex-1 bg-transparent text-[12.5px] text-[var(--metis-fg)] placeholder:text-[var(--metis-fg-dim)] outline-none"
+                    aria-label="Search sessions"
+                  />
+                  {sessionSearch && (
+                    <button type="button" onClick={() => setSessionSearch('')} className="shrink-0 text-[var(--metis-fg-dim)] hover:text-[var(--metis-fg)]" aria-label="Clear search">
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+            <SessionsList
+              sessions={sessionSearch ? sessions.filter((s) => s.title.toLowerCase().includes(sessionSearch.toLowerCase())) : sessions}
+              activeId={activeId}
+              setActiveId={setActiveId}
+              deleteSession={deleteSession}
+              clearAll={() => {
+                if (sessions.length === 0) return;
+                const ok = window.confirm(`Delete all ${sessions.length} session${sessions.length === 1 ? '' : 's'}? This can't be undone.`);
+                if (!ok) return;
+                setSessions([]);
+                setActiveId(null);
+                setSessionSearch('');
+              }}
+            />
+          </>
         )}
         {!sidebarOpen && (
           <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
@@ -1087,6 +1116,16 @@ export default function App() {
               <span>Reports</span>
               <span className="ml-auto text-[10px] text-[var(--metis-fg-dim)]">⌘P</span>
             </button>
+            <button
+              type="button"
+              onClick={() => setAnalyticsOpen(true)}
+              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] text-[var(--metis-fg-muted)] transition hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]"
+              title="Analytics (⌘A)"
+            >
+              <BarChart3 className="h-4 w-4 shrink-0 text-violet-400" />
+              <span>Analytics</span>
+              <span className="ml-auto text-[10px] text-[var(--metis-fg-dim)]">⌘A</span>
+            </button>
           </div>
         )}
         <div className="flex gap-1 border-t border-[var(--metis-border)] p-2">
@@ -1152,6 +1191,15 @@ export default function App() {
                 title="Reports (⌘P)"
               >
                 <FileText className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setAnalyticsOpen(true)}
+                className="metis-icon-btn"
+                aria-label="Analytics"
+                title="Analytics (⌘A)"
+              >
+                <BarChart3 className="h-4 w-4" />
               </button>
             </>
           )}
@@ -1522,6 +1570,17 @@ export default function App() {
               setWorkspaceOpen(true);
               setReportsOpen(false);
             }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Analytics */}
+      <AnimatePresence>
+        {analyticsOpen && client && (
+          <AnalyticsPanel
+            client={client}
+            reduceMotion={!!reduceMotion}
+            onClose={() => setAnalyticsOpen(false)}
           />
         )}
       </AnimatePresence>
@@ -2020,6 +2079,7 @@ function SettingsBody({
             ['Relationships',     '⌘ R'],
             ['Memory',            '⌘ M'],
             ['Reports',           '⌘ P'],
+            ['Analytics',         '⌘ A'],
             ['Settings',          '⌘ ,'],
           ].map(([a, b]) => (
             <div key={a} className="flex items-center justify-between gap-4">

@@ -1454,6 +1454,117 @@ def usage_forecast() -> dict:
     }
 
 
+# ── Analytics ────────────────────────────────────────────────────────────────
+
+@app.get("/analytics")
+def analytics_summary(request: Request) -> dict:
+    """Aggregate usage stats for the analytics dashboard."""
+    from datetime import datetime
+    now = datetime.now()
+
+    user_id = _user_id_from_request(request)
+
+    # Sessions
+    try:
+        from memory import list_sessions_with_meta
+        all_sessions = list(list_sessions_with_meta(user_id) or [])
+    except Exception:
+        all_sessions = []
+
+    # Missions (live + persisted)
+    try:
+        from concurrency import list_missions as _live_missions, load_persisted_history
+        live = [m.to_dict() for m in _live_missions(limit=1000)]
+        persisted = load_persisted_history(limit=1000)
+        seen: set[str] = set()
+        all_missions: list[dict] = []
+        for row in [*live, *persisted]:
+            mid = str(row.get("id", ""))
+            if mid and mid not in seen:
+                seen.add(mid)
+                all_missions.append(row)
+    except Exception:
+        all_missions = []
+
+    # Schedules
+    try:
+        from scheduler import list_schedules
+        schedules = list_schedules()
+    except Exception:
+        schedules = []
+
+    # Wallet
+    try:
+        import wallet as _w
+        w = _w.summary()
+        spent_cents = w.get("monthly_spent_cents", 0) if isinstance(w, dict) else 0
+        cap_cents = w.get("monthly_cap_cents", 0) if isinstance(w, dict) else 0
+    except Exception:
+        spent_cents = 0
+        cap_cents = 0
+
+    # Token usage
+    try:
+        import usage_tracker as _u
+        usage = _u.summary()
+    except Exception:
+        usage = {"calls": 0, "total_tokens": 0, "cost_usd": 0.0, "by_model": {}}
+
+    # Inbox
+    try:
+        from inbox import load as inbox_load
+        inbox_items = inbox_load()
+        unread = sum(1 for i in inbox_items if not i.get("read", False))
+    except Exception:
+        inbox_items = []
+        unread = 0
+
+    # Mission stats
+    status_counts: dict[str, int] = {}
+    for m in all_missions:
+        s = str(m.get("status", "unknown"))
+        status_counts[s] = status_counts.get(s, 0) + 1
+
+    # Recent activity (last 7 days) — sessions updated in that window
+    week_ago_ms = (now.timestamp() - 7 * 86400) * 1000
+    recent_sessions = sum(
+        1 for s in all_sessions
+        if float(s.get("updated_at", 0)) > week_ago_ms
+    )
+
+    return {
+        "generated_at": now.isoformat(),
+        "sessions": {
+            "total": len(all_sessions),
+            "active_last_7d": recent_sessions,
+        },
+        "missions": {
+            "total": len(all_missions),
+            "by_status": status_counts,
+            "success": status_counts.get("success", 0),
+            "failed": status_counts.get("failed", 0),
+        },
+        "schedules": {
+            "total": len(schedules),
+            "active": sum(1 for s in schedules if getattr(s, "enabled", s.get("enabled", False) if isinstance(s, dict) else False)),
+        },
+        "inbox": {
+            "total": len(inbox_items),
+            "unread": unread,
+        },
+        "tokens": {
+            "calls": usage.get("calls", 0),
+            "total": usage.get("total_tokens", 0),
+            "cost_usd": usage.get("cost_usd", 0.0),
+            "by_model": usage.get("by_model", {}),
+        },
+        "wallet": {
+            "spent_cents": spent_cents,
+            "cap_cents": cap_cents,
+        },
+    }
+
+
 # ── Agent health ─────────────────────────────────────────────────────────────
 
 @app.get("/agents/health")
