@@ -624,14 +624,25 @@ async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
                                 + "\n\n"
                             )
                             try:
+                                notification_body = (
+                                    f"Added {saved['name']} to your Relationships."
+                                    + (f"\n\n{saved['notes']}" if saved.get("notes") else "")
+                                )
                                 _inbox.append(
                                     title=f"Saved {saved['name']}",
-                                    body=(
-                                        f"Added {saved['name']} to your Relationships."
-                                        + (f"\n\n{saved['notes']}" if saved.get("notes") else "")
-                                    ),
+                                    body=notification_body,
                                     source="manager:relationship",
                                     relationship_id=saved["id"],
+                                )
+                                import notifications as _notifications
+                                _notifications.add(
+                                    title=f"Saved {saved['name']}",
+                                    body=notification_body,
+                                    notif_type="agent",
+                                    metadata={
+                                        "source": "manager:relationship",
+                                        "relationship_id": saved["id"],
+                                    },
                                 )
                             except Exception:
                                 pass
