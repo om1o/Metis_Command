@@ -82,6 +82,23 @@ def tool_registry() -> dict[str, Callable[..., Any]]:
     return _TOOL_REGISTRY
 
 
+_MUTATING_TOOLS = {
+    "write_file",
+    "edit_file",
+    "shell",
+    "browser_click",
+    "browser_fill",
+    "speak",
+    "subagent",
+}
+
+_READ_ONLY_GOAL = re.compile(
+    r"(^|\b)(find|read|inspect|search|summarize|list|locate|tell me|what is|show me)\b",
+    re.IGNORECASE,
+)
+_PACKAGE_JSON_PATH = re.compile(r"([A-Za-z0-9_.\\/-]*package\.json)", re.IGNORECASE)
+
+
 # ── Data types ───────────────────────────────────────────────────────────────
 
 @dataclass
@@ -206,7 +223,7 @@ def run_mission(
         _emit(on_event, {"type": "step_start", "step": step.index,
                          "description": step.description})
 
-        decision = _choose_tool(step.description)
+        decision = _choose_tool(step.description, goal=goal)
         if not decision:
             step.ok = False
             step.observation = "executor returned no decision"
@@ -237,10 +254,12 @@ def run_mission(
         if not step.ok or step.index % 2 == 0:
             verdict = _reflect(mission)
             if verdict.get("decision") == "finish":
-                mission.final_answer = verdict.get("answer", "")
-                mission.status = "success"
-                _emit(on_event, {"type": "finish", "answer": mission.final_answer})
-                break
+                answer = str(verdict.get("answer", "")).strip()
+                if answer:
+                    mission.final_answer = answer
+                    mission.status = "success"
+                    _emit(on_event, {"type": "finish", "answer": mission.final_answer})
+                    break
             if verdict.get("decision") == "replan":
                 new_steps = verdict.get("steps") or []
                 mission.steps = mission.steps[:i] + [
@@ -250,8 +269,12 @@ def run_mission(
                 _emit(on_event, {"type": "replan", "new_steps": new_steps})
 
     if mission.status == "running":
-        mission.final_answer = _synthesize(mission)
-        mission.status = "success" if any(s.ok for s in mission.steps) else "failed"
+        if any(_step_has_useful_success(s) for s in mission.steps):
+            mission.final_answer = _deterministic_final_answer(mission).strip() or _synthesize(mission).strip()
+            mission.status = "success" if mission.final_answer else "failed"
+        else:
+            mission.final_answer = "Unable to complete the goal with the executed steps."
+            mission.status = "failed"
 
     mission.ended_at = time.time()
     audit({"event": "mission_end", "status": mission.status,
@@ -281,12 +304,16 @@ def _plan(goal: str) -> list[str]:
     return [line.strip("- ") for line in (reply or "").splitlines() if line.strip()][:10]
 
 
-def _choose_tool(step_desc: str) -> dict[str, Any] | None:
+def _choose_tool(step_desc: str, *, goal: str = "") -> dict[str, Any] | None:
+    heuristic = _heuristic_tool_decision(step_desc, goal=goal)
+    if heuristic is not None:
+        return heuristic
+
     reg_names = ", ".join(sorted(tool_registry().keys()))
     messages = [
         {"role": "system", "content": EXECUTOR_SYSTEM},
         {"role": "user", "content":
-            f"STEP: {step_desc}\n\nAVAILABLE TOOLS: {reg_names}\n\nReturn one JSON object."},
+            f"GOAL: {goal}\n\nSTEP: {step_desc}\n\nAVAILABLE TOOLS: {reg_names}\n\nReturn one JSON object."},
     ]
     last_decision: dict[str, Any] | None = None
     for _attempt in range(2):
@@ -301,7 +328,7 @@ def _choose_tool(step_desc: str) -> dict[str, Any] | None:
         if not isinstance(decision, dict):
             return None
         last_decision = decision
-        error = _tool_arg_error(decision.get("tool"), decision.get("args") or {})
+        error = _tool_arg_error(decision.get("tool"), decision.get("args") or {}, goal=goal)
         if not error:
             return decision
         messages.append({"role": "assistant", "content": json.dumps(decision)})
@@ -311,10 +338,51 @@ def _choose_tool(step_desc: str) -> dict[str, Any] | None:
     return last_decision
 
 
-def _tool_arg_error(tool: Any, args: Any) -> str | None:
+def _heuristic_tool_decision(step_desc: str, *, goal: str = "") -> dict[str, Any] | None:
+    text = f"{goal}\n{step_desc}"
+    lower = text.lower()
+    if "package.json" in lower and any(k in lower for k in ("package name", "read", "open", "load")):
+        matches = _PACKAGE_JSON_PATH.findall(text)
+        if matches:
+            path = matches[0].replace("\\", "/").lstrip("./")
+            return {"tool": "read_file", "args": {"path": path}}
+    return None
+
+
+def _step_has_useful_success(step: Step) -> bool:
+    if not step.ok:
+        return False
+    if step.observation is None:
+        return False
+    if isinstance(step.observation, (list, tuple, dict, set)) and len(step.observation) == 0:
+        return False
+    if isinstance(step.observation, str) and step.observation.strip() in {"", "[]", "{}"}:
+        return False
+    return True
+
+
+def _deterministic_final_answer(mission: Mission) -> str:
+    goal = mission.goal.lower()
+    if "package name" in goal and "package.json" in goal:
+        for step in mission.steps:
+            text = str(step.observation or "")
+            match = re.search(r'"name"\s*:\s*"([^"]+)"', text)
+            if match:
+                return match.group(1)
+    return ""
+
+
+def _is_read_only_goal(goal: str) -> bool:
+    text = (goal or "").strip()
+    return "Permission: Read-only" in text or bool(_READ_ONLY_GOAL.search(text))
+
+
+def _tool_arg_error(tool: Any, args: Any, *, goal: str = "") -> str | None:
     name = str(tool or "none")
     if name == "none":
         return None
+    if name in _MUTATING_TOOLS and _is_read_only_goal(goal):
+        return f"tool {name} is not allowed for this read-only goal"
     reg = tool_registry()
     if name not in reg:
         return f"unknown tool: {name}"

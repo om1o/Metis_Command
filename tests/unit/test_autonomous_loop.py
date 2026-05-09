@@ -119,6 +119,115 @@ def test_choose_tool_retries_invalid_arguments(monkeypatch):
     assert decision == {"tool": "grep", "args": {"pattern": "needle", "path": "."}}
 
 
+def test_choose_tool_retries_mutating_tool_for_read_only_goal(monkeypatch):
+    import autonomous_loop
+
+    def fake_edit(path: str, old_string: str, new_string: str) -> dict:
+        return {"ok": True}
+
+    def fake_read(path: str) -> str:
+        return path
+
+    replies = iter([
+        '{"tool": "edit_file", "args": {"path": "x", "old_string": "a", "new_string": "b"}}',
+        '{"tool": "read_file", "args": {"path": "desktop-ui/package.json"}}',
+    ])
+
+    monkeypatch.setattr(
+        autonomous_loop,
+        "tool_registry",
+        lambda: {"edit_file": fake_edit, "read_file": fake_read},
+    )
+    monkeypatch.setattr(autonomous_loop, "chat_by_role", lambda *_args, **_kw: next(replies))
+
+    decision = autonomous_loop._choose_tool(
+        "Edit package.json if no entry point is found",
+        goal="Find the package name in desktop-ui/package.json.",
+    )
+
+    assert decision == {"tool": "read_file", "args": {"path": "desktop-ui/package.json"}}
+
+
+def test_empty_finish_after_failure_does_not_mark_success(monkeypatch):
+    import autonomous_loop
+
+    monkeypatch.setattr(autonomous_loop, "_plan", lambda _goal: ["bad step"])
+    monkeypatch.setattr(autonomous_loop, "_choose_tool", lambda *_args, **_kw: {"tool": "bad", "args": {}})
+    monkeypatch.setattr(
+        autonomous_loop,
+        "_run_tool",
+        lambda *_args, **_kw: ("failed", False, 1),
+    )
+    monkeypatch.setattr(autonomous_loop, "_reflect", lambda _mission: {"decision": "finish", "answer": ""})
+    monkeypatch.setattr(autonomous_loop, "_synthesize", lambda _mission: "")
+
+    mission = autonomous_loop.run_mission("Find a value", max_steps=1)
+
+    assert mission.status == "failed"
+    assert mission.final_answer == "Unable to complete the goal with the executed steps."
+
+
+def test_empty_success_observations_do_not_mark_mission_success(monkeypatch):
+    import autonomous_loop
+
+    monkeypatch.setattr(autonomous_loop, "_plan", lambda _goal: ["search"])
+    monkeypatch.setattr(autonomous_loop, "_choose_tool", lambda *_args, **_kw: {"tool": "grep", "args": {"pattern": "x"}})
+    monkeypatch.setattr(autonomous_loop, "_run_tool", lambda *_args, **_kw: ([], True, 1))
+    monkeypatch.setattr(autonomous_loop, "_reflect", lambda _mission: {"decision": "continue"})
+    monkeypatch.setattr(autonomous_loop, "_synthesize", lambda _mission: "fake success")
+
+    mission = autonomous_loop.run_mission("Find a value", max_steps=1)
+
+    assert mission.status == "failed"
+    assert mission.final_answer == "Unable to complete the goal with the executed steps."
+
+
+def test_package_json_goal_prefers_read_file_without_model_call(monkeypatch):
+    import autonomous_loop
+
+    def fail_chat(*_args, **_kw):
+        raise AssertionError("model should not be needed for package.json read heuristic")
+
+    monkeypatch.setattr(autonomous_loop, "chat_by_role", fail_chat)
+    monkeypatch.setattr(autonomous_loop, "tool_registry", lambda: {"read_file": lambda path: path})
+
+    decision = autonomous_loop._choose_tool(
+        "Open desktop-ui/package.json using json.load()",
+        goal="Find the package name in desktop-ui/package.json.",
+    )
+
+    assert decision == {"tool": "read_file", "args": {"path": "desktop-ui/package.json"}}
+
+
+def test_package_json_package_name_uses_tool_observation_not_synthesis(monkeypatch):
+    import autonomous_loop
+
+    monkeypatch.setattr(autonomous_loop, "_plan", lambda _goal: ["read package"])
+    monkeypatch.setattr(
+        autonomous_loop,
+        "_choose_tool",
+        lambda *_args, **_kw: {"tool": "read_file", "args": {"path": "desktop-ui/package.json"}},
+    )
+    monkeypatch.setattr(
+        autonomous_loop,
+        "_run_tool",
+        lambda *_args, **_kw: ('     2|  "name": "desktop-ui",', True, 1),
+    )
+
+    def fail_synthesis(_mission):
+        raise AssertionError("structured package-name answer should not use synthesis")
+
+    monkeypatch.setattr(autonomous_loop, "_synthesize", fail_synthesis)
+
+    mission = autonomous_loop.run_mission(
+        "Find the package name in desktop-ui/package.json.",
+        max_steps=1,
+    )
+
+    assert mission.status == "success"
+    assert mission.final_answer == "desktop-ui"
+
+
 def test_audited_tools_keep_signatures_for_validation():
     import inspect
     from tools import file_system

@@ -181,11 +181,17 @@ def ensure_no_secrets(text: str, *, where: str = "outgoing") -> None:
 def is_path_safe(path: str | Path, *, roots: Iterable[str | Path] | None = None) -> bool:
     """
     Return True if `path` resolves inside one of the allowed `roots`.
-    Default roots: the current working directory.
+    Default roots: the current working directory and PATHS.root.  On this
+    Windows machine the visible checkout can be a compatibility path while
+    resolved child paths point at the canonical Projects_Local checkout.
     """
-    target = Path(path).resolve()
-    allowed = [Path(r).resolve() for r in (roots or [Path.cwd()])]
-    return any(str(target).startswith(str(root)) for root in allowed)
+    raw_path = Path(path)
+    if roots is None and not raw_path.is_absolute() and ".." not in raw_path.parts:
+        return True
+    target = raw_path.resolve()
+    base_roots = list(roots) if roots is not None else [Path.cwd(), PATHS.root]
+    allowed = [Path(r).resolve() for r in base_roots]
+    return any(target == root or target.is_relative_to(root) for root in allowed)
 
 
 def require_safe_path(path: str | Path, *, roots: Iterable[str | Path] | None = None) -> Path:

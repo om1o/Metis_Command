@@ -27,6 +27,22 @@ def test_secret_scan_is_clean_on_benign_text():
     assert secret_scan("hello world, nothing sensitive here") == []
 
 
+def test_require_safe_path_allows_paths_under_paths_root(_sandbox_paths):
+    from safety import require_safe_path
+
+    target = _sandbox_paths / "allowed.txt"
+    target.write_text("ok", encoding="utf-8")
+
+    assert require_safe_path(target) == target.resolve()
+
+
+def test_require_safe_path_allows_clean_relative_workspace_path():
+    from safety import is_path_safe
+
+    assert is_path_safe("desktop-ui/package.json") is True
+    assert is_path_safe("../outside.txt") is False
+
+
 def test_file_lock_is_exclusive():
     """Second acquirer must wait until the first releases."""
     from safety import file_lock
