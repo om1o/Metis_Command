@@ -730,6 +730,7 @@ export default function App() {
       else if (k === 'b')   { e.preventDefault(); setSidebarOpen((v) => !v); }
       else if (k === '/')   { e.preventDefault(); setWorkspaceOpen((v) => !v); }
       else if (k === 'n')   { e.preventDefault(); newSession(); }
+      else if (k === 'i')   { e.preventDefault(); setInboxOpen((v) => !v); }
       else if (k === 'j')   { e.preventDefault(); setJobsOpen((v) => !v); }
       else if (k === 'r')   { e.preventDefault(); setRelationshipsOpen((v) => !v); }
       else if (k === 'm')   { e.preventDefault(); setMemoryOpen((v) => !v); }
@@ -1104,6 +1105,20 @@ export default function App() {
             <>
               <button
                 type="button"
+                onClick={() => setInboxOpen(true)}
+                className="metis-icon-btn relative"
+                aria-label="Inbox"
+                title="Inbox (⌘I)"
+              >
+                <Bell className="h-4 w-4" />
+                {unreadCount > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 inline-flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-violet-500 px-0.5 text-[8px] font-medium text-white">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+              <button
+                type="button"
                 onClick={() => setJobsOpen(true)}
                 className="metis-icon-btn"
                 aria-label="Jobs"
@@ -1119,6 +1134,24 @@ export default function App() {
                 title="Relationships (⌘R)"
               >
                 <Users className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setMemoryOpen(true)}
+                className="metis-icon-btn"
+                aria-label="Memory"
+                title="Memory (⌘M)"
+              >
+                <Brain className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setReportsOpen(true)}
+                className="metis-icon-btn"
+                aria-label="Reports"
+                title="Reports (⌘P)"
+              >
+                <FileText className="h-4 w-4" />
               </button>
             </>
           )}
@@ -1285,18 +1318,22 @@ export default function App() {
             aria-label="Agent workspace"
           >
             <header className="flex h-12 shrink-0 items-center gap-2 border-b border-[var(--metis-border)] bg-[var(--metis-header-bg)] px-4 backdrop-blur-md sm:h-14">
-              <FileText className="h-4 w-4 text-violet-400" />
-              <div className="text-sm font-medium">Workspace</div>
+              <FileText className="h-4 w-4 shrink-0 text-violet-400" />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium">
+                  {reportArtifact?.title || (activeArtifactId ? 'Report' : 'Workspace')}
+                </div>
+              </div>
               {streaming ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[11px] text-violet-300">
+                <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[11px] text-violet-300">
                   <Loader2 className="h-3 w-3 animate-spin" /> Live
                 </span>
               ) : lastAgentMsg?.status === 'done' ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-300">
+                <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-300">
                   <CircleCheck className="h-3 w-3" /> Ready
                 </span>
               ) : null}
-              <div className="ml-auto flex items-center gap-1">
+              <div className="flex shrink-0 items-center gap-1">
                 {lastAgentMsg?.content && (
                   <button
                     type="button"
@@ -1305,6 +1342,17 @@ export default function App() {
                   >
                     {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                     {copied ? 'Copied' : 'Copy'}
+                  </button>
+                )}
+                {activeArtifactId && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveArtifactId(null)}
+                    className="metis-icon-btn"
+                    aria-label="Close report"
+                    title="Close report"
+                  >
+                    <X className="h-4 w-4" />
                   </button>
                 )}
               </div>
@@ -1565,9 +1613,8 @@ function MessageBubble({
   const isUser = msg.role === 'user';
   const liveAgent = !isUser && streaming && isLast;
   const [expanded, setExpanded] = useState(false);
-  // Threshold: expand button appears when content exceeds ~8 visible lines.
-  const CLAMP_LINES = 8;
-  const isLong = !liveAgent && msg.content.split('\n').length > CLAMP_LINES;
+  // Threshold: expand button appears when content exceeds ~1200 chars.
+  const isLong = !liveAgent && msg.content.length > 1200;
   const motionProps = {
     initial: reduceMotion ? false : { opacity: 0, y: 6 },
     animate: { opacity: 1, y: 0 },
@@ -1622,17 +1669,18 @@ function MessageBubble({
         </div>
         {msg.content ? (
           <div className="text-[var(--metis-bubble-fg)]">
-            <p
-              className={`whitespace-pre-wrap ${isLong && !expanded ? 'line-clamp-[8]' : ''}`}
-              style={isLong && !expanded ? { WebkitLineClamp: CLAMP_LINES } : undefined}
-            >
-              {msg.content}
-            </p>
-            {isLong && (
+            {liveAgent ? (
+              <p className="whitespace-pre-wrap text-[14px] leading-6">{msg.content}</p>
+            ) : (
+              <div className={isLong && !expanded ? 'max-h-48 overflow-hidden' : ''}>
+                <MarkdownView source={msg.content} />
+              </div>
+            )}
+            {isLong && !liveAgent && (
               <button
                 type="button"
                 onClick={() => setExpanded((v) => !v)}
-                className="mt-1 text-[11px] text-violet-400 hover:text-violet-300"
+                className="mt-2 text-[11px] text-violet-400 hover:text-violet-300"
               >
                 {expanded ? 'Show less' : 'Show more'}
               </button>
@@ -1967,6 +2015,7 @@ function SettingsBody({
             ['Focus message box', '⌘ K'],
             ['Toggle sidebar',    '⌘ B'],
             ['Toggle workspace',  '⌘ /'],
+            ['Inbox',             '⌘ I'],
             ['Jobs panel',        '⌘ J'],
             ['Relationships',     '⌘ R'],
             ['Memory',            '⌘ M'],
