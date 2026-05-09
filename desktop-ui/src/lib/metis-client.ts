@@ -130,6 +130,28 @@ export interface AuthResult {
 
 export type OAuthProvider = 'google' | 'github';
 
+// ── System health ──────────────────────────────────────────────────────────
+
+export interface ProviderStatus {
+  ok: boolean;
+  reason?: string;
+  fix?: string;
+  model?: string;
+  models?: number;
+  destination?: string | null;
+}
+
+export interface SystemHealth {
+  checked_at: number;
+  ollama: ProviderStatus;
+  groq:   ProviderStatus;
+  glm:    ProviderStatus;
+  openai: ProviderStatus;
+  twilio: ProviderStatus;
+  smtp:   ProviderStatus;
+  preferred_manager: 'groq' | 'glm' | 'openai' | 'ollama' | null;
+}
+
 // ── Schedules ──────────────────────────────────────────────────────────────
 // Mirror of scheduler.Schedule on the backend. Kind-specific spec format:
 //   interval — minutes as a string ("60", "1440")
@@ -239,6 +261,10 @@ export class MetisClient {
 
   async getStatus(): Promise<MetisStatus> {
     return this.get('/status');
+  }
+
+  async getSystemHealth(): Promise<SystemHealth> {
+    return this.get('/system/health');
   }
 
   // ── Streaming chat (SSE) ────────────────────────────────────────────────

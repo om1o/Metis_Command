@@ -243,6 +243,96 @@ def root(request: Request) -> Any:
     }
 
 
+@app.get("/system/health")
+def system_health() -> dict:
+    """Check every provider Metis can route to. Used by the UI to show
+    a connection-health badge so the operator knows whether they're
+    on a fast cloud model or stuck on slow local-only.
+    """
+    import time as _time
+    out: dict[str, Any] = {"checked_at": _time.time()}
+
+    # Ollama (local)
+    try:
+        import requests as _req
+        r = _req.get("http://127.0.0.1:11434/api/tags", timeout=2)
+        if r.ok:
+            out["ollama"] = {"ok": True, "models": len(r.json().get("models", []))}
+        else:
+            out["ollama"] = {"ok": False, "reason": f"HTTP {r.status_code}"}
+    except Exception as e:
+        out["ollama"] = {"ok": False, "reason": f"unreachable: {e}"}
+
+    def _probe_cloud(name: str, env_key: str, url: str, model: str) -> dict:
+        key = (os.getenv(env_key) or "").strip()
+        if not key:
+            return {"ok": False, "reason": "no key in .env",
+                    "fix": f"Set {env_key}=<your-key> in .env and restart the bridge."}
+        try:
+            import requests as _req
+            r = _req.post(url,
+                headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+                json={"model": model, "max_tokens": 1, "stream": False,
+                      "messages": [{"role": "user", "content": "hi"}]},
+                timeout=8)
+            if r.ok:
+                return {"ok": True, "model": model}
+            try:
+                detail = r.json().get("error", {})
+                msg = detail.get("message") if isinstance(detail, dict) else str(detail)
+            except Exception:
+                msg = r.text[:200]
+            return {"ok": False, "reason": f"HTTP {r.status_code}: {msg or 'unknown'}"}
+        except Exception as e:
+            return {"ok": False, "reason": f"unreachable: {e}"}
+
+    out["groq"] = _probe_cloud(
+        "groq", "GROQ_API_KEY",
+        "https://api.groq.com/openai/v1/chat/completions",
+        os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
+    )
+    out["glm"] = _probe_cloud(
+        "glm", "GLM_API_KEY",
+        "https://api.z.ai/api/paas/v4/chat/completions",
+        os.getenv("GLM_MODEL", "glm-4.6"),
+    )
+    out["openai"] = _probe_cloud(
+        "openai", "OPENAI_API_KEY",
+        "https://api.openai.com/v1/chat/completions",
+        os.getenv("OPENAI_MODEL_NAME", "gpt-4o-mini"),
+    )
+
+    # Twilio + SMTP — we can't fully probe without sending, but we can
+    # confirm credentials are present.
+    twilio_set = bool(
+        (os.getenv("TWILIO_SID") or "").strip()
+        and (os.getenv("TWILIO_TOKEN") or "").strip()
+        and (os.getenv("TWILIO_FROM") or "").strip()
+    )
+    out["twilio"] = {
+        "ok": twilio_set,
+        "reason": None if twilio_set else "Set TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM in .env.",
+        "destination": (os.getenv("METIS_NOTIFY_PHONE") or "").strip() or None,
+    }
+    smtp_set = bool(
+        (os.getenv("EMAIL_USER") or "").strip()
+        and (os.getenv("EMAIL_PASS") or "").strip()
+    )
+    out["smtp"] = {
+        "ok": smtp_set,
+        "reason": None if smtp_set else "Set EMAIL_USER + EMAIL_PASS in .env (Gmail needs an App Password).",
+        "destination": (os.getenv("METIS_NOTIFY_EMAIL") or "").strip() or None,
+    }
+
+    # Headline summary: which manager-eligible provider is fastest available?
+    if out["groq"]["ok"]:        out["preferred_manager"] = "groq"
+    elif out["glm"]["ok"]:       out["preferred_manager"] = "glm"
+    elif out["openai"]["ok"]:    out["preferred_manager"] = "openai"
+    elif out["ollama"]["ok"]:    out["preferred_manager"] = "ollama"
+    else:                         out["preferred_manager"] = None
+    return out
+
+
 @app.get("/health")
 def health() -> dict:
     return {"ok": True}

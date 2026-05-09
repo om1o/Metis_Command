@@ -51,6 +51,8 @@ import JobPlanner from '@/components/job-planner';
 import JobsPanel from '@/components/jobs-panel';
 import RelationshipsPanel from '@/components/relationships-panel';
 import InboxPanel from '@/components/inbox-panel';
+import ConnectionsPanel from '@/components/connections-panel';
+import type { SystemHealth } from '@/lib/metis-client';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -418,6 +420,8 @@ export default function App() {
   const [relationshipsOpen, setRelationshipsOpen] = useState(false);
   const [inboxOpen, setInboxOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [connectionsOpen, setConnectionsOpen] = useState(false);
+  const [health, setHealth] = useState<SystemHealth | null>(null);
 
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
@@ -598,6 +602,20 @@ export default function App() {
   useEffect(() => {
     try { localStorage.setItem('metis-mode', mode); } catch {}
   }, [mode]);
+
+  // Probe the system once at start + whenever the connections panel
+  // closes (so a refresh inside it can update the dot color).
+  useEffect(() => {
+    if (!client) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const h = await client.getSystemHealth();
+        if (!cancelled) setHealth(h);
+      } catch { /* ignore — UI still works without health */ }
+    })();
+    return () => { cancelled = true; };
+  }, [client, connectionsOpen]);
 
   // Poll the inbox for the unread count so the bell badge stays fresh.
   // Cheap call; cap to once every 15s. Also re-checks when the panel is
@@ -1049,6 +1067,7 @@ export default function App() {
             )}
           </div>
           <div className="ml-auto flex items-center gap-1">
+            <ConnectionsBadge health={health} onOpen={() => setConnectionsOpen(true)} />
             <button
               type="button"
               onClick={() => setInboxOpen(true)}
@@ -1291,6 +1310,17 @@ export default function App() {
         )}
       </AnimatePresence>
 
+      {/* Connections — provider health + how to fix dead keys */}
+      <AnimatePresence>
+        {connectionsOpen && client && (
+          <ConnectionsPanel
+            client={client}
+            reduceMotion={!!reduceMotion}
+            onClose={() => setConnectionsOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Settings */}
       <AnimatePresence>
         {settingsOpen && (
@@ -1522,6 +1552,44 @@ function ModeSelector({ value, onChange }: { value: Mode; onChange: (v: Mode) =>
         );
       })}
     </div>
+  );
+}
+
+// ── Connection health badge in chat header ────────────────────────────────
+
+function ConnectionsBadge({ health, onOpen }: { health: SystemHealth | null; onOpen: () => void }) {
+  // Color: green if any cloud is up, amber if local-only, rose if no
+  // provider at all is reachable. Click opens the Connections panel.
+  let color = 'text-[var(--metis-fg-dim)]';
+  let dot   = 'bg-[var(--metis-fg-dim)]';
+  let label = '…';
+  if (health) {
+    const cloud = health.groq.ok || health.glm.ok || health.openai.ok;
+    if (cloud) {
+      color = 'text-emerald-300';
+      dot   = 'bg-emerald-400';
+      label = (health.preferred_manager || 'cloud').toUpperCase();
+    } else if (health.ollama.ok) {
+      color = 'text-amber-300';
+      dot   = 'bg-amber-400';
+      label = 'LOCAL';
+    } else {
+      color = 'text-rose-300';
+      dot   = 'bg-rose-400';
+      label = 'OFFLINE';
+    }
+  }
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className={`metis-icon-btn inline-flex items-center gap-1.5 px-2 ${color}`}
+      title="Connection health — click for details"
+      aria-label="Connections"
+    >
+      <span className={`inline-block h-1.5 w-1.5 rounded-full ${dot}`} />
+      <span className="text-[10px] font-medium tracking-widest">{label}</span>
+    </button>
   );
 }
 
