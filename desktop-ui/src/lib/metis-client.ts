@@ -298,6 +298,16 @@ export interface InboxItem {
   artifact_id?: string;
 }
 
+export interface NotificationItem {
+  id: string;
+  type: 'info' | 'success' | 'warning' | 'error' | 'agent' | string;
+  title: string;
+  body: string;
+  read: boolean;
+  created_at: string;
+  [key: string]: unknown;
+}
+
 export interface SessionMeta {
   id: string;
   title: string;
@@ -660,6 +670,31 @@ export class MetisClient {
       headers: this.headers(),
     });
     if (!res.ok) throw new Error(`clear inbox: ${res.status}`);
+    return res.json();
+  }
+
+  async listNotifications(unreadOnly = false, limit = 50): Promise<NotificationItem[]> {
+    return this.get(`/notifications?limit=${limit}&unread_only=${unreadOnly ? 'true' : 'false'}`);
+  }
+
+  async getNotificationCount(): Promise<{ unread: number }> {
+    return this.get('/notifications/count');
+  }
+
+  async markNotificationRead(id: string): Promise<{ ok: boolean; id: string }> {
+    return this.post(`/notifications/${id}/read`, {});
+  }
+
+  async markAllNotificationsRead(): Promise<{ ok: boolean; marked: number }> {
+    return this.post('/notifications/read-all', {});
+  }
+
+  async clearNotifications(): Promise<{ ok: boolean; cleared: number }> {
+    const res = await fetch(`${this.baseUrl}/notifications`, {
+      method: 'DELETE',
+      headers: this.headers(),
+    });
+    if (!res.ok) throw new Error(`clear notifications: ${res.status}`);
     return res.json();
   }
 

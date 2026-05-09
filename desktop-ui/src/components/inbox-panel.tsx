@@ -8,12 +8,13 @@ import {
   Loader2,
   FileText,
   RefreshCw,
+  CircleAlert,
+  CircleCheck,
   Sparkles,
   Trash2,
-  Users,
   X,
 } from 'lucide-react';
-import { MetisClient, InboxItem } from '@/lib/metis-client';
+import { MetisClient, NotificationItem } from '@/lib/metis-client';
 import { Mark } from '@/components/brand';
 
 interface Props {
@@ -33,14 +34,15 @@ function fmtAgo(iso: string): string {
   return `${Math.floor(d / 86_400_000)}d ago`;
 }
 
-function sourceIcon(source: string) {
-  if (source.startsWith('schedule:')) return <CalendarClock className="h-3.5 w-3.5 text-violet-300" />;
-  if (source.startsWith('manager:relationship')) return <Users className="h-3.5 w-3.5 text-violet-300" />;
+function sourceIcon(type: string) {
+  if (type === 'success') return <CircleCheck className="h-3.5 w-3.5 text-emerald-300" />;
+  if (type === 'warning' || type === 'error') return <CircleAlert className="h-3.5 w-3.5 text-amber-300" />;
+  if (type === 'agent') return <CalendarClock className="h-3.5 w-3.5 text-violet-300" />;
   return <Sparkles className="h-3.5 w-3.5 text-violet-300" />;
 }
 
 export default function InboxPanel({ client, reduceMotion, onClose, onOpenArtifact }: Props) {
-  const [items, setItems] = useState<InboxItem[] | null>(null);
+  const [items, setItems] = useState<NotificationItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -50,7 +52,7 @@ export default function InboxPanel({ client, reduceMotion, onClose, onOpenArtifa
     setRefreshing(true);
     setError(null);
     try {
-      setItems(await client.listInbox());
+      setItems(await client.listNotifications(false, 80));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -63,7 +65,7 @@ export default function InboxPanel({ client, reduceMotion, onClose, onOpenArtifa
   const onMarkRead = async (id: string) => {
     setBusyId(id);
     try {
-      await client.markInboxRead(id);
+      await client.markNotificationRead(id);
       setItems((prev) => (prev ? prev.map((it) => it.id === id ? { ...it, read: true } : it) : prev));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -75,8 +77,8 @@ export default function InboxPanel({ client, reduceMotion, onClose, onOpenArtifa
   const onDelete = async (id: string) => {
     setBusyId(id);
     try {
-      await client.deleteInbox(id);
-      setItems((prev) => (prev ? prev.filter((it) => it.id !== id) : prev));
+      await client.markNotificationRead(id);
+      setItems((prev) => (prev ? prev.map((it) => it.id === id ? { ...it, read: true } : it) : prev));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -88,7 +90,7 @@ export default function InboxPanel({ client, reduceMotion, onClose, onOpenArtifa
     if (!items || items.length === 0) return;
     setClearing(true);
     try {
-      await client.clearInbox();
+      await client.clearNotifications();
       setItems([]);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -104,7 +106,7 @@ export default function InboxPanel({ client, reduceMotion, onClose, onOpenArtifa
       className="fixed inset-0 z-[120] flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
-      aria-label="Inbox"
+      aria-label="Notifications"
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
       style={{ background: 'rgba(0,0,0,0.45)' }}
     >
@@ -117,7 +119,7 @@ export default function InboxPanel({ client, reduceMotion, onClose, onOpenArtifa
       >
         <div className="flex items-center gap-2.5 border-b border-[var(--metis-border)] px-4 py-3">
           <Mark size={18} />
-          <div className="text-sm font-semibold text-[var(--metis-foreground)]">Inbox</div>
+          <div className="text-sm font-semibold text-[var(--metis-foreground)]">Notifications</div>
           <span className="ml-2 inline-flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[10px] uppercase tracking-widest text-violet-300">
             <Bell className="h-3 w-3" /> {unread} new
           </span>
@@ -162,9 +164,9 @@ export default function InboxPanel({ client, reduceMotion, onClose, onOpenArtifa
           ) : items.length === 0 ? (
             <div className="rounded-xl border border-dashed border-[var(--metis-border)] bg-[var(--metis-bg)] px-4 py-6 text-[13px] text-[var(--metis-fg-muted)]">
               <div className="inline-flex items-center gap-2 text-[var(--metis-fg)]">
-                <Bell className="h-4 w-4 text-violet-400" /> Inbox zero
+                <Bell className="h-4 w-4 text-violet-400" /> All clear
               </div>
-              <p className="mt-1">When a job fires or your agent saves a contact, it lands here.</p>
+              <p className="mt-1">Agent updates and scheduled job alerts land here.</p>
             </div>
           ) : (
             <ul className="grid gap-2">
@@ -179,7 +181,7 @@ export default function InboxPanel({ client, reduceMotion, onClose, onOpenArtifa
                 >
                   <div className="flex items-start gap-2">
                     <span className="mt-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-[var(--metis-border)] bg-[var(--metis-elevated)]">
-                      {sourceIcon(it.source)}
+                      {sourceIcon(it.type)}
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
@@ -191,13 +193,14 @@ export default function InboxPanel({ client, reduceMotion, onClose, onOpenArtifa
                       )}
                       <div className="mt-1.5 flex items-center gap-3 text-[11px] text-[var(--metis-fg-dim)]">
                         <span>{fmtAgo(it.created_at)}</span>
-                        <span className="font-mono">{it.source}</span>
+                        <span className="font-mono">{it.type}</span>
                       </div>
-                      {it.artifact_id && (
+                      {typeof it.artifact_id === 'string' && (
                         <button
                           type="button"
                           onClick={() => {
-                            onOpenArtifact(it.artifact_id!);
+                            const artifactId = String(it.artifact_id);
+                            onOpenArtifact(artifactId);
                             onMarkRead(it.id);
                           }}
                           className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-200 hover:bg-emerald-500/15"
@@ -225,8 +228,8 @@ export default function InboxPanel({ client, reduceMotion, onClose, onOpenArtifa
                         onClick={() => onDelete(it.id)}
                         disabled={busyId === it.id}
                         className="metis-icon-btn text-rose-400/80 hover:text-rose-400 disabled:opacity-40"
-                        aria-label="Delete"
-                        title="Delete"
+                        aria-label="Dismiss"
+                        title="Dismiss"
                       >
                         {busyId === it.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                       </button>

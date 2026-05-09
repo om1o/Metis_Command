@@ -678,7 +678,7 @@ export default function App() {
     return () => { cancelled = true; };
   }, [client]);
 
-  // Poll the inbox for the unread count so the bell badge stays fresh.
+  // Poll notifications for the unread count so the bell badge stays fresh.
   // Cheap call; cap to once every 15s. Also re-checks when the panel is
   // closed so dismissing a notification updates the count immediately.
   useEffect(() => {
@@ -686,8 +686,8 @@ export default function App() {
     let cancelled = false;
     const tick = async () => {
       try {
-        const items = await client.listInbox();
-        if (!cancelled) setUnreadCount(items.filter((i) => !i.read).length);
+        const count = await client.getNotificationCount();
+        if (!cancelled) setUnreadCount(count.unread);
       } catch { /* offline or auth — leave count alone */ }
     };
     tick();
