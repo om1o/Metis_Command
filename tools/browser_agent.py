@@ -338,6 +338,74 @@ class Browser:
         return {"ok": False, "error": str(last_err) if last_err else "no field matched",
                 "label": label}
 
+    # ── files ───────────────────────────────────────────────────────────────
+    def upload(self, target: str, file_path: str | list[str]) -> dict[str, Any]:
+        """Set files on an <input type="file">. ``target`` can be a CSS
+        selector OR the input's label / accessible name."""
+        self._ensure()
+        # Coerce single path → list, validate each.
+        paths = [file_path] if isinstance(file_path, str) else list(file_path)
+        for p in paths:
+            if not Path(p).exists():
+                return {"ok": False, "error": f"file not found: {p}"}
+        page = self._page
+        candidates = [
+            ("css",         lambda: page.locator(target)),
+            ("label",       lambda: page.get_by_label(target)),
+            ("test-id",     lambda: page.get_by_test_id(target)),
+            ("placeholder", lambda: page.get_by_placeholder(target)),
+        ]
+        last_err: Exception | None = None
+        for strategy, build in candidates:
+            try:
+                loc = build()
+                if loc.count() == 0:
+                    continue
+                loc.first.set_input_files(paths)
+                self._safe_snapshot()
+                return {"ok": True, "uploaded": paths, "via": strategy, "target": target}
+            except Exception as e:
+                last_err = e
+                continue
+        return {"ok": False, "error": str(last_err) if last_err else "no file input matched",
+                "target": target}
+
+    def download_via_click(
+        self,
+        target: str,
+        *,
+        save_dir: str = "artifacts/downloads",
+        timeout_s: int = 30,
+    ) -> dict[str, Any]:
+        """Click ``target`` and wait for a download to finish. Saves the
+        downloaded file to ``save_dir`` under its suggested name. The
+        trigger uses click_smart's locator cascade so plain English
+        works ("Download report")."""
+        self._ensure()
+        out_dir = Path(save_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        page = self._page
+        try:
+            with page.expect_download(timeout=timeout_s * 1000) as dl_info:
+                # Trigger the download. We reuse the smart click so
+                # the caller can pass natural-language targets.
+                clicked = self.click_smart(target, retries=1)
+                if not clicked.get("ok"):
+                    return {"ok": False, "error": "trigger click failed",
+                            "click_error": clicked.get("error"), "target": target}
+            download = dl_info.value
+            suggested = download.suggested_filename or f"download_{int(time.time())}"
+            out = out_dir / suggested
+            download.save_as(str(out))
+            return {
+                "ok": True,
+                "saved_to": str(out),
+                "filename": suggested,
+                "url": download.url,
+            }
+        except Exception as e:
+            return {"ok": False, "error": str(e), "target": target}
+
     def submit(self, selector: str | None = None, *, confirm_token: str | None = None) -> dict[str, Any]:
         """Submit a form — confirm-gated unless the host is in SUBMIT_ALLOWLIST_HOSTS."""
         self._ensure()
@@ -459,6 +527,21 @@ def fill_smart(label: str, value: str, retries: int = 2) -> dict[str, Any]:
     """Semantic fill. Identifies form fields by their label,
     placeholder, or accessible name — no CSS selector required."""
     return browser.fill_smart(label, value, retries=retries)
+
+
+@audited("browser.upload")
+def upload(target: str, file_path: str | list[str]) -> dict[str, Any]:
+    """Attach a file (or files) to a form's <input type="file">.
+    ``target`` can be CSS or the input's label / placeholder."""
+    return browser.upload(target, file_path)
+
+
+@audited("browser.download_via_click")
+def download_via_click(target: str, save_dir: str = "artifacts/downloads",
+                       timeout_s: int = 30) -> dict[str, Any]:
+    """Click ``target`` and wait for the download it triggers.
+    Returns ``{ok, saved_to, filename, url}``."""
+    return browser.download_via_click(target, save_dir=save_dir, timeout_s=timeout_s)
 
 
 @audited("browser.extract")

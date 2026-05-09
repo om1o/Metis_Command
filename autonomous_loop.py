@@ -104,6 +104,12 @@ def _tool_registry() -> dict[str, Callable[..., Any]]:
         # order with auto-retry on stale-element races.
         "browser_click_smart": _perm.gate("browser_click_smart", _ba.click_smart, summary_args=["target"]),
         "browser_fill_smart":  _perm.gate("browser_fill_smart",  _ba.fill_smart,  summary_args=["label", "value"]),
+        # MVP 18b: file I/O. Upload sets files on a file input;
+        # download_via_click clicks the trigger and captures whatever
+        # the page hands us. Both gated — they can write disk files
+        # and pull bytes from the network.
+        "browser_upload":             _perm.gate("browser_upload",             _ba.upload,             summary_args=["target", "file_path"]),
+        "browser_download_via_click": _perm.gate("browser_download_via_click", _ba.download_via_click, summary_args=["target", "save_dir"]),
         "speak":        _perm.gate("speak",        _vo.speak,                         summary_args=["text"]),
 
         # MVP 15: real desktop control. The internal confirm flag in
@@ -177,6 +183,8 @@ _MUTATING_TOOLS = {
     "browser_fill",
     "browser_click_smart",
     "browser_fill_smart",
+    "browser_upload",
+    "browser_download_via_click",
     "speak",
     "subagent",
     # MVP 15 — anything that touches the real desktop or browser cookies.
@@ -264,6 +272,8 @@ Valid tools (name -> signature):
   browser_fill(selector, value)         (gated; raw CSS)
   browser_click_smart(target)           (gated; "Submit" / "Sign in" / etc.)
   browser_fill_smart(label, value)      (gated; field by label/placeholder)
+  browser_upload(target, file_path)     (gated; sets <input type="file">)
+  browser_download_via_click(target, save_dir)  (gated; clicks + captures download)
   browser_extract(selector=None)        -> str
   browser_screenshot()                  -> path
   browser_save_state()                  (gated; snapshot cookies)
