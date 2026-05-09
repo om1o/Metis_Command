@@ -473,9 +473,12 @@ export default function App() {
               }
             }
           } catch (e) {
-            // OAuth completion failed — leave token state alone, the
-            // LoginScreen will render and surface the error.
+            // OAuth completion failed — leave token state alone and
+            // stash the error so LoginScreen can surface it (and the
+            // user can copy it).
+            const msg = e instanceof Error ? e.message : String(e);
             console.warn('[metis] OAuth code on / failed to exchange:', e);
+            try { sessionStorage.setItem('metis-auth-error', msg); } catch {}
           }
           // Clean the code/state out of the URL so a refresh doesn't
           // double-spend it (codes are single-use).

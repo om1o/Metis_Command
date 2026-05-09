@@ -54,8 +54,12 @@ export default function OAuthCallbackPage() {
         setTimeout(() => { window.location.replace('/'); }, 600);
       } catch (err) {
         if (cancelled) return;
+        const msg = err instanceof Error ? err.message : String(err);
+        // Stash a copy for the LoginScreen so the user can see + copy
+        // the underlying Supabase error if they navigate back to /.
+        try { sessionStorage.setItem('metis-auth-error', msg); } catch {}
         setPhase('error');
-        setMessage(err instanceof Error ? err.message : String(err));
+        setMessage(msg);
       }
     })();
     return () => { cancelled = true; };
