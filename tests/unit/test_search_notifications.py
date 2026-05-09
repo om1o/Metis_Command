@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
 
@@ -115,3 +116,31 @@ def test_notifications_api_lifecycle(_sandbox_paths):
     assert client.post(f"/notifications/{notif_id}/read", headers=headers).json() == {"ok": True, "id": notif_id}
     assert client.get("/notifications/count", headers=headers).json() == {"unread": 0}
     assert client.delete("/notifications", headers=headers).json() == {"ok": True, "cleared": 1}
+
+
+def test_analytics_accepts_iso_session_timestamps(_sandbox_paths, monkeypatch):
+    import api_bridge
+    import memory
+
+    now = datetime.now(timezone.utc)
+
+    def fake_sessions(_user_id: str):
+        return [
+            {"id": "recent-iso", "updated_at": now.isoformat()},
+            {"id": "recent-ms", "updated_at": now.timestamp() * 1000},
+            {"id": "old-iso", "updated_at": (now - timedelta(days=9)).isoformat()},
+            {"id": "bad", "updated_at": "not-a-date"},
+        ]
+
+    monkeypatch.setattr(memory, "list_sessions_with_meta", fake_sessions)
+
+    client = TestClient(api_bridge.app)
+    response = client.get(
+        "/analytics",
+        headers=api_bridge.auth_local.bearer_header(),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["sessions"]["total"] == 4
+    assert payload["sessions"]["active_last_7d"] == 2

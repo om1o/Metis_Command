@@ -1622,11 +1622,23 @@ def analytics_summary(request: Request) -> dict:
         s = str(m.get("status", "unknown"))
         status_counts[s] = status_counts.get(s, 0) + 1
 
+    def _updated_at_ms(value: object) -> float:
+        if value in (None, ""):
+            return 0.0
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            pass
+        try:
+            return datetime.fromisoformat(str(value).replace("Z", "+00:00")).timestamp() * 1000
+        except Exception:
+            return 0.0
+
     # Recent activity (last 7 days) — sessions updated in that window
     week_ago_ms = (now.timestamp() - 7 * 86400) * 1000
     recent_sessions = sum(
         1 for s in all_sessions
-        if float(s.get("updated_at", 0)) > week_ago_ms
+        if _updated_at_ms(s.get("updated_at")) > week_ago_ms
     )
 
     return {

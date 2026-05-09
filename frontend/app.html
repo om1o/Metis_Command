@@ -2767,7 +2767,29 @@ function closeNotifPanel() {
   notifPanel.classList.remove('open');
 }
 
-notifBellBtn.addEventListener('click', (e) => { e.stopPropagation(); openNotifPanel(); });
+function normalizeNotificationList(payload) {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.value)) return payload.value;
+  if (Array.isArray(payload?.items)) return payload.items;
+  return [];
+}
+
+async function fetchNotificationList(limit = 50) {
+  const token = localStorage.getItem('metis.access_token');
+  const res = await fetch(`/notifications?limit=${encodeURIComponent(limit)}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw new Error(`Notifications failed: ${res.status}`);
+  return normalizeNotificationList(await res.json());
+}
+
+window.MetisNotifications = {
+  open: openNotifPanel,
+  close: closeNotifPanel,
+  refresh: refreshNotifBadge,
+  render: renderNotifPanel,
+};
+notifBellBtn.onclick = (e) => { e.stopPropagation(); window.MetisNotifications.open(); };
 notifOverlay.addEventListener('click', closeNotifPanel);
 document.getElementById('notifClose').addEventListener('click', closeNotifPanel);
 
@@ -2781,7 +2803,7 @@ document.getElementById('notifMarkAllBtn').addEventListener('click', async () =>
 
 async function renderNotifPanel() {
   try {
-    const items = await api.notifications(50);
+    const items = await fetchNotificationList(50);
     const unread = items.filter(n => !n.read).length;
     notifPanelCount.textContent = unread ? `${unread} unread` : 'all read';
 
