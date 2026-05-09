@@ -33,6 +33,17 @@ Flags:
 
 If you don't have Ollama yet, `launch.py` detects it, prints the download link, and opens Metis anyway in cloud-only mode (GLM / OpenAI). Install Ollama from https://ollama.com/download and re-run to enable local brains.
 
+## Desktop UI dev server
+
+The desktop UI lives in [`desktop-ui/`](desktop-ui/) and should always be served from the root checkout, not from hidden `.claude/worktrees/*` folders. Use the guard script from the repo root:
+
+```powershell
+.\scripts\start_desktop_ui_dev.ps1 -Check
+.\scripts\start_desktop_ui_dev.ps1
+```
+
+It verifies port `3000`, blocks accidental hidden-worktree servers, and starts `http://127.0.0.1:3000/` from the canonical `desktop-ui` folder. Use `-StopForeign` only when you intentionally want to stop a non-canonical server on that port.
+
 ## Architecture
 
 ```mermaid

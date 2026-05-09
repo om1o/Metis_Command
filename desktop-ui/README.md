@@ -1,36 +1,52 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Metis Desktop UI
 
-## Getting Started
+This is the Next/Tauri desktop surface for Metis. Use the repo-level dev script so port `3000` is always served from this canonical folder, not from a hidden `.claude/worktrees/*/desktop-ui` checkout.
 
-First, run the development server:
+## Run Locally
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+From the repo root:
+
+```powershell
+.\scripts\start_desktop_ui_dev.ps1
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://127.0.0.1:3000/`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Useful checks:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```powershell
+# Verify port 3000 is free or already serving this folder.
+.\scripts\start_desktop_ui_dev.ps1 -Check
 
-## Learn More
+# Install dependencies before starting.
+.\scripts\start_desktop_ui_dev.ps1 -Install
 
-To learn more about Next.js, take a look at the following resources:
+# Stop a server on 3000 only if it is not this canonical desktop-ui folder.
+.\scripts\start_desktop_ui_dev.ps1 -StopForeign
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Quality Gate
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Run these before committing UI work:
 
-## Deploy on Vercel
+```powershell
+npm ci --no-audit --no-fund
+npm run lint
+npm run build
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The GitHub `desktop UI lint + build` CI job runs the same checks with Node 20.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Backend
+
+The UI expects the Metis API bridge on `http://127.0.0.1:7331`. Start it with the normal launcher:
+
+```powershell
+python launch.py
+```
+
+If login or local-device auth fails, verify the bridge first:
+
+```powershell
+Invoke-WebRequest http://127.0.0.1:7331/health -UseBasicParsing
+```
