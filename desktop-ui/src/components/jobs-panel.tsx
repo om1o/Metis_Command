@@ -76,10 +76,17 @@ function fmtMissionTime(ts?: number): string {
   return `${Math.floor(diff / 86_400_000)}d ago`;
 }
 
+function eventText(event: Record<string, unknown>): string {
+  const kind = String(event.type || 'event');
+  const detail = event.description || event.answer || event.error || event.status || event.message || '';
+  return `${kind}${detail ? ` - ${String(detail).slice(0, 220)}` : ''}`;
+}
+
 export default function JobsPanel({ client, reduceMotion, onClose, onOpenArtifact }: Props) {
   const [items, setItems] = useState<Schedule[] | null>(null);
   const [reports, setReports] = useState<Record<string, Artifact>>({});
   const [missions, setMissions] = useState<Mission[]>([]);
+  const [openMissionId, setOpenMissionId] = useState<string | null>(null);
   const [runState, setRunState] = useState<Record<string, { missionId?: string; status: string }>>({});
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -337,7 +344,12 @@ export default function JobsPanel({ client, reduceMotion, onClose, onOpenArtifac
                   </div>
                   <div className="grid gap-1.5">
                     {missions.map((mission) => (
-                      <MissionRow key={mission.id} mission={mission} />
+                      <MissionRow
+                        key={mission.id}
+                        mission={mission}
+                        open={openMissionId === mission.id}
+                        onToggle={() => setOpenMissionId((current) => current === mission.id ? null : mission.id)}
+                      />
                     ))}
                   </div>
                 </section>
@@ -350,19 +362,62 @@ export default function JobsPanel({ client, reduceMotion, onClose, onOpenArtifac
   );
 }
 
-function MissionRow({ mission }: { mission: Mission }) {
+function MissionRow({
+  mission,
+  open,
+  onToggle,
+}: {
+  mission: Mission;
+  open: boolean;
+  onToggle: () => void;
+}) {
   const active = ['queued', 'running'].includes(mission.status);
+  const events = (mission.events || []).slice(-4);
   return (
-    <div className="flex items-start gap-2 rounded-xl border border-[var(--metis-border)] bg-[var(--metis-bg)] px-3 py-2">
-      <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${active ? 'bg-violet-400' : mission.status === 'success' ? 'bg-emerald-400' : mission.status === 'failed' ? 'bg-rose-400' : 'bg-[var(--metis-fg-dim)]'}`} />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[12.5px] text-[var(--metis-fg)]">{missionTitle(mission)}</p>
-        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[10.5px] text-[var(--metis-fg-dim)]">
-          <span className="capitalize">{mission.status}</span>
-          <span className="font-mono">{mission.id}</span>
-          {fmtMissionTime(mission.submitted_at) && <span>{fmtMissionTime(mission.submitted_at)}</span>}
+    <div className="rounded-xl border border-[var(--metis-border)] bg-[var(--metis-bg)]">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-start gap-2 px-3 py-2 text-left"
+        aria-expanded={open}
+      >
+        <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${active ? 'bg-violet-400' : mission.status === 'success' ? 'bg-emerald-400' : mission.status === 'failed' ? 'bg-rose-400' : 'bg-[var(--metis-fg-dim)]'}`} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[12.5px] text-[var(--metis-fg)]">{missionTitle(mission)}</p>
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[10.5px] text-[var(--metis-fg-dim)]">
+            <span className="capitalize">{mission.status}</span>
+            <span className="font-mono">{mission.id}</span>
+            {fmtMissionTime(mission.submitted_at) && <span>{fmtMissionTime(mission.submitted_at)}</span>}
+          </div>
         </div>
-      </div>
+      </button>
+      {open && (
+        <div className="border-t border-[var(--metis-border)] px-3 py-2 text-[11.5px] text-[var(--metis-fg-muted)]">
+          {mission.final_answer && (
+            <div>
+              <div className="mb-1 text-[10px] uppercase tracking-widest text-[var(--metis-fg-dim)]">Result</div>
+              <p className="max-h-24 overflow-auto whitespace-pre-wrap rounded-lg bg-[var(--metis-elevated)] px-2 py-1.5">
+                {mission.final_answer}
+              </p>
+            </div>
+          )}
+          {events.length > 0 && (
+            <div className={mission.final_answer ? 'mt-2' : ''}>
+              <div className="mb-1 text-[10px] uppercase tracking-widest text-[var(--metis-fg-dim)]">Events</div>
+              <ul className="grid gap-1">
+                {events.map((event, idx) => (
+                  <li key={`${mission.id}-${idx}`} className="truncate rounded-md bg-[var(--metis-elevated)] px-2 py-1">
+                    {eventText(event)}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {!mission.final_answer && events.length === 0 && (
+            <p className="text-[var(--metis-fg-dim)]">No run detail recorded yet.</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
