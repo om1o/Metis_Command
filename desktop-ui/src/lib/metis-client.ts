@@ -298,6 +298,26 @@ export interface InboxItem {
   artifact_id?: string;
 }
 
+export interface SessionMeta {
+  id: string;
+  title: string;
+  updated_at: string;
+}
+
+export interface SessionMessage {
+  role: 'user' | 'assistant' | 'agent' | string;
+  content: string;
+  created_at: string;
+}
+
+export interface SessionSearchResult {
+  session_id: string;
+  session_title: string;
+  role: string;
+  created_at: string;
+  snippet: string;
+}
+
 // ── Analytics ─────────────────────────────────────────────────────────────
 
 export interface AnalyticsSummary {
@@ -477,6 +497,14 @@ export class MetisClient {
 
   async searchMemory(query: string, k = 5): Promise<unknown[]> {
     return this.get(`/memory/search?q=${encodeURIComponent(query)}&k=${k}`);
+  }
+
+  async searchSessions(query: string, limit = 20): Promise<SessionSearchResult[]> {
+    return this.get(`/sessions/search?q=${encodeURIComponent(query)}&limit=${limit}`);
+  }
+
+  async loadSession(id: string, limit = 200): Promise<SessionMessage[]> {
+    return this.get(`/sessions/${encodeURIComponent(id)}?limit=${limit}`);
   }
 
   // ── Artifacts ───────────────────────────────────────────────────────────

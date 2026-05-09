@@ -44,9 +44,10 @@ import {
   Monitor,
   Brain,
   BarChart3,
+  Search,
 } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { createLocalClient, MetisClient, AuthUser, Schedule, Artifact, RunMode, RunPermission } from '@/lib/metis-client';
+import { createLocalClient, MetisClient, AuthUser, Schedule, Artifact, RunMode, RunPermission, SessionMessage, SessionSearchResult } from '@/lib/metis-client';
 import { Mark, Wordmark } from '@/components/brand';
 import LoginScreen, { AuthSuccess } from '@/components/login-screen';
 import JobPlanner from '@/components/job-planner';
@@ -778,6 +779,27 @@ export default function App() {
     setSessions((s) => s.filter((x) => x.id !== id));
     if (activeId === id) setActiveId(null);
   };
+  const openPersistedSession = async (id: string, fallbackTitle = 'Saved session') => {
+    if (!client) return;
+    const rows = await client.loadSession(id);
+    const messages: Message[] = rows.map((row: SessionMessage, index: number) => ({
+      id: `${id}-${index}`,
+      role: row.role === 'user' ? 'user' : 'agent',
+      content: row.content,
+      ts: Number.isFinite(new Date(row.created_at).getTime()) ? new Date(row.created_at).getTime() : Date.now(),
+      status: row.role === 'user' ? undefined : 'done',
+    }));
+    const title = fallbackTitle.trim() || messages.find((m) => m.role === 'user')?.content.slice(0, 60) || 'Saved session';
+    const updatedAt = messages.at(-1)?.ts ?? Date.now();
+    setSessions((all) => [{
+      id,
+      title,
+      createdAt: messages[0]?.ts ?? updatedAt,
+      updatedAt,
+      messages,
+    }, ...all.filter((s) => s.id !== id)]);
+    setActiveId(id);
+  };
 
   // ── send ────────────────────────────────────────────────────────────────
   const send = (overrideText?: string) => {
@@ -1006,10 +1028,12 @@ export default function App() {
 
         {sidebarOpen && (
           <SessionsList
+            client={client}
             sessions={sessions}
             activeId={activeId}
             setActiveId={setActiveId}
             deleteSession={deleteSession}
+            openPersistedSession={openPersistedSession}
             clearAll={() => {
               if (sessions.length === 0) return;
               const ok = window.confirm(`Delete all ${sessions.length} session${sessions.length === 1 ? '' : 's'}? This can't be undone.`);
@@ -1789,16 +1813,25 @@ function ModeSelector({ value, onChange }: { value: Mode; onChange: (v: Mode) =>
 
 // ── Sessions list (sidebar, when expanded) ───────────────────────────────
 
+function stripHtml(value: string): string {
+  return value.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+}
+
 function SessionsList({
-  sessions, activeId, setActiveId, deleteSession, clearAll,
+  client, sessions, activeId, setActiveId, deleteSession, openPersistedSession, clearAll,
 }: {
+  client: MetisClient;
   sessions: Session[];
   activeId: string | null;
   setActiveId: (id: string) => void;
   deleteSession: (id: string) => void;
+  openPersistedSession: (id: string, fallbackTitle?: string) => Promise<void>;
   clearAll: () => void;
 }) {
   const [query, setQuery] = useState('');
+  const [serverResults, setServerResults] = useState<SessionSearchResult[]>([]);
+  const [serverSearching, setServerSearching] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return sessions;
@@ -1807,6 +1840,44 @@ function SessionsList({
       s.messages.some((m) => m.content.toLowerCase().includes(q)),
     );
   }, [sessions, query]);
+  const serverOnly = useMemo(() => {
+    const localIds = new Set(filtered.map((s) => s.id));
+    return serverResults.filter((result) => !localIds.has(result.session_id));
+  }, [filtered, serverResults]);
+
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) {
+      const reset = window.setTimeout(() => {
+        setServerResults([]);
+        setServerError(null);
+        setServerSearching(false);
+      }, 0);
+      return () => window.clearTimeout(reset);
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      if (!cancelled) setServerSearching(true);
+      try {
+        const rows = await client.searchSessions(q, 8);
+        if (!cancelled) {
+          setServerResults(rows);
+          setServerError(null);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setServerResults([]);
+          setServerError(err instanceof Error ? err.message : String(err));
+        }
+      } finally {
+        if (!cancelled) setServerSearching(false);
+      }
+    }, 250);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [client, query]);
 
   return (
     <>
@@ -1829,58 +1900,88 @@ function SessionsList({
             </button>
           )}
         </div>
-        {sessions.length > 3 && (
-          <input
-            type="search"
-            placeholder="Search sessions…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="mt-2 w-full rounded-md border border-[var(--metis-border)] bg-[var(--metis-input-bg)] px-2 py-1 text-[12px] outline-none placeholder:text-[var(--metis-fg-dim)] focus:border-violet-500/50 focus:ring-1 focus:ring-[var(--metis-focus)]"
-          />
-        )}
+        <input
+          type="search"
+          placeholder="Search sessions..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className="mt-2 w-full rounded-md border border-[var(--metis-border)] bg-[var(--metis-input-bg)] px-2 py-1 text-[12px] outline-none placeholder:text-[var(--metis-fg-dim)] focus:border-violet-500/50 focus:ring-1 focus:ring-[var(--metis-focus)]"
+        />
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
-        {sessions.length === 0 ? (
+        {sessions.length === 0 && query.trim().length < 2 ? (
           <div className="mx-2 mt-2 rounded-xl border border-dashed border-[var(--metis-border)] p-3 text-xs text-[var(--metis-fg-dim)]">
             Sessions will appear here as you chat.
           </div>
-        ) : filtered.length === 0 ? (
+        ) : filtered.length === 0 && serverOnly.length === 0 && !serverSearching ? (
           <div className="mx-2 mt-2 rounded-xl border border-dashed border-[var(--metis-border)] p-3 text-xs text-[var(--metis-fg-dim)]">
             No matches for &ldquo;{query}&rdquo;.
           </div>
         ) : (
-          <ul className="space-y-0.5">
-            {filtered.map((s) => (
-              <li key={s.id}>
-                <button
-                  type="button"
-                  onClick={() => setActiveId(s.id)}
-                  className={`group flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition ${
-                    activeId === s.id
-                      ? 'bg-[var(--metis-hover-surface)] text-[var(--metis-fg)]'
-                      : 'text-[var(--metis-chats-item)] hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]'
-                  }`}
-                  title={s.title}
-                >
-                  <span className={`inline-flex h-1.5 w-1.5 shrink-0 rounded-full ${activeId === s.id ? 'bg-violet-400' : 'bg-[var(--metis-fg-faint)]'}`} aria-hidden />
-                  <span className="truncate text-[13px]">{s.title}</span>
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    onClick={(e) => { e.stopPropagation(); deleteSession(s.id); }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); deleteSession(s.id); }
-                    }}
-                    className="ml-auto inline-flex cursor-pointer items-center justify-center rounded p-1 text-[var(--metis-fg-dim)] opacity-0 transition hover:text-rose-400 group-hover:opacity-100"
-                    title="Delete"
+          <>
+            <ul className="space-y-0.5">
+              {filtered.map((s) => (
+                <li key={s.id}>
+                  <button
+                    type="button"
+                    onClick={() => setActiveId(s.id)}
+                    className={`group flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition ${
+                      activeId === s.id
+                        ? 'bg-[var(--metis-hover-surface)] text-[var(--metis-fg)]'
+                        : 'text-[var(--metis-chats-item)] hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]'
+                    }`}
+                    title={s.title}
                   >
-                    <Trash2 className="h-3 w-3" />
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
+                    <span className={`inline-flex h-1.5 w-1.5 shrink-0 rounded-full ${activeId === s.id ? 'bg-violet-400' : 'bg-[var(--metis-fg-faint)]'}`} aria-hidden />
+                    <span className="truncate text-[13px]">{s.title}</span>
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => { e.stopPropagation(); deleteSession(s.id); }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); deleteSession(s.id); }
+                      }}
+                      className="ml-auto inline-flex cursor-pointer items-center justify-center rounded p-1 text-[var(--metis-fg-dim)] opacity-0 transition hover:text-rose-400 group-hover:opacity-100"
+                      title="Delete"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {query.trim().length >= 2 && (
+              <div className="mt-3 border-t border-[var(--metis-border)] pt-2">
+                <div className="mb-1.5 flex items-center gap-1.5 px-1 text-[10px] font-medium uppercase tracking-widest text-[var(--metis-chats-label)]">
+                  <Search className="h-3 w-3" />
+                  Saved matches
+                  {serverSearching && <Loader2 className="h-3 w-3 animate-spin text-violet-400" />}
+                </div>
+                {serverError ? (
+                  <div className="mx-1 rounded-md border border-rose-500/30 bg-rose-500/10 px-2 py-1.5 text-[11px] text-rose-200">{serverError}</div>
+                ) : serverOnly.length === 0 && !serverSearching ? (
+                  <div className="px-1 text-[11px] text-[var(--metis-fg-dim)]">No saved history matches.</div>
+                ) : (
+                  <ul className="space-y-1">
+                    {serverOnly.map((result) => (
+                      <li key={`${result.session_id}-${result.created_at}`}>
+                        <button
+                          type="button"
+                          onClick={() => { void openPersistedSession(result.session_id, result.session_title || 'Saved session'); }}
+                          className="w-full rounded-lg border border-[var(--metis-border)] bg-[var(--metis-bg)] px-2 py-2 text-left hover:bg-[var(--metis-hover-surface)]"
+                          title={stripHtml(result.snippet)}
+                        >
+                          <div className="truncate text-[12px] font-medium text-[var(--metis-fg)]">{result.session_title || result.session_id}</div>
+                          <div className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-[var(--metis-fg-muted)]">{stripHtml(result.snippet)}</div>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
     </>
