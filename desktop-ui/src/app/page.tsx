@@ -46,6 +46,7 @@ import {
   BarChart3,
   Search,
   ChevronDown,
+  Sunrise,
 } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { createLocalClient, MetisClient, AuthUser, Schedule, Artifact, RunMode, RunPermission, SessionMessage, SessionSearchResult } from '@/lib/metis-client';
@@ -57,6 +58,7 @@ import RelationshipsPanel from '@/components/relationships-panel';
 import InboxPanel from '@/components/inbox-panel';
 import ConnectionsPanel from '@/components/connections-panel';
 import InstallAppButton from '@/components/install-app-button';
+import BriefingPanel from '@/components/briefing-panel';
 import MemoryPanel from '@/components/memory-panel';
 import ReportsPanel from '@/components/reports-panel';
 import AnalyticsPanel from '@/components/analytics-panel';
@@ -467,6 +469,7 @@ export default function App() {
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
+  const [briefingOpen, setBriefingOpen] = useState(false);
   const [health, setHealth] = useState<SystemHealth | null>(null);
   const [activeArtifactId, setActiveArtifactId] = useState<string | null>(null);
   const [reportArtifact, setReportArtifact] = useState<Artifact | null>(null);
@@ -781,6 +784,7 @@ export default function App() {
       else if (k === 'm')   { e.preventDefault(); setMemoryOpen((v) => !v); }
       else if (k === 'p')   { e.preventDefault(); setReportsOpen((v) => !v); }
       else if (k === 'a')   { e.preventDefault(); setAnalyticsOpen((v) => !v); }
+      else if (k === 'd')   { e.preventDefault(); setBriefingOpen((v) => !v); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -1160,6 +1164,16 @@ export default function App() {
               <FileText className="h-4 w-4 shrink-0 text-violet-400" />
               <span>Reports</span>
               <span className="ml-auto text-[10px] text-[var(--metis-fg-dim)]">⌘P</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setBriefingOpen(true)}
+              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] text-[var(--metis-fg-muted)] transition hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]"
+              title="Daily briefing (⌘D)"
+            >
+              <Sunrise className="h-4 w-4 shrink-0 text-violet-400" />
+              <span>Briefing</span>
+              <span className="ml-auto text-[10px] text-[var(--metis-fg-dim)]">⌘D</span>
             </button>
             <button
               type="button"
@@ -1605,6 +1619,17 @@ export default function App() {
             client={client}
             reduceMotion={!!reduceMotion}
             onClose={() => setMemoryOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Daily briefing — read past plans + run today's now */}
+      <AnimatePresence>
+        {briefingOpen && client && (
+          <BriefingPanel
+            client={client}
+            reduceMotion={!!reduceMotion}
+            onClose={() => setBriefingOpen(false)}
           />
         )}
       </AnimatePresence>

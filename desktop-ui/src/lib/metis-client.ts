@@ -152,6 +152,22 @@ export function normalizeSetupCode(code: string): string {
   return compact.toLowerCase().startsWith(prefix) ? compact.slice(prefix.length) : compact;
 }
 
+// ── Daily briefings ─────────────────────────────────────────────────────────
+
+export interface BriefingSummary {
+  date: string;            // YYYY-MM-DD
+  filename: string;
+  size: number;
+  modified_at: number;     // unix seconds
+  preview: string;         // first ~280 chars of markdown
+}
+
+export interface BriefingDetail {
+  date: string;
+  filename: string;
+  content: string;         // full markdown body
+}
+
 // ── Memory ──────────────────────────────────────────────────────────────────
 
 export interface MemoryHit {
@@ -713,6 +729,20 @@ export class MetisClient {
     });
     if (!res.ok) throw new Error(`delete notification: ${res.status}`);
     return res.json();
+  }
+
+  // ── Daily briefings ─────────────────────────────────────────────────────
+
+  async listBriefings(): Promise<BriefingSummary[]> {
+    return this.get('/briefings');
+  }
+
+  async getBriefing(date: string): Promise<BriefingDetail> {
+    return this.get(`/briefings/${encodeURIComponent(date)}`);
+  }
+
+  async runBriefingNow(): Promise<{ ok: boolean; status: string }> {
+    return this.post('/briefings/run', {});
   }
 
   // ── Analytics ────────────────────────────────────────────────────────────

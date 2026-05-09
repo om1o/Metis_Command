@@ -1773,6 +1773,80 @@ def notifications_delete_one(notif_id: str) -> dict:
     return {"ok": True, "id": notif_id}
 
 
+# ── Daily briefings ──────────────────────────────────────────────────────────
+# The scheduler's `daily_briefing` action writes a markdown file to
+# artifacts/daily_plan_YYYY-MM-DD.md every morning. These routes expose
+# them to the UI so the user can read past briefings + trigger a fresh
+# one on demand.
+
+import re as _re
+_BRIEFING_RX = _re.compile(r"^daily_plan_(\d{4}-\d{2}-\d{2})\.md$")
+
+
+def _briefings_dir() -> Path:
+    """Resolve the artifacts dir the same way daily_tasks does."""
+    try:
+        from daily_tasks import ARTIFACTS_DIR  # noqa
+        return ARTIFACTS_DIR
+    except Exception:
+        return Path(__file__).parent / "artifacts"
+
+
+@app.get("/briefings")
+def briefings_list() -> list[dict]:
+    """List daily plan markdown files, newest first."""
+    out: list[dict] = []
+    bdir = _briefings_dir()
+    if not bdir.exists():
+        return out
+    for p in sorted(bdir.iterdir(), reverse=True):
+        m = _BRIEFING_RX.match(p.name)
+        if not m:
+            continue
+        try:
+            stat = p.stat()
+            preview = p.read_text(encoding="utf-8")[:280]
+        except Exception:
+            continue
+        out.append({
+            "date": m.group(1),
+            "filename": p.name,
+            "size": stat.st_size,
+            "modified_at": stat.st_mtime,
+            "preview": preview,
+        })
+        if len(out) >= 60:
+            break
+    return out
+
+
+@app.get("/briefings/{date}")
+def briefing_get(date: str) -> dict:
+    """Return the full markdown body of one daily plan."""
+    if not _re.match(r"^\d{4}-\d{2}-\d{2}$", date):
+        raise HTTPException(status_code=400, detail="date must be YYYY-MM-DD")
+    p = _briefings_dir() / f"daily_plan_{date}.md"
+    if not p.exists():
+        raise HTTPException(status_code=404, detail="briefing not found")
+    return {
+        "date": date,
+        "filename": p.name,
+        "content": p.read_text(encoding="utf-8"),
+    }
+
+
+@app.post("/briefings/run")
+def briefing_run_now() -> dict:
+    """Generate today's briefing on demand. Synchronous; can take a few
+    seconds because it calls every persistent agent + the manager."""
+    try:
+        from daily_tasks import daily_briefing
+        status = daily_briefing()
+        return {"ok": True, "status": status}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"briefing failed: {e}")
+
+
 # ── Skills ───────────────────────────────────────────────────────────────────
 
 @app.get("/skills")
