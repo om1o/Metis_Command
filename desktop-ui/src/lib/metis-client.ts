@@ -233,6 +233,29 @@ export interface Schedule {
   created_at: number;
 }
 
+export interface Mission {
+  id: string;
+  goal: string;
+  status: 'queued' | 'running' | 'success' | 'failed' | 'cancelled' | string;
+  tag: string;
+  project_slug?: string | null;
+  auto_approve?: boolean;
+  events?: Record<string, unknown>[];
+  final_answer?: string;
+  submitted_at?: number;
+  started_at?: number | null;
+  ended_at?: number | null;
+}
+
+export interface ScheduleRunResult {
+  ok: boolean;
+  id: string;
+  status: string;
+  mission_id?: string;
+  action?: string;
+  error?: string;
+}
+
 // ── Relationships ──────────────────────────────────────────────────────────
 
 export interface Relationship {
@@ -515,8 +538,16 @@ export class MetisClient {
     return this.post(`/schedules/${id}/toggle`, {});
   }
 
-  async runScheduleNow(id: string): Promise<{ ok: boolean; id: string }> {
+  async runScheduleNow(id: string): Promise<ScheduleRunResult> {
     return this.post(`/schedules/${id}/run`, {});
+  }
+
+  async listMissions(limit = 50): Promise<Mission[]> {
+    return this.get(`/missions?limit=${limit}`);
+  }
+
+  async getMission(id: string): Promise<Mission> {
+    return this.get(`/missions/${id}`);
   }
 
   // ── Relationships ───────────────────────────────────────────────────────

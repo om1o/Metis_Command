@@ -1186,10 +1186,25 @@ def schedules_toggle(schedule_id: str) -> dict:
 @app.post("/schedules/{schedule_id}/run")
 def schedules_run_now(schedule_id: str) -> dict:
     from scheduler import run_now as _run_now
-    found = _run_now(schedule_id)
-    if not found:
+    result = _run_now(schedule_id)
+    if result is None:
         raise HTTPException(status_code=404, detail="schedule not found")
-    return {"ok": True, "id": schedule_id}
+    return {"ok": result.get("status") != "failed", **result}
+
+
+@app.get("/missions")
+def missions_list(limit: int = 50) -> list[dict]:
+    from concurrency import list_missions
+    return [m.to_dict() for m in list_missions(limit=limit)]
+
+
+@app.get("/missions/{mission_id}")
+def mission_get(mission_id: str) -> dict:
+    from concurrency import get_mission
+    mission = get_mission(mission_id)
+    if mission is None:
+        raise HTTPException(status_code=404, detail="mission not found")
+    return mission.to_dict()
 
 
 # ── Marketplace ──────────────────────────────────────────────────────────────

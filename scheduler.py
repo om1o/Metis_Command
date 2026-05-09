@@ -222,14 +222,14 @@ def toggle(schedule_id: str) -> bool:
 
 
 @audited("schedule.run_now")
-def run_now(schedule_id: str) -> bool:
+def run_now(schedule_id: str) -> dict | None:
     """Fire a schedule immediately regardless of its next_run time.
-    Returns True if the schedule was found and dispatched."""
+    Returns dispatch metadata, or None if the schedule was not found."""
     with _lock:
         schedules = _load()
         target = next((s for s in schedules if s.id == schedule_id), None)
     if not target:
-        return False
+        return None
 
     if target.action:
         try:
@@ -238,22 +238,27 @@ def run_now(schedule_id: str) -> bool:
             if handler:
                 handler()
                 _notify_inbox_fired(target, body=f"Action `{target.action}` ran on demand.")
+                return {"id": schedule_id, "status": "action_ran", "action": target.action}
+            _notify_inbox_fired(target, body=f"Action `{target.action}` is not registered.")
+            return {"id": schedule_id, "status": "action_missing", "action": target.action}
         except Exception as e:
             _notify_inbox_fired(target, body=f"Action `{target.action}` failed: {e}")
+            return {"id": schedule_id, "status": "failed", "action": target.action, "error": str(e)}
     else:
         try:
             from concurrency import submit_mission  # type: ignore
             from run_contracts import build_run_contract  # type: ignore
-            submit_mission(
+            mission = submit_mission(
                 goal=build_run_contract(target.goal, mode=target.mode, permission=target.permission),
                 tag=f"scheduled:{schedule_id}",
                 auto_approve=target.auto_approve,
                 project_slug=target.project_slug,
             )
             _notify_inbox_fired(target, body="Triggered manually. Check the chat or workspace for the result.")
+            return {"id": schedule_id, "status": mission.status, "mission_id": mission.id}
         except Exception as e:
             _notify_inbox_fired(target, body=f"Could not trigger: {e}")
-    return True
+            return {"id": schedule_id, "status": "failed", "error": str(e)}
 
 
 def list_schedules() -> list[Schedule]:

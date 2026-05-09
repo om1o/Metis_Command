@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Bell,
@@ -26,7 +26,7 @@ interface Props {
 }
 
 function fmtNext(ts: number | null): string {
-  if (!ts) return '—';
+  if (!ts) return '-';
   const d = new Date(ts * 1000);
   const ms = d.getTime() - Date.now();
   if (ms < 0) return 'overdue';
@@ -53,6 +53,7 @@ function fmtCadence(s: Schedule): string {
 export default function JobsPanel({ client, reduceMotion, onClose, onOpenArtifact }: Props) {
   const [items, setItems] = useState<Schedule[] | null>(null);
   const [reports, setReports] = useState<Record<string, Artifact>>({});
+  const [runState, setRunState] = useState<Record<string, { missionId?: string; status: string }>>({});
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -89,6 +90,48 @@ export default function JobsPanel({ client, reduceMotion, onClose, onOpenArtifac
   // (React 19 lint flags synchronous setState in an effect body).
   useEffect(() => { queueMicrotask(refresh); }, [refresh]);
 
+  const activeRuns = useMemo(
+    () => Object.entries(runState).filter(([, state]) => state.missionId && ['queued', 'running'].includes(state.status)),
+    [runState],
+  );
+
+  useEffect(() => {
+    if (activeRuns.length === 0) return;
+    let cancelled = false;
+
+    const poll = async () => {
+      const updates = await Promise.all(
+        activeRuns.map(async ([scheduleId, state]) => {
+          try {
+            const mission = await client.getMission(state.missionId!);
+            return [scheduleId, mission] as const;
+          } catch {
+            return [scheduleId, null] as const;
+          }
+        }),
+      );
+      if (cancelled) return;
+      let terminal = false;
+      setRunState((current) => {
+        const next = { ...current };
+        for (const [scheduleId, mission] of updates) {
+          if (!mission) continue;
+          next[scheduleId] = { missionId: mission.id, status: mission.status };
+          if (!['queued', 'running'].includes(mission.status)) terminal = true;
+        }
+        return next;
+      });
+      if (terminal) await refresh();
+    };
+
+    const timer = window.setInterval(poll, 2500);
+    queueMicrotask(poll);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [activeRuns, client, refresh]);
+
   const onToggle = async (id: string) => {
     setBusyId(id);
     try {
@@ -116,8 +159,13 @@ export default function JobsPanel({ client, reduceMotion, onClose, onOpenArtifac
   const onRunNow = async (id: string) => {
     setBusyId(id);
     try {
-      await client.runScheduleNow(id);
+      const result = await client.runScheduleNow(id);
+      setRunState((current) => ({
+        ...current,
+        [id]: { missionId: result.mission_id, status: result.status },
+      }));
       setError(null);
+      if (!result.mission_id) await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -174,7 +222,7 @@ export default function JobsPanel({ client, reduceMotion, onClose, onOpenArtifac
 
           {!items ? (
             <div className="flex items-center gap-2 py-6 text-sm text-[var(--metis-fg-muted)]">
-              <Loader2 className="h-4 w-4 animate-spin text-violet-400" /> Loading jobs…
+              <Loader2 className="h-4 w-4 animate-spin text-violet-400" /> Loading jobs...
             </div>
           ) : items.length === 0 ? (
             <EmptyState />
@@ -190,6 +238,7 @@ export default function JobsPanel({ client, reduceMotion, onClose, onOpenArtifac
                       onToggle={() => onToggle(s.id)}
                       onDelete={() => onDelete(s.id)}
                       onRunNow={() => onRunNow(s.id)}
+                      runState={runState[s.id]}
                       report={reports[s.id]}
                       onOpenReport={() => reports[s.id] && onOpenArtifact(reports[s.id].id)}
                     />
@@ -213,6 +262,7 @@ export default function JobsPanel({ client, reduceMotion, onClose, onOpenArtifac
                         onToggle={() => onToggle(s.id)}
                         onDelete={() => onDelete(s.id)}
                         onRunNow={() => onRunNow(s.id)}
+                        runState={runState[s.id]}
                         report={reports[s.id]}
                         onOpenReport={() => reports[s.id] && onOpenArtifact(reports[s.id].id)}
                         readonly
@@ -248,6 +298,7 @@ function JobRow({
   onToggle,
   onDelete,
   onRunNow,
+  runState,
   report,
   onOpenReport,
   readonly,
@@ -257,6 +308,7 @@ function JobRow({
   onToggle: () => void;
   onDelete: () => void;
   onRunNow: () => void;
+  runState?: { missionId?: string; status: string };
   report?: Artifact;
   onOpenReport: () => void;
   readonly?: boolean;
@@ -300,6 +352,13 @@ function JobRow({
               Latest report
             </button>
           )}
+          {runState && (
+            <div className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-violet-500/30 bg-violet-500/10 px-2 py-1 text-[11px] text-violet-200">
+              {['queued', 'running'].includes(runState.status) ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+              <span className="capitalize">{runState.status}</span>
+              {runState.missionId && <span className="font-mono text-[10px] text-violet-300/80">{runState.missionId}</span>}
+            </div>
+          )}
         </div>
         <div className="flex shrink-0 items-center gap-1">
           {!s.action && (
@@ -330,7 +389,7 @@ function JobRow({
             disabled={busy || readonly}
             className="metis-icon-btn text-rose-400/80 hover:text-rose-400 disabled:opacity-40"
             aria-label="Delete"
-            title={readonly ? 'System job — delete disabled' : 'Delete'}
+            title={readonly ? 'System job - delete disabled' : 'Delete'}
           >
             <Trash2 className="h-4 w-4" />
           </button>
