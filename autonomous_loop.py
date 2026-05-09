@@ -55,6 +55,7 @@ def _tool_registry() -> dict[str, Callable[..., Any]]:
     from tools import computer_use as _cu
     from tools import voice_io as _vo
     from tools import gmail_api as _gm
+    from tools import vision as _vis
     from custom_tools import internet_search as _search
 
     from tools import multi_lang as _ml
@@ -72,6 +73,22 @@ def _tool_registry() -> dict[str, Callable[..., Any]]:
         "browser_screenshot": _ba.screenshot,
         "screenshot":         _cu.screenshot,
         "web_search": lambda query: _search.run(query) if hasattr(_search, "run") else _search(query),
+
+        # MVP 17: vision. The agent SEES the screen. Both tools read
+        # an image path and return descriptions / coordinates — no
+        # state change, so no gate needed. The pattern is:
+        #   1. screenshot()                    -> path
+        #   2. vision_find_element(path, "X")  -> {x, y, found}
+        #   3. click_xy(x, y)                  -> gated; user approves
+        # Vision routes through brain_engine.chat_by_role("vision"),
+        # which uses Ollama's llava locally and cloud vision when keys
+        # are set.
+        "vision_describe":     lambda image_path, prompt=None: _vis.describe(
+                                   str(image_path), prompt=prompt),
+        "vision_find_element": lambda image_path, description: _vis.find_element(
+                                   str(image_path), str(description)),
+        "see_then_click":      lambda image_path, target: _vis.see_then_click(
+                                   str(image_path), str(target)),
 
         # State-changing — gated through Read/Balanced/Full.
         "write_file":   _perm.gate("write_file",   _fs.write_file,                    summary_args=["path"]),
@@ -253,6 +270,11 @@ Valid tools (name -> signature):
   double_click_xy(x, y)                 (gated)
   type_text(text, interval=0.02)        (gated)
   key_combo(keys)                       (gated; e.g. ["ctrl","c"])
+
+  # Vision — describe what's on screen / find UI elements
+  vision_describe(image_path)               -> str
+  vision_find_element(image_path, desc)     -> {found, x, y, confidence}
+  see_then_click(image_path, target)        -> click-ready payload (no click)
 
   # Misc
   speak(text)                           (gated)

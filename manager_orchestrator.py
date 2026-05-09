@@ -202,6 +202,18 @@ Native control tools, all permission-gated except screenshot/clipboard:
   - key_combo            : send a hotkey, e.g. ["ctrl", "c"]
   - write_clipboard      : place text on the clipboard
 
+Vision tools (free, read-only) — let you SEE the screen:
+  - vision_describe(image_path)             : describe a screenshot
+  - vision_find_element(image_path, desc)   : pixel coords of a UI element
+  - see_then_click(image_path, target)      : prepare a click payload
+
+The pattern for clicking on something the user described in natural
+language ("click the Send button", "open the third email"):
+  1. screenshot()                            -> path
+  2. vision_find_element(path, "Send button") -> {found, x, y}
+  3. if found, click_xy(x, y)                -> gated; user approves
+NEVER guess coordinates — always vision_find_element first.
+
 Gmail. Do NOT drive Gmail with browser tools — Google's bot
 detection blocks every Playwright variant, headed or headless.
 Use the Gmail API tools instead:
@@ -382,13 +394,20 @@ def orchestrate(
 
     started = time.time()
     agents_used: list[str] = []
+    # Detect "hello" / "thanks" / "how are you" early — these don't
+    # need memory recall, the planner, or any of the topic rules.
+    # Skipping that work cuts simple-turn latency from 30-60s to
+    # under 5s on a small local model.
+    is_simple = _looks_simple(user_msg)
 
     # ── 0. Conversation context ─────────────────────────────────────────
     # Smaller k for both recall and history because long context blows
     # up first-token latency on small local models. The full memory is
     # still in the brain — we just inject less per turn.
+    # Skip the chromadb round-trip entirely for trivial messages — it
+    # costs 1-3s for zero useful context on "hi".
     context_msgs: list[dict] = []
-    if session_id:
+    if session_id and not is_simple:
         try:
             from memory_loop import inject_context
             context_msgs = inject_context(
@@ -413,7 +432,7 @@ def orchestrate(
     # and stream the answer directly. The planner round-trip costs the
     # same as the answer itself on a 1.5B model, so for "say hi" / "what
     # is X" / "thanks", we'd rather just answer.
-    if _looks_simple(user_msg):
+    if is_simple:
         plan = {"self_handle": True, "summary": user_msg, "agents": []}
     else:
         try:
@@ -493,15 +512,22 @@ def orchestrate(
                     }
 
     # ── 3. Synthesis: Manager streams the final answer ───────────────────
-    # Always include the small Metis core (~150 tokens). Add only the
-    # topic-specific rule blocks the user's request actually triggers.
-    # This keeps the prompt small for everyday chat — first-token latency
-    # on a 1.5B local model scales linearly with context size.
-    base_system = (
-        f"{persona_prompt}"
-        f"{_METIS_CORE}"
-        f"{_extra_rules_for(user_msg)}"
-    )
+    # Always include the small Metis core (~150 tokens). The full rule
+    # blocks (relationship/investing/computer-use, ~1500 tokens) only
+    # ship when the message isn't trivially conversational. "hello"
+    # doesn't need the contact-saving rule loaded — it just needs to
+    # answer fast. This is the single biggest win on local-model
+    # latency: a 1.5B model's first-token time scales linearly with
+    # prompt size, so cutting prompt from 2000 → 200 tokens roughly
+    # 10x's "hello" latency.
+    if is_simple:
+        base_system = f"{persona_prompt}{_METIS_CORE}"
+    else:
+        base_system = (
+            f"{persona_prompt}"
+            f"{_METIS_CORE}"
+            f"{_extra_rules_for(user_msg)}"
+        )
 
     # Build the message list: system → context history → current question.
     synth_messages: list[dict] = [{"role": "system", "content": base_system}]
