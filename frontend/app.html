@@ -812,6 +812,11 @@ pre:hover .code-copy{opacity:1}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="9" y2="18"/><line x1="15" y1="18" x2="21" y2="18"/></svg>
       </button>
 
+      <!-- Workflow builder button -->
+      <button class="icon-btn" id="workflowBtn" title="Workflow builder (Phase 15)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="6" height="6" rx="1"/><rect x="16" y="3" width="6" height="6" rx="1"/><rect x="9" y="15" width="6" height="6" rx="1"/><line x1="5" y1="9" x2="5" y2="12"/><line x1="19" y1="9" x2="19" y2="12"/><line x1="5" y1="12" x2="12" y2="12"/><line x1="19" y1="12" x2="12" y2="12"/><line x1="12" y1="12" x2="12" y2="15"/></svg>
+      </button>
+
       <!-- Notification bell -->
       <div class="notif-bell-wrap" id="notifBellWrap">
         <button class="notif-bell-btn" id="notifBellBtn" title="Notifications">
@@ -3446,9 +3451,12 @@ function renderCmpResults(results) {
     body.classList.remove('loading');
     if (r.error) {
       body.classList.add('error');
-      body.textContent = `Error: ${r.error}`;
+      body.innerHTML = `<span style="color:var(--co)">Error: ${escapeHtml(r.error)}</span>`;
     } else {
-      body.textContent = r.content || '(empty response)';
+      const md = r.content || '(empty response)';
+      // Render as markdown if renderMarkdown is available, else plain text
+      try { body.innerHTML = renderMarkdown(md); }
+      catch { body.textContent = md; }
     }
     if (timing) timing.textContent = r.duration_ms ? `${(r.duration_ms / 1000).toFixed(1)}s` : '';
   });
@@ -3611,6 +3619,18 @@ COMMANDS.push({
   id: 'analytics', icon: '📊', t: 'Open Analytics Dashboard',
   d: 'Sessions, missions, token usage and budget stats', kbd: '',
   run: () => window.open('/analytics-ui', '_blank'),
+});
+
+// ── Workflow builder (Phase 15) ────────────────────────────────────────
+document.getElementById('workflowBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  window.open('/workflows/page/builder', '_blank');
+});
+
+COMMANDS.push({
+  id: 'workflows', icon: '🔗', t: 'Open Workflow Builder',
+  d: 'Visually connect specialists into reusable pipelines', kbd: '',
+  run: () => window.open('/workflows/page/builder', '_blank'),
 });
 </script>
 <script src="/static/polish/global-polish.v2.js?v=v18"></script>

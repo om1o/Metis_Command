@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import uuid
 from typing import Any
 
 from dotenv import load_dotenv
@@ -52,7 +53,9 @@ PUBLIC_PATHS = {"/", "/health", "/version", "/status",
                 # Ollama auto-start probes the splash screen calls before login
                 "/ollama/status", "/ollama/start",
                 # PWA assets must be public — browsers fetch these before auth
-                "/manifest.json", "/sw.js", "/logo-test"}
+                "/manifest.json", "/sw.js", "/logo-test",
+                # Workflow builder page
+                "/workflows/page/builder"}
 
 PUBLIC_PREFIXES = ("/static/",)
 
@@ -2454,6 +2457,108 @@ def models_warmup(request: Request) -> dict:
 
     threading.Thread(target=_do_warmup, args=(model_id,), daemon=True).start()
     return {"ok": True, "model": model_id, "status": "warming_up"}
+
+
+# ── Workflow builder (Phase 15) ──────────────────────────────────────────────
+
+class _WorkflowNodeIn(BaseModel):
+    id: str
+    type: str
+    label: str
+    config: dict = Field(default_factory=dict)
+    x: float = 100.0
+    y: float = 100.0
+
+
+class _WorkflowEdgeIn(BaseModel):
+    id: str
+    source: str
+    target: str
+    label: str = ""
+
+
+class _WorkflowIn(BaseModel):
+    id: str | None = None
+    name: str
+    description: str = ""
+    nodes: list[_WorkflowNodeIn] = Field(default_factory=list)
+    edges: list[_WorkflowEdgeIn] = Field(default_factory=list)
+
+
+class _WorkflowRunIn(BaseModel):
+    inputs: dict = Field(default_factory=dict)
+
+
+@app.get("/workflows/templates")
+def workflows_templates() -> dict:
+    """Built-in workflow templates."""
+    import workflows as _wf
+    return {"templates": _wf.list_templates(), "node_types": _wf.NODE_TYPES}
+
+
+@app.get("/workflows")
+def workflows_list() -> dict:
+    """List all saved workflows."""
+    import workflows as _wf
+    return {
+        "workflows": [w.to_dict() for w in _wf.list_workflows()],
+        "node_types": _wf.NODE_TYPES,
+    }
+
+
+@app.post("/workflows")
+def workflows_save(req: _WorkflowIn) -> dict:
+    """Create or update a workflow."""
+    import workflows as _wf
+    from workflows import Workflow, WorkflowNode, WorkflowEdge
+    wf_id = req.id or f"wf-{uuid.uuid4().hex[:12]}"
+    nodes = [WorkflowNode(id=n.id, type=n.type, label=n.label, config=n.config, x=n.x, y=n.y)
+             for n in req.nodes]
+    edges = [WorkflowEdge(id=e.id, source=e.source, target=e.target, label=e.label)
+             for e in req.edges]
+    wf = _wf.load_workflow(wf_id)
+    if wf:
+        wf.name = req.name
+        wf.description = req.description
+        wf.nodes = nodes
+        wf.edges = edges
+    else:
+        import time as _time
+        wf = Workflow(id=wf_id, name=req.name, description=req.description,
+                      nodes=nodes, edges=edges, created_at=_time.time())
+    _wf.save_workflow(wf)
+    return {"workflow": wf.to_dict()}
+
+
+@app.get("/workflows/{workflow_id}")
+def workflows_get(workflow_id: str) -> dict:
+    import workflows as _wf
+    wf = _wf.load_workflow(workflow_id)
+    if not wf:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    return {"workflow": wf.to_dict()}
+
+
+@app.delete("/workflows/{workflow_id}")
+def workflows_delete(workflow_id: str) -> dict:
+    import workflows as _wf
+    deleted = _wf.delete_workflow(workflow_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    return {"ok": True}
+
+
+@app.post("/workflows/{workflow_id}/run")
+def workflows_run(workflow_id: str, req: _WorkflowRunIn) -> dict:
+    """Execute a workflow and return the step-by-step result."""
+    import workflows as _wf
+    result = _wf.run_workflow(workflow_id, req.inputs)
+    return result.to_dict()
+
+
+@app.get("/workflows/page/builder")
+def page_workflow_builder() -> FileResponse:
+    return FileResponse(_FRONTEND_DIR / "workflow.html")
 
 
 if __name__ == "__main__":

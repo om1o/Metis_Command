@@ -4,7 +4,7 @@
 
 ---
 
-## Current State (v0.16.4)
+## Current State (v0.19.0)
 
 ### Working
 - Manager orchestrator with 4 specialists (Researcher, Coder, Thinker, Scholar)
@@ -63,6 +63,7 @@
 - ✅ Multi-model comparison API (Phase 13 backend) — `POST /chat/compare` runs same prompt against N models in parallel via ThreadPoolExecutor, stable result ordering, 90s timeout; `compareModels()` added to api.js
 - ✅ Compare panel UI (Phase 13 frontend) — ⚖️ button in header, full-screen side-by-side panel, model chip selector (up to 4), Ctrl+Enter to run, per-column timing display, copy support via command palette
 - ✅ MFA / Two-Factor Auth (Phase 14) — `enroll_totp`, `verify_totp`, `list_mfa_factors`, `unenroll_totp` in `auth_engine.py`; API routes `POST /auth/mfa/enroll`, `POST /auth/mfa/verify`, `GET /auth/mfa/factors`, `POST /auth/mfa/unenroll`; login challenge step (auto-triggers after sign-in when TOTP factor present); Settings panel Security section with QR code enroll/disable flow; rate-limit 429 toast feedback in `api.js`
+- ✅ Agent Workflow Builder (Phase 15) — `workflows.py` engine (6 node types, 4 built-in templates, run/save/delete); 7 API routes; `frontend/workflow.html` visual canvas with drag-and-drop, pan/zoom, bezier edges, properties panel, run-results drawer; workflow button + command palette entry in `app.html`; compare panel now renders markdown
 
 ---
 
@@ -262,17 +263,18 @@
 
 ---
 
-## Phase 15 — Agent Workflow Builder
+## Phase 15 — Agent Workflow Builder ✅
 **Goal**: Visual editor for creating multi-step agent workflows.
 
-- Drag-and-drop canvas for connecting specialists into pipelines
-- Node types: Prompt, Specialist, Condition (if/else), Loop, Human Review
-- Save workflows as JSON to `identity/workflows/`
-- Execute via `/workflows/{id}/run` API route
-- Template library: "Research → Summarize → Email", "Code → Test → Deploy"
+- ✅ Drag-and-drop canvas for connecting specialists into pipelines
+- ✅ Node types: Prompt, Specialist, Condition, Loop, Human Review, Output
+- ✅ Save workflows as JSON to `identity/workflows/`
+- ✅ Execute via `POST /workflows/{id}/run` API route
+- ✅ Template library: "Research → Summarize", "Code → Review → Test", "Plan → Execute → Human Review", "Daily Briefing"
+- ✅ Pan / zoom canvas, edge bezier curves, properties panel, run-results drawer
 
-**Files**: new `workflows.py`, `api_bridge.py`, new `frontend/workflow.html`
-**Est**: Large
+**Files**: `workflows.py`, `api_bridge.py`, `frontend/workflow.html`, `frontend/static/js/api.js`
+**Shipped**: v0.19.0
 
 ---
 
@@ -338,7 +340,7 @@
 | 12. Keyboard Power | 🟢 Medium | Small | Q3 |
 | 13. Model Compare | 🟢 Medium | Large | ✅ Done |
 | 14. MFA | 🟡 High | Medium | ✅ Done |
-| 15. Workflows | 🟢 Medium | Large | Q4 |
+| 15. Workflows | 🟢 Medium | Large | ✅ Done |
 | 16. Analytics | 🟢 Medium | Medium | ✅ Done |
 | 17. Desktop Native | 🔴 Critical | Large | Q4 |
 | 18. Mobile PWA | 🟡 High | Medium | ✅ Foundation done |

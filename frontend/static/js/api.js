@@ -205,6 +205,16 @@ export const api = {
     body: JSON.stringify({ message, models }),
   }),
 
+  // Workflows (Phase 15)
+  workflows: () => _fetch('/workflows'),
+  workflowTemplates: () => _fetch('/workflows/templates'),
+  saveWorkflow: (data) => _fetch('/workflows', { method: 'POST', body: JSON.stringify(data) }),
+  getWorkflow: (id) => _fetch(`/workflows/${encodeURIComponent(id)}`),
+  deleteWorkflow: (id) => _fetch(`/workflows/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  runWorkflow: (id, inputs = {}) => _fetch(`/workflows/${encodeURIComponent(id)}/run`, {
+    method: 'POST', body: JSON.stringify({ inputs }),
+  }),
+
   // Streaming chat (Server-Sent Events)
   chatStream: async function* (sessionId, message, role = 'manager', signal, direct = false) {
     const token = getToken();
