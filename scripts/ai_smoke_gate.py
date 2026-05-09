@@ -137,6 +137,7 @@ def check_manager_chat() -> None:
 
 def check_autonomous_exact_answers() -> None:
     sys.path.insert(0, str(ROOT))
+    sys.modules.pop("autonomous_loop", None)
     import autonomous_loop
 
     goals = [
@@ -150,6 +151,10 @@ def check_autonomous_exact_answers() -> None:
         ),
     ]
     for goal, expected in goals:
+        heuristic_fn = getattr(autonomous_loop, "_heuristic_plan", None)
+        if heuristic_fn is None:
+            _fail("autonomous import", f"loaded {getattr(autonomous_loop, '__file__', '<unknown>')} without _heuristic_plan")
+        heuristic_plan = heuristic_fn(goal)
         mission = autonomous_loop.run_mission(
             goal,
             max_steps=3,
@@ -167,9 +172,9 @@ def check_autonomous_exact_answers() -> None:
             for step in mission.steps
         ]
         if mission.status != "success":
-            _fail("autonomous mission", f"{expected}: status={mission.status}, answer={mission.final_answer!r}; steps={steps}")
+            _fail("autonomous mission", f"{expected}: status={mission.status}, answer={mission.final_answer!r}; module={autonomous_loop.__file__}; plan={heuristic_plan}; steps={steps}")
         if mission.final_answer.strip() != expected:
-            _fail("autonomous mission", f"expected {expected!r}, got {mission.final_answer!r}; steps={steps}")
+            _fail("autonomous mission", f"expected {expected!r}, got {mission.final_answer!r}; module={autonomous_loop.__file__}; plan={heuristic_plan}; steps={steps}")
         _ok("autonomous mission", expected)
 
 
