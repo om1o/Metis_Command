@@ -16,6 +16,7 @@ Examples:
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import json
 import shutil
 import subprocess
@@ -23,7 +24,7 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Sequence
 
 
 ROOT = Path(__file__).absolute().parent.parent
@@ -66,6 +67,11 @@ CHECKS: dict[str, Check] = {
             "-q",
         ),
     ),
+    "tests.qql": Check(
+        key="tests.qql",
+        description="QQL parser, dry-run, and command-resolution tests.",
+        command=_py("-m", "pytest", "tests/unit/test_qql.py", "-q"),
+    ),
     "tests.unit": Check(
         key="tests.unit",
         description="All configured Python unit tests.",
@@ -92,11 +98,11 @@ CHECKS: dict[str, Check] = {
 
 ALIASES: dict[str, tuple[str, ...]] = {
     "ai": ("ai.basic",),
-    "quality": ("quality.diff", "tests.backend"),
+    "quality": ("quality.diff", "tests.qql", "tests.backend"),
     "backend": ("tests.backend",),
     "ui": ("ui.desktop.lint", "ui.desktop.build"),
     "ui.desktop": ("ui.desktop.lint", "ui.desktop.build"),
-    "all": ("quality.diff", "tests.backend", "ui.desktop.lint", "ui.desktop.build", "ai.basic"),
+    "all": ("quality.diff", "tests.qql", "tests.backend", "ui.desktop.lint", "ui.desktop.build", "ai.basic"),
 }
 
 
@@ -148,6 +154,22 @@ def _run_check(check: Check) -> int:
         return 127
 
 
+def _git_value(args: Sequence[str]) -> str:
+    try:
+        proc = subprocess.run(
+            ("git", *args),
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        return ""
+    if proc.returncode != 0:
+        return ""
+    return proc.stdout.strip()
+
+
 def run_checks(checks: Iterable[Check], *, dry_run: bool) -> list[dict[str, object]]:
     results: list[dict[str, object]] = []
     for check in checks:
@@ -171,12 +193,36 @@ def run_checks(checks: Iterable[Check], *, dry_run: bool) -> list[dict[str, obje
     return results
 
 
+def build_report(*, query: str, dry_run: bool, results: list[dict[str, object]]) -> dict[str, object]:
+    return {
+        "schema": "metis.qql.report.v1",
+        "query": query,
+        "dry_run": dry_run,
+        "ok": all(int(row["returncode"]) == 0 for row in results),
+        "created_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "repo": {
+            "root": str(ROOT),
+            "branch": _git_value(("branch", "--show-current")),
+            "commit": _git_value(("rev-parse", "HEAD")),
+        },
+        "results": results,
+    }
+
+
+def write_report(path: Path, report: dict[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    tmp_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    tmp_path.replace(path)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run Metis quality checks by QQL selector.")
     parser.add_argument("query", nargs="?", default="quality", help="QQL selector, alias, or comma-separated selectors")
     parser.add_argument("--list", action="store_true", help="list checks and aliases")
     parser.add_argument("--dry-run", action="store_true", help="show selected checks without running them")
     parser.add_argument("--json", action="store_true", help="print machine-readable result JSON")
+    parser.add_argument("--report", type=Path, help="write a durable JSON quality report to this path")
     args = parser.parse_args(argv)
 
     if args.list:
@@ -195,9 +241,13 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     results = run_checks(checks, dry_run=args.dry_run)
+    report = build_report(query=args.query, dry_run=args.dry_run, results=results)
+    if args.report:
+        write_report(args.report, report)
+        print(f"[qql] report: {args.report}")
     if args.json:
-        print(json.dumps({"query": args.query, "results": results}, indent=2))
-    return 0 if all(int(row["returncode"]) == 0 for row in results) else 1
+        print(json.dumps(report, indent=2))
+    return 0 if report["ok"] else 1
 
 
 if __name__ == "__main__":
