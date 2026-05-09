@@ -45,7 +45,7 @@ import {
   Brain,
 } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { createLocalClient, MetisClient, AuthUser, Schedule, RunMode, RunPermission } from '@/lib/metis-client';
+import { createLocalClient, MetisClient, AuthUser, Schedule, Artifact, RunMode, RunPermission } from '@/lib/metis-client';
 import { Mark, Wordmark } from '@/components/brand';
 import LoginScreen, { AuthSuccess } from '@/components/login-screen';
 import JobPlanner from '@/components/job-planner';
@@ -452,6 +452,9 @@ export default function App() {
   const [connectionsOpen, setConnectionsOpen] = useState(false);
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [health, setHealth] = useState<SystemHealth | null>(null);
+  const [activeArtifactId, setActiveArtifactId] = useState<string | null>(null);
+  const [reportArtifact, setReportArtifact] = useState<Artifact | null>(null);
+  const [reportLoading, setReportLoading] = useState(false);
 
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
@@ -468,6 +471,11 @@ export default function App() {
     return null;
   }, [active]);
   const activity = useMemo(() => (lastAgentMsg ? extractActivity(lastAgentMsg.content) : []), [lastAgentMsg]);
+
+  useEffect(() => {
+    const id = lastAgentMsg?.savedArtifact?.id;
+    if (id && !activeArtifactId) setActiveArtifactId(id);
+  }, [activeArtifactId, lastAgentMsg?.savedArtifact?.id]);
 
   // ── theme bootstrap ─────────────────────────────────────────────────────
   // Three modes: 'system' (default — follow OS), 'light', 'dark'.
@@ -667,6 +675,27 @@ export default function App() {
     try { localStorage.setItem('metis-sessions', JSON.stringify(sessions.slice(0, 30))); } catch {}
   }, [sessions]);
 
+  useEffect(() => {
+    if (!client || !activeArtifactId) {
+      setReportArtifact(null);
+      setReportLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setReportLoading(true);
+    (async () => {
+      try {
+        const artifact = await client.getArtifact(activeArtifactId);
+        if (!cancelled) setReportArtifact(artifact);
+      } catch {
+        if (!cancelled) setReportArtifact(null);
+      } finally {
+        if (!cancelled) setReportLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeArtifactId, client]);
+
   // ── auto-scroll ─────────────────────────────────────────────────────────
   useEffect(() => { chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [active?.messages.length, streaming]);
   useEffect(() => { if (workspaceRef.current) workspaceRef.current.scrollTop = workspaceRef.current.scrollHeight; }, [lastAgentMsg?.content]);
@@ -797,6 +826,8 @@ export default function App() {
             setUnreadCount((c) => c + 1);
           } else if (ev.type === 'run_artifact_saved' && typeof ev.id === 'string') {
             savedArtifact = { id: ev.id, title: typeof ev.title === 'string' ? ev.title : 'Manager run report' };
+            setActiveArtifactId(ev.id);
+            setWorkspaceOpen(true);
           }
         }
         if (!ac.signal.aborted) {
@@ -1137,6 +1168,10 @@ export default function App() {
                     isLast={idx === active!.messages.length - 1}
                     streaming={streaming}
                     reduceMotion={!!reduceMotion}
+                    onOpenArtifact={(id) => {
+                      setActiveArtifactId(id);
+                      setWorkspaceOpen(true);
+                    }}
                   />
                 ))}
                 <div ref={chatBottomRef} className="h-2" />
@@ -1244,6 +1279,29 @@ export default function App() {
             </header>
             <div ref={workspaceRef} className="min-h-0 flex-1 overflow-y-auto">
               <div className="mx-auto max-w-[760px] px-6 py-7 sm:px-8 sm:py-9">
+                {activeArtifactId && (
+                  <div className="mb-6 rounded-2xl border border-emerald-500/25 bg-emerald-500/5 p-4">
+                    <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-widest text-emerald-300">
+                      <FileText className="h-3.5 w-3.5" /> Saved report
+                    </div>
+                    {reportLoading ? (
+                      <div className="mt-3 flex items-center gap-2 text-sm text-[var(--metis-fg-muted)]">
+                        <Loader2 className="h-4 w-4 animate-spin text-emerald-300" /> Loading report...
+                      </div>
+                    ) : reportArtifact ? (
+                      <div className="mt-3">
+                        <div className="mb-3 text-sm font-semibold text-[var(--metis-fg)]">{reportArtifact.title}</div>
+                        {reportArtifact.content ? (
+                          <MarkdownView source={reportArtifact.content} />
+                        ) : (
+                          <p className="text-sm text-[var(--metis-fg-muted)]">Report artifact has no inline content.</p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="mt-3 text-sm text-rose-300">Could not load this report artifact.</p>
+                    )}
+                  </div>
+                )}
                 {/* Activity strip */}
                 {activity.length > 0 && (
                   <div className="mb-6 rounded-2xl border border-[var(--metis-border)] bg-[var(--metis-elevated)] p-4">
@@ -1435,11 +1493,13 @@ function MessageBubble({
   isLast,
   streaming,
   reduceMotion,
+  onOpenArtifact,
 }: {
   msg: Message;
   isLast: boolean;
   streaming: boolean;
   reduceMotion: boolean;
+  onOpenArtifact: (id: string) => void;
 }) {
   const isUser = msg.role === 'user';
   const liveAgent = !isUser && streaming && isLast;
@@ -1514,10 +1574,14 @@ function MessageBubble({
           </div>
         )}
         {msg.savedArtifact && (
-          <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-200">
+          <button
+            type="button"
+            onClick={() => onOpenArtifact(msg.savedArtifact!.id)}
+            className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-200 transition hover:bg-emerald-500/15"
+          >
             <FileText className="h-3 w-3" />
             Saved <span className="font-medium">{msg.savedArtifact.title}</span>
-          </div>
+          </button>
         )}
       </div>
     </motion.div>
