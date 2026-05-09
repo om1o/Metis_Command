@@ -27,6 +27,10 @@ def build_steps(*, py: str, qql_report: Path) -> list[tuple[str, list[str]]]:
     ruff_targets = ["dynamic_ui.py", "auth_engine.py", "tool_runtime.py", "ui_theme.py", "launch.py"]
     return [
         (
+            "qql-doctor",
+            [py, "scripts/qql.py", "--doctor"],
+        ),
+        (
             "qql",
             [py, "scripts/qql.py", "quality", "--report", str(qql_report)],
         ),
