@@ -13,6 +13,7 @@ form submissions to non-allowlisted hosts by default.
 
 from __future__ import annotations
 
+import atexit
 import json
 import os
 import re
@@ -48,6 +49,12 @@ SCREENSHOTS_DIR = Path("artifacts") / "browser"
 # Gmail / Twitter / GitHub login lasts. Single file is simpler than
 # per-host and matches Playwright's storage_state shape exactly.
 BROWSER_STATE_FILE = Path("identity") / "browser_state.json"
+# A real Chrome user-data-dir. login_helper writes here when the
+# user signs in; the headless agent reuses the SAME directory so
+# Google sees a profile with history, not a fresh sandbox. Solves
+# the "this browser may not be secure" rejection that breaks stock
+# Playwright Chromium against Gmail.
+BROWSER_PROFILE_DIR = Path("identity") / "chrome_profile"
 
 
 def allow_submit(host: str) -> None:
@@ -72,6 +79,23 @@ class Browser:
         self._browser = None
         self._ctx = None
         self._page = None
+        # MVP 15+: belt-and-suspenders persistence. atexit fires even
+        # when the process is killed mid-task (Ctrl-C, kernel OOM,
+        # crash inside another tool), so cookies survive the things
+        # that .close() can't catch.
+        atexit.register(self._safe_snapshot)
+
+    def _safe_snapshot(self) -> None:
+        """Best-effort state save. Never raises — used by atexit and
+        by every state-changing action so a fresh login is captured
+        as soon as it happens, not only on close()."""
+        if self._ctx is None:
+            return
+        try:
+            BROWSER_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+            self._ctx.storage_state(path=str(BROWSER_STATE_FILE))
+        except Exception:
+            pass
 
     def start(self, *, headless: bool = True) -> dict[str, Any]:
         if not _PW_OK:
@@ -79,33 +103,56 @@ class Browser:
         if self._page is not None:
             return {"ok": True, "note": "already running"}
         self._pw = sync_playwright().start()
+        # MVP 15: prefer the persistent profile dir login_helper
+        # populated. Falls back to an ephemeral context + storage_state
+        # if the profile doesn't exist yet (older deployments, or the
+        # user never ran login_helper).
+        viewport = {"width": 1280, "height": 860}
+        ua = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+              "(KHTML, like Gecko) Chrome/127.0 Safari/537.36")
+        if BROWSER_PROFILE_DIR.exists():
+            launch_kwargs: dict[str, Any] = {
+                "headless": headless,
+                "viewport": viewport,
+                "user_agent": ua,
+            }
+            try:
+                self._ctx = self._pw.chromium.launch_persistent_context(
+                    user_data_dir=str(BROWSER_PROFILE_DIR),
+                    channel="chrome",
+                    **launch_kwargs,
+                )
+            except Exception:
+                self._ctx = self._pw.chromium.launch_persistent_context(
+                    user_data_dir=str(BROWSER_PROFILE_DIR),
+                    **launch_kwargs,
+                )
+            self._browser = None  # persistent_context doesn't expose .browser cleanly
+            self._page = self._ctx.pages[0] if self._ctx.pages else self._ctx.new_page()
+            audit({
+                "event": "browser_started",
+                "headless": headless,
+                "mode": "persistent_profile",
+                "profile_dir": str(BROWSER_PROFILE_DIR),
+            })
+            return {"ok": True, "mode": "persistent_profile"}
+        # Legacy path — ephemeral context loading storage_state if present.
         self._browser = self._pw.chromium.launch(headless=headless)
-        # MVP 15: load persisted cookies + localStorage so the agent
-        # picks up where the user left off — no need to re-auth Gmail
-        # every turn. The user logs in once (in headed mode), then
-        # subsequent runs reuse the session. Default headless=True
-        # blocks the manual one-time login; the manager prompt should
-        # ask the user to run a "browser_login_helper" headed first.
         ctx_kwargs: dict[str, Any] = {
-            "user_agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                "(KHTML, like Gecko) Chrome/127.0 Safari/537.36"
-            ),
-            "viewport": {"width": 1280, "height": 860},
+            "user_agent": ua,
+            "viewport": viewport,
         }
         if BROWSER_STATE_FILE.exists():
-            try:
-                ctx_kwargs["storage_state"] = str(BROWSER_STATE_FILE)
-            except Exception:
-                pass
+            ctx_kwargs["storage_state"] = str(BROWSER_STATE_FILE)
         self._ctx = self._browser.new_context(**ctx_kwargs)
         self._page = self._ctx.new_page()
         audit({
             "event": "browser_started",
             "headless": headless,
+            "mode": "ephemeral",
             "loaded_state": BROWSER_STATE_FILE.exists(),
         })
-        return {"ok": True, "loaded_state": BROWSER_STATE_FILE.exists()}
+        return {"ok": True, "mode": "ephemeral", "loaded_state": BROWSER_STATE_FILE.exists()}
 
     def save_state(self) -> dict[str, Any]:
         """Snapshot cookies + localStorage to disk so the next session
@@ -159,6 +206,9 @@ class Browser:
         self._ensure()
         self._page.goto(url, wait_until="domcontentloaded", timeout=30000)
         self._page.wait_for_timeout(wait_ms)
+        # Most logins hand you a redirect → snapshot here catches the
+        # OAuth callback cookies the moment they land.
+        self._safe_snapshot()
         return {"ok": True, "url": self._page.url, "title": self._page.title()}
 
     def wait(self, ms: int = 1000) -> dict[str, Any]:
@@ -173,6 +223,7 @@ class Browser:
             locator = self._page.get_by_text(target, exact=False) if by_text \
                       else self._page.locator(target)
             locator.first.click(timeout=8000)
+            self._safe_snapshot()
             return {"ok": True, "clicked": target}
         except Exception as e:
             return {"ok": False, "error": str(e), "target": target}
@@ -181,6 +232,7 @@ class Browser:
         self._ensure()
         try:
             self._page.locator(selector).first.fill(value, timeout=8000)
+            self._safe_snapshot()
             return {"ok": True, "selector": selector, "bytes": len(value)}
         except Exception as e:
             return {"ok": False, "error": str(e), "selector": selector}
@@ -321,32 +373,188 @@ def clear_state() -> dict[str, Any]:
     return browser.clear_state()
 
 
-def login_helper(start_url: str = "about:blank", *, wait_seconds: int = 180) -> dict[str, Any]:
+def _find_chrome_exe() -> str | None:
+    """Locate the user's installed Chrome binary."""
+    import shutil
+    cand = shutil.which("chrome") or shutil.which("google-chrome")
+    if cand:
+        return cand
+    candidates = [
+        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        "/usr/bin/google-chrome",
+        "/usr/bin/google-chrome-stable",
+    ]
+    for p in candidates:
+        if Path(p).exists():
+            return p
+    return None
+
+
+def _launch_chrome_with_debug_port(
+    port: int, user_data_dir: str, start_url: str | None = None,
+) -> dict[str, Any]:
+    """Spawn the user's real Chrome with --remote-debugging-port set.
+    Chrome boots as a normal browser, NOT an automated one — that's
+    the whole point: navigator.webdriver stays false, Google trusts
+    the sign-in. We attach via CDP afterwards.
+
+    If start_url is given it's passed as a command-line argument so
+    Chrome opens it itself — no Playwright-driven navigation, which
+    helps bypass the strictest checks.
+    """
+    import socket
+    import subprocess
+    import time as _t
+
+    chrome = _find_chrome_exe()
+    if not chrome:
+        return {"ok": False, "error": "Chrome binary not found"}
+    Path(user_data_dir).mkdir(parents=True, exist_ok=True)
+    # Quick port-already-up check — if user already started Chrome
+    # with debug port, skip the launch.
+    def _port_open() -> bool:
+        try:
+            s = socket.create_connection(("127.0.0.1", port), timeout=0.4)
+            s.close()
+            return True
+        except OSError:
+            return False
+
+    if _port_open():
+        return {"ok": True, "note": "debug port already up", "port": port}
+
+    args = [
+        chrome,
+        f"--remote-debugging-port={port}",
+        f"--user-data-dir={user_data_dir}",
+        "--no-first-run",
+        "--no-default-browser-check",
+    ]
+    if start_url and start_url != "about:blank":
+        args.append(start_url)
+    proc = subprocess.Popen(args)
+    # Wait up to 15s for Chrome to start serving the CDP endpoint.
+    for _ in range(60):
+        if _port_open():
+            return {"ok": True, "pid": proc.pid, "port": port}
+        _t.sleep(0.25)
+    return {"ok": False, "error": "Chrome started but debug port never opened"}
+
+
+def login_helper(
+    start_url: str = "about:blank",
+    *,
+    wait_seconds: int = 180,
+    channel: str | None = "chrome",
+    use_cdp: bool = True,
+    port: int = 9222,
+) -> dict[str, Any]:
     """Open a HEADED browser pointed at start_url, give the human up
     to wait_seconds to log into Gmail/Twitter/whatever, then snapshot
     the state and close. After this runs once per provider, the
-    headless agent reuses those cookies forever."""
+    headless agent reuses those cookies forever.
+
+    Persistence is opportunistic: we snapshot every 5s during the
+    wait window so a sign-in that completes at second 30 is captured
+    even if the user closes the browser at second 31. The final
+    snapshot at the end is still authoritative.
+
+    ``channel="chrome"`` uses the user's installed Chrome binary
+    rather than Playwright's bundled Chromium — necessary for Gmail,
+    which blocks stock Chromium with "this browser may not be
+    secure". Falls back to chromium if real Chrome isn't installed.
+    """
     if not _PW_OK:
         return {"ok": False, "error": "playwright not installed"}
     pw = sync_playwright().start()
     try:
-        b = pw.chromium.launch(headless=False)
-        ctx_kwargs: dict[str, Any] = {
-            "viewport": {"width": 1280, "height": 860},
-        }
-        if BROWSER_STATE_FILE.exists():
-            ctx_kwargs["storage_state"] = str(BROWSER_STATE_FILE)
-        ctx = b.new_context(**ctx_kwargs)
-        page = ctx.new_page()
-        if start_url and start_url != "about:blank":
-            page.goto(start_url, wait_until="domcontentloaded", timeout=30000)
-        # Wait for the user to finish logging in.
-        page.wait_for_timeout(int(wait_seconds * 1000))
+        BROWSER_PROFILE_DIR.mkdir(parents=True, exist_ok=True)
+        ctx = None
+        cdp_browser = None
+        if use_cdp:
+            # CDP attach: spawn real Chrome WITHOUT any Playwright
+            # automation flags, then connect to its DevTools port.
+            # Google's "this browser is not secure" check looks for
+            # navigator.webdriver and CDP startup flags — neither is
+            # set in this mode, so sign-in proceeds normally.
+            # Pass start_url to Chrome itself so navigation happens
+            # in the browser, not through Playwright.
+            launch_res = _launch_chrome_with_debug_port(
+                port, str(BROWSER_PROFILE_DIR), start_url=start_url,
+            )
+            if not launch_res.get("ok"):
+                # CDP route failed; fall through to launch_persistent_context.
+                use_cdp = False
+            else:
+                cdp_browser = pw.chromium.connect_over_cdp(f"http://127.0.0.1:{port}")
+                # Reuse the default context Chrome started with.
+                ctx = cdp_browser.contexts[0] if cdp_browser.contexts else cdp_browser.new_context()
+        if ctx is None:
+            # Fallback: persistent context (won't bypass bot detection
+            # on Google but still works for non-Google sign-ins).
+            launch_kwargs: dict[str, Any] = {
+                "headless": False,
+                "viewport": {"width": 1280, "height": 860},
+            }
+            if channel:
+                launch_kwargs["channel"] = channel
+            try:
+                ctx = pw.chromium.launch_persistent_context(
+                    user_data_dir=str(BROWSER_PROFILE_DIR), **launch_kwargs,
+                )
+            except Exception:
+                launch_kwargs.pop("channel", None)
+                ctx = pw.chromium.launch_persistent_context(
+                    user_data_dir=str(BROWSER_PROFILE_DIR), **launch_kwargs,
+                )
+        page = ctx.pages[0] if ctx.pages else ctx.new_page()
+        # Skip Playwright-driven navigation when we're in CDP mode —
+        # Chrome already opened start_url via its command line, so
+        # any further nav from us would just leave a Playwright
+        # fingerprint Google can detect.
+        if not use_cdp and start_url and start_url != "about:blank":
+            try:
+                page.goto(start_url, wait_until="domcontentloaded", timeout=30000)
+            except Exception:
+                pass
         BROWSER_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-        ctx.storage_state(path=str(BROWSER_STATE_FILE))
-        ctx.close()
-        b.close()
-        return {"ok": True, "saved_to": str(BROWSER_STATE_FILE), "waited_s": wait_seconds}
+        # Periodic snapshot. We use time.sleep instead of
+        # page.wait_for_timeout because the user may close/reload
+        # the page mid-sign-in, which would invalidate the page
+        # handle but not the context we're snapshotting from.
+        import time as _t
+        slice_s = 5
+        elapsed = 0
+        while elapsed < wait_seconds:
+            _t.sleep(min(slice_s, wait_seconds - elapsed))
+            elapsed += slice_s
+            try:
+                ctx.storage_state(path=str(BROWSER_STATE_FILE))
+            except Exception:
+                pass
+        # Final authoritative snapshot.
+        try:
+            ctx.storage_state(path=str(BROWSER_STATE_FILE))
+        except Exception:
+            pass
+        # In CDP mode we don't close ctx — that would close the user's
+        # Chrome session. Just disconnect Playwright; Chrome stays up.
+        try:
+            if cdp_browser is not None:
+                cdp_browser.close()
+            else:
+                ctx.close()
+        except Exception:
+            pass
+        return {
+            "ok": True,
+            "saved_to": str(BROWSER_STATE_FILE),
+            "profile_dir": str(BROWSER_PROFILE_DIR),
+            "waited_s": wait_seconds,
+            "mode": "cdp" if cdp_browser is not None else "persistent",
+        }
     except Exception as e:
         return {"ok": False, "error": str(e)}
     finally:
