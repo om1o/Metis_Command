@@ -49,6 +49,9 @@ identity/gmail_token.json
 identity/local_chat.db
 identity/local_chat.db-shm
 identity/local_chat.db-wal
+identity/missions.db
+identity/missions.db-shm
+identity/missions.db-wal
 identity/manager_configs/
 identity/brains/*/compact_trash.jsonl
 identity/*.jsonl

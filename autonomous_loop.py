@@ -236,9 +236,12 @@ class Mission:
     goal: str
     steps: list[Step] = field(default_factory=list)
     final_answer: str = ""
-    status: str = "pending"   # pending | running | success | failed | stopped
+    status: str = "pending"   # pending | running | paused | success | failed | stopped
     started_at: float = field(default_factory=time.time)
     ended_at: float | None = None
+    # MVP 19: stable id assigned at start, used by mission_store for
+    # resume. Empty string until run_mission/resume_mission stamps it.
+    id: str = ""
 
 
 # ── Prompts ──────────────────────────────────────────────────────────────────
@@ -349,16 +352,24 @@ def run_mission(
     on_event: Callable[[dict], None] | None = None,
     cancel=None,
     session_id: str | None = None,
+    user_id: str | None = None,
 ) -> Mission:
     """
     Execute a goal as a plan -> execute -> reflect loop.
 
     If `cancel` is a CancelToken (or anything with `.cancelled`), the loop
     checks before each step and exits cleanly with status='stopped'.
+
+    MVP 19: every step boundary flushes Mission state to mission_store,
+    so a Ctrl-C / crash / approval pause leaves a resumable record.
     """
-    mission = Mission(goal=goal, status="running")
-    audit({"event": "mission_start", "goal": goal, "max_steps": max_steps})
-    _emit(on_event, {"type": "mission_start", "goal": goal})
+    import mission_store as _store
+    mission = Mission(goal=goal, status="running", id=_store.new_id())
+    _store.save(mission, user_id=user_id, session_id=session_id)
+    audit({"event": "mission_start", "goal": goal, "max_steps": max_steps,
+           "mission_id": mission.id})
+    _emit(on_event, {"type": "mission_start", "goal": goal,
+                     "mission_id": mission.id})
 
     def _is_cancelled() -> bool:
         return bool(cancel is not None and getattr(cancel, "cancelled", False))
@@ -422,6 +433,13 @@ def run_mission(
                              "duration_ms": step.duration_ms,
                              "observation_preview": str(step.observation)[:300]})
 
+        # MVP 19: persist after every step so a kill-now resume picks
+        # up from this exact point with the observation cached.
+        try:
+            _store.save(mission, user_id=user_id, session_id=session_id)
+        except Exception:
+            pass
+
         exact_answer = _deterministic_final_answer(mission).strip()
         if exact_answer:
             mission.final_answer = exact_answer
@@ -458,10 +476,137 @@ def run_mission(
             mission.status = "failed"
 
     mission.ended_at = time.time()
+    # Final flush so list_recent shows the terminal status.
+    try:
+        _store.save(mission, user_id=user_id, session_id=session_id)
+    except Exception:
+        pass
     audit({"event": "mission_end", "status": mission.status,
-           "steps": len(mission.steps), "goal": goal})
+           "steps": len(mission.steps), "goal": goal,
+           "mission_id": mission.id})
     _emit(on_event, {"type": "mission_end", "status": mission.status,
-                     "answer": mission.final_answer})
+                     "answer": mission.final_answer,
+                     "mission_id": mission.id})
+    return mission
+
+
+def resume_mission(
+    mission_id: str,
+    *,
+    max_steps: int = 12,
+    auto_approve: bool = False,
+    on_event: Callable[[dict], None] | None = None,
+    cancel=None,
+    session_id: str | None = None,
+    user_id: str | None = None,
+) -> Mission:
+    """Continue a previously persisted mission from where it left off.
+
+    Already-completed steps are kept (their observations are reused as
+    context for the planner / reflector). The first step whose ``ok``
+    is False or whose observation is empty is the next to execute.
+
+    Returns the updated Mission. If the mission_id doesn't exist or
+    its state is corrupt, returns a freshly-failed Mission.
+    """
+    import mission_store as _store
+    state = _store.load_state(mission_id)
+    if not state:
+        return Mission(goal=f"<missing mission {mission_id}>", status="failed",
+                       final_answer="mission not found in store", id=mission_id)
+    # Rehydrate dataclasses from JSON.
+    steps = [
+        Step(
+            index=s.get("index", i + 1),
+            description=s.get("description", ""),
+            tool=s.get("tool"),
+            args=s.get("args") or {},
+            observation=s.get("observation"),
+            ok=bool(s.get("ok")),
+            duration_ms=int(s.get("duration_ms") or 0),
+        )
+        for i, s in enumerate(state.get("steps") or [])
+    ]
+    mission = Mission(
+        goal=state.get("goal", ""),
+        steps=steps,
+        final_answer=state.get("final_answer", "") or "",
+        status="running",
+        started_at=float(state.get("started_at") or time.time()),
+        ended_at=state.get("ended_at"),
+        id=mission_id,
+    )
+    audit({"event": "mission_resume", "mission_id": mission_id,
+           "completed_steps": sum(1 for s in steps if s.ok)})
+    _emit(on_event, {"type": "mission_resume", "mission_id": mission_id,
+                     "goal": mission.goal,
+                     "completed_steps": sum(1 for s in steps if s.ok)})
+
+    # Find the first incomplete step. If all are done, we synthesize
+    # an answer from observations and return.
+    i = next((idx for idx, s in enumerate(mission.steps) if not s.ok), len(mission.steps))
+    if i >= len(mission.steps) and mission.steps:
+        # All steps complete; finalize.
+        mission.final_answer = (
+            _deterministic_final_answer(mission).strip()
+            or _synthesize(mission).strip()
+            or mission.final_answer
+        )
+        mission.status = "success" if mission.final_answer else "failed"
+        mission.ended_at = time.time()
+        _store.save(mission, user_id=user_id, session_id=session_id)
+        _emit(on_event, {"type": "mission_end", "status": mission.status,
+                         "answer": mission.final_answer, "mission_id": mission_id})
+        return mission
+
+    # Otherwise continue the main execution loop from step i.
+    while i < len(mission.steps) and i < max_steps:
+        if cancel is not None and getattr(cancel, "cancelled", False):
+            mission.status = "stopped"
+            _store.save(mission, user_id=user_id, session_id=session_id)
+            _emit(on_event, {"type": "cancelled", "step": i,
+                             "mission_id": mission_id})
+            return mission
+        step = mission.steps[i]
+        i += 1
+        _emit(on_event, {"type": "step_start", "step": step.index,
+                         "description": step.description})
+        decision = _choose_tool(step.description, goal=mission.goal)
+        if not decision:
+            step.ok = False
+            step.observation = "executor returned no decision"
+            _store.save(mission, user_id=user_id, session_id=session_id)
+            continue
+        step.tool = decision.get("tool") or "none"
+        step.args = decision.get("args") or {}
+        if step.tool == "none":
+            step.ok = True
+            step.observation = decision.get("note", "thought-only step")
+        else:
+            step.observation, step.ok, step.duration_ms = _run_tool(
+                step.tool, step.args,
+                auto_approve=auto_approve, on_event=on_event,
+                cancel=cancel, session_id=session_id,
+            )
+        _emit(on_event, {"type": "step_end", "step": step.index,
+                         "ok": step.ok, "tool": step.tool,
+                         "duration_ms": step.duration_ms,
+                         "observation_preview": str(step.observation)[:300]})
+        try:
+            _store.save(mission, user_id=user_id, session_id=session_id)
+        except Exception:
+            pass
+
+    if mission.status == "running":
+        mission.final_answer = (
+            _deterministic_final_answer(mission).strip()
+            or _synthesize(mission).strip()
+        )
+        mission.status = "success" if mission.final_answer else "failed"
+    mission.ended_at = time.time()
+    _store.save(mission, user_id=user_id, session_id=session_id)
+    _emit(on_event, {"type": "mission_end", "status": mission.status,
+                     "answer": mission.final_answer, "mission_id": mission_id})
     return mission
 
 
