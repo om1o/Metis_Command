@@ -245,6 +245,7 @@ class ChatRequest(BaseModel):
     direct: bool = False   # True = skip orchestrator, stream directly to model
     mode: str = "task"     # task | job
     permission: str = "balanced"  # read | balanced | full
+    project_slug: str | None = None  # active workspace/project context
 
 
 class ForgeRequest(BaseModel):
@@ -445,6 +446,18 @@ async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
         mode=run_mode,
         permission=run_permission,
     )
+
+    # Prepend active project's system instructions so the Manager / specialists
+    # are always aware of the workspace context.
+    _active_project_slug = req.project_slug or _projects.active_slug()
+    if _active_project_slug:
+        try:
+            _proj = _projects.get(_active_project_slug)
+            if _proj and (_proj.instructions or _proj.description):
+                _proj_prompt = _projects.system_prompt_for(_proj)
+                wire_message = f"[Project context: {_proj.name}]\n{_proj_prompt}\n\n---\n\n{wire_message}"
+        except Exception:
+            pass
 
     def save_run_report(
         *,
@@ -2605,6 +2618,104 @@ async def get_feedback_summary() -> dict:
             except Exception:
                 pass
     return {"up": up, "down": down, "total": up + down}
+
+
+# ── Projects / Workspaces ────────────────────────────────────────────────────
+
+import projects as _projects
+
+
+class ProjectCreate(BaseModel):
+    name: str
+    description: str = ""
+    instructions: str = ""
+
+
+class ProjectUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    instructions: str | None = None
+
+
+@app.get("/projects")
+def projects_list() -> list[dict]:
+    """List all projects sorted by last updated."""
+    return [p.to_dict() for p in _projects.list_projects()]
+
+
+@app.post("/projects")
+def projects_create(req: ProjectCreate) -> dict:
+    """Create a new project/workspace."""
+    p = _projects.create(req.name, description=req.description, instructions=req.instructions)
+    return p.to_dict()
+
+
+@app.get("/projects/active")
+def projects_get_active() -> dict:
+    """Return the currently active project, or {} if none."""
+    p = _projects.active_project()
+    return p.to_dict() if p else {}
+
+
+@app.post("/projects/{slug}/activate")
+def projects_activate(slug: str) -> dict:
+    """Set a project as the active workspace."""
+    p = _projects.get(slug)
+    if not p:
+        raise HTTPException(status_code=404, detail="project not found")
+    _projects.set_active(slug)
+    return p.to_dict()
+
+
+@app.delete("/projects/active")
+def projects_clear_active() -> dict:
+    """Clear the active project (return to global context)."""
+    from pathlib import Path as _Path
+    marker = _Path("identity") / "projects" / ".active"
+    marker.unlink(missing_ok=True)
+    return {"ok": True}
+
+
+@app.get("/projects/{slug}")
+def projects_get(slug: str) -> dict:
+    """Get a single project by slug."""
+    p = _projects.get(slug)
+    if not p:
+        raise HTTPException(status_code=404, detail="project not found")
+    return p.to_dict()
+
+
+@app.patch("/projects/{slug}")
+def projects_update(slug: str, req: ProjectUpdate) -> dict:
+    """Update a project's name, description, or instructions."""
+    import time as _time, json as _json
+    from pathlib import Path as _Path
+    p = _projects.get(slug)
+    if not p:
+        raise HTTPException(status_code=404, detail="project not found")
+    if req.name is not None:
+        p.name = req.name
+    if req.description is not None:
+        p.description = req.description
+    if req.instructions is not None:
+        p.instructions = req.instructions
+    p.updated_at = _time.time()
+    pf = _Path("identity") / "projects" / slug / "project.json"
+    pf.write_text(_json.dumps(p.to_dict(), indent=2), encoding="utf-8")
+    return p.to_dict()
+
+
+@app.delete("/projects/{slug}")
+def projects_delete(slug: str) -> dict:
+    """Delete a project and all its files."""
+    ok = _projects.delete(slug)
+    if not ok:
+        raise HTTPException(status_code=404, detail="project not found")
+    active = _projects.active_slug()
+    if active == slug:
+        from pathlib import Path as _Path
+        (_Path("identity") / "projects" / ".active").unlink(missing_ok=True)
+    return {"ok": True, "slug": slug}
 
 
 if __name__ == "__main__":

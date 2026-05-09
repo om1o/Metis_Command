@@ -1,10 +1,24 @@
 # Metis Command — 18-Phase Roadmap
 
-> Generated 2026-05-02 after full codebase audit (46 Python modules, 6 HTML pages, 4 JS files, 976-line API bridge, 11 local Ollama models, 4 persistent agents running).
+> Updated 2026-05-09 · v0.22.0 · 47 Python modules, 6 HTML pages, 4 JS files, 2680-line API bridge, 11 local Ollama models, 4 persistent agents running.
 
 ---
 
-## Current State (v0.21.0)
+## Current State (v0.22.0)
+
+### Completed (v0.22.0)
+- ✅ Projects / Workspaces — `projects.py` fully wired: `GET/POST /projects`, `GET/PATCH/DELETE /projects/{slug}`, `POST /projects/{slug}/activate`, `GET/DELETE /projects/active`
+- ✅ Projects sidebar panel — collapsible list of projects with active indicator, create button, delete button; clicking a project toggles it as the active workspace
+- ✅ Project context injection — when a project is active, its custom instructions and description are prepended to every chat message via `wire_message` in the orchestration pipeline
+- ✅ Project badge in header — shows `📁 ProjectName` pill next to the Direct badge; click to clear the active project
+- ✅ Projects in api.js — `createProject`, `activateProject`, `clearActiveProject`, `updateProject`, `deleteProject`, `activeProject` methods added to the API client
+- ✅ `chatStream` updated — now accepts and forwards `projectSlug` to the backend `project_slug` field
+- ✅ `/project` slash command and Command Palette entry for quick workspace switching
+- ✅ Version bumped to 0.22.0
+
+---
+
+## Previous State (v0.21.0)
 
 ### Completed (v0.21.0)
 - ✅ Session date grouping — sidebar now groups conversations into Today / Yesterday / This Week / Earlier

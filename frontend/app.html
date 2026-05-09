@@ -754,6 +754,41 @@ pre:hover .code-copy{opacity:1}
 .slash-cmd:hover,.slash-cmd.active{background:var(--panel-2)}
 .slash-cmd .sc-name{font-weight:700;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;min-width:84px;flex-shrink:0}
 .slash-cmd .sc-desc{font-size:11.5px;color:var(--subtle)}
+
+/* ── Projects / Workspaces ─────────────────────────────────────────────── */
+.proj-panel{border-bottom:1px solid var(--border);padding:10px 16px 12px}
+.proj-panel .legend{font-family:'Sora',sans-serif;font-size:10.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--subtle);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between}
+.proj-list{display:flex;flex-direction:column;gap:4px;max-height:140px;overflow-y:auto}
+.proj-item{display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:7px;border:1px solid var(--border);background:var(--panel);font-size:11.5px;color:var(--muted);cursor:pointer;transition:all .15s;position:relative}
+.proj-item:hover{background:var(--panel-2);color:var(--text)}
+.proj-item.active-proj{background:var(--accent-soft);border-color:color-mix(in srgb, var(--accent) 35%, transparent);color:var(--text)}
+.proj-icon{font-size:13px;flex-shrink:0}
+.proj-info{flex:1;min-width:0}
+.proj-name{font-weight:600;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+.proj-desc{font-size:10px;color:var(--subtle);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.proj-del{background:transparent;border:none;cursor:pointer;padding:3px 5px;border-radius:4px;color:var(--subtle);font-size:11px;transition:all .15s;flex-shrink:0;opacity:0;line-height:1}
+.proj-item:hover .proj-del{opacity:1}
+.proj-del:hover{color:var(--co);background:rgba(251,113,133,.1)}
+.proj-empty{padding:8px 4px;text-align:center;font-size:11px;color:var(--subtle)}
+/* Project badge in header (shows active project name) */
+.project-badge{font-size:11.5px;color:var(--vi2);background:rgba(124,58,237,.12);border:1px solid rgba(124,58,237,.25);padding:3px 9px;border-radius:20px;font-family:'JetBrains Mono',monospace;font-weight:600;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;opacity:0;pointer-events:none;transition:opacity .2s}
+.project-badge.visible{opacity:1;pointer-events:auto}
+/* Project create modal */
+.proj-modal-overlay{position:fixed;inset:0;z-index:500;background:rgba(7,7,26,.7);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;animation:fadeIn .2s ease}
+.proj-modal-overlay.show{display:flex}
+.proj-modal{width:440px;max-width:92vw;background:rgba(13,13,36,.97);backdrop-filter:blur(28px);border:1px solid var(--border-2);border-radius:16px;padding:24px;box-shadow:0 24px 64px rgba(0,0,0,.55)}
+.proj-modal h3{font-family:'Sora',sans-serif;font-size:16px;font-weight:700;color:var(--text);margin-bottom:16px}
+.proj-field{margin-bottom:14px}
+.proj-field label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px}
+.proj-field input,.proj-field textarea{width:100%;background:rgba(255,255,255,.06);border:1px solid var(--border-2);border-radius:9px;padding:9px 12px;color:var(--text);font-family:inherit;font-size:13px;outline:none;transition:border-color .2s}
+.proj-field input:focus,.proj-field textarea:focus{border-color:color-mix(in srgb, var(--accent) 55%, transparent)}
+.proj-field textarea{resize:vertical;min-height:70px}
+.proj-modal-btns{display:flex;gap:8px;margin-top:18px}
+.proj-modal-btns button{flex:1;height:40px;border-radius:9px;border:none;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all .18s}
+.proj-modal-btns .btn-cancel{background:var(--panel-2);color:var(--muted)}
+.proj-modal-btns .btn-cancel:hover{color:var(--text)}
+.proj-modal-btns .btn-save{background:var(--grad);color:#fff}
+.proj-modal-btns .btn-save:hover{transform:translateY(-1px);box-shadow:0 4px 14px var(--accent-glow)}
 </style>
 </head>
 <body>
@@ -768,13 +803,24 @@ pre:hover .code-copy{opacity:1}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v20.0</span>
+      <span class="ver" id="versionPill">v22.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
       <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       New conversation
     </button>
+
+    <!-- Projects / Workspaces panel -->
+    <div class="proj-panel" id="projPanel">
+      <div class="legend">
+        <span>Projects</span>
+        <button class="sched-add-btn" id="projAddBtn" title="New project">＋</button>
+      </div>
+      <div class="proj-list" id="projList">
+        <div class="proj-empty">No projects yet</div>
+      </div>
+    </div>
 
     <div class="side-section"><span>Recent</span><span class="session-count" id="sessionCount">0</span></div>
     <div class="session-search">
@@ -858,6 +904,7 @@ pre:hover .code-copy{opacity:1}
       </div>
       <span class="session-title-header" id="sessionTitleHeader"></span>
       <span class="direct-badge" id="directBadge">⚡ Direct</span>
+      <span class="project-badge" id="projectBadge" title="Active project — click to clear"></span>
       <div class="spacer"></div>
       <div class="kbd-hint"><kbd>⌘</kbd><kbd>K</kbd></div>
 
@@ -990,6 +1037,29 @@ pre:hover .code-copy{opacity:1}
     <div class="sched-modal-btns">
       <button class="btn-cancel" id="schedCancel">Cancel</button>
       <button class="btn-save" id="schedSave">Save automation</button>
+    </div>
+  </div>
+</div>
+
+<!-- Project create modal -->
+<div class="proj-modal-overlay" id="projModalOverlay">
+  <div class="proj-modal">
+    <h3>📁 New Project</h3>
+    <div class="proj-field">
+      <label>Project name</label>
+      <input type="text" id="projNameInput" placeholder="e.g. Metis Core">
+    </div>
+    <div class="proj-field">
+      <label>Description <span style="font-weight:400;color:var(--subtle)">(optional)</span></label>
+      <input type="text" id="projDescInput" placeholder="Short description">
+    </div>
+    <div class="proj-field">
+      <label>Custom instructions <span style="font-weight:400;color:var(--subtle)">(optional)</span></label>
+      <textarea id="projInstrInput" rows="3" placeholder="e.g. You are working on a FastAPI backend. Prefer Python 3.12+ syntax."></textarea>
+    </div>
+    <div class="proj-modal-btns">
+      <button class="btn-cancel" id="projCancel">Cancel</button>
+      <button class="btn-save" id="projSave">Create project</button>
     </div>
   </div>
 </div>
@@ -2364,7 +2434,7 @@ async function sendMessage() {
 
   try {
     const useDirect = currentMode === 'direct' || isDirectMode();
-    for await (const ev of api.chatStream(currentSession, text, 'manager', abortController.signal, useDirect)) {
+    for await (const ev of api.chatStream(currentSession, text, 'manager', abortController.signal, useDirect, _activeProjectSlug)) {
       if (ev.type === 'heartbeat') {
         // Server received message — update stage to confirm
         if (stageLabel) stageLabel.textContent = 'Connected · Loading model...';
@@ -4051,6 +4121,175 @@ msgInput.addEventListener('keydown', (e) => {
     hideSlashMenu();
   }
 }, true); // capture phase so it runs before the send-on-Enter handler
+
+// ── Projects / Workspaces (v0.22.0) ─────────────────────────────────────
+let _projectsList = [];
+let _activeProjectSlug = null;
+
+const projModalOverlay = document.getElementById('projModalOverlay');
+
+async function loadProjects() {
+  try {
+    _projectsList = await api.projects() || [];
+    const active = await api.activeProject().catch(() => ({}));
+    _activeProjectSlug = active?.slug || null;
+    renderProjList();
+    updateProjectBadge();
+  } catch (e) {
+    console.warn('[projects] load failed:', e);
+  }
+}
+
+function renderProjList() {
+  const list = document.getElementById('projList');
+  if (!list) return;
+  if (!_projectsList.length) {
+    list.innerHTML = '<div class="proj-empty">No projects yet</div>';
+    return;
+  }
+  list.innerHTML = _projectsList.map(p => {
+    const isActive = p.slug === _activeProjectSlug;
+    return `<div class="proj-item${isActive ? ' active-proj' : ''}" data-slug="${escapeHtml(p.slug)}" title="${escapeHtml(p.description || p.name)}">
+      <span class="proj-icon">📁</span>
+      <div class="proj-info">
+        <div class="proj-name">${escapeHtml(p.name)}</div>
+        ${p.description ? `<div class="proj-desc">${escapeHtml(p.description)}</div>` : ''}
+      </div>
+      <button class="proj-del" data-slug="${escapeHtml(p.slug)}" title="Delete project">✕</button>
+    </div>`;
+  }).join('');
+
+  list.querySelectorAll('.proj-item').forEach(el => {
+    el.addEventListener('click', (e) => {
+      if (e.target.classList.contains('proj-del')) return;
+      toggleProject(el.dataset.slug);
+    });
+  });
+
+  list.querySelectorAll('.proj-del').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const slug = btn.dataset.slug;
+      const p = _projectsList.find(x => x.slug === slug);
+      if (!confirm(`Delete project "${p?.name || slug}"? This cannot be undone.`)) return;
+      try {
+        await api.deleteProject(slug);
+        if (_activeProjectSlug === slug) {
+          _activeProjectSlug = null;
+          updateProjectBadge();
+        }
+        _projectsList = _projectsList.filter(x => x.slug !== slug);
+        renderProjList();
+        if (window.toast) toast('success', 'Deleted', `Project "${p?.name || slug}" removed`, 2000);
+      } catch (err) {
+        if (window.toast) toast('error', 'Delete failed', err.message, 3000);
+      }
+    });
+  });
+}
+
+async function toggleProject(slug) {
+  try {
+    if (_activeProjectSlug === slug) {
+      await api.clearActiveProject();
+      _activeProjectSlug = null;
+      if (window.toast) toast('info', 'Project cleared', 'Back to global context', 1500);
+    } else {
+      const p = await api.activateProject(slug);
+      _activeProjectSlug = p.slug;
+      if (window.toast) toast('success', 'Project active', `📁 ${p.name}`, 1800);
+    }
+    renderProjList();
+    updateProjectBadge();
+  } catch (err) {
+    if (window.toast) toast('error', 'Switch failed', err.message, 3000);
+  }
+}
+
+function updateProjectBadge() {
+  const badge = document.getElementById('projectBadge');
+  if (!badge) return;
+  const proj = _projectsList.find(p => p.slug === _activeProjectSlug);
+  if (proj) {
+    badge.textContent = `📁 ${proj.name}`;
+    badge.classList.add('visible');
+    badge.title = `Active project: ${proj.name} — click to clear`;
+  } else {
+    badge.classList.remove('visible');
+  }
+}
+
+// Click the project badge to clear the active project
+document.getElementById('projectBadge')?.addEventListener('click', () => {
+  if (_activeProjectSlug) toggleProject(_activeProjectSlug);
+});
+
+// Open modal
+document.getElementById('projAddBtn').addEventListener('click', () => {
+  document.getElementById('projNameInput').value = '';
+  document.getElementById('projDescInput').value = '';
+  document.getElementById('projInstrInput').value = '';
+  projModalOverlay.classList.add('show');
+  setTimeout(() => document.getElementById('projNameInput').focus(), 80);
+});
+
+// Close modal
+document.getElementById('projCancel').addEventListener('click', () => {
+  projModalOverlay.classList.remove('show');
+});
+projModalOverlay.addEventListener('click', (e) => {
+  if (e.target === projModalOverlay) projModalOverlay.classList.remove('show');
+});
+
+// Save new project
+document.getElementById('projSave').addEventListener('click', async () => {
+  const name = document.getElementById('projNameInput').value.trim();
+  if (!name) {
+    if (window.toast) toast('error', 'Name required', 'Give the project a name', 2000);
+    document.getElementById('projNameInput').focus();
+    return;
+  }
+  const btn = document.getElementById('projSave');
+  btn.disabled = true;
+  btn.textContent = 'Creating…';
+  try {
+    const p = await api.createProject({
+      name,
+      description: document.getElementById('projDescInput').value.trim(),
+      instructions: document.getElementById('projInstrInput').value.trim(),
+    });
+    _projectsList.unshift(p);
+    projModalOverlay.classList.remove('show');
+    renderProjList();
+    if (window.toast) toast('success', 'Project created', `📁 ${name} — click to activate`, 2500);
+  } catch (err) {
+    if (window.toast) toast('error', 'Create failed', err.message, 3000);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Create project';
+  }
+});
+
+// Add Enter key support in project name field
+document.getElementById('projNameInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('projSave').click();
+});
+
+// Slash command for projects
+SLASH_CMDS.push({
+  cmd: '/project', icon: '📁', desc: 'Switch or create a project workspace',
+  action: () => document.getElementById('projAddBtn').click(),
+});
+
+// Command palette entry
+COMMANDS.push({
+  id: 'projects', icon: '📁', t: 'Projects & Workspaces',
+  d: 'Create or switch project context for focused work', kbd: '',
+  run: () => document.getElementById('projAddBtn').click(),
+});
+
+// Load on startup
+loadProjects();
 
 </script>
 <script src="/static/polish/global-polish.v2.js?v=v20"></script>

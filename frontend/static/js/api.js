@@ -216,16 +216,29 @@ export const api = {
     method: 'POST', body: JSON.stringify({ inputs }),
   }),
 
+  // Projects / Workspaces (v0.22.0)
+  projects: () => _fetch('/projects'),
+  activeProject: () => _fetch('/projects/active'),
+  createProject: (data) => _fetch('/projects', { method: 'POST', body: JSON.stringify(data) }),
+  activateProject: (slug) => _fetch(`/projects/${encodeURIComponent(slug)}/activate`, { method: 'POST' }),
+  clearActiveProject: () => _fetch('/projects/active', { method: 'DELETE' }),
+  updateProject: (slug, data) => _fetch(`/projects/${encodeURIComponent(slug)}`, {
+    method: 'PATCH', body: JSON.stringify(data),
+  }),
+  deleteProject: (slug) => _fetch(`/projects/${encodeURIComponent(slug)}`, { method: 'DELETE' }),
+
   // Streaming chat (Server-Sent Events)
-  chatStream: async function* (sessionId, message, role = 'manager', signal, direct = false) {
+  chatStream: async function* (sessionId, message, role = 'manager', signal, direct = false, projectSlug = null) {
     const token = getToken();
+    const body = { session_id: sessionId, message, role, direct };
+    if (projectSlug) body.project_slug = projectSlug;
     const r = await fetch('/chat', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({ session_id: sessionId, message, role, direct }),
+      body: JSON.stringify(body),
       signal,
     });
     if (!r.ok || !r.body) {
