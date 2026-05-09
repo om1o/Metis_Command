@@ -110,6 +110,12 @@ def _tool_registry() -> dict[str, Callable[..., Any]]:
         # and pull bytes from the network.
         "browser_upload":             _perm.gate("browser_upload",             _ba.upload,             summary_args=["target", "file_path"]),
         "browser_download_via_click": _perm.gate("browser_download_via_click", _ba.download_via_click, summary_args=["target", "save_dir"]),
+        # MVP 18c: multi-tab. list_tabs is read-only (just an enumeration);
+        # new/switch/close all change the active tab so they're gated.
+        "browser_list_tabs":  _ba.list_tabs,
+        "browser_new_tab":    _perm.gate("browser_new_tab",    _ba.new_tab,    summary_args=["url"]),
+        "browser_switch_tab": _perm.gate("browser_switch_tab", _ba.switch_tab, summary_args=["index"]),
+        "browser_close_tab":  _perm.gate("browser_close_tab",  _ba.close_tab,  summary_args=["index"]),
         "speak":        _perm.gate("speak",        _vo.speak,                         summary_args=["text"]),
 
         # MVP 15: real desktop control. The internal confirm flag in
@@ -185,6 +191,9 @@ _MUTATING_TOOLS = {
     "browser_fill_smart",
     "browser_upload",
     "browser_download_via_click",
+    "browser_new_tab",
+    "browser_switch_tab",
+    "browser_close_tab",
     "speak",
     "subagent",
     # MVP 15 — anything that touches the real desktop or browser cookies.
@@ -274,6 +283,10 @@ Valid tools (name -> signature):
   browser_fill_smart(label, value)      (gated; field by label/placeholder)
   browser_upload(target, file_path)     (gated; sets <input type="file">)
   browser_download_via_click(target, save_dir)  (gated; clicks + captures download)
+  browser_list_tabs()                   -> [{index, url, title, active}, ...]
+  browser_new_tab(url=None)             (gated)
+  browser_switch_tab(index)             (gated)
+  browser_close_tab(index=None)         (gated)
   browser_extract(selector=None)        -> str
   browser_screenshot()                  -> path
   browser_save_state()                  (gated; snapshot cookies)

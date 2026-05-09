@@ -338,6 +338,93 @@ class Browser:
         return {"ok": False, "error": str(last_err) if last_err else "no field matched",
                 "label": label}
 
+    # ── tabs ────────────────────────────────────────────────────────────────
+    def list_tabs(self) -> list[dict[str, Any]]:
+        """Return one entry per tab in the current context. Index is
+        the addressable handle for switch/close — Playwright doesn't
+        expose Chrome-tab IDs, so position-in-context is the contract."""
+        self._ensure()
+        out: list[dict[str, Any]] = []
+        for i, p in enumerate(self._ctx.pages):
+            try:
+                out.append({
+                    "index":  i,
+                    "url":    p.url,
+                    "title":  p.title(),
+                    "active": (p is self._page),
+                })
+            except Exception:
+                out.append({"index": i, "url": "", "title": "", "active": False})
+        return out
+
+    def new_tab(self, url: str | None = None) -> dict[str, Any]:
+        """Open a new tab in the current context. Optionally navigate
+        it. The new tab becomes active."""
+        self._ensure()
+        page = self._ctx.new_page()
+        if url:
+            try:
+                _check_url(url)
+                page.goto(url, wait_until="domcontentloaded", timeout=30000)
+            except Exception as e:
+                # Tab still exists; just couldn't navigate. Surface the
+                # error but don't tear down — caller may want a blank tab.
+                self._page = page
+                return {"ok": False, "error": str(e), "index": len(self._ctx.pages) - 1}
+        self._page = page
+        self._safe_snapshot()
+        return {
+            "ok":    True,
+            "index": len(self._ctx.pages) - 1,
+            "url":   page.url,
+            "title": page.title(),
+        }
+
+    def switch_tab(self, index: int) -> dict[str, Any]:
+        """Switch the active page to the tab at ``index``. Subsequent
+        click/fill/extract calls operate on this tab."""
+        self._ensure()
+        pages = self._ctx.pages
+        if not (0 <= index < len(pages)):
+            return {"ok": False, "error": f"tab index {index} out of range (have {len(pages)})"}
+        try:
+            pages[index].bring_to_front()
+        except Exception:
+            pass
+        self._page = pages[index]
+        return {
+            "ok":    True,
+            "index": index,
+            "url":   self._page.url,
+            "title": self._page.title(),
+        }
+
+    def close_tab(self, index: int | None = None) -> dict[str, Any]:
+        """Close the tab at ``index`` (default: active tab). If the
+        active tab is closed, the next-leftmost tab becomes active."""
+        self._ensure()
+        pages = self._ctx.pages
+        if index is None:
+            index = pages.index(self._page) if self._page in pages else 0
+        if not (0 <= index < len(pages)):
+            return {"ok": False, "error": f"tab index {index} out of range (have {len(pages)})"}
+        target = pages[index]
+        was_active = target is self._page
+        try:
+            target.close()
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+        # Reseat active page.
+        remaining = self._ctx.pages
+        if was_active:
+            self._page = remaining[0] if remaining else None
+        return {
+            "ok":      True,
+            "closed":  index,
+            "remaining": len(remaining),
+            "active_url": self._page.url if self._page else None,
+        }
+
     # ── files ───────────────────────────────────────────────────────────────
     def upload(self, target: str, file_path: str | list[str]) -> dict[str, Any]:
         """Set files on an <input type="file">. ``target`` can be a CSS
@@ -542,6 +629,31 @@ def download_via_click(target: str, save_dir: str = "artifacts/downloads",
     """Click ``target`` and wait for the download it triggers.
     Returns ``{ok, saved_to, filename, url}``."""
     return browser.download_via_click(target, save_dir=save_dir, timeout_s=timeout_s)
+
+
+@audited("browser.list_tabs")
+def list_tabs() -> list[dict[str, Any]]:
+    """List open tabs in the current browser context. Each entry has
+    {index, url, title, active}."""
+    return browser.list_tabs()
+
+
+@audited("browser.new_tab")
+def new_tab(url: str | None = None) -> dict[str, Any]:
+    """Open a new tab. Optional ``url`` navigates the new tab."""
+    return browser.new_tab(url)
+
+
+@audited("browser.switch_tab")
+def switch_tab(index: int) -> dict[str, Any]:
+    """Switch the active tab to ``index`` (from list_tabs)."""
+    return browser.switch_tab(int(index))
+
+
+@audited("browser.close_tab")
+def close_tab(index: int | None = None) -> dict[str, Any]:
+    """Close a tab by index, or the active one if index is omitted."""
+    return browser.close_tab(int(index) if index is not None else None)
 
 
 @audited("browser.extract")
