@@ -1323,56 +1323,16 @@ export default function App() {
 
       {/* Settings */}
       <AnimatePresence>
-        {settingsOpen && (
+        {settingsOpen && client && (
           <Modal title="Settings" onClose={() => setSettingsOpen(false)} reduceMotion={!!reduceMotion}>
-            <div className="grid gap-3">
-              <div className="rounded-xl border border-[var(--metis-border)] bg-[var(--metis-elevated)] p-3">
-                <div className="flex items-center justify-between">
-                  <div className="text-xs font-medium text-[var(--metis-fg-dim)]">Theme</div>
-                  {theme === 'system' && (
-                    <span className="text-[10px] text-[var(--metis-fg-dim)]">following OS · {effectiveTheme}</span>
-                  )}
-                </div>
-                <div className="mt-2 inline-flex items-center gap-0.5 rounded-full border border-[var(--metis-border)] bg-[var(--metis-bg)] p-0.5">
-                  {(['system', 'light', 'dark'] as Theme[]).map((t) => {
-                    const sel = theme === t;
-                    const Icon = t === 'light' ? Sun : t === 'dark' ? Moon : Monitor;
-                    return (
-                      <button
-                        key={t}
-                        type="button"
-                        onClick={() => setTheme(t)}
-                        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] capitalize transition ${
-                          sel
-                            ? 'border border-violet-500/40 bg-violet-500/10 text-violet-200'
-                            : 'border border-transparent text-[var(--metis-fg-muted)] hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]'
-                        }`}
-                      >
-                        <Icon className="h-3.5 w-3.5" />
-                        {t}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="rounded-xl border border-[var(--metis-border)] bg-[var(--metis-elevated)] p-3">
-                <div className="text-xs font-medium text-[var(--metis-fg-dim)]">Shortcuts</div>
-                <div className="mt-2 space-y-1.5 text-sm text-[var(--metis-fg-muted)]">
-                  {[
-                    ['New session',      '⌘ N'],
-                    ['Focus message box', '⌘ K'],
-                    ['Toggle sidebar',    '⌘ B'],
-                    ['Toggle workspace',  '⌘ /'],
-                    ['Settings',          '⌘ ,'],
-                  ].map(([a, b]) => (
-                    <div key={a} className="flex items-center justify-between gap-4">
-                      <span>{a}</span>
-                      <kbd className="rounded border border-[var(--metis-border)] bg-[var(--metis-code-bg)] px-2 py-0.5 text-xs text-[var(--metis-code-fg)]">{b}</kbd>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+            <SettingsBody
+              theme={theme}
+              effectiveTheme={effectiveTheme}
+              setTheme={setTheme}
+              client={client}
+              health={health}
+              onOpenConnections={() => { setSettingsOpen(false); setConnectionsOpen(true); }}
+            />
           </Modal>
         )}
       </AnimatePresence>
@@ -1551,6 +1511,182 @@ function ModeSelector({ value, onChange }: { value: Mode; onChange: (v: Mode) =>
           </button>
         );
       })}
+    </div>
+  );
+}
+
+// ── Settings body (rendered inside the Settings modal) ───────────────────
+
+function SettingsBody({
+  theme, effectiveTheme, setTheme, client, health, onOpenConnections,
+}: {
+  theme: Theme;
+  effectiveTheme: EffectiveTheme;
+  setTheme: (t: Theme) => void;
+  client: MetisClient;
+  health: SystemHealth | null;
+  onOpenConnections: () => void;
+}) {
+  const [models, setModels] = useState<{ id: string; label: string; kind: 'local' | 'cloud'; note?: string }[] | null>(null);
+  const [activeModel, setActiveModel] = useState<string>('');
+  const [savingModel, setSavingModel] = useState(false);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+
+  // Load models + current manager_model on mount.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [m, c] = await Promise.all([client.listModels(), client.getManagerConfig()]);
+        if (cancelled) return;
+        setModels(m.models);
+        setActiveModel(c.config.manager_model || '');
+      } catch {/* ignore */}
+    })();
+    return () => { cancelled = true; };
+  }, [client]);
+
+  const pick = async (id: string) => {
+    setSavingModel(true);
+    try {
+      await client.setManagerConfig({ manager_model: id });
+      setActiveModel(id);
+      setSavedAt(Date.now());
+      setTimeout(() => setSavedAt(null), 1500);
+    } catch {/* ignore */}
+    finally { setSavingModel(false); }
+  };
+
+  return (
+    <div className="grid gap-3">
+      {/* Theme */}
+      <div className="rounded-xl border border-[var(--metis-border)] bg-[var(--metis-elevated)] p-3">
+        <div className="flex items-center justify-between">
+          <div className="text-xs font-medium text-[var(--metis-fg-dim)]">Theme</div>
+          {theme === 'system' && (
+            <span className="text-[10px] text-[var(--metis-fg-dim)]">following OS · {effectiveTheme}</span>
+          )}
+        </div>
+        <div className="mt-2 inline-flex items-center gap-0.5 rounded-full border border-[var(--metis-border)] bg-[var(--metis-bg)] p-0.5">
+          {(['system', 'light', 'dark'] as Theme[]).map((t) => {
+            const sel = theme === t;
+            const Icon = t === 'light' ? Sun : t === 'dark' ? Moon : Monitor;
+            return (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTheme(t)}
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] capitalize transition ${
+                  sel
+                    ? 'border border-violet-500/40 bg-violet-500/10 text-violet-200'
+                    : 'border border-transparent text-[var(--metis-fg-muted)] hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]'
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {t}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Manager model picker */}
+      <div className="rounded-xl border border-[var(--metis-border)] bg-[var(--metis-elevated)] p-3">
+        <div className="flex items-center justify-between">
+          <div className="text-xs font-medium text-[var(--metis-fg-dim)]">Manager model</div>
+          {savingModel ? (
+            <Loader2 className="h-3 w-3 animate-spin text-violet-400" />
+          ) : savedAt ? (
+            <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400"><Check className="h-3 w-3" /> saved</span>
+          ) : null}
+        </div>
+        <p className="mt-1 text-[11px] text-[var(--metis-fg-dim)]">
+          Picks the brain that powers your chat. Cloud models are faster but need a key in <code className="rounded bg-[var(--metis-code-bg)] px-1 text-[var(--metis-code-fg)]">.env</code>.
+        </p>
+        {!models ? (
+          <div className="mt-3 flex items-center gap-2 text-[12px] text-[var(--metis-fg-muted)]">
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-violet-400" /> Discovering models…
+          </div>
+        ) : models.length === 0 ? (
+          <div className="mt-3 text-[12px] text-rose-300">No models available. Pull one with <code className="rounded bg-[var(--metis-code-bg)] px-1 text-[var(--metis-code-fg)]">ollama pull qwen2.5-coder:1.5b</code>.</div>
+        ) : (
+          <div className="mt-3 grid max-h-56 gap-1 overflow-y-auto pr-1">
+            <button
+              type="button"
+              onClick={() => pick('')}
+              className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-[12px] transition ${
+                activeModel === ''
+                  ? 'border-violet-500/40 bg-violet-500/10 text-violet-200'
+                  : 'border-[var(--metis-border)] bg-[var(--metis-bg)] text-[var(--metis-fg-muted)] hover:bg-[var(--metis-hover-surface)]'
+              }`}
+            >
+              <Sparkles className="h-3.5 w-3.5 text-violet-400" />
+              <span className="flex-1 font-medium">Auto</span>
+              <span className="text-[10px] text-[var(--metis-fg-dim)]">first cloud → local</span>
+            </button>
+            {models.map((m) => {
+              const sel = activeModel === m.id;
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => pick(m.id)}
+                  className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-[12px] transition ${
+                    sel
+                      ? 'border-violet-500/40 bg-violet-500/10 text-violet-200'
+                      : 'border-[var(--metis-border)] bg-[var(--metis-bg)] text-[var(--metis-fg-muted)] hover:bg-[var(--metis-hover-surface)]'
+                  }`}
+                >
+                  <span className={`inline-block h-1.5 w-1.5 rounded-full ${m.kind === 'cloud' ? 'bg-emerald-400' : 'bg-violet-400'}`} />
+                  <span className="flex-1 truncate">{m.label}</span>
+                  {m.note && <span className="shrink-0 text-[10px] text-[var(--metis-fg-dim)]">{m.note}</span>}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Connections quick-link */}
+      <button
+        type="button"
+        onClick={onOpenConnections}
+        className="flex items-center gap-3 rounded-xl border border-[var(--metis-border)] bg-[var(--metis-elevated)] p-3 text-left transition hover:bg-[var(--metis-hover-surface)]"
+      >
+        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500/15 text-violet-300">
+          <Sparkles className="h-4 w-4" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="text-[13px] text-[var(--metis-fg)]">Connections + API keys</div>
+          <div className="text-[11px] text-[var(--metis-fg-dim)]">
+            {health?.preferred_manager
+              ? `Currently using ${health.preferred_manager}`
+              : 'Probe providers and configure keys'}
+          </div>
+        </div>
+        <ArrowRight className="h-4 w-4 text-[var(--metis-fg-dim)]" />
+      </button>
+
+      {/* Shortcuts */}
+      <div className="rounded-xl border border-[var(--metis-border)] bg-[var(--metis-elevated)] p-3">
+        <div className="text-xs font-medium text-[var(--metis-fg-dim)]">Shortcuts</div>
+        <div className="mt-2 space-y-1.5 text-sm text-[var(--metis-fg-muted)]">
+          {[
+            ['New session',      '⌘ N'],
+            ['Focus message box', '⌘ K'],
+            ['Toggle sidebar',    '⌘ B'],
+            ['Toggle workspace',  '⌘ /'],
+            ['Jobs panel',        '⌘ J'],
+            ['Relationships',     '⌘ R'],
+            ['Settings',          '⌘ ,'],
+          ].map(([a, b]) => (
+            <div key={a} className="flex items-center justify-between gap-4">
+              <span>{a}</span>
+              <kbd className="rounded border border-[var(--metis-border)] bg-[var(--metis-code-bg)] px-2 py-0.5 text-xs text-[var(--metis-code-fg)]">{b}</kbd>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

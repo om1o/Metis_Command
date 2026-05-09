@@ -130,6 +130,30 @@ export interface AuthResult {
 
 export type OAuthProvider = 'google' | 'github';
 
+// ── Models + manager config ─────────────────────────────────────────────────
+
+export interface AvailableModel {
+  id: string;
+  label: string;
+  kind: 'local' | 'cloud';
+  note?: string;
+}
+
+export interface ManagerConfig {
+  user_id?: string;
+  manager_name?: string;
+  persona_key?: string;
+  manager_persona?: string;
+  manager_model?: string;
+  company_name?: string;
+  company_mission?: string;
+  director_name?: string;
+  director_about?: string;
+  accent_color?: string;
+  specialists?: string[];
+  configured_at?: string;
+}
+
 // ── System health ──────────────────────────────────────────────────────────
 
 export interface ProviderStatus {
@@ -265,6 +289,18 @@ export class MetisClient {
 
   async getSystemHealth(): Promise<SystemHealth> {
     return this.get('/system/health');
+  }
+
+  async listModels(): Promise<{ models: AvailableModel[] }> {
+    return this.get('/models');
+  }
+
+  async getManagerConfig(): Promise<{ config: ManagerConfig; is_configured: boolean }> {
+    return this.get('/manager/config');
+  }
+
+  async setManagerConfig(updates: Partial<ManagerConfig>): Promise<{ config: ManagerConfig; is_configured: boolean }> {
+    return this.post('/manager/config', updates);
   }
 
   // ── Streaming chat (SSE) ────────────────────────────────────────────────
