@@ -15,9 +15,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/polish/global-polish.v2.css?v=v18">
-<link rel="stylesheet" href="/static/styles/wordmark.css?v=v18">
-<script src="/static/js/wordmark.js?v=v18" defer></script>
+<link rel="stylesheet" href="/static/polish/global-polish.v2.css?v=v19">
+<link rel="stylesheet" href="/static/styles/wordmark.css?v=v19">
+<script src="/static/js/wordmark.js?v=v19" defer></script>
 <style>
 :root{
   --vi:#7C3AED; --vi2:#A78BFA; --co:#FB7185; --am:#F59E0B; --bl:#3B82F6; --gr:#22C55E;
@@ -708,7 +708,7 @@ pre:hover .code-copy{opacity:1}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver">v18.0</span>
+      <span class="ver" id="versionPill">v18.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -1103,7 +1103,7 @@ pre:hover .code-copy{opacity:1}
 </div>
 
 <script type="module">
-import { api, ensureAuthed, clearSession, getUser } from '/static/js/api.js?v=v18';
+import { api, ensureAuthed, clearSession, getUser } from '/static/js/api.js?v=v19';
 
 window.addEventListener('load', () => {
   const g = document.getElementById('mp-grain');
@@ -1361,9 +1361,10 @@ function renderModelMenu() {
 // ── Mode dropdown (inline) ──────────────────────────────────────────────
 const MODES = [
   { id: 'chat',        icon: '💬', name: 'Chat',        desc: 'Talk with the Manager' },
+  { id: 'direct',      icon: '⚡', name: 'Direct',      desc: 'Skip orchestration — raw model stream' },
   { id: 'image',       icon: '🎨', name: 'Image',       desc: 'Generate images with AI' },
   { id: 'video',       icon: '🎬', name: 'Video',       desc: 'Generate animated video frames' },
-  { id: 'automations', icon: '⚡', name: 'Automations', desc: 'Run automated workflows' },
+  { id: 'automations', icon: '🔄', name: 'Automations', desc: 'Run automated workflows' },
 ];
 
 function renderModeDropdown() {
@@ -1388,6 +1389,7 @@ function renderModeDropdown() {
       currentMode = el.dataset.mode;
       const placeholders = {
         chat: 'Ask the Manager…  (⌘K for commands)',
+        direct: 'Direct model prompt — no orchestration, raw output…',
         image: 'Describe the image you want to generate…',
         video: 'Describe the video you want to generate…',
         automations: 'Describe a workflow to automate…'
@@ -1455,6 +1457,8 @@ async function refreshStatus() {
     const s = await api.status();
     document.getElementById('healthText').textContent = `v${s.version}`;
     document.getElementById('healthDot').classList.remove('bad');
+    const pill = document.getElementById('versionPill');
+    if (pill && s.version) pill.textContent = `v${s.version}`;
   } catch {
     document.getElementById('healthText').textContent = 'offline';
     document.getElementById('healthDot').classList.add('bad');
@@ -1462,6 +1466,33 @@ async function refreshStatus() {
 }
 refreshStatus();
 setInterval(refreshStatus, 30000);
+
+// ── Session pinning helpers (localStorage) ──────────────────────────────
+const PINNED_KEY = 'metis.pinned_sessions';
+function getPinned() {
+  try { return new Set(JSON.parse(localStorage.getItem(PINNED_KEY) || '[]')); } catch { return new Set(); }
+}
+function setPinned(set) {
+  localStorage.setItem(PINNED_KEY, JSON.stringify([...set]));
+}
+function togglePin(id) {
+  const s = getPinned();
+  if (s.has(id)) s.delete(id); else s.add(id);
+  setPinned(s);
+}
+
+// ── Relative time helper ─────────────────────────────────────────────────
+function timeAgo(ts) {
+  if (!ts) return '';
+  const date = typeof ts === 'number' ? new Date(ts < 1e12 ? ts * 1000 : ts)
+    : new Date(String(ts).replace('Z', '+00:00'));
+  const diff = (Date.now() - date.getTime()) / 1000;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
 
 // ── Sessions list ───────────────────────────────────────────────────────
 async function loadSessions() {
@@ -1476,10 +1507,18 @@ async function loadSessions() {
     }
     countEl.textContent = sessions.length;
     list.innerHTML = '';
-    sessions.slice(0, 30).forEach(s => {
+    const pinned = getPinned();
+    // Pinned first, then rest
+    const sorted = [
+      ...sessions.filter(s => pinned.has(typeof s === 'string' ? s : s.id)),
+      ...sessions.filter(s => !pinned.has(typeof s === 'string' ? s : s.id)),
+    ];
+    sorted.slice(0, 40).forEach(s => {
       // Support both old format (plain string) and new format ({id, title, updated_at})
-      const id    = typeof s === 'string' ? s : s.id;
-      const title = (typeof s === 'object' && s.title) ? s.title : id;
+      const id       = typeof s === 'string' ? s : s.id;
+      const title    = (typeof s === 'object' && s.title) ? s.title : id;
+      const updatedAt = typeof s === 'object' ? s.updated_at : null;
+      const isPinned = pinned.has(id);
 
       const div = document.createElement('div');
       div.className = 'session-item';
@@ -1487,11 +1526,27 @@ async function loadSessions() {
       div.title = id;
       if (id === currentSession) div.classList.add('active');
 
-      // Session label — show human-readable title
+      // Session label — show human-readable title + relative time
       const label = document.createElement('span');
       label.className = 'session-label';
-      label.textContent = title;
+      label.dataset.title = title;
+      const relTime = timeAgo(updatedAt);
+      label.innerHTML = `${escapeHtml(title)}${relTime ? `<span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--subtle);margin-left:5px">${escapeHtml(relTime)}</span>` : ''}`;
       div.appendChild(label);
+
+      // Pin button — star icon, always visible when pinned
+      const pinBtn = document.createElement('button');
+      pinBtn.className = 'session-rename';
+      pinBtn.title = isPinned ? 'Unpin session' : 'Pin session';
+      pinBtn.style.color = isPinned ? 'var(--am)' : '';
+      pinBtn.style.opacity = isPinned ? '1' : '';
+      pinBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="${isPinned ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`;
+      pinBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        togglePin(id);
+        loadSessions();
+      });
+      div.appendChild(pinBtn);
 
       // Rename button (pencil icon) — only visible on hover
       const renameBtn = document.createElement('button');
@@ -1503,15 +1558,16 @@ async function loadSessions() {
         // Turn label into an inline editable input
         const input = document.createElement('input');
         input.className = 'session-rename-input';
-        input.value = label.textContent;
+        input.value = label.dataset.title || label.textContent.split('\n')[0].trim();
         input.maxLength = 120;
         label.replaceWith(input);
         input.focus();
         input.select();
         const finish = async () => {
-          const newTitle = input.value.trim() || label.textContent;
+          const newTitle = input.value.trim() || label.dataset.title || id;
           const span = document.createElement('span');
           span.className = 'session-label';
+          span.dataset.title = newTitle;
           span.textContent = newTitle;
           input.replaceWith(span);
           try { await api.renameSession(id, newTitle); } catch {}
@@ -1585,8 +1641,9 @@ async function loadSession(id) {
     const item = document.querySelector(`.session-item[data-id="${CSS.escape(id)}"]`);
     const titleEl = document.getElementById('sessionTitleHeader');
     const label = item?.querySelector('.session-label');
-    if (label && label.textContent && label.textContent !== id) {
-      titleEl.textContent = '· ' + label.textContent;
+    const labelTitle = label?.dataset.title || label?.textContent?.split('\n')[0]?.trim() || '';
+    if (labelTitle && labelTitle !== id) {
+      titleEl.textContent = '· ' + labelTitle;
       titleEl.classList.add('visible');
     } else {
       titleEl.textContent = '';
@@ -2170,7 +2227,7 @@ async function sendMessage() {
   let thinkBuffer = '';
 
   try {
-    const useDirect = isDirectMode();
+    const useDirect = currentMode === 'direct' || isDirectMode();
     for await (const ev of api.chatStream(currentSession, text, 'manager', abortController.signal, useDirect)) {
       if (ev.type === 'heartbeat') {
         // Server received message — update stage to confirm
@@ -2307,7 +2364,10 @@ async function sendMessage() {
         const item = document.querySelector(`.session-item[data-id="${CSS.escape(sid)}"]`);
         if (item) {
           const lbl = item.querySelector('.session-label');
-          if (lbl) lbl.textContent = ev.title;
+          if (lbl) {
+            lbl.dataset.title = ev.title;
+            lbl.innerHTML = `${escapeHtml(ev.title)}<span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--subtle);margin-left:5px">just now</span>`;
+          }
         }
       } else if (ev.type === 'error') {
         clearInterval(thinkingInterval);
@@ -2581,17 +2641,33 @@ document.getElementById('newChatBtn').addEventListener('click', newChat);
 // ── Command palette ─────────────────────────────────────────────────────
 const COMMANDS = [
   { id: 'new',     icon: '✚', t: 'New conversation', d: 'Start a fresh session', kbd: '⌘L', run: newChat },
-  { id: 'settings',icon: '⚙', t: 'Settings', d: 'View manager settings and configuration',  kbd: '', run: openSettings },
-  { id: 'signout', icon: '⏏', t: 'Sign out', d: 'Log out and return to login', kbd: '',  run: signOut },
+  { id: 'focus',   icon: '✏️', t: 'Focus input', d: 'Jump to the message box', kbd: '⌘/', run: () => msgInput.focus() },
+  { id: 'settings',icon: '⚙', t: 'Settings', d: 'View manager settings and configuration', kbd: '', run: openSettings },
+  { id: 'analytics', icon: '📊', t: 'Analytics dashboard', d: 'Open usage stats and charts', kbd: '', run: () => window.open('/analytics-ui', '_blank') },
+  { id: 'workflows', icon: '🔗', t: 'Workflow builder', d: 'Build and run agent workflows', kbd: '', run: () => window.open('/workflows/page/builder', '_blank') },
+  { id: 'compare', icon: '⚖️', t: 'Compare models', d: 'Run a prompt side-by-side across models', kbd: '', run: () => document.getElementById('cmpBtn')?.click() },
+  { id: 'theme-dark',  icon: '🌙', t: 'Dark theme', d: 'Switch to dark mode', kbd: '', run: () => { document.documentElement.dataset.theme = 'dark'; document.getElementById('themeToggleBtn').textContent = '🌙'; localStorage.setItem('metis.theme', 'dark'); } },
+  { id: 'theme-light', icon: '☀️', t: 'Light theme', d: 'Switch to light mode', kbd: '', run: () => { document.documentElement.dataset.theme = 'light'; document.getElementById('themeToggleBtn').textContent = '☀️'; localStorage.setItem('metis.theme', 'light'); } },
+  { id: 'schedule', icon: '⚡', t: 'Add automation', d: 'Create a new scheduled task', kbd: '', run: () => document.getElementById('schedAddBtn')?.click() },
+  { id: 'marketplace', icon: '🛍', t: 'Plugin marketplace', d: 'Browse and install plugins', kbd: '', run: () => document.getElementById('mktpBtn')?.click() },
   { id: 'sessions',icon: '🗂', t: 'Reload sessions', d: 'Pull latest session list', kbd: '', run: loadSessions },
   { id: 'reload-models', icon: '🧠', t: 'Reload model list', d: 'Re-discover available local + cloud models', kbd: '', run: async () => {
       try { availableModels = (await api.models()).models || []; renderModelMenu(); toast('success', 'Models reloaded', `${availableModels.length} found`, 2200); }
       catch (e) { toast('error', 'Reload failed', e.message, 3000); }
   }},
   { id: 'wallet', icon: '💰', t: 'Check wallet', d: 'Show balance + recent ledger', kbd: '', run: async () => {
-      try { const w = await api.wallet(); toast('info', 'Wallet', JSON.stringify(w), 5000); }
-      catch (e) { toast('error', 'Wallet error', e.message, 4000); }
+      try {
+        const w = await api.wallet();
+        const bal = w.balance_cents != null ? `$${(w.balance_cents / 100).toFixed(2)}` : 'n/a';
+        const spent = w.monthly_spent_cents != null ? `$${(w.monthly_spent_cents / 100).toFixed(2)} spent` : '';
+        toast('info', '💰 Wallet', `Balance: ${bal}${spent ? ' · ' + spent : ''}`, 5000);
+      } catch (e) { toast('error', 'Wallet error', e.message, 4000); }
   }},
+  { id: 'export-session', icon: '📥', t: 'Export current session', d: 'Download conversation as Markdown', kbd: '', run: async () => {
+      try { await api.exportSession(currentSession, 'md'); toast('success', 'Exported', 'Session downloaded', 2000); }
+      catch (e) { toast('error', 'Export failed', e.message, 3000); }
+  }},
+  { id: 'signout', icon: '⏏', t: 'Sign out', d: 'Log out and return to login', kbd: '', run: signOut },
 ];
 const overlay = document.getElementById('paletteOverlay');
 const palInput = document.getElementById('paletteInput');
@@ -2834,18 +2910,39 @@ async function loadSchedules() {
       const goal = s.goal || s.action || 'Unnamed automation';
       const spec = s.spec || '';
       const kindLabel = { daily: `Daily ${spec}`, interval: `Every ${spec}m`, cron: spec, once: `Once ${spec}` }[s.kind] || spec;
+      const lastRan = s.last_run ? ' · ' + timeAgo(s.last_run) : '';
       return `<div class="sched-item ${s.enabled ? '' : 'disabled'}" data-id="${escapeHtml(s.id)}">
         <span class="sched-icon">${icon}</span>
         <div class="sched-info">
           <div class="sched-goal" title="${escapeHtml(goal)}">${escapeHtml(goal.substring(0, 40))}${goal.length > 40 ? '…' : ''}</div>
-          <div class="sched-time">${escapeHtml(kindLabel)}${s.last_run ? ' · ran ' + new Date(s.last_run*1000).toLocaleDateString() : ''}</div>
+          <div class="sched-time">${escapeHtml(kindLabel)}${escapeHtml(lastRan)}</div>
         </div>
+        <button class="sched-toggle sched-run-now" data-id="${escapeHtml(s.id)}" title="Run now" style="font-size:13px;color:var(--gr)">▶</button>
         <button class="sched-toggle" data-id="${escapeHtml(s.id)}" title="${s.enabled ? 'Disable' : 'Enable'}">${s.enabled ? '🟢' : '⚫'}</button>
         <button class="sched-del" data-id="${escapeHtml(s.id)}" title="Delete">✕</button>
       </div>`;
     }).join('');
+    // Wire run-now
+    list.querySelectorAll('.sched-run-now').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.id;
+        btn.textContent = '⏳';
+        btn.disabled = true;
+        try {
+          const res = await api.runScheduleNow(id);
+          if (window.toast) toast(res.ok ? 'success' : 'warning', 'Run now', res.ok ? 'Automation triggered' : (res.error || 'Ran with issues'), 3000);
+        } catch (err) {
+          if (window.toast) toast('error', 'Run failed', err.message, 3000);
+        } finally {
+          btn.textContent = '▶';
+          btn.disabled = false;
+          loadSchedules();
+        }
+      });
+    });
     // Wire toggle + delete
-    list.querySelectorAll('.sched-toggle').forEach(btn => {
+    list.querySelectorAll('.sched-toggle:not(.sched-run-now)').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         e.stopPropagation();
         try {
@@ -3633,7 +3730,7 @@ COMMANDS.push({
   run: () => window.open('/workflows/page/builder', '_blank'),
 });
 </script>
-<script src="/static/polish/global-polish.v2.js?v=v18"></script>
+<script src="/static/polish/global-polish.v2.js?v=v19"></script>
 <script>
 // ── PWA Service Worker registration (Phase 18) ─────────────────────────
 if ('serviceWorker' in navigator) {

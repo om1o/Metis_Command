@@ -94,6 +94,7 @@ export const api = {
   createSchedule: (data) => _fetch('/schedules', { method: 'POST', body: JSON.stringify(data) }),
   deleteSchedule: (id) => _fetch(`/schedules/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   toggleSchedule: (id) => _fetch(`/schedules/${encodeURIComponent(id)}/toggle`, { method: 'POST' }),
+  runScheduleNow: (id) => _fetch(`/schedules/${encodeURIComponent(id)}/run`, { method: 'POST' }),
   marketplace: () => _fetch('/marketplace'),
   installPlugin: (slug) => _fetch('/marketplace/install', { method: 'POST', body: JSON.stringify({ slug }) }),
   skills: () => _fetch('/skills'),
