@@ -85,10 +85,28 @@ export interface Artifact {
 }
 
 export interface StreamEvent {
-  type: 'token' | 'reasoning' | 'done';
+  type:
+    | 'token'
+    | 'reasoning'
+    | 'done'
+    | 'heartbeat'
+    | 'manager_identity'
+    | 'manager_plan'
+    | 'manager_synthesis'
+    | 'agent_start'
+    | 'agent_done'
+    | 'session_title'
+    | 'relationship_saved'
+    | 'error';
   delta?: string;
   duration_ms?: number;
   tokens?: number;
+  // relationship_saved
+  id?: string;
+  name?: string;
+  // generic passthrough — the SSE shape on the wire is wider than this type;
+  // unknown fields are accepted so we never drop an event for being too rich.
+  [key: string]: unknown;
 }
 
 export interface AuthUser {
@@ -133,6 +151,46 @@ export interface Schedule {
   last_run: number | null;
   next_run: number | null;
   created_at: number;
+}
+
+// ── Relationships ──────────────────────────────────────────────────────────
+
+export interface Relationship {
+  id: string;
+  name: string;
+  role?: string;
+  company?: string;
+  phone?: string;
+  email?: string;
+  notes?: string;
+  tags?: string[];
+  created_at?: string;
+  // Open-ended extra fields the manager might attach (source URL, links).
+  [key: string]: unknown;
+}
+
+export interface RelationshipInput {
+  name: string;
+  role?: string;
+  company?: string;
+  phone?: string;
+  email?: string;
+  notes?: string;
+  tags?: string[];
+}
+
+// ── Inbox ──────────────────────────────────────────────────────────────────
+
+export interface InboxItem {
+  id: string;
+  title: string;
+  body: string;
+  source: string;          // e.g. "schedule:abc123" or "agent:manager"
+  created_at: string;      // ISO
+  read: boolean;
+  // Optional structured link to the source artifact.
+  schedule_id?: string;
+  relationship_id?: string;
 }
 
 // ── Client ──────────────────────────────────────────────────────────────────
@@ -341,6 +399,65 @@ export class MetisClient {
 
   async toggleSchedule(id: string): Promise<{ enabled: boolean; id: string }> {
     return this.post(`/schedules/${id}/toggle`, {});
+  }
+
+  // ── Relationships ───────────────────────────────────────────────────────
+
+  async listRelationships(): Promise<Relationship[]> {
+    return this.get('/relationships');
+  }
+
+  async getRelationship(id: string): Promise<Relationship> {
+    return this.get(`/relationships/${id}`);
+  }
+
+  async createRelationship(input: RelationshipInput): Promise<Relationship> {
+    return this.post('/relationships', {
+      name: input.name,
+      role: input.role || '',
+      company: input.company || '',
+      phone: input.phone || '',
+      email: input.email || '',
+      notes: input.notes || '',
+      tags: input.tags || [],
+    });
+  }
+
+  async deleteRelationship(id: string): Promise<{ ok: boolean; id: string }> {
+    const res = await fetch(`${this.baseUrl}/relationships/${id}`, {
+      method: 'DELETE',
+      headers: this.headers(),
+    });
+    if (!res.ok) throw new Error(`delete relationship: ${res.status}`);
+    return res.json();
+  }
+
+  // ── Inbox ───────────────────────────────────────────────────────────────
+
+  async listInbox(): Promise<InboxItem[]> {
+    return this.get('/inbox');
+  }
+
+  async markInboxRead(id: string): Promise<{ ok: boolean; id: string }> {
+    return this.post(`/inbox/${id}/read`, {});
+  }
+
+  async deleteInbox(id: string): Promise<{ ok: boolean; id: string }> {
+    const res = await fetch(`${this.baseUrl}/inbox/${id}`, {
+      method: 'DELETE',
+      headers: this.headers(),
+    });
+    if (!res.ok) throw new Error(`delete inbox: ${res.status}`);
+    return res.json();
+  }
+
+  async clearInbox(): Promise<{ ok: boolean; cleared: number }> {
+    const res = await fetch(`${this.baseUrl}/inbox`, {
+      method: 'DELETE',
+      headers: this.headers(),
+    });
+    if (!res.ok) throw new Error(`clear inbox: ${res.status}`);
+    return res.json();
   }
 
   // ── Auth ────────────────────────────────────────────────────────────────

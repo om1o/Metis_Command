@@ -38,6 +38,24 @@ SCHEDULES_FILE = PATHS.identity / "schedules.json"
 _CHECK_INTERVAL = 30.0
 
 
+def _notify_inbox_fired(s: "Schedule", *, body: str) -> None:
+    """Best-effort notification when a schedule fires.
+
+    Imports lazily so headless environments without the inbox module
+    (e.g. tests stubbing the scheduler) keep working.
+    """
+    try:
+        import inbox as _inbox
+        _inbox.append(
+            title=f"Job fired — {(s.goal or s.action or 'scheduled job')[:80]}",
+            body=body,
+            source=f"schedule:{s.id}",
+            schedule_id=s.id,
+        )
+    except Exception:
+        pass
+
+
 @dataclass
 class Schedule:
     id: str = field(default_factory=lambda: uuid.uuid4().hex[:10])
@@ -308,9 +326,11 @@ def start_scheduler(runner: Callable[[Schedule], None] | None = None) -> None:
                     status = handler()
                     audit({"event": "scheduler_action_ran",
                            "action": s.action, "schedule_id": s.id, "status": status})
+                    _notify_inbox_fired(s, body=f"Action `{s.action}` finished with status: {status}.")
                 except Exception as e:
                     audit({"event": "scheduler_action_failed",
                            "action": s.action, "schedule_id": s.id, "error": str(e)})
+                    _notify_inbox_fired(s, body=f"Action `{s.action}` failed: {e}")
                 return
 
             try:
@@ -321,8 +341,10 @@ def start_scheduler(runner: Callable[[Schedule], None] | None = None) -> None:
                     auto_approve=s.auto_approve,
                     project_slug=s.project_slug,
                 )
+                _notify_inbox_fired(s, body="Mission queued. Check the chat or workspace for the result.")
             except Exception as e:
                 audit({"event": "scheduler_submit_failed", "schedule_id": s.id, "error": str(e)})
+                _notify_inbox_fired(s, body=f"Could not queue mission: {e}")
 
     _running.set()
 

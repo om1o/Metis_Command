@@ -52,6 +52,7 @@ identity/code_workspaces.json
 identity/inbox.json
 identity/relationships.json
 identity/agent_health.json
+relationships/
 logs/locks/
 
 # ── Website + build artifacts ────────────────────────────────────────────────

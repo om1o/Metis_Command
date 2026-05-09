@@ -389,6 +389,50 @@ async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
                     full_answer += ev.get("delta", "")
                 yield f"data: {json.dumps(ev)}\n\n"
 
+        # Auto-extract relationship blocks the manager emitted at the end.
+        # Format: ```relationship\n{json}\n```. We strip the block from the
+        # message, save the contact, drop an inbox notification, and emit
+        # a `relationship_saved` event the UI shows as a badge.
+        if full_answer:
+            try:
+                import re as _re
+                blk = _re.search(r"```\s*relationship\s*\n([\s\S]+?)\n```", full_answer)
+                if blk:
+                    parsed = None
+                    try:
+                        parsed = json.loads(blk.group(1).strip())
+                    except Exception:
+                        parsed = None
+                    full_answer = (full_answer[:blk.start()] + full_answer[blk.end():]).strip()
+                    if isinstance(parsed, dict) and parsed.get("name"):
+                        try:
+                            saved = _save_relationship_data(parsed)
+                            yield (
+                                "data: "
+                                + json.dumps({
+                                    "type": "relationship_saved",
+                                    "id": saved["id"],
+                                    "name": saved["name"],
+                                })
+                                + "\n\n"
+                            )
+                            try:
+                                _inbox.append(
+                                    title=f"Saved {saved['name']}",
+                                    body=(
+                                        f"Added {saved['name']} to your Relationships."
+                                        + (f"\n\n{saved['notes']}" if saved.get("notes") else "")
+                                    ),
+                                    source="manager:relationship",
+                                    relationship_id=saved["id"],
+                                )
+                            except Exception:
+                                pass
+                        except Exception as e:
+                            print(f"[api_bridge] relationship save failed: {e}")
+            except Exception as e:
+                print(f"[api_bridge] relationship parse failed (non-fatal): {e}")
+
         # Persist the exchange so sessions have real messages.
         session_title = ""
         if full_answer:
@@ -911,18 +955,35 @@ class RelationshipCreate(BaseModel):
     tags: list[str] = []
 
 
+def _save_relationship_data(data: dict) -> dict:
+    """Internal helper used by both the POST route and the manager-emitted
+    relationship blocks. Normalizes the payload, mints an id, persists.
+    """
+    import uuid
+    rid = uuid.uuid4().hex[:12]
+    rec = {
+        "id": rid,
+        "name": str(data.get("name") or "").strip()[:200],
+        "role": str(data.get("role") or "").strip()[:200],
+        "company": str(data.get("company") or "").strip()[:200],
+        "phone": str(data.get("phone") or "").strip()[:80],
+        "email": str(data.get("email") or "").strip()[:200],
+        "notes": str(data.get("notes") or "").strip()[:4000],
+        "tags": [str(t).strip()[:40] for t in (data.get("tags") or []) if str(t).strip()][:10],
+        "created_at": __import__("datetime").datetime.utcnow().isoformat(),
+    }
+    if not rec["name"]:
+        raise ValueError("relationship needs a name")
+    (_RELATIONSHIPS_DIR / f"{rid}.json").write_text(
+        json.dumps(rec, indent=2), encoding="utf-8"
+    )
+    return rec
+
+
 @app.post("/relationships")
 def relationship_create(req: RelationshipCreate) -> dict:
     """Save a new relationship/contact."""
-    import uuid
-    rid = uuid.uuid4().hex[:12]
-    data = req.dict()
-    data["id"] = rid
-    data["created_at"] = __import__("datetime").datetime.utcnow().isoformat()
-    (_RELATIONSHIPS_DIR / f"{rid}.json").write_text(
-        json.dumps(data, indent=2), encoding="utf-8"
-    )
-    return data
+    return _save_relationship_data(req.dict())
 
 
 @app.delete("/relationships/{rid}")
@@ -941,6 +1002,53 @@ def relationship_get(rid: str) -> dict:
     if not fp.exists():
         raise HTTPException(status_code=404, detail="relationship not found")
     return json.loads(fp.read_text(encoding="utf-8"))
+
+
+# ── Inbox ────────────────────────────────────────────────────────────────────
+# Storage + helpers live in inbox.py so the scheduler / orchestrator can
+# append items without importing api_bridge (which would be circular).
+
+import inbox as _inbox
+
+
+class InboxCreate(BaseModel):
+    title: str
+    body: str = ""
+    source: str = "agent"
+    schedule_id: str | None = None
+    relationship_id: str | None = None
+
+
+@app.get("/inbox")
+def inbox_list() -> list[dict]:
+    return _inbox.load()
+
+
+@app.post("/inbox")
+def inbox_create(req: InboxCreate) -> dict:
+    return _inbox.append(
+        title=req.title, body=req.body, source=req.source,
+        schedule_id=req.schedule_id, relationship_id=req.relationship_id,
+    )
+
+
+@app.post("/inbox/{iid}/read")
+def inbox_read(iid: str) -> dict:
+    if not _inbox.mark_read(iid):
+        raise HTTPException(status_code=404, detail="inbox item not found")
+    return {"ok": True, "id": iid}
+
+
+@app.delete("/inbox/{iid}")
+def inbox_delete_one(iid: str) -> dict:
+    if not _inbox.remove(iid):
+        raise HTTPException(status_code=404, detail="inbox item not found")
+    return {"ok": True, "id": iid}
+
+
+@app.delete("/inbox")
+def inbox_clear() -> dict:
+    return {"ok": True, "cleared": _inbox.clear()}
 
 
 # ── Skills ───────────────────────────────────────────────────────────────────

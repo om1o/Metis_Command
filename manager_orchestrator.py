@@ -131,6 +131,44 @@ the specialists by name — speak in your own voice. Do NOT preface with
 "based on" or "according to". Just answer."""
 
 
+# Behavioral additions appended to every Manager system prompt at runtime.
+# Two opinionated rules:
+#   1. Don't guess. If you genuinely need missing info to give a useful
+#      answer, ask one short clarifying question instead of fabricating.
+#   2. When you profile a real person/contact you researched, end your
+#      reply with a fenced ```relationship ...``` JSON block so the UI can
+#      auto-save it to the Relationships file. The block is stripped
+#      before the message is shown to the user.
+_BEHAVIORAL_RULES = """
+
+How you handle ambiguous requests:
+If the user's request is genuinely under-specified and a confident answer
+needs missing details (e.g. "find me a lawyer" without a city or matter
+type), ask ONE short clarifying question and stop. Do not list five
+questions; pick the single most-blocking one. If the request is clear
+enough to act on, do not ask — just answer.
+
+How you save people you research:
+When (and only when) your answer profiles a specific real person or
+business contact you found — a lawyer, contractor, broker, vendor, etc. —
+end your message with a single fenced block exactly like this:
+
+```relationship
+{"name": "Jane Doe", "role": "Real estate attorney", "company": "Doe & Co", "phone": "+1-512-555-0142", "email": "jane@doeandco.com", "notes": "Based in Austin; ~15 yrs commercial leasing experience.", "tags": ["lawyer", "real-estate", "austin"]}
+```
+
+Rules for the block:
+  * Only one block per reply, at the very end.
+  * Include only fields you actually have. Omit unknown fields entirely
+    rather than writing "unknown" or empty strings.
+  * Do NOT include the block for hypothetical examples, summaries of
+    multiple people, brand-name companies the user already knows, or
+    generic conversational replies.
+  * The block is auto-extracted and saved; the user does not see the
+    raw JSON.
+"""
+
+
 def _extract_json(text: str) -> dict | None:
     """Best-effort JSON extraction from a model response."""
     text = (text or "").strip()
@@ -337,6 +375,7 @@ def orchestrate(
         "Answer in your own voice. Do NOT preface your answer with phrases "
         "like 'Certainly!', 'Here is', 'Based on', or 'The final answer'. "
         "Just answer."
+        f"{_BEHAVIORAL_RULES}"
     )
 
     # Build the message list: system → context history → current question.

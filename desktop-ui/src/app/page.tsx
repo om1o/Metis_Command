@@ -39,6 +39,8 @@ import {
   ShieldAlert,
   Eye,
   CalendarClock,
+  Users,
+  Bell,
 } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { createLocalClient, MetisClient, AuthUser, Schedule } from '@/lib/metis-client';
@@ -46,6 +48,8 @@ import { Mark, Wordmark } from '@/components/brand';
 import LoginScreen, { AuthSuccess } from '@/components/login-screen';
 import JobPlanner from '@/components/job-planner';
 import JobsPanel from '@/components/jobs-panel';
+import RelationshipsPanel from '@/components/relationships-panel';
+import InboxPanel from '@/components/inbox-panel';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -60,6 +64,10 @@ interface Message {
   content: string;
   ts: number;
   status?: AgentStatus;
+  // Set when the manager extracted a fenced relationship block at the end
+  // of this message; the UI shows a "Saved <name>" pill linking to the
+  // Relationships panel.
+  savedRelationship?: { id: string; name: string };
 }
 
 interface Session {
@@ -130,6 +138,18 @@ function pickTitle(text: string): string {
   const t = text.trim().replace(/\s+/g, ' ');
   if (t.length <= 48) return t || 'New session';
   return `${t.slice(0, 45).trimEnd()}…`;
+}
+
+// Removes the auto-save fenced JSON block the Manager appends when it
+// profiled a person. Kept symmetric with the backend's regex in
+// api_bridge.py so we don't show raw JSON to the user. Tolerates a
+// partially-streamed block (no closing fence yet) by truncating from
+// the opening fence.
+function stripRelationshipBlock(text: string): string {
+  const closed = text.replace(/```\s*relationship\s*\n[\s\S]+?\n```\s*$/i, '').trimEnd();
+  if (closed !== text) return closed;
+  const openIdx = text.search(/```\s*relationship\b/i);
+  return openIdx >= 0 ? text.slice(0, openIdx).trimEnd() : text;
 }
 
 function formatMinutes(mins: number): string {
@@ -352,6 +372,9 @@ export default function App() {
   const [mode, setMode] = useState<Mode>('task');
   const [jobPlanner, setJobPlanner] = useState<{ goal: string } | null>(null);
   const [jobsOpen, setJobsOpen] = useState(false);
+  const [relationshipsOpen, setRelationshipsOpen] = useState(false);
+  const [inboxOpen, setInboxOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
@@ -442,6 +465,23 @@ export default function App() {
   useEffect(() => {
     try { localStorage.setItem('metis-mode', mode); } catch {}
   }, [mode]);
+
+  // Poll the inbox for the unread count so the bell badge stays fresh.
+  // Cheap call; cap to once every 15s. Also re-checks when the panel is
+  // closed so dismissing a notification updates the count immediately.
+  useEffect(() => {
+    if (!client) return;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const items = await client.listInbox();
+        if (!cancelled) setUnreadCount(items.filter((i) => !i.read).length);
+      } catch { /* offline or auth — leave count alone */ }
+    };
+    tick();
+    const id = setInterval(tick, 15_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [client, inboxOpen]);
   useEffect(() => {
     try { localStorage.setItem('metis-sessions', JSON.stringify(sessions.slice(0, 30))); } catch {}
   }, [sessions]);
@@ -462,6 +502,7 @@ export default function App() {
       else if (k === '/')   { e.preventDefault(); setWorkspaceOpen((v) => !v); }
       else if (k === 'n')   { e.preventDefault(); newSession(); }
       else if (k === 'j')   { e.preventDefault(); setJobsOpen((v) => !v); }
+      else if (k === 'r')   { e.preventDefault(); setRelationshipsOpen((v) => !v); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -548,6 +589,7 @@ export default function App() {
 
     (async () => {
       let acc = '';
+      let saved: { id: string; name: string } | undefined;
       try {
         // Prepend the permission contract so the agent respects scope
         // without surfacing the directive in the user-visible chat bubble.
@@ -563,22 +605,29 @@ export default function App() {
                   ? {
                       ...s,
                       messages: s.messages.map((m) =>
-                        m.id === agentMsg.id ? { ...m, content: acc, status: 'working' } : m,
+                        m.id === agentMsg.id ? { ...m, content: stripRelationshipBlock(acc), status: 'working' } : m,
                       ),
                     }
                   : s,
               ),
             );
+          } else if (ev.type === 'relationship_saved' && typeof ev.id === 'string' && typeof ev.name === 'string') {
+            saved = { id: ev.id, name: ev.name };
+            // Optimistic bump; the next /inbox poll will reconcile.
+            setUnreadCount((c) => c + 1);
           }
         }
         if (!ac.signal.aborted) {
+          const finalContent = stripRelationshipBlock(acc);
           setSessions((all) =>
             all.map((s) =>
               s.id === sId
                 ? {
                     ...s,
                     messages: s.messages.map((m) =>
-                      m.id === agentMsg.id ? { ...m, content: acc, status: 'done' } : m,
+                      m.id === agentMsg.id
+                        ? { ...m, content: finalContent, status: 'done', savedRelationship: saved }
+                        : m,
                     ),
                   }
                 : s,
@@ -779,7 +828,7 @@ export default function App() {
           </div>
         )}
         {sidebarOpen && (
-          <div className="px-2 pt-1.5">
+          <div className="grid gap-0.5 px-2 pt-1.5">
             <button
               type="button"
               onClick={() => setJobsOpen(true)}
@@ -789,6 +838,16 @@ export default function App() {
               <CalendarClock className="h-4 w-4 shrink-0 text-violet-400" />
               <span>Jobs</span>
               <span className="ml-auto text-[10px] text-[var(--metis-fg-dim)]">⌘J</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setRelationshipsOpen(true)}
+              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] text-[var(--metis-fg-muted)] transition hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]"
+              title="Relationships (⌘R)"
+            >
+              <Users className="h-4 w-4 shrink-0 text-violet-400" />
+              <span>Relationships</span>
+              <span className="ml-auto text-[10px] text-[var(--metis-fg-dim)]">⌘R</span>
             </button>
           </div>
         )}
@@ -805,15 +864,26 @@ export default function App() {
             {sidebarOpen && 'Sign out'}
           </button>
           {!sidebarOpen && (
-            <button
-              type="button"
-              onClick={() => setJobsOpen(true)}
-              className="metis-icon-btn"
-              aria-label="Jobs"
-              title="Jobs (⌘J)"
-            >
-              <CalendarClock className="h-4 w-4" />
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => setJobsOpen(true)}
+                className="metis-icon-btn"
+                aria-label="Jobs"
+                title="Jobs (⌘J)"
+              >
+                <CalendarClock className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setRelationshipsOpen(true)}
+                className="metis-icon-btn"
+                aria-label="Relationships"
+                title="Relationships (⌘R)"
+              >
+                <Users className="h-4 w-4" />
+              </button>
+            </>
           )}
           <button
             type="button"
@@ -850,6 +920,20 @@ export default function App() {
             )}
           </div>
           <div className="ml-auto flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setInboxOpen(true)}
+              className="metis-icon-btn relative"
+              title={`Inbox${unreadCount ? ` (${unreadCount} unread)` : ''}`}
+              aria-label="Inbox"
+            >
+              <Bell className="h-4 w-4" />
+              {unreadCount > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-violet-500 px-1 text-[9px] font-medium text-white">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
             <button
               type="button"
               onClick={() => setWorkspaceOpen((v) => !v)}
@@ -1056,6 +1140,28 @@ export default function App() {
         )}
       </AnimatePresence>
 
+      {/* Relationships panel — every contact the agent has saved */}
+      <AnimatePresence>
+        {relationshipsOpen && client && (
+          <RelationshipsPanel
+            client={client}
+            reduceMotion={!!reduceMotion}
+            onClose={() => setRelationshipsOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Inbox — notifications from scheduled jobs + saved contacts */}
+      <AnimatePresence>
+        {inboxOpen && client && (
+          <InboxPanel
+            client={client}
+            reduceMotion={!!reduceMotion}
+            onClose={() => setInboxOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Settings */}
       <AnimatePresence>
         {settingsOpen && (
@@ -1226,6 +1332,13 @@ function MessageBubble({
             <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400" style={{ animationDelay: '0ms' }} />
             <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400" style={{ animationDelay: '150ms' }} />
             <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400" style={{ animationDelay: '300ms' }} />
+          </div>
+        )}
+        {msg.savedRelationship && (
+          <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[11px] text-violet-200">
+            <Users className="h-3 w-3" />
+            Saved <span className="font-medium">{msg.savedRelationship.name}</span>
+            <span className="text-[10px] text-violet-300/80">to Relationships</span>
           </div>
         )}
       </div>
