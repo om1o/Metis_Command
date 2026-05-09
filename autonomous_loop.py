@@ -99,6 +99,11 @@ def _tool_registry() -> dict[str, Callable[..., Any]]:
         "browser_goto": _perm.gate("browser_goto", _ba.goto,                          summary_args=["url"]),
         "browser_click": _perm.gate("browser_click", _ba.click,                       summary_args=["target"]),
         "browser_fill": _perm.gate("browser_fill", _ba.fill,                          summary_args=["selector", "value"]),
+        # MVP 18a: semantic click/fill — natural language not CSS.
+        # Walks role/label/placeholder/text strategies in priority
+        # order with auto-retry on stale-element races.
+        "browser_click_smart": _perm.gate("browser_click_smart", _ba.click_smart, summary_args=["target"]),
+        "browser_fill_smart":  _perm.gate("browser_fill_smart",  _ba.fill_smart,  summary_args=["label", "value"]),
         "speak":        _perm.gate("speak",        _vo.speak,                         summary_args=["text"]),
 
         # MVP 15: real desktop control. The internal confirm flag in
@@ -170,6 +175,8 @@ _MUTATING_TOOLS = {
     "shell",
     "browser_click",
     "browser_fill",
+    "browser_click_smart",
+    "browser_fill_smart",
     "speak",
     "subagent",
     # MVP 15 — anything that touches the real desktop or browser cookies.
@@ -253,8 +260,10 @@ Valid tools (name -> signature):
 
   # Browser (Playwright, headless by default) — actions gated
   browser_goto(url)                     (gated)
-  browser_click(target)                 (gated)
-  browser_fill(selector, value)         (gated)
+  browser_click(target)                 (gated; raw CSS or text)
+  browser_fill(selector, value)         (gated; raw CSS)
+  browser_click_smart(target)           (gated; "Submit" / "Sign in" / etc.)
+  browser_fill_smart(label, value)      (gated; field by label/placeholder)
   browser_extract(selector=None)        -> str
   browser_screenshot()                  -> path
   browser_save_state()                  (gated; snapshot cookies)

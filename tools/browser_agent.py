@@ -228,6 +228,70 @@ class Browser:
         except Exception as e:
             return {"ok": False, "error": str(e), "target": target}
 
+    def click_smart(
+        self,
+        target: str,
+        *,
+        retries: int = 2,
+        kinds: tuple[str, ...] = ("button", "link", "menuitem", "checkbox", "radio"),
+    ) -> dict[str, Any]:
+        """Click an element described in natural language.
+
+        Walks Playwright's locator strategies in order of specificity:
+            1. role+name (button "Submit") — most reliable
+            2. exact label / placeholder
+            3. exact text
+            4. raw CSS selector (in case the caller passed one)
+
+        Retries on PWTimeout to ride out stale-element / partial-render
+        races. Returns ``{ok, used_strategy, target}``.
+        """
+        self._ensure()
+        last_err: Exception | None = None
+        for attempt in range(retries + 1):
+            for strategy, build in self._locator_candidates(target, kinds):
+                try:
+                    loc = build()
+                    if loc.count() == 0:
+                        continue
+                    loc.first.click(timeout=4000)
+                    self._safe_snapshot()
+                    return {"ok": True, "used_strategy": strategy, "target": target}
+                except PWTimeout as e:
+                    last_err = e
+                    continue
+                except Exception as e:
+                    last_err = e
+                    continue
+            # Brief settle before next outer retry — handles the
+            # "element appears mid-render" race.
+            try:
+                self._page.wait_for_timeout(400)
+            except Exception:
+                break
+        return {"ok": False, "error": str(last_err) if last_err else "no candidate matched",
+                "target": target}
+
+    def _locator_candidates(self, target: str, kinds: tuple[str, ...]):
+        """Yield (strategy_name, locator_builder) pairs in priority order."""
+        page = self._page
+        # 1. role + accessible name — by far the most stable.
+        for role in kinds:
+            yield (f"role:{role}",
+                   lambda r=role: page.get_by_role(r, name=target))
+        # 2. label (form fields)
+        yield ("label",       lambda: page.get_by_label(target))
+        # 3. placeholder (input/textarea)
+        yield ("placeholder", lambda: page.get_by_placeholder(target))
+        # 4. test id (rare but unambiguous)
+        yield ("test-id",     lambda: page.get_by_test_id(target))
+        # 5. title attribute (icon-only buttons)
+        yield ("title",       lambda: page.get_by_title(target))
+        # 6. visible text — broadest, most ambiguous, last.
+        yield ("text",        lambda: page.get_by_text(target, exact=False))
+        # 7. raw selector — caller may have passed CSS.
+        yield ("css",         lambda: page.locator(target))
+
     def fill(self, selector: str, value: str) -> dict[str, Any]:
         self._ensure()
         try:
@@ -236,6 +300,43 @@ class Browser:
             return {"ok": True, "selector": selector, "bytes": len(value)}
         except Exception as e:
             return {"ok": False, "error": str(e), "selector": selector}
+
+    def fill_smart(self, label: str, value: str, *, retries: int = 2) -> dict[str, Any]:
+        """Fill a form field identified by its label, placeholder, or
+        adjacent text. Same locator-cascade pattern as click_smart."""
+        self._ensure()
+        last_err: Exception | None = None
+        page = self._page
+        candidates = [
+            ("label",       lambda: page.get_by_label(label)),
+            ("placeholder", lambda: page.get_by_placeholder(label)),
+            ("role:textbox", lambda: page.get_by_role("textbox", name=label)),
+            ("role:combobox", lambda: page.get_by_role("combobox", name=label)),
+            ("test-id",     lambda: page.get_by_test_id(label)),
+            ("css",         lambda: page.locator(label)),
+        ]
+        for attempt in range(retries + 1):
+            for strategy, build in candidates:
+                try:
+                    loc = build()
+                    if loc.count() == 0:
+                        continue
+                    loc.first.fill(value, timeout=4000)
+                    self._safe_snapshot()
+                    return {"ok": True, "used_strategy": strategy,
+                            "label": label, "bytes": len(value)}
+                except PWTimeout as e:
+                    last_err = e
+                    continue
+                except Exception as e:
+                    last_err = e
+                    continue
+            try:
+                page.wait_for_timeout(400)
+            except Exception:
+                break
+        return {"ok": False, "error": str(last_err) if last_err else "no field matched",
+                "label": label}
 
     def submit(self, selector: str | None = None, *, confirm_token: str | None = None) -> dict[str, Any]:
         """Submit a form — confirm-gated unless the host is in SUBMIT_ALLOWLIST_HOSTS."""
@@ -343,6 +444,21 @@ def click(target: str, by_text: bool = False) -> dict[str, Any]:
 @audited("browser.fill")
 def fill(selector: str, value: str) -> dict[str, Any]:
     return browser.fill(selector, value)
+
+
+@audited("browser.click_smart")
+def click_smart(target: str, retries: int = 2) -> dict[str, Any]:
+    """Semantic click. Pass natural-language descriptions like
+    "Submit", "Sign in", "Save changes" — we walk role/label/text
+    strategies until something matches."""
+    return browser.click_smart(target, retries=retries)
+
+
+@audited("browser.fill_smart")
+def fill_smart(label: str, value: str, retries: int = 2) -> dict[str, Any]:
+    """Semantic fill. Identifies form fields by their label,
+    placeholder, or accessible name — no CSS selector required."""
+    return browser.fill_smart(label, value, retries=retries)
 
 
 @audited("browser.extract")
