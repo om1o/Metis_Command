@@ -14,6 +14,7 @@ Examples:
     python scripts/qql.py quality --parallel
     python scripts/qql.py ai.basic --json
     python scripts/qql.py --doctor
+    python scripts/qql.py --latest
     python scripts/qql.py --summarize artifacts/quality/qql-e2e-latest.json
 """
 
@@ -431,6 +432,20 @@ def summarize_report(path: Path) -> tuple[str, bool]:
     return "\n".join(lines), ok
 
 
+def latest_report_path(directory: Path | None = None) -> Path | None:
+    report_dir = directory or (ROOT / "artifacts" / "quality")
+    if not report_dir.exists():
+        return None
+    reports = [
+        path
+        for path in report_dir.glob("*.json")
+        if path.is_file() and not path.name.endswith(".tmp")
+    ]
+    if not reports:
+        return None
+    return max(reports, key=lambda path: path.stat().st_mtime)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run Metis quality checks by QQL selector.")
     parser.add_argument("query", nargs="?", default="quality", help="QQL selector, alias, or comma-separated selectors")
@@ -440,6 +455,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--doctor", action="store_true", help="check local QQL prerequisites without running gates")
     parser.add_argument("--json", action="store_true", help="print machine-readable result JSON")
     parser.add_argument("--report", type=Path, help="write a durable JSON quality report to this path")
+    parser.add_argument("--latest", action="store_true", help="summarize the newest report in artifacts/quality")
     parser.add_argument("--summarize", type=Path, help="print a concise summary for a QQL or AI smoke report")
     args = parser.parse_args(argv)
 
@@ -453,6 +469,19 @@ def main(argv: list[str] | None = None) -> int:
         else:
             print(format_doctor_report(report))
         return 0 if report["ok"] else 1
+
+    if args.latest:
+        latest = latest_report_path()
+        if latest is None:
+            print("[qql] no reports found in artifacts/quality", file=sys.stderr)
+            return 2
+        try:
+            summary, ok = summarize_report(latest)
+        except Exception as exc:
+            print(f"[qql] could not summarize {latest}: {exc}", file=sys.stderr)
+            return 2
+        print(summary)
+        return 0 if ok else 1
 
     if args.summarize:
         try:

@@ -159,6 +159,43 @@ def test_summarize_ai_report_outputs_load_details(tmp_path) -> None:
     assert "- direct_chat_load_3: failed (1.2s) error=bad token" in summary
 
 
+def test_latest_report_path_returns_newest_json(tmp_path) -> None:
+    older = tmp_path / "older.json"
+    newer = tmp_path / "newer.json"
+    tmp_file = tmp_path / "newer.json.tmp"
+    older.write_text("{}", encoding="utf-8")
+    newer.write_text("{}", encoding="utf-8")
+    tmp_file.write_text("{}", encoding="utf-8")
+
+    newer.touch()
+
+    assert qql.latest_report_path(tmp_path) == newer
+
+
+def test_latest_report_path_returns_none_when_empty(tmp_path) -> None:
+    assert qql.latest_report_path(tmp_path) is None
+
+
+def test_latest_cli_summarizes_newest_report(monkeypatch: pytest.MonkeyPatch, tmp_path, capsys: pytest.CaptureFixture[str]) -> None:
+    report_path = tmp_path / "latest.json"
+    qql.write_report(report_path, {"schema": "metis.qql.report.v1", "ok": True, "query": "quality", "results": []})
+    monkeypatch.setattr(qql, "latest_report_path", lambda: report_path)
+
+    rc = qql.main(["--latest"])
+
+    assert rc == 0
+    assert "query: quality" in capsys.readouterr().out
+
+
+def test_latest_cli_returns_two_when_no_reports(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    monkeypatch.setattr(qql, "latest_report_path", lambda: None)
+
+    rc = qql.main(["--latest"])
+
+    assert rc == 2
+    assert "no reports found" in capsys.readouterr().err
+
+
 def test_build_doctor_report_marks_all_checks_ok(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         qql,
