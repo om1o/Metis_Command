@@ -37,6 +37,7 @@ def test_parse_load_alias_selects_ai_load() -> None:
 
     assert [check.key for check in checks] == ["ai.load"]
     assert "--direct-chat-repeats" in checks[0].command
+    assert "--manager-chat" in checks[0].command
 
 
 def test_parse_build_alias_selects_desktop_lint_and_build() -> None:

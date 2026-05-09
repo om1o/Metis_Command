@@ -67,11 +67,12 @@ CHECKS: dict[str, Check] = {
     ),
     "ai.load": Check(
         key="ai.load",
-        description="Health, repeated direct AI chat, and autonomous exact-answer missions.",
+        description="Health, repeated direct AI chat, manager orchestration, and autonomous exact-answer missions.",
         command=_py(
             "scripts/ai_smoke_gate.py",
             "--direct-chat-repeats",
             "3",
+            "--manager-chat",
             "--report",
             "artifacts/quality/ai-smoke-load.json",
         ),
