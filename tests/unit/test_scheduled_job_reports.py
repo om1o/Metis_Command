@@ -30,6 +30,7 @@ def test_scheduled_mission_saves_report_artifact(_sandbox_paths, monkeypatch):
     from artifacts import list_artifacts
     from concurrency import MissionPool
     import inbox
+    import notifications
 
     def fake_run_mission(*, goal, on_event=None, **_kw):
         if on_event:
@@ -82,6 +83,18 @@ def test_scheduled_mission_saves_report_artifact(_sandbox_paths, monkeypatch):
     assert items
     assert items[0]["artifact_id"] == report.id
     assert items[0]["schedule_id"] == "market123"
+
+    alerts = []
+    deadline = time.time() + 5
+    while time.time() < deadline:
+        alerts = notifications.list_notifications()
+        if alerts:
+            break
+        time.sleep(0.05)
+    assert alerts
+    assert alerts[0]["artifact_id"] == report.id
+    assert alerts[0]["schedule_id"] == "market123"
+    assert alerts[0]["mission_id"] == record.id
 
 
 def test_run_now_uses_scheduled_report_tag(_sandbox_paths, monkeypatch):

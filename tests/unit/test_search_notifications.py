@@ -65,13 +65,22 @@ def test_sessions_search_api_returns_matches(_sandbox_paths):
     assert "<b>landlord</b>" in payload[0]["snippet"]
 
 
-def test_notifications_module_persists_and_marks_read(_sandbox_paths):
+def test_notifications_module_persists_metadata_and_marks_read(_sandbox_paths):
     notifications = _fresh_notifications()
 
-    created = notifications.add("Job finished", "The scheduled report is ready.", "success")
+    created = notifications.add(
+        "Job finished",
+        "The scheduled report is ready.",
+        "success",
+        metadata={"artifact_id": "art123", "schedule_id": "sched123"},
+    )
+    item = notifications.list_notifications()[0]
 
     assert notifications.unread_count() == 1
-    assert notifications.list_notifications()[0]["id"] == created["id"]
+    assert item["id"] == created["id"]
+    assert item["artifact_id"] == "art123"
+    assert item["schedule_id"] == "sched123"
+    assert item["metadata"] == {"artifact_id": "art123", "schedule_id": "sched123"}
     assert notifications.mark_read(created["id"]) is True
     assert notifications.unread_count() == 0
     assert notifications.clear() == 1
@@ -87,7 +96,12 @@ def test_notifications_api_lifecycle(_sandbox_paths):
 
     created = client.post(
         "/notifications",
-        json={"title": "Agent update", "body": "Manager finished the task.", "type": "agent"},
+        json={
+            "title": "Agent update",
+            "body": "Manager finished the task.",
+            "type": "agent",
+            "metadata": {"artifact_id": "run456"},
+        },
         headers=api_bridge.auth_local.bearer_header(),
     )
     assert created.status_code == 200
@@ -95,7 +109,9 @@ def test_notifications_api_lifecycle(_sandbox_paths):
 
     headers = api_bridge.auth_local.bearer_header()
     assert client.get("/notifications/count", headers=headers).json() == {"unread": 1}
-    assert client.get("/notifications", headers=headers).json()[0]["id"] == notif_id
+    listed = client.get("/notifications", headers=headers).json()[0]
+    assert listed["id"] == notif_id
+    assert listed["artifact_id"] == "run456"
     assert client.post(f"/notifications/{notif_id}/read", headers=headers).json() == {"ok": True, "id": notif_id}
     assert client.get("/notifications/count", headers=headers).json() == {"unread": 0}
     assert client.delete("/notifications", headers=headers).json() == {"ok": True, "cleared": 1}

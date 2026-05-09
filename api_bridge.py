@@ -23,7 +23,7 @@ from fastapi import FastAPI, HTTPException, Query, Request  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.responses import Response, StreamingResponse, FileResponse, RedirectResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
-from pydantic import BaseModel  # noqa: E402
+from pydantic import BaseModel, Field  # noqa: E402
 
 from brain_engine import ROLE_MODELS, list_local_models, stream_chat  # noqa: E402
 from artifacts import Artifact, list_artifacts, get_artifact, save_artifact, delete_artifact  # noqa: E402
@@ -1430,6 +1430,7 @@ class NotificationCreate(BaseModel):
     title: str
     body: str = ""
     type: str = "info"  # info | success | warning | error | agent
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 @app.get("/notifications")
@@ -1452,7 +1453,7 @@ def notifications_create(req: NotificationCreate) -> dict:
     """Post a new notification (agents, scheduler, external tools)."""
     valid_types = {"info", "success", "warning", "error", "agent"}
     notif_type = req.type if req.type in valid_types else "info"
-    return _notifs.add(title=req.title, body=req.body, notif_type=notif_type)  # type: ignore[arg-type]
+    return _notifs.add(title=req.title, body=req.body, notif_type=notif_type, metadata=req.metadata)  # type: ignore[arg-type]
 
 
 @app.post("/notifications/{notif_id}/read")

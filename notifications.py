@@ -10,6 +10,7 @@ from __future__ import annotations
 import sqlite3
 import threading
 import uuid
+import json
 from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
@@ -49,11 +50,15 @@ def _get_db() -> sqlite3.Connection | None:
                 title      TEXT NOT NULL,
                 body       TEXT NOT NULL DEFAULT '',
                 read       INTEGER NOT NULL DEFAULT 0,
-                created_at TEXT NOT NULL
+                created_at TEXT NOT NULL,
+                metadata   TEXT NOT NULL DEFAULT '{}'
             );
             CREATE INDEX IF NOT EXISTS idx_notifications_created
                 ON notifications(created_at DESC);
         """)
+        cols = {row["name"] for row in conn.execute("PRAGMA table_info(notifications)").fetchall()}
+        if "metadata" not in cols:
+            conn.execute("ALTER TABLE notifications ADD COLUMN metadata TEXT NOT NULL DEFAULT '{}'")
         conn.commit()
         _db_conn = conn
         _db_ready = True
@@ -69,8 +74,8 @@ def _persist(notif: dict) -> None:
         return
     try:
         conn.execute(
-            "INSERT OR IGNORE INTO notifications (id, type, title, body, read, created_at) "
-            "VALUES (:id, :type, :title, :body, :read, :created_at)",
+            "INSERT OR IGNORE INTO notifications (id, type, title, body, read, created_at, metadata) "
+            "VALUES (:id, :type, :title, :body, :read, :created_at, :metadata)",
             {
                 "id": notif["id"],
                 "type": notif["type"],
@@ -78,6 +83,7 @@ def _persist(notif: dict) -> None:
                 "body": notif.get("body", ""),
                 "read": 1 if notif.get("read") else 0,
                 "created_at": notif["created_at"],
+                "metadata": json.dumps(notif.get("metadata") or {}),
             },
         )
         conn.commit()
@@ -91,11 +97,24 @@ def _load_from_db(limit: int = _MAX_QUEUE) -> list[dict]:
         return []
     try:
         rows = conn.execute(
-            "SELECT id, type, title, body, read, created_at FROM notifications "
+            "SELECT id, type, title, body, read, created_at, metadata FROM notifications "
             "ORDER BY created_at DESC LIMIT ?",
             (limit,),
         ).fetchall()
-        return [{**dict(row), "read": bool(row["read"])} for row in rows]
+        items = []
+        for row in rows:
+            item = {**dict(row), "read": bool(row["read"])}
+            try:
+                metadata = json.loads(str(item.pop("metadata") or "{}"))
+            except Exception:
+                metadata = {}
+            if isinstance(metadata, dict):
+                item["metadata"] = metadata
+                item.update(metadata)
+            else:
+                item["metadata"] = {}
+            items.append(item)
+        return items
     except Exception:
         return []
 
@@ -131,8 +150,14 @@ def _ensure_hydrated() -> None:
         _queue.appendleft(row)
 
 
-def add(title: str, body: str = "", notif_type: NotificationType = "info") -> dict:
+def add(
+    title: str,
+    body: str = "",
+    notif_type: NotificationType = "info",
+    metadata: dict | None = None,
+) -> dict:
     """Create and persist a notification."""
+    clean_metadata = dict(metadata or {})
     notif: dict = {
         "id": str(uuid.uuid4()),
         "type": notif_type,
@@ -140,6 +165,8 @@ def add(title: str, body: str = "", notif_type: NotificationType = "info") -> di
         "body": body.strip()[:2000],
         "read": False,
         "created_at": datetime.now(timezone.utc).isoformat(),
+        "metadata": clean_metadata,
+        **clean_metadata,
     }
     with _lock:
         _ensure_hydrated()

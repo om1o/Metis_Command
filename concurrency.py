@@ -260,6 +260,21 @@ class MissionPool:
                 )
             except Exception:
                 pass
+            try:
+                import notifications as _notifications
+                _notifications.add(
+                    title=f"Job report saved - {first_line}",
+                    body=f"Scheduled job finished with status `{record.status}`.\n\nReport: {artifact.title}",
+                    notif_type="success" if record.status == "success" else "warning",
+                    metadata={
+                        "source": record.tag,
+                        "schedule_id": schedule_id,
+                        "artifact_id": artifact.id,
+                        "mission_id": record.id,
+                    },
+                )
+            except Exception:
+                pass
         except Exception as e:
             audit({
                 "event": "scheduled_job_report_failed",
