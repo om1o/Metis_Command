@@ -18,16 +18,27 @@ from datetime import date
 from pathlib import Path
 from typing import Iterable
 
-from brain_engine import chat_by_role
 from memory import load_session, save_message
-from memory_vault import MemoryBank
 
 
 USER_MATRIX_PATH = Path("identity") / "user_matrix.json"
 REASONING_DIR = Path("logs") / "reasoning"
 IDENTITY_NAMESPACE = "identity"
+VECTOR_MEMORY_ENV = "METIS_CHAT_VECTOR_MEMORY"
 
-_bank = MemoryBank()
+_BANK = None
+
+
+def _vector_memory_enabled() -> bool:
+    return os.getenv(VECTOR_MEMORY_ENV, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _memory_bank():
+    global _BANK
+    if _BANK is None:
+        from memory_vault import MemoryBank
+        _BANK = MemoryBank()
+    return _BANK
 
 
 # ── Pillar 1: pre-prompt context injection ───────────────────────────────────
@@ -50,34 +61,35 @@ def inject_context(
     """
     injected: list[dict] = []
 
-    # Durable facts pulled by semantic similarity.
-    try:
-        hits: list[dict] = []
+    if _vector_memory_enabled():
+        # Durable facts pulled by semantic similarity.
         try:
-            import brains as _brains
-            b = _brains.get(brain) if brain else _brains.active()
-            if b is not None:
-                hits = _brains.recall(user_prompt, k=k_recall, brain=b)
-        except Exception:
-            hits = []
-        if not hits:
-            hits = _bank.search(user_prompt, n_results=k_recall) or []
-        if hits:
-            bullet_list = "\n".join(f"- {h.get('document','').strip()}" for h in hits if h)
-            injected.append({
-                "role": "system",
-                "content": (
-                    "Relevant long-term memory about the Director:\n"
-                    f"{bullet_list}\n\n"
-                    "Use these facts only if they help; never invent memory."
-                ),
-            })
-    except Exception as e:
-        try:
-            from safety import log as _safety_log
-            _safety_log("memory_recall_failed", error=str(e))
-        except Exception:
-            pass
+            hits: list[dict] = []
+            try:
+                import brains as _brains
+                b = _brains.get(brain) if brain else _brains.active()
+                if b is not None:
+                    hits = _brains.recall(user_prompt, k=k_recall, brain=b)
+            except Exception:
+                hits = []
+            if not hits:
+                hits = _memory_bank().search(user_prompt, n_results=k_recall) or []
+            if hits:
+                bullet_list = "\n".join(f"- {h.get('document','').strip()}" for h in hits if h)
+                injected.append({
+                    "role": "system",
+                    "content": (
+                        "Relevant long-term memory about the Director:\n"
+                        f"{bullet_list}\n\n"
+                        "Use these facts only if they help; never invent memory."
+                    ),
+                })
+        except Exception as e:
+            try:
+                from safety import log as _safety_log
+                _safety_log("memory_recall_failed", error=str(e))
+            except Exception:
+                pass
 
     # Recent turns from this session.
     try:
@@ -115,37 +127,38 @@ def persist_turn(
         except Exception:
             pass
 
-    try:
-        turn_id = f"{session_id}:{_short_hash(user_msg)}"
-        _bank.store_interaction(
-            entity_name=turn_id,
-            facts=(
-                f"User said: {user_msg}\n"
-                f"Assistant replied: {assistant_msg[:600]}"
-            ),
-        )
-    except Exception as e:
+    if _vector_memory_enabled():
         try:
-            from safety import log as _safety_log
-            _safety_log("memory_vault_upsert_failed", error=str(e))
-        except Exception:
-            pass
-
-    # Mirror to the active brain's episodic tier so per-brain recall stays current.
-    try:
-        import brains as _brains
-        if _brains.active() is not None:
-            _brains.remember(
-                f"User said: {user_msg}\nAssistant replied: {assistant_msg[:600]}",
-                kind="episodic",
-                entity=f"{session_id}:{_short_hash(user_msg)}",
+            turn_id = f"{session_id}:{_short_hash(user_msg)}"
+            _memory_bank().store_interaction(
+                entity_name=turn_id,
+                facts=(
+                    f"User said: {user_msg}\n"
+                    f"Assistant replied: {assistant_msg[:600]}"
+                ),
             )
-    except Exception as e:
-        try:
-            from safety import log as _safety_log
-            _safety_log("memory_brain_mirror_failed", error=str(e))
         except Exception:
-            pass
+            try:
+                from safety import log as _safety_log
+                _safety_log("memory_vault_upsert_failed", error=str(e))
+            except Exception:
+                pass
+
+        # Mirror to the active brain's episodic tier so per-brain recall stays current.
+        try:
+            import brains as _brains
+            if _brains.active() is not None:
+                _brains.remember(
+                    f"User said: {user_msg}\nAssistant replied: {assistant_msg[:600]}",
+                    kind="episodic",
+                    entity=f"{session_id}:{_short_hash(user_msg)}",
+                )
+        except Exception as e:
+            try:
+                from safety import log as _safety_log
+                _safety_log("memory_brain_mirror_failed", error=str(e))
+            except Exception:
+                pass
 
     if reasoning:
         try:
@@ -189,8 +202,10 @@ def nightly_synthesizer(session_ids: Iterable[str] | None = None) -> list[str]:
     """
     facts_written: list[str] = []
     targets = list(session_ids) if session_ids else []
-    if not targets:
+    if not targets or not _vector_memory_enabled():
         return facts_written
+
+    from brain_engine import chat_by_role
 
     for sid in targets:
         try:
@@ -214,7 +229,7 @@ def nightly_synthesizer(session_ids: Iterable[str] | None = None) -> list[str]:
                     continue
                 entity = f"{IDENTITY_NAMESPACE}:{_short_hash(line)}"
                 try:
-                    _bank.store_interaction(entity_name=entity, facts=line)
+                    _memory_bank().store_interaction(entity_name=entity, facts=line)
                     facts_written.append(line)
                 except Exception:
                     continue

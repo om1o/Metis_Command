@@ -43,7 +43,7 @@ PUBLIC_PATHS = {"/", "/health", "/version", "/status",
                 "/docs", "/openapi.json", "/redoc",
                 "/webhooks/stripe",
                 # Frontend pages + auth (no bearer token required)
-                "/login", "/app", "/signup", "/setup", "/splash",
+                "/login", "/app", "/signup", "/setup", "/splash", "/analytics-ui",
                 "/oauth/callback",
                 "/auth/signup", "/auth/signin", "/auth/signout",
                 "/auth/oauth/start", "/auth/oauth/complete",
@@ -1979,6 +1979,11 @@ def page_setup() -> FileResponse:
 @app.get("/splash")
 def page_splash() -> FileResponse:
     return FileResponse(_FRONTEND_DIR / "splash.html")
+
+
+@app.get("/analytics-ui")
+def page_analytics() -> FileResponse:
+    return FileResponse(_FRONTEND_DIR / "analytics.html")
 
 
 @app.get("/logo-test")

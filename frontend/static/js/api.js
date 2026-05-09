@@ -85,6 +85,7 @@ export const api = {
   deleteSchedule: (id) => _fetch(`/schedules/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   toggleSchedule: (id) => _fetch(`/schedules/${encodeURIComponent(id)}/toggle`, { method: 'POST' }),
   marketplace: () => _fetch('/marketplace'),
+  installPlugin: (slug) => _fetch('/marketplace/install', { method: 'POST', body: JSON.stringify({ slug }) }),
   skills: () => _fetch('/skills'),
   sessions: () => _fetch('/sessions'),
   sessionMessages: (id) => _fetch(`/sessions/${encodeURIComponent(id)}`),
