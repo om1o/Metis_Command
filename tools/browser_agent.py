@@ -44,6 +44,11 @@ SUBMIT_ALLOWLIST_HOSTS: set[str] = set()  # populated by user via allow_submit()
 
 SCREENSHOTS_DIR = Path("artifacts") / "browser"
 
+# MVP 15: persist cookies + localStorage across sessions so a one-time
+# Gmail / Twitter / GitHub login lasts. Single file is simpler than
+# per-host and matches Playwright's storage_state shape exactly.
+BROWSER_STATE_FILE = Path("identity") / "browser_state.json"
+
 
 def allow_submit(host: str) -> None:
     """Whitelist a host for form submissions this session."""
@@ -75,18 +80,64 @@ class Browser:
             return {"ok": True, "note": "already running"}
         self._pw = sync_playwright().start()
         self._browser = self._pw.chromium.launch(headless=headless)
-        self._ctx = self._browser.new_context(
-            user_agent=(
+        # MVP 15: load persisted cookies + localStorage so the agent
+        # picks up where the user left off — no need to re-auth Gmail
+        # every turn. The user logs in once (in headed mode), then
+        # subsequent runs reuse the session. Default headless=True
+        # blocks the manual one-time login; the manager prompt should
+        # ask the user to run a "browser_login_helper" headed first.
+        ctx_kwargs: dict[str, Any] = {
+            "user_agent": (
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                 "(KHTML, like Gecko) Chrome/127.0 Safari/537.36"
             ),
-            viewport={"width": 1280, "height": 860},
-        )
+            "viewport": {"width": 1280, "height": 860},
+        }
+        if BROWSER_STATE_FILE.exists():
+            try:
+                ctx_kwargs["storage_state"] = str(BROWSER_STATE_FILE)
+            except Exception:
+                pass
+        self._ctx = self._browser.new_context(**ctx_kwargs)
         self._page = self._ctx.new_page()
-        audit({"event": "browser_started", "headless": headless})
-        return {"ok": True}
+        audit({
+            "event": "browser_started",
+            "headless": headless,
+            "loaded_state": BROWSER_STATE_FILE.exists(),
+        })
+        return {"ok": True, "loaded_state": BROWSER_STATE_FILE.exists()}
+
+    def save_state(self) -> dict[str, Any]:
+        """Snapshot cookies + localStorage to disk so the next session
+        reuses the same logins."""
+        if self._ctx is None:
+            return {"ok": False, "error": "browser not running"}
+        try:
+            BROWSER_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+            self._ctx.storage_state(path=str(BROWSER_STATE_FILE))
+            audit({"event": "browser_state_saved", "path": str(BROWSER_STATE_FILE)})
+            return {"ok": True, "path": str(BROWSER_STATE_FILE)}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    def clear_state(self) -> dict[str, Any]:
+        """Delete the persisted state file. Useful for sign-out."""
+        try:
+            if BROWSER_STATE_FILE.exists():
+                BROWSER_STATE_FILE.unlink()
+            audit({"event": "browser_state_cleared"})
+            return {"ok": True}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
 
     def close(self) -> dict[str, Any]:
+        # Snapshot before tearing down so cookies survive the next launch.
+        try:
+            if self._ctx is not None:
+                BROWSER_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+                self._ctx.storage_state(path=str(BROWSER_STATE_FILE))
+        except Exception:
+            pass
         try:
             if self._ctx:
                 self._ctx.close()
@@ -255,6 +306,52 @@ def screenshot(full_page: bool = False) -> Artifact:
 @audited("browser.close")
 def close() -> dict[str, Any]:
     return browser.close()
+
+
+@audited("browser.save_state")
+def save_state() -> dict[str, Any]:
+    """Snapshot the active session's cookies + localStorage."""
+    return browser.save_state()
+
+
+@audited("browser.clear_state")
+def clear_state() -> dict[str, Any]:
+    """Wipe persisted cookies — equivalent to logging the agent out
+    of every site it remembered."""
+    return browser.clear_state()
+
+
+def login_helper(start_url: str = "about:blank", *, wait_seconds: int = 180) -> dict[str, Any]:
+    """Open a HEADED browser pointed at start_url, give the human up
+    to wait_seconds to log into Gmail/Twitter/whatever, then snapshot
+    the state and close. After this runs once per provider, the
+    headless agent reuses those cookies forever."""
+    if not _PW_OK:
+        return {"ok": False, "error": "playwright not installed"}
+    pw = sync_playwright().start()
+    try:
+        b = pw.chromium.launch(headless=False)
+        ctx_kwargs: dict[str, Any] = {
+            "viewport": {"width": 1280, "height": 860},
+        }
+        if BROWSER_STATE_FILE.exists():
+            ctx_kwargs["storage_state"] = str(BROWSER_STATE_FILE)
+        ctx = b.new_context(**ctx_kwargs)
+        page = ctx.new_page()
+        if start_url and start_url != "about:blank":
+            page.goto(start_url, wait_until="domcontentloaded", timeout=30000)
+        # Wait for the user to finish logging in.
+        page.wait_for_timeout(int(wait_seconds * 1000))
+        BROWSER_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        ctx.storage_state(path=str(BROWSER_STATE_FILE))
+        ctx.close()
+        b.close()
+        return {"ok": True, "saved_to": str(BROWSER_STATE_FILE), "waited_s": wait_seconds}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+    finally:
+        try: pw.stop()
+        except Exception: pass
 
 
 # ── Autonomous browse loop (Manus / Operator) ───────────────────────────────

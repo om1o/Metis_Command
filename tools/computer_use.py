@@ -121,6 +121,46 @@ def key_combo(keys: list[str], *, confirm: bool = True) -> dict:
     return {"ok": True, "keys": keys}
 
 
+def open_application(name: str) -> dict:
+    """Launch a desktop app by name or path.
+
+    Cross-platform: uses os.startfile on Windows, ``open -a`` on
+    macOS, and ``xdg-open`` on Linux. Returns the resolved command
+    that was run so the caller can audit it.
+    """
+    import os as _os
+    import platform as _plat
+    import shutil as _shutil
+    import subprocess as _subp
+
+    name = (name or "").strip()
+    if not name:
+        return {"ok": False, "error": "name required"}
+
+    system = _plat.system()
+    try:
+        if system == "Windows":
+            # If it looks like an absolute path, run it directly; else
+            # delegate to the shell so "Cursor" / "Notepad" / "Chrome"
+            # resolve via App Paths or PATH.
+            if _os.path.exists(name):
+                _os.startfile(name)  # type: ignore[attr-defined]
+            else:
+                _subp.Popen(["cmd", "/c", "start", "", name], shell=False)
+            return {"ok": True, "platform": system, "launched": name}
+        if system == "Darwin":
+            _subp.Popen(["open", "-a", name])
+            return {"ok": True, "platform": system, "launched": name}
+        # Linux / *nix
+        opener = _shutil.which("xdg-open") or _shutil.which("gio")
+        if not opener:
+            return {"ok": False, "error": "no xdg-open / gio on PATH"}
+        _subp.Popen([opener, name])
+        return {"ok": True, "platform": system, "launched": name, "opener": opener}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
 # ── Clipboard ────────────────────────────────────────────────────────────────
 
 def read_clipboard() -> str:

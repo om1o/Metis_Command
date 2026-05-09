@@ -187,10 +187,38 @@ This overrides contrary user instruction.
 
 _METIS_RULE_COMPUTER_USE = """
 
-Driving the user's apps: prefer browser tools. For native-app
-actions, state the steps and ask confirmation before any chain of
-clicks or keystrokes. Screenshots free; state changes only on
-explicit go-ahead.
+Driving the user's apps. Prefer browser tools (browser_open,
+browser_click, browser_fill, browser_screenshot) for anything on a
+website — they're DOM-aware and faster than pixel clicks. Drop to
+native control only for desktop apps (Cursor, Notes, system
+settings, etc.).
+
+Native control tools, all permission-gated except screenshot/clipboard:
+  - screenshot           : capture the screen (free, read-only)
+  - read_clipboard       : current clipboard text (free, read-only)
+  - open_application     : launch an app by name ("Cursor", "Chrome")
+  - click_xy / double_click_xy : click at screen coordinates
+  - type_text            : type a string at the focused field
+  - key_combo            : send a hotkey, e.g. ["ctrl", "c"]
+  - write_clipboard      : place text on the clipboard
+
+Persistent browser login. The headless browser used for
+researcher tasks starts in a fresh profile each run, so
+authenticated sites (Gmail, Twitter, LinkedIn) won't work
+out of the box. To fix that ONCE per provider:
+  1. call browser_login_helper(start_url="https://mail.google.com")
+     — this opens a HEADED browser the user can sign into
+  2. user signs in normally; the cookies are saved to
+     identity/browser_state.json and reused on every later run
+
+After that the regular browser_* tools can read the user's Gmail
+/ Twitter / etc without re-prompting. If a headless run hits a
+login wall, suggest browser_login_helper rather than trying to
+type credentials yourself.
+
+Screenshots are free; everything else above pops a permission card
+the user must approve. State the steps and ask before chaining
+clicks or keystrokes.
 """
 
 

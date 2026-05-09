@@ -83,6 +83,35 @@ def _tool_registry() -> dict[str, Callable[..., Any]]:
         "browser_fill": _perm.gate("browser_fill", _ba.fill,                          summary_args=["selector", "value"]),
         "speak":        _perm.gate("speak",        _vo.speak,                         summary_args=["text"]),
 
+        # MVP 15: real desktop control. The internal confirm flag in
+        # tools/computer_use is bypassed here (confirm=False) because
+        # the permission gate is the authoritative fence — Read tier
+        # blocks these instantly, Balanced asks the user, Full lets
+        # them run. open_application is the "go-to-app" entrypoint
+        # for "open my Cursor" / "open Gmail in browser" requests.
+        "click_xy":     _perm.gate("click_xy",
+                                   lambda x, y, button="left": _cu.click_xy(int(x), int(y), button=button, confirm=False),
+                                   summary_args=["x", "y"]),
+        "double_click_xy": _perm.gate("double_click_xy",
+                                      lambda x, y: _cu.double_click_xy(int(x), int(y), confirm=False),
+                                      summary_args=["x", "y"]),
+        "type_text":    _perm.gate("type_text",
+                                   lambda text, interval=0.02: _cu.type_text(text, interval=float(interval), confirm=False),
+                                   summary_args=["text"]),
+        "key_combo":    _perm.gate("key_combo",
+                                   lambda keys: _cu.key_combo(list(keys) if not isinstance(keys, list) else keys, confirm=False),
+                                   summary_args=["keys"]),
+        "write_clipboard": _perm.gate("write_clipboard", _cu.write_clipboard, summary_args=["text"]),
+        "read_clipboard": _cu.read_clipboard,  # read-only
+        "open_application": _perm.gate("open_application", _cu.open_application, summary_args=["name"]),
+        # Persistent-browser helpers — snapshot/clear cookies so a
+        # one-time Gmail login stays usable across sessions. The
+        # save itself is gated (touches disk); login_helper opens a
+        # HEADED browser and is gated for the same reason.
+        "browser_save_state":  _perm.gate("browser_save_state",  _ba.save_state),
+        "browser_clear_state": _perm.gate("browser_clear_state", _ba.clear_state),
+        "browser_login_helper": _perm.gate("browser_login_helper", _ba.login_helper, summary_args=["start_url"]),
+
         # Subagents recursively run their own loop; their internal tools
         # inherit the same permission tier via the session emitter, so
         # we don't need to gate the spawn itself.
@@ -110,6 +139,19 @@ _MUTATING_TOOLS = {
     "browser_fill",
     "speak",
     "subagent",
+    # MVP 15 — anything that touches the real desktop or browser cookies.
+    "click_xy",
+    "double_click_xy",
+    "type_text",
+    "key_combo",
+    "write_clipboard",
+    "open_application",
+    "browser_save_state",
+    "browser_clear_state",
+    "browser_login_helper",
+    "python",
+    "run_code",
+    "browser_goto",
 }
 
 _READ_ONLY_GOAL = re.compile(
@@ -162,26 +204,52 @@ the list of available tools, respond with ONE JSON object choosing the
 tool to run, nothing else.
 
 Valid tools (name -> signature):
+  # Files / search — read-only is free
   read_file(path)                       -> str
-  write_file(path, content)             -> dict     (confirm-gated outside workspace)
-  edit_file(path, old_string, new_string, replace_all=False)
   list_dir(path='.', depth=1)
   grep(pattern, path='.')
   find_files(glob_pattern, path='.')
   parse_file(path)
+  write_file(path, content)             -> dict     (gated)
+  edit_file(path, old_string, new_string, replace_all=False)   (gated)
+
+  # Code / shell — gated
   python(code)                          -> dict     (pandas/numpy/matplotlib preloaded)
+  run_code(language, code)              -> dict     (multi-language)
   shell(cmd)                            -> dict     (allowlisted only)
-  browser_goto(url)
-  browser_click(target)
-  browser_fill(selector, value)
-  browser_extract(selector=None)
-  browser_screenshot()
-  screenshot()
-  speak(text)
+
+  # Browser (Playwright, headless by default) — actions gated
+  browser_goto(url)                     (gated)
+  browser_click(target)                 (gated)
+  browser_fill(selector, value)         (gated)
+  browser_extract(selector=None)        -> str
+  browser_screenshot()                  -> path
+  browser_save_state()                  (gated; snapshot cookies)
+  browser_clear_state()                 (gated; wipe cookies)
+  browser_login_helper(start_url)       (gated; HEADED browser for one-time login)
+
+  # Native desktop — vision is free, control is gated
+  screenshot()                          -> path
+  read_clipboard()                      -> str
+  write_clipboard(text)                 (gated)
+  open_application(name)                (gated; "Cursor", "Chrome", etc.)
+  click_xy(x, y, button='left')         (gated)
+  double_click_xy(x, y)                 (gated)
+  type_text(text, interval=0.02)        (gated)
+  key_combo(keys)                       (gated; e.g. ["ctrl","c"])
+
+  # Misc
+  speak(text)                           (gated)
   web_search(query)                     -> str
 
 Respond like:
 {"tool": "grep", "args": {"pattern": "def run_agentic", "path": "."}}
+
+For Gmail / Twitter / LinkedIn etc., the headless browser starts
+without cookies. If a step needs to read the user's signed-in
+state, propose browser_login_helper FIRST with the provider's
+login URL — that opens a headed browser the user signs into once,
+and the cookies persist for later runs.
 
 If the step is a pure reasoning step that needs no tool, respond:
 {"tool": "none", "note": "explanation"}
