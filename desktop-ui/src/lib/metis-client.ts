@@ -477,6 +477,15 @@ export class MetisClient {
     return this.get(`/artifacts/${id}`);
   }
 
+  async deleteArtifact(id: string): Promise<{ ok: boolean; id: string }> {
+    const res = await fetch(`${this.baseUrl}/artifacts/${id}`, {
+      method: 'DELETE',
+      headers: this.headers(),
+    });
+    if (!res.ok) throw new Error(`delete artifact: ${res.status}`);
+    return res.json();
+  }
+
   // ── Skill forge ─────────────────────────────────────────────────────────
 
   async forgeSkill(goal: string): Promise<Artifact> {

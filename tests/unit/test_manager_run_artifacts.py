@@ -70,3 +70,25 @@ def test_chat_saves_manager_run_artifact(_sandbox_paths, monkeypatch):
     assert "Use researcher then answer." in artifact.content
     assert "Found source data." in artifact.content
     assert "Final answer." in artifact.content
+
+
+def test_artifact_delete_api_removes_report(_sandbox_paths):
+    import api_bridge
+    from artifacts import Artifact, get_artifact, save_artifact
+
+    artifact = save_artifact(Artifact(
+        type="doc",
+        title="Disposable report",
+        content="remove me",
+        metadata={"kind": "manager_run_report"},
+    ))
+
+    client = TestClient(api_bridge.app)
+    response = client.delete(
+        f"/artifacts/{artifact.id}",
+        headers=api_bridge.auth_local.bearer_header(),
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"ok": True, "id": artifact.id}
+    assert get_artifact(artifact.id) is None

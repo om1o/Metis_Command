@@ -26,7 +26,7 @@ from fastapi.staticfiles import StaticFiles  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
 from brain_engine import ROLE_MODELS, list_local_models, stream_chat  # noqa: E402
-from artifacts import Artifact, list_artifacts, get_artifact, save_artifact  # noqa: E402
+from artifacts import Artifact, list_artifacts, get_artifact, save_artifact, delete_artifact  # noqa: E402
 from metis_version import METIS_VERSION  # noqa: E402
 from run_contracts import build_run_contract, normalize_mode, normalize_permission  # noqa: E402
 
@@ -837,6 +837,13 @@ def artifact(artifact_id: str) -> dict:
     if not a:
         raise HTTPException(status_code=404, detail="artifact not found")
     return a.to_dict()
+
+
+@app.delete("/artifacts/{artifact_id}")
+def artifact_delete(artifact_id: str) -> dict:
+    if not delete_artifact(artifact_id):
+        raise HTTPException(status_code=404, detail="artifact not found")
+    return {"ok": True, "id": artifact_id}
 
 
 # ── Memory search ────────────────────────────────────────────────────────────

@@ -6,6 +6,7 @@ import {
   FileText,
   Loader2,
   RefreshCw,
+  Trash2,
   X,
   CalendarClock,
   Code,
@@ -49,6 +50,7 @@ function fmtTs(artifact: Artifact): string {
 export default function ReportsPanel({ client, reduceMotion, onClose, onOpen }: Props) {
   const [items, setItems] = useState<Artifact[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const refresh = useCallback(async () => {
@@ -65,6 +67,19 @@ export default function ReportsPanel({ client, reduceMotion, onClose, onOpen }: 
   }, [client]);
 
   useEffect(() => { queueMicrotask(refresh); }, [refresh]);
+
+  const onDelete = async (id: string) => {
+    setBusyId(id);
+    setError(null);
+    try {
+      await client.deleteArtifact(id);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const reports = (items || []).filter(
     (a) => a.metadata?.kind === 'manager_run_report' || a.metadata?.kind === 'scheduled_job_report',
@@ -139,7 +154,14 @@ export default function ReportsPanel({ client, reduceMotion, onClose, onOpen }: 
                   </div>
                   <ul className="grid gap-1.5">
                     {reports.map((a) => (
-                      <ArtifactRow key={a.id} artifact={a} onOpen={onOpen} onClose={onClose} />
+                      <ArtifactRow
+                        key={a.id}
+                        artifact={a}
+                        busy={busyId === a.id}
+                        onOpen={onOpen}
+                        onClose={onClose}
+                        onDelete={onDelete}
+                      />
                     ))}
                   </ul>
                 </section>
@@ -151,7 +173,14 @@ export default function ReportsPanel({ client, reduceMotion, onClose, onOpen }: 
                   </div>
                   <ul className="grid gap-1.5">
                     {other.map((a) => (
-                      <ArtifactRow key={a.id} artifact={a} onOpen={onOpen} onClose={onClose} />
+                      <ArtifactRow
+                        key={a.id}
+                        artifact={a}
+                        busy={busyId === a.id}
+                        onOpen={onOpen}
+                        onClose={onClose}
+                        onDelete={onDelete}
+                      />
                     ))}
                   </ul>
                 </section>
@@ -166,22 +195,26 @@ export default function ReportsPanel({ client, reduceMotion, onClose, onOpen }: 
 
 function ArtifactRow({
   artifact,
+  busy,
   onOpen,
   onClose,
+  onDelete,
 }: {
   artifact: Artifact;
+  busy: boolean;
   onOpen: (id: string) => void;
   onClose: () => void;
+  onDelete: (id: string) => void;
 }) {
   const isScheduled = artifact.metadata?.kind === 'scheduled_job_report';
   const ts = fmtTs(artifact);
 
   return (
-    <li>
+    <li className="flex items-stretch gap-1.5">
       <button
         type="button"
         onClick={() => { onOpen(artifact.id); onClose(); }}
-        className="flex w-full items-start gap-3 rounded-xl border border-[var(--metis-border)] bg-[var(--metis-bg)] px-3 py-2.5 text-left transition hover:border-violet-500/30 hover:bg-[var(--metis-hover-surface)]"
+        className="flex min-w-0 flex-1 items-start gap-3 rounded-xl border border-[var(--metis-border)] bg-[var(--metis-bg)] px-3 py-2.5 text-left transition hover:border-violet-500/30 hover:bg-[var(--metis-hover-surface)]"
       >
         <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-[var(--metis-border)] bg-[var(--metis-elevated)]">
           {isScheduled ? <CalendarClock className="h-3.5 w-3.5 text-violet-300" /> : artifactIcon(artifact.type)}
@@ -199,6 +232,16 @@ function ArtifactRow({
             {ts && <span>{ts}</span>}
           </div>
         </div>
+      </button>
+      <button
+        type="button"
+        onClick={() => onDelete(artifact.id)}
+        disabled={busy}
+        className="metis-icon-btn self-center text-rose-400/80 hover:text-rose-300 disabled:opacity-40"
+        aria-label={`Delete ${artifact.title || 'artifact'}`}
+        title="Delete report"
+      >
+        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
       </button>
     </li>
   );
