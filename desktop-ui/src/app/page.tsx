@@ -51,7 +51,6 @@ import {
   MessageCircle,
   Scale,
   Paperclip,
-  Terminal,
 } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { createLocalClient, MetisClient, AuthUser, Schedule, Artifact, RunMode, RunPermission, SessionMessage, SessionSearchResult } from '@/lib/metis-client';
@@ -498,7 +497,6 @@ export default function App() {
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
-  const [automationOpen, setAutomationOpen] = useState(false);
   const [health, setHealth] = useState<SystemHealth | null>(null);
   const [activeArtifactId, setActiveArtifactId] = useState<string | null>(null);
   const [reportArtifact, setReportArtifact] = useState<Artifact | null>(null);
@@ -789,7 +787,6 @@ export default function App() {
       else if (k === 'p')   { e.preventDefault(); setReportsOpen((v) => !v); }
       else if (k === 'a')   { e.preventDefault(); setAnalyticsOpen((v) => !v); }
       else if (k === 'g')   { e.preventDefault(); setConnectionsOpen((v) => !v); }
-      else if (k === 't')   { e.preventDefault(); setAutomationOpen((v) => !v); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -1245,16 +1242,6 @@ export default function App() {
             </button>
             <button
               type="button"
-              onClick={() => setAutomationOpen(true)}
-              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] text-[var(--metis-fg-muted)] transition hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]"
-              title="Automation (⌘T)"
-            >
-              <Terminal className="h-4 w-4 shrink-0 text-emerald-400" />
-              <span>Automation</span>
-              <span className="ml-auto text-[10px] text-[var(--metis-fg-dim)]">⌘T</span>
-            </button>
-            <button
-              type="button"
               onClick={() => setConnectionsOpen(true)}
               className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] text-[var(--metis-fg-muted)] transition hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]"
               title="Connections (⌘G)"
@@ -1340,15 +1327,6 @@ export default function App() {
                 title="Analytics (⌘A)"
               >
                 <BarChart3 className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setAutomationOpen(true)}
-                className="metis-icon-btn"
-                aria-label="Automation"
-                title="Automation (⌘T)"
-              >
-                <Terminal className="h-4 w-4" />
               </button>
             </>
           )}
@@ -1789,17 +1767,6 @@ export default function App() {
             client={client}
             reduceMotion={!!reduceMotion}
             onClose={() => setAnalyticsOpen(false)}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Automation — browser + shell panel */}
-      <AnimatePresence>
-        {automationOpen && client && (
-          <AutomationPanel
-            client={client}
-            reduceMotion={!!reduceMotion}
-            onClose={() => setAutomationOpen(false)}
           />
         )}
       </AnimatePresence>
@@ -2421,7 +2388,6 @@ function SettingsBody({
             ['Memory',            '⌘ M'],
             ['Reports',           '⌘ P'],
             ['Analytics',         '⌘ A'],
-            ['Automation',        '⌘ T'],
             ['Settings',          '⌘ ,'],
           ].map(([a, b]) => (
             <div key={a} className="flex items-center justify-between gap-4">

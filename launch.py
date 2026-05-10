@@ -57,6 +57,14 @@ ROOT = bootstrap.ROOT
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+# Load repo-root .env before reading METIS_API_PORT (works even if cwd is not the repo).
+try:
+    from metis_env import load_metis_env
+
+    load_metis_env()
+except Exception as _e:
+    print(f"[launch] env bootstrap skipped: {_e}", flush=True)
+
 DEFAULT_API_PORT = int(os.getenv("METIS_API_PORT", "7331"))
 DEFAULT_MANAGER_MODEL = "qwen2.5-coder:1.5b"
 OLLAMA_BASE = os.getenv("OLLAMA_BASE", "http://localhost:11434").rstrip("/")
