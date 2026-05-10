@@ -762,6 +762,15 @@ pre:hover .code-copy{opacity:1}
 .msg.user .msg-time{text-align:right}
 .msg.assistant .msg-time{text-align:left}
 
+/* ── Message count pill (header) ─────────────────────────────────────── */
+.msg-count-pill{display:none;align-items:center;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--subtle);background:var(--panel);border:1px solid var(--border);padding:2px 8px;border-radius:10px;flex-shrink:0;transition:opacity .2s}
+.msg-count-pill.visible{display:flex}
+
+/* ── Draft saved flash ───────────────────────────────────────────────── */
+.draft-saved-flash{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gr);opacity:0;transition:opacity .25s;pointer-events:none;user-select:none}
+.draft-saved-flash.visible{opacity:1}
+@keyframes draft-fade{0%{opacity:1}70%{opacity:1}100%{opacity:0}}
+
 /* ── Suggestion shuffle button ───────────────────────────────────────── */
 .sugg-shuffle-btn{display:flex;align-items:center;gap:6px;margin:8px auto 0;padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--subtle);font-family:inherit;font-size:12px;cursor:pointer;transition:all .18s}
 .sugg-shuffle-btn:hover{color:var(--text);border-color:var(--border-2);background:var(--panel)}
@@ -849,7 +858,7 @@ pre:hover .code-copy{opacity:1}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.37.0</span>
+      <span class="ver" id="versionPill">v0.38.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -951,6 +960,7 @@ pre:hover .code-copy{opacity:1}
       <span class="session-title-header" id="sessionTitleHeader"></span>
       <span class="direct-badge" id="directBadge">⚡ Direct</span>
       <span class="project-badge" id="projectBadge" title="Active project — click to clear"></span>
+      <span class="msg-count-pill" id="msgCountPill"></span>
       <div class="spacer"></div>
       <div class="kbd-hint"><kbd>⌘</kbd><kbd>K</kbd></div>
 
@@ -1037,7 +1047,7 @@ pre:hover .code-copy{opacity:1}
         <div class="input-dropdown left" id="modeDropdown"></div>
         <!-- Model dropdown (upward) -->
         <div class="input-dropdown right" id="modelDropdown"></div>
-        <div class="input-hint" style="display:flex;justify-content:space-between;align-items:center"><span><kbd>&#x21B5;</kbd> send · <kbd>&#x21E7;&#x21B5;</kbd> newline · <kbd>&#x2318;K</kbd> palette</span><span id="wordCountBadge" style="display:none;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--subtle)"></span></div>
+        <div class="input-hint" style="display:flex;justify-content:space-between;align-items:center"><span><kbd>&#x21B5;</kbd> send · <kbd>&#x21E7;&#x21B5;</kbd> newline · <kbd>&#x2318;K</kbd> palette</span><span style="display:flex;align-items:center;gap:8px"><span class="draft-saved-flash" id="draftSavedFlash">✓ saved</span><span id="wordCountBadge" style="display:none;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--subtle)"></span></span></div>
       </div>
     </div>
   </main>
@@ -1293,6 +1303,7 @@ pre:hover .code-copy{opacity:1}
           <div class="shortcut-row"><span class="s-desc">Toggle dark/light theme</span><span class="s-keys"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>T</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Export session as Markdown</span><span class="s-keys"><kbd>⌘</kbd><kbd>E</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Settings</span><span class="s-keys"><kbd>⌘</kbd><kbd>,</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Focus session search</span><span class="s-keys"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>F</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">This cheat sheet</span><span class="s-keys"><kbd>⌘</kbd><kbd>/</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Previous session</span><span class="s-keys"><kbd>⌘</kbd><kbd>[</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Next session</span><span class="s-keys"><kbd>⌘</kbd><kbd>]</kbd></span></div>
@@ -1336,6 +1347,9 @@ pre:hover .code-copy{opacity:1}
           <div class="shortcut-row"><span class="s-desc">Adjust tone (formal/casual/etc)</span><span class="s-keys"><kbd>/tone</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Expand with more detail</span><span class="s-keys"><kbd>/expand</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Shorten to essentials</span><span class="s-keys"><kbd>/shorten</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Generate a quiz</span><span class="s-keys"><kbd>/quiz</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Pros and cons analysis</span><span class="s-keys"><kbd>/pros</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Define a term clearly</span><span class="s-keys"><kbd>/define</kbd></span></div>
         </div>
       </div>
       <div class="shortcuts-section">
@@ -1348,6 +1362,7 @@ pre:hover .code-copy{opacity:1}
           <div class="shortcut-row"><span class="s-desc">Remove fact from memory</span><span class="s-keys"><kbd>/forget</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Check budget</span><span class="s-keys"><kbd>/wallet</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Pin / unpin session</span><span class="s-keys"><kbd>/pin</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Session statistics</span><span class="s-keys"><kbd>/stats</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">System diagnostics</span><span class="s-keys"><kbd>/debug</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Open this help guide</span><span class="s-keys"><kbd>/help</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Clear conversation</span><span class="s-keys"><kbd>/clear</kbd></span></div>
@@ -1964,6 +1979,7 @@ async function loadSession(id) {
       titleEl.classList.remove('visible');
     }
     chat.scrollTop = chat.scrollHeight;
+    updateMsgCountPill();
   } catch (e) {
     if (window.toast) toast('error', 'Could not load session', e.message, 4000);
   }
@@ -1983,6 +1999,19 @@ function resetCrew() {
   missionSteps = [];
   missionProgressEl = null;
   missionStatEl = null;
+}
+
+// ── Message count pill ──────────────────────────────────────────────────
+function updateMsgCountPill() {
+  const pill = document.getElementById('msgCountPill');
+  if (!pill) return;
+  const count = chatInner.querySelectorAll('.msg').length;
+  if (count > 0) {
+    pill.textContent = `${count} msg${count === 1 ? '' : 's'}`;
+    pill.classList.add('visible');
+  } else {
+    pill.classList.remove('visible');
+  }
 }
 
 // ── Message rendering ───────────────────────────────────────────────────
@@ -2025,6 +2054,7 @@ function makeMsg(role) {
   el.appendChild(content);
   chatInner.appendChild(el);
   if (_autoScroll) chat.scrollTop = chat.scrollHeight;
+  updateMsgCountPill();
   return bubble;
 }
 
@@ -2361,8 +2391,18 @@ msgInput.addEventListener('input', () => {
       badge.style.display = 'none';
     }
   }
-  // Draft persistence — save current value
-  try { localStorage.setItem('metis.draft', msgInput.value); } catch {}
+  // Draft persistence — save current value and flash the indicator
+  try {
+    localStorage.setItem('metis.draft', msgInput.value);
+    if (msgInput.value.trim()) {
+      const flash = document.getElementById('draftSavedFlash');
+      if (flash) {
+        flash.classList.add('visible');
+        clearTimeout(flash._hideTimer);
+        flash._hideTimer = setTimeout(() => flash.classList.remove('visible'), 900);
+      }
+    }
+  } catch {}
 });
 msgInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) {
@@ -2444,6 +2484,9 @@ async function sendMessage() {
     '/shorten':   'Shorten the following to its essential points only, removing all filler and redundancy:\n\n',
     '/remember':  'Please save the following fact to your long-term memory for future reference:\n\n',
     '/forget':    'Please remove the following fact from your memory:\n\n',
+    '/quiz':      'Create a quiz with 5 well-structured questions (mix of multiple-choice and short-answer) with answers provided at the end, about the following topic:\n\n',
+    '/pros':      'Provide a thorough pros and cons analysis of the following. List at least 5 points on each side with brief explanations:\n\n',
+    '/define':    'Provide a clear, comprehensive definition of the following term. Include etymology if relevant, key characteristics, a practical example, and any important nuances:\n\n',
   };
   let _slashStripped = text;
   for (const [cmd, instr] of Object.entries(SLASH_PREFIX_MAP)) {
@@ -3079,10 +3122,11 @@ function newChat() {
   chatInner.appendChild(empty);
   empty.style.display = '';
   currentSession = 'sess-' + Date.now();
-  // Clear session title from header
+  // Clear session title and message count from header
   const titleEl = document.getElementById('sessionTitleHeader');
   titleEl.textContent = '';
   titleEl.classList.remove('visible');
+  updateMsgCountPill();
   loadSessions();
 }
 document.getElementById('signoutBtn').addEventListener('click', signOut);
@@ -3268,11 +3312,14 @@ function renderMarkdown(raw) {
   text = text.replace(/\n/g, '<br>');
   text = '<p>' + text + '</p>';
 
-  // 12. Restore code blocks with copy buttons
+  // 12. Restore code blocks with copy buttons + line count badge
   text = text.replace(/\x00CODE(\d+)\x00/g, (_, idx) => {
     const { lang, code } = codeBlocks[parseInt(idx)];
     const escaped = escapeHtml(code.replace(/\n$/, ''));
-    const langLabel = lang ? `<span class="code-lang">${escapeHtml(lang)}</span>` : '';
+    const lineCount = code.trim().split('\n').length;
+    const linesBit = lineCount > 1 ? `${lineCount}L` : '';
+    const labelParts = [lang, linesBit].filter(Boolean);
+    const langLabel = labelParts.length ? `<span class="code-lang">${escapeHtml(labelParts.join(' · '))}</span>` : '';
     return `</p><pre>${langLabel}<button class="code-copy" onclick="this.textContent='copied';navigator.clipboard.writeText(this.parentElement.querySelector('code').textContent);setTimeout(()=>this.textContent='copy',1500);this.classList.add('copied');setTimeout(()=>this.classList.remove('copied'),1500)">copy</button><code>${escaped}</code></pre><p>`;
   });
 
@@ -3654,6 +3701,14 @@ document.addEventListener('keydown', (e) => {
     document.getElementById('themeToggleBtn').textContent = nxt === 'dark' ? '🌙' : '☀️';
     localStorage.setItem('metis.theme', nxt);
     if (window.toast) toast('success', nxt === 'dark' ? '🌙 Dark theme' : '☀️ Light theme', '⌘⇧T to toggle', 1500);
+    return;
+  }
+
+  // Ctrl+Shift+F → focus session search
+  if (meta && e.shiftKey && e.key === 'F') {
+    e.preventDefault();
+    const s = document.getElementById('sessionSearchInput');
+    if (s) { s.focus(); s.select(); }
     return;
   }
 });
@@ -4356,6 +4411,9 @@ const SLASH_CMDS = [
   { cmd: '/tone',    icon: '🎙️', desc: 'Adjust tone — formal, casual, friendly…',     action: () => _slashPrepend('/tone') },
   { cmd: '/expand',  icon: '📖',  desc: 'Expand with more detail and examples',        action: () => _slashPrepend('/expand') },
   { cmd: '/shorten', icon: '✂️',  desc: 'Shorten to the essential points',             action: () => _slashPrepend('/shorten') },
+  { cmd: '/quiz',    icon: '🧠',  desc: 'Generate a quiz with questions & answers',    action: () => _slashPrepend('/quiz') },
+  { cmd: '/pros',    icon: '⚖️',  desc: 'Pros and cons analysis',                      action: () => _slashPrepend('/pros') },
+  { cmd: '/define',  icon: '📖',  desc: 'Define a term clearly with examples',         action: () => _slashPrepend('/define') },
   // ── Memory ────────────────────────────────────────────────────
   { cmd: '/remember', icon: '📌',  desc: 'Save a fact to semantic memory',             action: () => _slashPrepend('/remember') },
   { cmd: '/forget',   icon: '🗑️',  desc: 'Remove a fact from memory',                 action: () => _slashPrepend('/forget') },
@@ -4377,6 +4435,14 @@ const SLASH_CMDS = [
     togglePin(currentSession); loadSessions();
     const now = getPinned().has(currentSession);
     if (window.toast) toast('success', now ? '📌 Session pinned' : '📌 Unpinned', now ? 'Appears at top of list' : 'Removed from pinned', 1800);
+  }},
+  { cmd: '/stats',  icon: '📊',  desc: 'Show session statistics',                    action: () => {
+    const userMsgs = chatInner.querySelectorAll('.msg.user').length;
+    const asstMsgs = chatInner.querySelectorAll('.msg.assistant').length;
+    const allText  = Array.from(chatInner.querySelectorAll('.msg-bubble')).map(b => b.textContent).join(' ');
+    const words    = allText.trim() ? allText.trim().split(/\s+/).length : 0;
+    const model    = document.getElementById('modelLabel')?.textContent?.trim() || '?';
+    if (window.toast) toast('info', '📊 Session Stats', `${userMsgs + asstMsgs} msgs · ${userMsgs} you · ${asstMsgs} AI · ~${words.toLocaleString()} words · ${model}`, 7000);
   }},
   { cmd: '/debug',  icon: '🔬',  desc: 'Show system diagnostics',                    action: async () => {
     const sessions = document.querySelectorAll('.session-item[data-id]').length;

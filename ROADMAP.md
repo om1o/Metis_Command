@@ -1,10 +1,23 @@
 # Metis Command — 18-Phase Roadmap
 
-> Updated 2026-05-10 · v0.37.0 · 56 Python modules, 6 HTML pages, 4 JS files, 4500-line app.html, 11 local Ollama models, 4 persistent agents running.
+> Updated 2026-05-10 · v0.38.0 · 56 Python modules, 6 HTML pages, 4 JS files, ~4600-line app.html, 11 local Ollama models, 4 persistent agents running.
 
 ---
 
-## Current State (v0.37.0)
+## Current State (v0.38.0)
+
+### Completed (v0.38.0)
+- ✅ **`/stats` slash command** — instant session statistics toast: total messages, your messages vs AI messages, approximate word count, active model
+- ✅ **Three new slash commands** — `/quiz` (generate a 5-question quiz with answers), `/pros` (pros & cons analysis with 5+ points per side), `/define` (comprehensive term definition with examples and context); 32 slash commands total
+- ✅ **Code block line count badge** — code blocks now display `language · NL` (e.g. `python · 24L`) in the top-left label, giving instant size context at a glance
+- ✅ **Draft-saved flash indicator** — a subtle `✓ saved` green flash appears next to the word-count badge whenever the input draft is persisted to localStorage, confirming the auto-save
+- ✅ **Message count pill in header** — a live `N msgs` pill sits in the chat header beside the session title; updates after every message sent or received, resets on new chat
+- ✅ **`⌘⇧F` session search shortcut** — focuses and selects the session search input without touching the browser's native find-in-page; documented in the keyboard shortcuts modal
+- ✅ Version bumped to 0.38.0
+
+---
+
+## Previous State (v0.37.0)
 
 ### Completed (v0.37.0)
 - ✅ **Auto-scroll lock + jump-to-bottom button** — chat auto-scroll pauses when user scrolls up; a floating `↓` button appears to resume and snap to latest; End key also jumps to bottom; auto-scroll re-enables on every new send
