@@ -77,8 +77,8 @@ export default function InboxPanel({ client, reduceMotion, onClose, onOpenArtifa
   const onDelete = async (id: string) => {
     setBusyId(id);
     try {
-      await client.markNotificationRead(id);
-      setItems((prev) => (prev ? prev.map((it) => it.id === id ? { ...it, read: true } : it) : prev));
+      await client.deleteNotification(id);
+      setItems((prev) => (prev ? prev.filter((it) => it.id !== id) : prev));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {

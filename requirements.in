@@ -62,6 +62,14 @@ pynput>=1.7,<2
 # ── Browser automation ──────────────────────────────────────────────────────
 playwright>=1.44,<2
 
+# ── Google APIs (Gmail, Calendar, Drive — all OAuth-backed) ──────────────────
+# Used by tools/gmail_api.py and any future Google service integrations.
+# OAuth is the only viable Gmail path; browser automation is permanently
+# blocked by Google's bot detection.
+google-auth>=2.30,<3
+google-auth-oauthlib>=1.2,<2
+google-api-python-client>=2.130,<3
+
 # ── Windows desktop shell (keep optional extras tight; skip on non-Windows) ─
 pystray>=0.19,<1; sys_platform == "win32"
 pywebview>=5.0,<6; sys_platform == "win32"

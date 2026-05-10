@@ -42,9 +42,16 @@ identity/*.mts
 identity/personas.json
 identity/.active
 identity/local_auth.token
+identity/browser_state.json
+identity/chrome_profile/
+identity/gmail_credentials.json
+identity/gmail_token.json
 identity/local_chat.db
 identity/local_chat.db-shm
 identity/local_chat.db-wal
+identity/missions.db
+identity/missions.db-shm
+identity/missions.db-wal
 identity/manager_configs/
 identity/brains/*/compact_trash.jsonl
 identity/*.jsonl

@@ -141,6 +141,17 @@ def _clear_db() -> None:
         pass
 
 
+def _remove_db(notif_id: str) -> None:
+    conn = _get_db()
+    if conn is None:
+        return
+    try:
+        conn.execute("DELETE FROM notifications WHERE id = ?", (notif_id,))
+        conn.commit()
+    except Exception:
+        pass
+
+
 def _ensure_hydrated() -> None:
     global _hydrated
     if _hydrated:
@@ -193,6 +204,18 @@ def mark_read(notif_id: str) -> bool:
             if notif["id"] == notif_id:
                 notif["read"] = True
                 _mark_read_db(notif_id)
+                return True
+    return False
+
+
+def remove(notif_id: str) -> bool:
+    """Permanently delete a single notification by id."""
+    with _lock:
+        _ensure_hydrated()
+        for i, notif in enumerate(_queue):
+            if notif["id"] == notif_id:
+                del _queue[i]
+                _remove_db(notif_id)
                 return True
     return False
 

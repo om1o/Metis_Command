@@ -99,6 +99,8 @@ export interface StreamEvent {
     | 'session_title'
     | 'relationship_saved'
     | 'run_artifact_saved'
+    | 'approval_required'
+    | 'approval_expired'
     | 'error';
   delta?: string;
   duration_ms?: number;
@@ -107,6 +109,10 @@ export interface StreamEvent {
   id?: string;
   name?: string;
   title?: string;
+  // approval_required
+  tool?: string;
+  summary?: string;
+  args?: { args?: string[]; kwargs?: Record<string, string> };
   // generic passthrough — the SSE shape on the wire is wider than this type;
   // unknown fields are accepted so we never drop an event for being too rich.
   [key: string]: unknown;
@@ -150,6 +156,22 @@ export function normalizeSetupCode(code: string): string {
   const compact = code.trim().replace(/^["']|["']$/g, '').replace(/\s+/g, '');
   const prefix = 'metis-local:';
   return compact.toLowerCase().startsWith(prefix) ? compact.slice(prefix.length) : compact;
+}
+
+// ── Daily briefings ─────────────────────────────────────────────────────────
+
+export interface BriefingSummary {
+  date: string;            // YYYY-MM-DD
+  filename: string;
+  size: number;
+  modified_at: number;     // unix seconds
+  preview: string;         // first ~280 chars of markdown
+}
+
+export interface BriefingDetail {
+  date: string;
+  filename: string;
+  content: string;         // full markdown body
 }
 
 // ── Memory ──────────────────────────────────────────────────────────────────
@@ -306,6 +328,30 @@ export interface NotificationItem {
   read: boolean;
   created_at: string;
   [key: string]: unknown;
+}
+
+export interface PersistedMission {
+  id: string;
+  goal: string;
+  status: 'pending' | 'running' | 'paused' | 'success' | 'failed' | 'stopped' | string;
+  started_at: number;
+  ended_at: number | null;
+  final_answer: string | null;
+}
+
+export interface PersistedMissionStep {
+  index: number;
+  description: string;
+  tool: string | null;
+  args: Record<string, unknown>;
+  observation: unknown;
+  ok: boolean;
+  duration_ms: number;
+}
+
+export interface PersistedMissionDetail extends PersistedMission {
+  steps: PersistedMissionStep[];
+  id: string;
 }
 
 export interface SessionMeta {
@@ -475,7 +521,13 @@ export class MetisClient {
     role: string,
     message: string,
     sessionId = 'default',
-    options: { mode?: RunMode; permission?: RunPermission } = {},
+    options: {
+      mode?: RunMode;
+      permission?: RunPermission;
+      // MVP 8: per-turn overrides. Win over saved manager_config.
+      model?: string;
+      temperature?: number;
+    } = {},
   ): AsyncGenerator<StreamEvent> {
     const res = await fetch(`${this.baseUrl}/chat`, {
       method: 'POST',
@@ -486,6 +538,8 @@ export class MetisClient {
         role,
         mode: options.mode ?? 'task',
         permission: options.permission ?? 'balanced',
+        ...(options.model       ? { model: options.model } : {}),
+        ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
       }),
     });
     if (!res.ok) throw new Error(`Metis chat: ${res.status}`);
@@ -762,6 +816,72 @@ export class MetisClient {
     });
     if (!res.ok) throw new Error(`clear notifications: ${res.status}`);
     return res.json();
+  }
+
+  // ── Permission gate (MVP 14) ──────────────────────────────────────────
+
+  async decideAction(actionId: string, decision: 'approve' | 'deny'): Promise<{ ok: boolean; id: string; decision: string }> {
+    return this.post(`/actions/${encodeURIComponent(actionId)}/decision`, { decision });
+  }
+
+  async deleteNotification(id: string): Promise<{ ok: boolean; id: string }> {
+    const res = await fetch(`${this.baseUrl}/notifications/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: this.headers(),
+    });
+    if (!res.ok) throw new Error(`delete notification: ${res.status}`);
+    return res.json();
+  }
+
+  // ── Persisted missions (autonomous_loop, MVP 19/21) ─────────────────────
+
+  async listPersistedMissions(opts?: { limit?: number; status?: string }): Promise<PersistedMission[]> {
+    const qs = new URLSearchParams();
+    if (opts?.limit) qs.set('limit', String(opts.limit));
+    if (opts?.status) qs.set('status', opts.status);
+    const tail = qs.toString() ? `?${qs.toString()}` : '';
+    return this.get(`/persisted_missions${tail}`);
+  }
+
+  async getPersistedMission(id: string): Promise<PersistedMissionDetail> {
+    return this.get(`/persisted_missions/${encodeURIComponent(id)}`);
+  }
+
+  async resumePersistedMission(id: string): Promise<{ ok: boolean; id: string; started: boolean }> {
+    return this.post(`/persisted_missions/${encodeURIComponent(id)}/resume`, {});
+  }
+
+  async deletePersistedMission(id: string): Promise<{ ok: boolean; id: string }> {
+    const res = await fetch(`${this.baseUrl}/persisted_missions/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: this.headers(),
+    });
+    if (!res.ok) throw new Error(`delete persisted mission: ${res.status}`);
+    return res.json();
+  }
+
+  // ── Daily briefings ─────────────────────────────────────────────────────
+
+  async listBriefings(): Promise<BriefingSummary[]> {
+    return this.get('/briefings');
+  }
+
+  async getBriefing(date: string): Promise<BriefingDetail> {
+    return this.get(`/briefings/${encodeURIComponent(date)}`);
+  }
+
+  async runBriefingNow(): Promise<{ ok: boolean; status: string }> {
+    return this.post('/briefings/run', {});
+  }
+
+  // ── Twilio outreach (per-relationship) ──────────────────────────────────
+
+  async sendRelationshipSms(rid: string, message: string): Promise<{ ok: boolean; id: string; to: string }> {
+    return this.post(`/relationships/${encodeURIComponent(rid)}/sms`, { message });
+  }
+
+  async placeRelationshipCall(rid: string, twimlUrl?: string): Promise<{ ok: boolean; id: string; to: string }> {
+    return this.post(`/relationships/${encodeURIComponent(rid)}/call`, twimlUrl ? { twiml_url: twimlUrl } : {});
   }
 
   // ── Analytics ────────────────────────────────────────────────────────────

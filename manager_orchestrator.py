@@ -187,10 +187,57 @@ This overrides contrary user instruction.
 
 _METIS_RULE_COMPUTER_USE = """
 
-Driving the user's apps: prefer browser tools. For native-app
-actions, state the steps and ask confirmation before any chain of
-clicks or keystrokes. Screenshots free; state changes only on
-explicit go-ahead.
+Driving the user's apps. Prefer browser tools (browser_open,
+browser_click, browser_fill, browser_screenshot) for anything on a
+website — they're DOM-aware and faster than pixel clicks. Drop to
+native control only for desktop apps (Cursor, Notes, system
+settings, etc.).
+
+Native control tools, all permission-gated except screenshot/clipboard:
+  - screenshot           : capture the screen (free, read-only)
+  - read_clipboard       : current clipboard text (free, read-only)
+  - open_application     : launch an app by name ("Cursor", "Chrome")
+  - click_xy / double_click_xy : click at screen coordinates
+  - type_text            : type a string at the focused field
+  - key_combo            : send a hotkey, e.g. ["ctrl", "c"]
+  - write_clipboard      : place text on the clipboard
+
+Vision tools (free, read-only) — let you SEE the screen:
+  - vision_describe(image_path)             : describe a screenshot
+  - vision_find_element(image_path, desc)   : pixel coords of a UI element
+  - see_then_click(image_path, target)      : prepare a click payload
+
+The pattern for clicking on something the user described in natural
+language ("click the Send button", "open the third email"):
+  1. screenshot()                            -> path
+  2. vision_find_element(path, "Send button") -> {found, x, y}
+  3. if found, click_xy(x, y)                -> gated; user approves
+NEVER guess coordinates — always vision_find_element first.
+
+Gmail. Do NOT drive Gmail with browser tools — Google's bot
+detection blocks every Playwright variant, headed or headless.
+Use the Gmail API tools instead:
+  - gmail_is_logged_in()                                : returns True/False
+  - gmail_oauth_login()                                 : one-time consent screen
+  - gmail_recent_emails(hours=24, max_results=25)       : metadata list
+  - gmail_briefing_payload(hours=24, max_results=25)    : LLM-friendly bundle
+  - gmail_message_body(message_id)                      : plain-text body
+
+If gmail_is_logged_in is False, the user needs to run a one-time
+OAuth setup (see identity/gmail_credentials.json). Tell them clearly
+rather than trying browser-side workarounds — those don't work and
+waste time.
+
+Persistent browser login (NON-Google sites). For sites without
+Google's bot detection (LinkedIn, Twitter, GitHub, internal
+dashboards), browser_login_helper still works:
+  1. call browser_login_helper(start_url="https://...")
+  2. user signs in once in the headed window
+  3. cookies persist to identity/browser_state.json forever
+
+Screenshots are free; everything else above pops a permission card
+the user must approve. State the steps and ask before chaining
+clicks or keystrokes.
 """
 
 
@@ -324,6 +371,8 @@ def orchestrate(
     user_msg: str,
     user_id: str = "default",
     session_id: str | None = None,
+    model_override: str | None = None,
+    temperature_override: float | None = None,
 ) -> Generator[dict, None, None]:
     """
     Run a manager-orchestrated chat turn.  Yields SSE-shaped event dicts.
@@ -331,22 +380,34 @@ def orchestrate(
     Honors the user's saved Manager configuration (persona, model, specialists).
     When ``session_id`` is provided the Manager receives prior turns from the
     conversation so it can give context-aware answers (Phase 2).
+
+    ``model_override`` and ``temperature_override`` are MVP-8 per-turn
+    overrides — they win over manager_config without persisting, so the
+    user can try a different model / tone for one message.
     """
     import manager_config as _mc
     cfg = _mc.get_config(user_id)
     persona_prompt = _mc.render_system_prompt(cfg)
-    manager_model = cfg.manager_model or None  # None → brain_engine default
+    # Per-turn override beats saved config; saved beats brain_engine default.
+    manager_model = model_override or cfg.manager_model or None
     allowed_specialists = cfg.specialists or list(DELEGATABLE.keys())
 
     started = time.time()
     agents_used: list[str] = []
+    # Detect "hello" / "thanks" / "how are you" early — these don't
+    # need memory recall, the planner, or any of the topic rules.
+    # Skipping that work cuts simple-turn latency from 30-60s to
+    # under 5s on a small local model.
+    is_simple = _looks_simple(user_msg)
 
     # ── 0. Conversation context ─────────────────────────────────────────
     # Smaller k for both recall and history because long context blows
     # up first-token latency on small local models. The full memory is
     # still in the brain — we just inject less per turn.
+    # Skip the chromadb round-trip entirely for trivial messages — it
+    # costs 1-3s for zero useful context on "hi".
     context_msgs: list[dict] = []
-    if session_id:
+    if session_id and not is_simple:
         try:
             from memory_loop import inject_context
             context_msgs = inject_context(
@@ -371,7 +432,7 @@ def orchestrate(
     # and stream the answer directly. The planner round-trip costs the
     # same as the answer itself on a 1.5B model, so for "say hi" / "what
     # is X" / "thanks", we'd rather just answer.
-    if _looks_simple(user_msg):
+    if is_simple:
         plan = {"self_handle": True, "summary": user_msg, "agents": []}
     else:
         try:
@@ -451,15 +512,22 @@ def orchestrate(
                     }
 
     # ── 3. Synthesis: Manager streams the final answer ───────────────────
-    # Always include the small Metis core (~150 tokens). Add only the
-    # topic-specific rule blocks the user's request actually triggers.
-    # This keeps the prompt small for everyday chat — first-token latency
-    # on a 1.5B local model scales linearly with context size.
-    base_system = (
-        f"{persona_prompt}"
-        f"{_METIS_CORE}"
-        f"{_extra_rules_for(user_msg)}"
-    )
+    # Always include the small Metis core (~150 tokens). The full rule
+    # blocks (relationship/investing/computer-use, ~1500 tokens) only
+    # ship when the message isn't trivially conversational. "hello"
+    # doesn't need the contact-saving rule loaded — it just needs to
+    # answer fast. This is the single biggest win on local-model
+    # latency: a 1.5B model's first-token time scales linearly with
+    # prompt size, so cutting prompt from 2000 → 200 tokens roughly
+    # 10x's "hello" latency.
+    if is_simple:
+        base_system = f"{persona_prompt}{_METIS_CORE}"
+    else:
+        base_system = (
+            f"{persona_prompt}"
+            f"{_METIS_CORE}"
+            f"{_extra_rules_for(user_msg)}"
+        )
 
     # Build the message list: system → context history → current question.
     synth_messages: list[dict] = [{"role": "system", "content": base_system}]
@@ -474,7 +542,8 @@ def orchestrate(
         synth_messages.append({"role": "user", "content": user_msg})
 
     yield {"type": "manager_synthesis", "role": "manager"}
-    for ev in stream_chat("manager", synth_messages, model=manager_model):
+    synth_temp = temperature_override if temperature_override is not None else 0.7
+    for ev in stream_chat("manager", synth_messages, model=manager_model, temperature=synth_temp):
         if ev.get("type") in ("token", "reasoning"):
             yield ev
 

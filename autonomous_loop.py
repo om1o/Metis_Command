@@ -34,6 +34,18 @@ from tool_runtime import SessionExecutionLog, ToolRunner, ToolSpec, build_pydant
 # proposes gets rejected. Keeps the surface area tight and auditable.
 
 def _tool_registry() -> dict[str, Callable[..., Any]]:
+    """Atomic tools the LLM is allowed to propose during a mission.
+
+    State-changing tools (writes, shell, browser actions, native-app
+    clicks/typing) are wrapped through ``permissions.gate``. The wrapper
+    consults the active session's tier:
+      * ``read``     → instant deny
+      * ``balanced`` → block until user clicks Approve / Deny
+      * ``full``     → pass-through
+
+    Read-only tools (read_file, grep, parse_file, web_search,
+    screenshot) skip the gate.
+    """
     reg: dict[str, Callable[..., Any]] = {}
     from tools import file_system as _fs
     from tools import code_interpreter as _ci
@@ -42,32 +54,135 @@ def _tool_registry() -> dict[str, Callable[..., Any]]:
     from tools import browser_agent as _ba
     from tools import computer_use as _cu
     from tools import voice_io as _vo
+    from tools import gmail_api as _gm
+    from tools import vision as _vis
     from custom_tools import internet_search as _search
 
     from tools import multi_lang as _ml
     from subagents import spawn as _spawn_subagent
+    import permissions as _perm
 
     reg.update({
-        "read_file":         _fs.read_file,
-        "write_file":        _fs.write_file,
-        "edit_file":         _fs.edit_file,
-        "list_dir":          _fs.list_dir,
-        "grep":              _fs.grep,
-        "find_files":        _fs.find_files,
-        "parse_file":        _fp.parse,
-        "python":            _ci.run,
-        "run_code":          _ml.run,                                  # multi-language eval
-        "shell":             lambda cmd: _sh.run(cmd, confirm=False),
-        "browser_goto":      _ba.goto,
-        "browser_click":     _ba.click,
-        "browser_fill":      _ba.fill,
-        "browser_extract":   _ba.extract,
+        # Read-only / observational — no gate.
+        "read_file":          _fs.read_file,
+        "list_dir":           _fs.list_dir,
+        "grep":               _fs.grep,
+        "find_files":         _fs.find_files,
+        "parse_file":         _fp.parse,
+        "browser_extract":    _ba.extract,
         "browser_screenshot": _ba.screenshot,
-        "screenshot":        _cu.screenshot,
-        "speak":             _vo.speak,
+        "screenshot":         _cu.screenshot,
         "web_search": lambda query: _search.run(query) if hasattr(_search, "run") else _search(query),
-        "subagent":          lambda subagent_type, goal, readonly=False: _spawn_subagent(
-                                 subagent_type, goal, readonly=readonly).to_dict(),
+
+        # MVP 17: vision. The agent SEES the screen. Both tools read
+        # an image path and return descriptions / coordinates — no
+        # state change, so no gate needed. The pattern is:
+        #   1. screenshot()                    -> path
+        #   2. vision_find_element(path, "X")  -> {x, y, found}
+        #   3. click_xy(x, y)                  -> gated; user approves
+        # Vision routes through brain_engine.chat_by_role("vision"),
+        # which uses Ollama's llava locally and cloud vision when keys
+        # are set.
+        "vision_describe":     lambda image_path, prompt=None: _vis.describe(
+                                   str(image_path), prompt=prompt),
+        "vision_find_element": lambda image_path, description: _vis.find_element(
+                                   str(image_path), str(description)),
+        "see_then_click":      lambda image_path, target: _vis.see_then_click(
+                                   str(image_path), str(target)),
+
+        # State-changing — gated through Read/Balanced/Full.
+        "write_file":   _perm.gate("write_file",   _fs.write_file,                    summary_args=["path"]),
+        "edit_file":    _perm.gate("edit_file",    _fs.edit_file,                     summary_args=["path"]),
+        "python":       _perm.gate("python",       _ci.run,                           summary_args=["code"]),
+        "run_code":     _perm.gate("run_code",     _ml.run,                           summary_args=["language", "code"]),
+        "shell":        _perm.gate("shell",        lambda cmd: _sh.run(cmd, confirm=False), summary_args=["cmd"]),
+        "browser_goto": _perm.gate("browser_goto", _ba.goto,                          summary_args=["url"]),
+        "browser_click": _perm.gate("browser_click", _ba.click,                       summary_args=["target"]),
+        "browser_fill": _perm.gate("browser_fill", _ba.fill,                          summary_args=["selector", "value"]),
+        # MVP 18a: semantic click/fill — natural language not CSS.
+        # Walks role/label/placeholder/text strategies in priority
+        # order with auto-retry on stale-element races.
+        "browser_click_smart": _perm.gate("browser_click_smart", _ba.click_smart, summary_args=["target"]),
+        "browser_fill_smart":  _perm.gate("browser_fill_smart",  _ba.fill_smart,  summary_args=["label", "value"]),
+        # MVP 18b: file I/O. Upload sets files on a file input;
+        # download_via_click clicks the trigger and captures whatever
+        # the page hands us. Both gated — they can write disk files
+        # and pull bytes from the network.
+        "browser_upload":             _perm.gate("browser_upload",             _ba.upload,             summary_args=["target", "file_path"]),
+        "browser_download_via_click": _perm.gate("browser_download_via_click", _ba.download_via_click, summary_args=["target", "save_dir"]),
+        # MVP 18c: multi-tab. list_tabs is read-only (just an enumeration);
+        # new/switch/close all change the active tab so they're gated.
+        "browser_list_tabs":  _ba.list_tabs,
+        "browser_new_tab":    _perm.gate("browser_new_tab",    _ba.new_tab,    summary_args=["url"]),
+        "browser_switch_tab": _perm.gate("browser_switch_tab", _ba.switch_tab, summary_args=["index"]),
+        "browser_close_tab":  _perm.gate("browser_close_tab",  _ba.close_tab,  summary_args=["index"]),
+        "speak":        _perm.gate("speak",        _vo.speak,                         summary_args=["text"]),
+
+        # MVP 15: real desktop control. The internal confirm flag in
+        # tools/computer_use is bypassed here (confirm=False) because
+        # the permission gate is the authoritative fence — Read tier
+        # blocks these instantly, Balanced asks the user, Full lets
+        # them run. open_application is the "go-to-app" entrypoint
+        # for "open my Cursor" / "open Gmail in browser" requests.
+        "click_xy":     _perm.gate("click_xy",
+                                   lambda x, y, button="left": _cu.click_xy(int(x), int(y), button=button, confirm=False),
+                                   summary_args=["x", "y"]),
+        "double_click_xy": _perm.gate("double_click_xy",
+                                      lambda x, y: _cu.double_click_xy(int(x), int(y), confirm=False),
+                                      summary_args=["x", "y"]),
+        "type_text":    _perm.gate("type_text",
+                                   lambda text, interval=0.02: _cu.type_text(text, interval=float(interval), confirm=False),
+                                   summary_args=["text"]),
+        "key_combo":    _perm.gate("key_combo",
+                                   lambda keys: _cu.key_combo(list(keys) if not isinstance(keys, list) else keys, confirm=False),
+                                   summary_args=["keys"]),
+        "write_clipboard": _perm.gate("write_clipboard", _cu.write_clipboard, summary_args=["text"]),
+        "read_clipboard": _cu.read_clipboard,  # read-only
+        "open_application": _perm.gate("open_application", _cu.open_application, summary_args=["name"]),
+        # MVP 20a: rest of the mouse repertoire. scroll/drag/right_click
+        # are state-changing and gated; mouse_move is read-only (just
+        # repositions the cursor — triggers hover effects but doesn't
+        # commit to a click).
+        "scroll":         _perm.gate("scroll",
+                                     lambda amount, x=None, y=None: _cu.scroll(int(amount), x=x, y=y, confirm=False),
+                                     summary_args=["amount"]),
+        "drag_xy":        _perm.gate("drag_xy",
+                                     lambda from_x, from_y, to_x, to_y, button="left", duration=0.4: _cu.drag_xy(
+                                         int(from_x), int(from_y), int(to_x), int(to_y),
+                                         button=button, duration=float(duration), confirm=False),
+                                     summary_args=["from_x", "from_y", "to_x", "to_y"]),
+        "right_click_xy": _perm.gate("right_click_xy",
+                                     lambda x, y: _cu.right_click_xy(int(x), int(y), confirm=False),
+                                     summary_args=["x", "y"]),
+        "mouse_move":     _cu.mouse_move,  # read-only — no gate
+        # Persistent-browser helpers — snapshot/clear cookies so a
+        # one-time Gmail login stays usable across sessions. The
+        # save itself is gated (touches disk); login_helper opens a
+        # HEADED browser and is gated for the same reason.
+        "browser_save_state":  _perm.gate("browser_save_state",  _ba.save_state),
+        "browser_clear_state": _perm.gate("browser_clear_state", _ba.clear_state),
+        "browser_login_helper": _perm.gate("browser_login_helper", _ba.login_helper, summary_args=["start_url"]),
+
+        # MVP 16: Gmail via OAuth + Gmail API. Browser automation
+        # against Gmail loses to Google's bot detection every time;
+        # OAuth wins. oauth_login pops Google's official consent
+        # screen (which works in any browser) and saves a refresh
+        # token; everything else is silent thereafter.
+        "gmail_oauth_login":     _perm.gate("gmail_oauth_login",     _gm.oauth_login),
+        "gmail_logout":          _perm.gate("gmail_logout",          _gm.logout),
+        "gmail_is_logged_in":    _gm.is_logged_in,                                       # read-only
+        "gmail_recent_emails":   lambda hours=24, max_results=25: _gm.to_dicts(
+                                     _gm.list_recent(hours=int(hours), max_results=int(max_results))),
+        "gmail_briefing_payload": lambda hours=24, max_results=25: _gm.briefing_payload(
+                                     hours=int(hours), max_results=int(max_results)),
+        "gmail_message_body":    lambda message_id, max_chars=4000: _gm.get_body(
+                                     str(message_id), max_chars=int(max_chars)),
+
+        # Subagents recursively run their own loop; their internal tools
+        # inherit the same permission tier via the session emitter, so
+        # we don't need to gate the spawn itself.
+        "subagent": lambda subagent_type, goal, readonly=False: _spawn_subagent(
+            subagent_type, goal, readonly=readonly).to_dict(),
     })
     return reg
 
@@ -88,8 +203,31 @@ _MUTATING_TOOLS = {
     "shell",
     "browser_click",
     "browser_fill",
+    "browser_click_smart",
+    "browser_fill_smart",
+    "browser_upload",
+    "browser_download_via_click",
+    "browser_new_tab",
+    "browser_switch_tab",
+    "browser_close_tab",
+    "scroll",
+    "drag_xy",
+    "right_click_xy",
     "speak",
     "subagent",
+    # MVP 15 — anything that touches the real desktop or browser cookies.
+    "click_xy",
+    "double_click_xy",
+    "type_text",
+    "key_combo",
+    "write_clipboard",
+    "open_application",
+    "browser_save_state",
+    "browser_clear_state",
+    "browser_login_helper",
+    "python",
+    "run_code",
+    "browser_goto",
 }
 
 _READ_ONLY_GOAL = re.compile(
@@ -117,9 +255,12 @@ class Mission:
     goal: str
     steps: list[Step] = field(default_factory=list)
     final_answer: str = ""
-    status: str = "pending"   # pending | running | success | failed | stopped
+    status: str = "pending"   # pending | running | paused | success | failed | stopped
     started_at: float = field(default_factory=time.time)
     ended_at: float | None = None
+    # MVP 19: stable id assigned at start, used by mission_store for
+    # resume. Empty string until run_mission/resume_mission stamps it.
+    id: str = ""
 
 
 # ── Prompts ──────────────────────────────────────────────────────────────────
@@ -142,26 +283,69 @@ the list of available tools, respond with ONE JSON object choosing the
 tool to run, nothing else.
 
 Valid tools (name -> signature):
+  # Files / search — read-only is free
   read_file(path)                       -> str
-  write_file(path, content)             -> dict     (confirm-gated outside workspace)
-  edit_file(path, old_string, new_string, replace_all=False)
   list_dir(path='.', depth=1)
   grep(pattern, path='.')
   find_files(glob_pattern, path='.')
   parse_file(path)
+  write_file(path, content)             -> dict     (gated)
+  edit_file(path, old_string, new_string, replace_all=False)   (gated)
+
+  # Code / shell — gated
   python(code)                          -> dict     (pandas/numpy/matplotlib preloaded)
+  run_code(language, code)              -> dict     (multi-language)
   shell(cmd)                            -> dict     (allowlisted only)
-  browser_goto(url)
-  browser_click(target)
-  browser_fill(selector, value)
-  browser_extract(selector=None)
-  browser_screenshot()
-  screenshot()
-  speak(text)
+
+  # Browser (Playwright, headless by default) — actions gated
+  browser_goto(url)                     (gated)
+  browser_click(target)                 (gated; raw CSS or text)
+  browser_fill(selector, value)         (gated; raw CSS)
+  browser_click_smart(target)           (gated; "Submit" / "Sign in" / etc.)
+  browser_fill_smart(label, value)      (gated; field by label/placeholder)
+  browser_upload(target, file_path)     (gated; sets <input type="file">)
+  browser_download_via_click(target, save_dir)  (gated; clicks + captures download)
+  browser_list_tabs()                   -> [{index, url, title, active}, ...]
+  browser_new_tab(url=None)             (gated)
+  browser_switch_tab(index)             (gated)
+  browser_close_tab(index=None)         (gated)
+  browser_extract(selector=None)        -> str
+  browser_screenshot()                  -> path
+  browser_save_state()                  (gated; snapshot cookies)
+  browser_clear_state()                 (gated; wipe cookies)
+  browser_login_helper(start_url)       (gated; HEADED browser for one-time login)
+
+  # Native desktop — vision is free, control is gated
+  screenshot()                          -> path
+  read_clipboard()                      -> str
+  write_clipboard(text)                 (gated)
+  open_application(name)                (gated; "Cursor", "Chrome", etc.)
+  click_xy(x, y, button='left')         (gated)
+  double_click_xy(x, y)                 (gated)
+  right_click_xy(x, y)                  (gated; opens context menu)
+  type_text(text, interval=0.02)        (gated)
+  key_combo(keys)                       (gated; e.g. ["ctrl","c"])
+  scroll(amount, x=None, y=None)        (gated; +up / -down)
+  drag_xy(from_x, from_y, to_x, to_y)   (gated; sliders, file moves)
+  mouse_move(x, y)                      -> hover (read-only)
+
+  # Vision — describe what's on screen / find UI elements
+  vision_describe(image_path)               -> str
+  vision_find_element(image_path, desc)     -> {found, x, y, confidence}
+  see_then_click(image_path, target)        -> click-ready payload (no click)
+
+  # Misc
+  speak(text)                           (gated)
   web_search(query)                     -> str
 
 Respond like:
 {"tool": "grep", "args": {"pattern": "def run_agentic", "path": "."}}
+
+For Gmail / Twitter / LinkedIn etc., the headless browser starts
+without cookies. If a step needs to read the user's signed-in
+state, propose browser_login_helper FIRST with the provider's
+login URL — that opens a headed browser the user signs into once,
+and the cookies persist for later runs.
 
 If the step is a pure reasoning step that needs no tool, respond:
 {"tool": "none", "note": "explanation"}
@@ -191,16 +375,24 @@ def run_mission(
     on_event: Callable[[dict], None] | None = None,
     cancel=None,
     session_id: str | None = None,
+    user_id: str | None = None,
 ) -> Mission:
     """
     Execute a goal as a plan -> execute -> reflect loop.
 
     If `cancel` is a CancelToken (or anything with `.cancelled`), the loop
     checks before each step and exits cleanly with status='stopped'.
+
+    MVP 19: every step boundary flushes Mission state to mission_store,
+    so a Ctrl-C / crash / approval pause leaves a resumable record.
     """
-    mission = Mission(goal=goal, status="running")
-    audit({"event": "mission_start", "goal": goal, "max_steps": max_steps})
-    _emit(on_event, {"type": "mission_start", "goal": goal})
+    import mission_store as _store
+    mission = Mission(goal=goal, status="running", id=_store.new_id())
+    _store.save(mission, user_id=user_id, session_id=session_id)
+    audit({"event": "mission_start", "goal": goal, "max_steps": max_steps,
+           "mission_id": mission.id})
+    _emit(on_event, {"type": "mission_start", "goal": goal,
+                     "mission_id": mission.id})
 
     def _is_cancelled() -> bool:
         return bool(cancel is not None and getattr(cancel, "cancelled", False))
@@ -264,6 +456,13 @@ def run_mission(
                              "duration_ms": step.duration_ms,
                              "observation_preview": str(step.observation)[:300]})
 
+        # MVP 19: persist after every step so a kill-now resume picks
+        # up from this exact point with the observation cached.
+        try:
+            _store.save(mission, user_id=user_id, session_id=session_id)
+        except Exception:
+            pass
+
         exact_answer = _deterministic_final_answer(mission).strip()
         if exact_answer:
             mission.final_answer = exact_answer
@@ -300,10 +499,137 @@ def run_mission(
             mission.status = "failed"
 
     mission.ended_at = time.time()
+    # Final flush so list_recent shows the terminal status.
+    try:
+        _store.save(mission, user_id=user_id, session_id=session_id)
+    except Exception:
+        pass
     audit({"event": "mission_end", "status": mission.status,
-           "steps": len(mission.steps), "goal": goal})
+           "steps": len(mission.steps), "goal": goal,
+           "mission_id": mission.id})
     _emit(on_event, {"type": "mission_end", "status": mission.status,
-                     "answer": mission.final_answer})
+                     "answer": mission.final_answer,
+                     "mission_id": mission.id})
+    return mission
+
+
+def resume_mission(
+    mission_id: str,
+    *,
+    max_steps: int = 12,
+    auto_approve: bool = False,
+    on_event: Callable[[dict], None] | None = None,
+    cancel=None,
+    session_id: str | None = None,
+    user_id: str | None = None,
+) -> Mission:
+    """Continue a previously persisted mission from where it left off.
+
+    Already-completed steps are kept (their observations are reused as
+    context for the planner / reflector). The first step whose ``ok``
+    is False or whose observation is empty is the next to execute.
+
+    Returns the updated Mission. If the mission_id doesn't exist or
+    its state is corrupt, returns a freshly-failed Mission.
+    """
+    import mission_store as _store
+    state = _store.load_state(mission_id)
+    if not state:
+        return Mission(goal=f"<missing mission {mission_id}>", status="failed",
+                       final_answer="mission not found in store", id=mission_id)
+    # Rehydrate dataclasses from JSON.
+    steps = [
+        Step(
+            index=s.get("index", i + 1),
+            description=s.get("description", ""),
+            tool=s.get("tool"),
+            args=s.get("args") or {},
+            observation=s.get("observation"),
+            ok=bool(s.get("ok")),
+            duration_ms=int(s.get("duration_ms") or 0),
+        )
+        for i, s in enumerate(state.get("steps") or [])
+    ]
+    mission = Mission(
+        goal=state.get("goal", ""),
+        steps=steps,
+        final_answer=state.get("final_answer", "") or "",
+        status="running",
+        started_at=float(state.get("started_at") or time.time()),
+        ended_at=state.get("ended_at"),
+        id=mission_id,
+    )
+    audit({"event": "mission_resume", "mission_id": mission_id,
+           "completed_steps": sum(1 for s in steps if s.ok)})
+    _emit(on_event, {"type": "mission_resume", "mission_id": mission_id,
+                     "goal": mission.goal,
+                     "completed_steps": sum(1 for s in steps if s.ok)})
+
+    # Find the first incomplete step. If all are done, we synthesize
+    # an answer from observations and return.
+    i = next((idx for idx, s in enumerate(mission.steps) if not s.ok), len(mission.steps))
+    if i >= len(mission.steps) and mission.steps:
+        # All steps complete; finalize.
+        mission.final_answer = (
+            _deterministic_final_answer(mission).strip()
+            or _synthesize(mission).strip()
+            or mission.final_answer
+        )
+        mission.status = "success" if mission.final_answer else "failed"
+        mission.ended_at = time.time()
+        _store.save(mission, user_id=user_id, session_id=session_id)
+        _emit(on_event, {"type": "mission_end", "status": mission.status,
+                         "answer": mission.final_answer, "mission_id": mission_id})
+        return mission
+
+    # Otherwise continue the main execution loop from step i.
+    while i < len(mission.steps) and i < max_steps:
+        if cancel is not None and getattr(cancel, "cancelled", False):
+            mission.status = "stopped"
+            _store.save(mission, user_id=user_id, session_id=session_id)
+            _emit(on_event, {"type": "cancelled", "step": i,
+                             "mission_id": mission_id})
+            return mission
+        step = mission.steps[i]
+        i += 1
+        _emit(on_event, {"type": "step_start", "step": step.index,
+                         "description": step.description})
+        decision = _choose_tool(step.description, goal=mission.goal)
+        if not decision:
+            step.ok = False
+            step.observation = "executor returned no decision"
+            _store.save(mission, user_id=user_id, session_id=session_id)
+            continue
+        step.tool = decision.get("tool") or "none"
+        step.args = decision.get("args") or {}
+        if step.tool == "none":
+            step.ok = True
+            step.observation = decision.get("note", "thought-only step")
+        else:
+            step.observation, step.ok, step.duration_ms = _run_tool(
+                step.tool, step.args,
+                auto_approve=auto_approve, on_event=on_event,
+                cancel=cancel, session_id=session_id,
+            )
+        _emit(on_event, {"type": "step_end", "step": step.index,
+                         "ok": step.ok, "tool": step.tool,
+                         "duration_ms": step.duration_ms,
+                         "observation_preview": str(step.observation)[:300]})
+        try:
+            _store.save(mission, user_id=user_id, session_id=session_id)
+        except Exception:
+            pass
+
+    if mission.status == "running":
+        mission.final_answer = (
+            _deterministic_final_answer(mission).strip()
+            or _synthesize(mission).strip()
+        )
+        mission.status = "success" if mission.final_answer else "failed"
+    mission.ended_at = time.time()
+    _store.save(mission, user_id=user_id, session_id=session_id)
+    _emit(on_event, {"type": "mission_end", "status": mission.status,
+                     "answer": mission.final_answer, "mission_id": mission_id})
     return mission
 
 

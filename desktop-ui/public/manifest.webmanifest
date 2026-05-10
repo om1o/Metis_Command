@@ -1,0 +1,25 @@
+{
+  "name": "Metis",
+  "short_name": "Metis",
+  "description": "Your private local-first AI assistant.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0a0612",
+  "theme_color": "#0a0612",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/metis-mark.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/metis-mark.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

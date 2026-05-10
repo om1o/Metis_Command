@@ -128,6 +128,27 @@ def _boot_services() -> None:
         start_scheduler()
     except Exception as e:
         print(f"[api_bridge] scheduler boot skipped: {e}")
+    # MVP 20.1: pre-warm the manager model so the first user chat
+    # doesn't pay model-load latency. This used to make "hello"
+    # take 30s on cold-start (Ollama swaps the model out of VRAM
+    # the moment another model runs); pre-warming keeps it pinned
+    # via keep_alive=-1 in chat_by_role's payload.
+    try:
+        import threading
+        def _warmup() -> None:
+            try:
+                from brain_engine import chat_by_role, get_active_model
+                role = "manager"
+                model = get_active_model(role)
+                # Cheap one-token call just to load the model into VRAM.
+                chat_by_role(role, [{"role": "user", "content": "."}],
+                             model=model, temperature=0.0)
+                print(f"[api_bridge] warmup ok: {role} -> {model}")
+            except Exception as e:
+                print(f"[api_bridge] warmup skipped: {e}")
+        threading.Thread(target=_warmup, name="brain-warmup", daemon=True).start()
+    except Exception as e:
+        print(f"[api_bridge] warmup thread failed: {e}")
     try:
         from agent_roster import resume_persistent_from_disk
         resume_persistent_from_disk()
@@ -247,6 +268,11 @@ class ChatRequest(BaseModel):
     mode: str = "task"     # task | job
     permission: str = "balanced"  # read | balanced | full
     project_slug: str | None = None  # active workspace/project context
+    # Per-turn overrides (MVP 8). When set, these win over the saved
+    # manager_config for THIS turn only — the user can try a different
+    # model / tone without committing to it. Both optional.
+    model: str | None = None        # ollama tag or "groq/<id>" / "glm-4.6" / etc.
+    temperature: float | None = None
 
 
 class ForgeRequest(BaseModel):
@@ -737,7 +763,8 @@ async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
             try:
                 import manager_config as _mc
                 cfg_obj = _mc.get_config(user_id)
-                model_id = cfg_obj.manager_model or "qwen2.5-coder:1.5b"
+                # Per-turn override (MVP 8) wins over saved manager_model.
+                model_id = req.model or cfg_obj.manager_model or "qwen2.5-coder:1.5b"
                 manager_name = cfg_obj.manager_name or "Metis"
                 # Emit identity so UI can show manager name
                 yield f"data: {json.dumps({'type': 'manager_identity', 'name': manager_name, 'model': model_id})}\n\n"
@@ -750,7 +777,10 @@ async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
                         "prompt": wire_message,
                         "stream": True,
                         "keep_alive": -1,
-                        "options": {"num_ctx": 4096},
+                        "options": {
+                            "num_ctx": 4096,
+                            "temperature": req.temperature if req.temperature is not None else 0.7,
+                        },
                     },
                     stream=True,
                     timeout=120,
@@ -782,9 +812,59 @@ async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
             except Exception as e:
                 yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
         elif req.role == "manager":
+            # MVP 14: run the orchestrator on a worker thread so the SSE
+            # generator can keep yielding events to the browser even
+            # while a tool deep inside autonomous_loop is blocked
+            # waiting for the user to click Approve / Deny on a
+            # permission card. Two queues: the orchestrator's own event
+            # generator + the permissions module's emitter, multiplexed
+            # into one ev_queue.
+            import queue as _queue
+            import threading as _threading
+            import permissions as _perm
             from manager_orchestrator import orchestrate
+
+            ev_queue: _queue.Queue = _queue.Queue()
+            DONE = object()
+
+            # Tier comes from the composer pill. The orchestrator thread
+            # registers the session id + tier + emit-callback so any
+            # tool gated through permissions.gate() can find it.
+            _perm.set_session(
+                req.session_id,
+                tier=(req.permission if req.permission in ("read", "balanced", "full") else "balanced"),
+                emit=lambda ev, q=ev_queue: q.put(ev),
+            )
+
+            def _runner():
+                try:
+                    for ev in orchestrate(
+                        wire_message,
+                        user_id=user_id,
+                        session_id=req.session_id,
+                        model_override=req.model,
+                        temperature_override=req.temperature,
+                    ):
+                        ev_queue.put(ev)
+                except Exception as e:
+                    ev_queue.put({"type": "error", "message": str(e)})
+                finally:
+                    ev_queue.put(DONE)
+
+            t = _threading.Thread(target=_runner, daemon=True, name=f"orch:{req.session_id[:8]}")
+            t.start()
+
             try:
-                for ev in orchestrate(wire_message, user_id=user_id, session_id=req.session_id):
+                while True:
+                    try:
+                        ev = ev_queue.get(timeout=15)
+                    except _queue.Empty:
+                        # Idle heartbeat — keeps the SSE connection alive
+                        # while a tool is sitting on an approval prompt.
+                        yield "data: {\"type\": \"heartbeat\", \"message\": \"awaiting approval\"}\n\n"
+                        continue
+                    if ev is DONE:
+                        break
                     if ev.get("type") == "token":
                         full_answer += ev.get("delta", "")
                     elif ev.get("type") == "manager_plan":
@@ -802,8 +882,8 @@ async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
                         if art:
                             yield f"data: {json.dumps({'type': 'run_artifact_saved', 'id': art.id, 'title': art.title})}\n\n"
                     yield f"data: {json.dumps(ev)}\n\n"
-            except Exception as e:
-                yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+            finally:
+                _perm.clear_session(req.session_id)
         else:
             for ev in stream_chat(
                 req.role,
@@ -1751,6 +1831,55 @@ def mission_cancel(mission_id: str) -> dict:
     return {"ok": cancel_mission(mission_id), "id": mission_id}
 
 
+# MVP 21: persisted-mission endpoints. The store covers autonomous_loop
+# runs from MVP 19; the /missions endpoints above cover the older
+# in-memory MissionPool (scheduled jobs, briefings). Two stores, two
+# endpoints — UI shows them under different tabs to keep the model
+# clear.
+
+@app.get("/persisted_missions")
+def persisted_missions_list(
+    limit: int = 50,
+    status: str | None = None,
+) -> list[dict]:
+    """List autonomous_loop missions from the SQLite store, newest first."""
+    import mission_store as _ms
+    statuses = [s for s in (status.split(",") if status else []) if s]
+    return _ms.list_recent(statuses=statuses or None, limit=int(limit))
+
+
+@app.get("/persisted_missions/{mission_id}")
+def persisted_missions_get(mission_id: str) -> dict:
+    """Full mission state (with all steps + observations)."""
+    import mission_store as _ms
+    state = _ms.load_state(mission_id)
+    if not state:
+        raise HTTPException(status_code=404, detail="mission not found in store")
+    return state
+
+
+@app.post("/persisted_missions/{mission_id}/resume")
+def persisted_missions_resume(mission_id: str) -> dict:
+    """Kick off autonomous_loop.resume_mission in a worker thread.
+    Returns immediately with the mission id; clients poll
+    /persisted_missions/{id} for progress."""
+    import threading as _threading
+    from autonomous_loop import resume_mission
+    def _runner() -> None:
+        try:
+            resume_mission(mission_id, max_steps=12, auto_approve=False)
+        except Exception as e:
+            print(f"[api_bridge] resume_mission({mission_id}) failed: {e}")
+    _threading.Thread(target=_runner, name=f"resume:{mission_id[:8]}", daemon=True).start()
+    return {"ok": True, "id": mission_id, "started": True}
+
+
+@app.delete("/persisted_missions/{mission_id}")
+def persisted_missions_delete(mission_id: str) -> dict:
+    import mission_store as _ms
+    return {"ok": _ms.delete(mission_id), "id": mission_id}
+
+
 # ── Marketplace ──────────────────────────────────────────────────────────────
 
 @app.get("/marketplace")
@@ -1853,6 +1982,123 @@ def relationship_get(rid: str) -> dict:
     return json.loads(fp.read_text(encoding="utf-8"))
 
 
+# ── Twilio outreach (MVP 13) ─────────────────────────────────────────────
+# Send an SMS or place an outbound voice call to a saved relationship.
+# Both require Twilio creds in .env (TWILIO_SID/TOKEN/FROM); calls also
+# need TWILIO_CALL_TWIML_URL or a per-call twiml_url override. We always
+# log the outreach to notifications + the relationship's notes file so
+# there's an audit trail of what got sent.
+
+class RelationshipSMSRequest(BaseModel):
+    message: str
+
+
+class RelationshipCallRequest(BaseModel):
+    twiml_url: str | None = None
+
+
+def _append_to_relationship_log(rid: str, line: str) -> None:
+    """Append a one-line audit entry to the relationship's outreach log."""
+    fp = _RELATIONSHIPS_DIR / f"{rid}.json"
+    if not fp.exists():
+        return
+    try:
+        data = json.loads(fp.read_text(encoding="utf-8"))
+        log = list(data.get("outreach_log") or [])
+        log.append({
+            "ts": __import__("datetime").datetime.utcnow().isoformat(),
+            "entry": line,
+        })
+        # Keep the log bounded so the file doesn't grow unbounded.
+        data["outreach_log"] = log[-50:]
+        fp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    except Exception:
+        pass
+
+
+@app.post("/relationships/{rid}/sms")
+def relationship_send_sms(rid: str, req: RelationshipSMSRequest) -> dict:
+    fp = _RELATIONSHIPS_DIR / f"{rid}.json"
+    if not fp.exists():
+        raise HTTPException(status_code=404, detail="relationship not found")
+    rec = json.loads(fp.read_text(encoding="utf-8"))
+    phone = (rec.get("phone") or "").strip()
+    if not phone:
+        raise HTTPException(status_code=400, detail="relationship has no phone number")
+    msg = (req.message or "").strip()
+    if not msg:
+        raise HTTPException(status_code=400, detail="message body is empty")
+
+    # Bail out cleanly if Twilio isn't configured (don't pretend to send).
+    if not all((os.getenv("TWILIO_SID"), os.getenv("TWILIO_TOKEN"), os.getenv("TWILIO_FROM"))):
+        raise HTTPException(
+            status_code=400,
+            detail="Twilio not configured. Set TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM in .env.",
+        )
+
+    try:
+        from comms_link import CommsLink
+        ok = CommsLink().send_text_message(phone, msg)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"SMS send failed: {e}")
+    if not ok:
+        raise HTTPException(status_code=500, detail="Twilio refused the request (see api_bridge.log).")
+
+    _append_to_relationship_log(rid, f"SMS sent: {msg[:120]}")
+    try:
+        _notifs.add(
+            title=f"SMS sent to {rec.get('name','contact')}",
+            body=msg[:300],
+            notif_type="success",
+            metadata={"relationship_id": rid},
+        )
+    except Exception:
+        pass
+    return {"ok": True, "id": rid, "to": phone}
+
+
+@app.post("/relationships/{rid}/call")
+def relationship_place_call(rid: str, req: RelationshipCallRequest) -> dict:
+    fp = _RELATIONSHIPS_DIR / f"{rid}.json"
+    if not fp.exists():
+        raise HTTPException(status_code=404, detail="relationship not found")
+    rec = json.loads(fp.read_text(encoding="utf-8"))
+    phone = (rec.get("phone") or "").strip()
+    if not phone:
+        raise HTTPException(status_code=400, detail="relationship has no phone number")
+    if not all((os.getenv("TWILIO_SID"), os.getenv("TWILIO_TOKEN"), os.getenv("TWILIO_FROM"))):
+        raise HTTPException(
+            status_code=400,
+            detail="Twilio not configured. Set TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM in .env.",
+        )
+    twiml = (req.twiml_url or "").strip() or os.getenv("TWILIO_CALL_TWIML_URL", "").strip()
+    if not twiml:
+        raise HTTPException(
+            status_code=400,
+            detail="Set TWILIO_CALL_TWIML_URL in .env (or pass twiml_url) — Twilio needs an instructions URL to read on the call.",
+        )
+
+    try:
+        from comms_link import CommsLink
+        ok = CommsLink().place_outbound_call(phone, twiml_url=twiml)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"call failed: {e}")
+    if not ok:
+        raise HTTPException(status_code=500, detail="Twilio refused the call (see api_bridge.log).")
+
+    _append_to_relationship_log(rid, f"Call placed via {twiml}")
+    try:
+        _notifs.add(
+            title=f"Call placed to {rec.get('name','contact')}",
+            body=f"Twilio dialed {phone}.",
+            notif_type="success",
+            metadata={"relationship_id": rid},
+        )
+    except Exception:
+        pass
+    return {"ok": True, "id": rid, "to": phone}
+
+
 # ── Inbox ────────────────────────────────────────────────────────────────────
 # Storage + helpers live in inbox.py so the scheduler / orchestrator can
 # append items without importing api_bridge (which would be circular).
@@ -1952,6 +2198,108 @@ def notifications_read_all() -> dict:
 @app.delete("/notifications")
 def notifications_clear() -> dict:
     return {"ok": True, "cleared": _notifs.clear()}
+
+
+@app.delete("/notifications/{notif_id}")
+def notifications_delete_one(notif_id: str) -> dict:
+    if not _notifs.remove(notif_id):
+        raise HTTPException(status_code=404, detail="notification not found")
+    return {"ok": True, "id": notif_id}
+
+
+# ── Permission gate (MVP 14): user-side decision on tool approval ──
+
+class ActionDecisionRequest(BaseModel):
+    decision: str  # "approve" | "deny"
+
+
+@app.post("/actions/{action_id}/decision")
+def action_decide(action_id: str, req: ActionDecisionRequest) -> dict:
+    """User clicked Approve or Deny on an approval_required card.
+
+    The orchestrator thread is parked on a threading.Event for this
+    action_id; we set the decision and fire it.
+    """
+    import permissions as _perm
+    if req.decision not in ("approve", "deny"):
+        raise HTTPException(status_code=400, detail="decision must be 'approve' or 'deny'")
+    if not _perm.decide(action_id, req.decision):
+        raise HTTPException(status_code=404, detail="no pending action with that id (already handled or expired)")
+    return {"ok": True, "id": action_id, "decision": req.decision}
+
+
+# ── Daily briefings ──────────────────────────────────────────────────────────
+# The scheduler's `daily_briefing` action writes a markdown file to
+# artifacts/daily_plan_YYYY-MM-DD.md every morning. These routes expose
+# them to the UI so the user can read past briefings + trigger a fresh
+# one on demand.
+
+import re as _re
+_BRIEFING_RX = _re.compile(r"^daily_plan_(\d{4}-\d{2}-\d{2})\.md$")
+
+
+def _briefings_dir() -> Path:
+    """Resolve the artifacts dir the same way daily_tasks does."""
+    try:
+        from daily_tasks import ARTIFACTS_DIR  # noqa
+        return ARTIFACTS_DIR
+    except Exception:
+        return Path(__file__).parent / "artifacts"
+
+
+@app.get("/briefings")
+def briefings_list() -> list[dict]:
+    """List daily plan markdown files, newest first."""
+    out: list[dict] = []
+    bdir = _briefings_dir()
+    if not bdir.exists():
+        return out
+    for p in sorted(bdir.iterdir(), reverse=True):
+        m = _BRIEFING_RX.match(p.name)
+        if not m:
+            continue
+        try:
+            stat = p.stat()
+            preview = p.read_text(encoding="utf-8")[:280]
+        except Exception:
+            continue
+        out.append({
+            "date": m.group(1),
+            "filename": p.name,
+            "size": stat.st_size,
+            "modified_at": stat.st_mtime,
+            "preview": preview,
+        })
+        if len(out) >= 60:
+            break
+    return out
+
+
+@app.get("/briefings/{date}")
+def briefing_get(date: str) -> dict:
+    """Return the full markdown body of one daily plan."""
+    if not _re.match(r"^\d{4}-\d{2}-\d{2}$", date):
+        raise HTTPException(status_code=400, detail="date must be YYYY-MM-DD")
+    p = _briefings_dir() / f"daily_plan_{date}.md"
+    if not p.exists():
+        raise HTTPException(status_code=404, detail="briefing not found")
+    return {
+        "date": date,
+        "filename": p.name,
+        "content": p.read_text(encoding="utf-8"),
+    }
+
+
+@app.post("/briefings/run")
+def briefing_run_now() -> dict:
+    """Generate today's briefing on demand. Synchronous; can take a few
+    seconds because it calls every persistent agent + the manager."""
+    try:
+        from daily_tasks import daily_briefing
+        status = daily_briefing()
+        return {"ok": True, "status": status}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"briefing failed: {e}")
 
 
 # ── Skills ───────────────────────────────────────────────────────────────────

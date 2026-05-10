@@ -45,8 +45,8 @@ import {
   Brain,
   BarChart3,
   Search,
-  Mic,
-  MicOff,
+  Sunrise,
+  Workflow,
   HelpCircle,
   MessageCircle,
   Scale,
@@ -61,6 +61,10 @@ import JobsPanel from '@/components/jobs-panel';
 import RelationshipsPanel from '@/components/relationships-panel';
 import InboxPanel from '@/components/inbox-panel';
 import ConnectionsPanel from '@/components/connections-panel';
+import InstallAppButton from '@/components/install-app-button';
+import BriefingPanel from '@/components/briefing-panel';
+import MissionsPanel from '@/components/missions-panel';
+import VoiceButton from '@/components/voice-button';
 import MemoryPanel from '@/components/memory-panel';
 import HostAutomationMvp from '@/components/host-automation-mvp';
 import ReportsPanel from '@/components/reports-panel';
@@ -74,6 +78,9 @@ type EffectiveTheme = 'dark' | 'light';
 type AgentStatus = 'idle' | 'thinking' | 'working' | 'done' | 'error';
 type Permission = RunPermission;
 type Mode = RunMode;
+// MVP 8 — per-turn tone preset that maps to a temperature value.
+type Tone = 'precise' | 'balanced' | 'creative';
+const TONE_TEMP: Record<Tone, number> = { precise: 0.2, balanced: 0.7, creative: 1.0 };
 
 interface Message {
   id: string;
@@ -86,6 +93,15 @@ interface Message {
   // Relationships panel.
   savedRelationship?: { id: string; name: string };
   savedArtifact?: { id: string; title: string };
+  // The model id the auto-router actually used for this turn — captured
+  // from the manager_identity SSE event. Shown as a small "via X" badge
+  // so the user can see what's behind the answer without picking a model.
+  routedModel?: string;
+  // MVP 14 — pending tool approvals from the permission gate. The
+  // orchestrator parks until the user clicks Approve or Deny on each.
+  pendingApprovals?: Array<{ id: string; tool: string; summary: string }>;
+  // History of decisions for this turn (handled = clicked, expired = timed out)
+  approvalLog?: Array<{ id: string; tool: string; summary: string; outcome: 'approved' | 'denied' | 'expired' }>;
 }
 
 interface Session {
@@ -183,6 +199,17 @@ function pickTitle(text: string): string {
   const t = text.trim().replace(/\s+/g, ' ');
   if (t.length <= 48) return t || 'New session';
   return `${t.slice(0, 45).trimEnd()}…`;
+}
+
+// Compress a model id into a short label for the inline "via X" badge.
+// "groq/llama-3.3-70b-versatile" → "groq · llama-3.3-70b". Long local
+// tags get cut at the first colon and shortened.
+function prettyModel(id: string): string {
+  if (id.startsWith('groq/'))   return `groq · ${id.slice('groq/'.length).replace(/-versatile$/, '')}`;
+  if (id.startsWith('glm-'))    return `glm · ${id.slice(4)}`;
+  if (id.startsWith('gpt-'))    return `openai · ${id}`;
+  if (id.includes(':'))         return id.split(':')[0];
+  return id;
 }
 
 // Removes the auto-save fenced JSON block the Manager appends when it
@@ -488,6 +515,11 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   const [permission, setPermission] = useState<Permission>('balanced');
   const [mode, setMode] = useState<Mode>('task');
+  // MVP 8 — per-turn tone (temperature preset). Model selection itself
+  // is fully auto-routed: cloud-first cascade in brain_engine plus the
+  // manager_orchestrator's planner already pick the best model and
+  // delegate to specialists where appropriate. No manual override pill.
+  const [tone, setTone] = useState<Tone>('balanced');
   const [jobPlanner, setJobPlanner] = useState<{ goal: string } | null>(null);
   const [jobsOpen, setJobsOpen] = useState(false);
   const [relationshipsOpen, setRelationshipsOpen] = useState(false);
@@ -497,6 +529,8 @@ export default function App() {
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
+  const [briefingOpen, setBriefingOpen] = useState(false);
+  const [missionsOpen, setMissionsOpen] = useState(false);
   const [health, setHealth] = useState<SystemHealth | null>(null);
   const [activeArtifactId, setActiveArtifactId] = useState<string | null>(null);
   const [reportArtifact, setReportArtifact] = useState<Artifact | null>(null);
@@ -504,7 +538,6 @@ export default function App() {
   const [managerName, setManagerName] = useState<string>('Agent');
   const [appVersion, setAppVersion] = useState<string>('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
-  const [listening, setListening] = useState(false);
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
 
   const composerRef = useRef<HTMLTextAreaElement>(null);
@@ -512,8 +545,6 @@ export default function App() {
   const workspaceRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const voiceRef = useRef<any>(null);
   const reduceMotion = useReducedMotion();
 
   const active = useMemo(() => sessions.find((s) => s.id === activeId) || null, [sessions, activeId]);
@@ -577,6 +608,12 @@ export default function App() {
       const m = localStorage.getItem('metis-mode');
       if (m === 'task' || m === 'job') setMode(m);
     } catch {}
+    try {
+      const t = localStorage.getItem('metis-tone');
+      if (t === 'precise' || t === 'balanced' || t === 'creative') setTone(t);
+    } catch {}
+    // Wipe any stale model-override left over from MVP 8's manual picker.
+    try { localStorage.removeItem('metis-model-override'); } catch {}
 
     let cancelled = false;
     (async () => {
@@ -694,6 +731,9 @@ export default function App() {
   useEffect(() => {
     try { localStorage.setItem('metis-mode', mode); } catch {}
   }, [mode]);
+  useEffect(() => {
+    try { localStorage.setItem('metis-tone', tone); } catch {}
+  }, [tone]);
 
   // Probe the system once at start + whenever the connections panel
   // closes (so a refresh inside it can update the dot color).
@@ -787,6 +827,8 @@ export default function App() {
       else if (k === 'p')   { e.preventDefault(); setReportsOpen((v) => !v); }
       else if (k === 'a')   { e.preventDefault(); setAnalyticsOpen((v) => !v); }
       else if (k === 'g')   { e.preventDefault(); setConnectionsOpen((v) => !v); }
+      else if (k === 'd')   { e.preventDefault(); setBriefingOpen((v) => !v); }
+      else if (k === 'o')   { e.preventDefault(); setMissionsOpen((v) => !v); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -907,13 +949,21 @@ export default function App() {
       let acc = '';
       let saved: { id: string; name: string } | undefined;
       let savedArtifact: { id: string; title: string } | undefined;
+      let routedModel: string | undefined;
       try {
         const fullText = capturedAttachments.length > 0
           ? (text ? text + '\n\n' : '') + capturedAttachments
               .map((a) => `**Attached: ${a.name}**\n\`\`\`\n${a.content.slice(0, 8000)}\n\`\`\``)
               .join('\n\n')
           : text;
-        const stream = client.chat('manager', fullText, sId, { mode: 'task', permission });
+        const stream = client.chat('manager', fullText, sId, {
+          mode: 'task',
+          permission,
+          temperature: TONE_TEMP[tone],
+          // No model override — the backend auto-routes via cloud cascade
+          // (Groq → GLM → OpenAI → local) and the manager planner picks
+          // specialists for sub-steps as needed.
+        });
         for await (const ev of stream) {
           if (ac.signal.aborted) break;
           if (ev.type === 'token' && ev.delta) {
@@ -938,6 +988,50 @@ export default function App() {
             savedArtifact = { id: ev.id, title: typeof ev.title === 'string' ? ev.title : 'Manager run report' };
             setActiveArtifactId(ev.id);
             setWorkspaceOpen(true);
+          } else if (ev.type === 'manager_identity' && typeof ev.model === 'string' && ev.model) {
+            // Auto-router decision — capture so we can show "via X" on the
+            // finished message. Both direct + orchestrator paths emit this.
+            routedModel = ev.model;
+          } else if (ev.type === 'approval_required' && typeof ev.id === 'string' && typeof ev.tool === 'string') {
+            // The permission gate is parked on a tool call. Push a card
+            // onto the agent message so the user can Approve / Deny.
+            const approval = { id: ev.id, tool: ev.tool, summary: typeof ev.summary === 'string' ? ev.summary : ev.tool };
+            setSessions((all) =>
+              all.map((s) =>
+                s.id === sId
+                  ? {
+                      ...s,
+                      messages: s.messages.map((m) =>
+                        m.id === agentMsg.id
+                          ? { ...m, pendingApprovals: [...(m.pendingApprovals || []), approval] }
+                          : m,
+                      ),
+                    }
+                  : s,
+              ),
+            );
+          } else if (ev.type === 'approval_expired' && typeof ev.id === 'string') {
+            // Card sat too long — gate already default-denied. Strike it.
+            setSessions((all) =>
+              all.map((s) =>
+                s.id === sId
+                  ? {
+                      ...s,
+                      messages: s.messages.map((m) => {
+                        if (m.id !== agentMsg.id) return m;
+                        const expired = (m.pendingApprovals || []).find((a) => a.id === ev.id);
+                        return {
+                          ...m,
+                          pendingApprovals: (m.pendingApprovals || []).filter((a) => a.id !== ev.id),
+                          approvalLog: expired
+                            ? [...(m.approvalLog || []), { ...expired, outcome: 'expired' as const }]
+                            : (m.approvalLog || []),
+                        };
+                      }),
+                    }
+                  : s,
+              ),
+            );
           }
         }
         if (!ac.signal.aborted) {
@@ -949,7 +1043,7 @@ export default function App() {
                     ...s,
                     messages: s.messages.map((m) =>
                       m.id === agentMsg.id
-                        ? { ...m, content: finalContent, status: 'done', savedRelationship: saved, savedArtifact }
+                        ? { ...m, content: finalContent, status: 'done', savedRelationship: saved, savedArtifact, routedModel }
                         : m,
                     ),
                   }
@@ -1057,34 +1151,6 @@ export default function App() {
   };
 
   const removeAttachment = (i: number) => setAttachments((a) => a.filter((_, j) => j !== i));
-
-  const toggleVoice = () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const w = window as any;
-    const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
-    if (!SR) return;
-    if (listening) {
-      voiceRef.current?.stop();
-      setListening(false);
-      return;
-    }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const recog: any = new SR();
-    recog.continuous = false;
-    recog.interimResults = false;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    recog.onresult = (e: any) => {
-      const t = Array.from(e.results as ArrayLike<{ [k: number]: { transcript: string } }>)
-        .map((r) => r[0].transcript)
-        .join('');
-      setInput((v) => v + (v ? ' ' : '') + t);
-    };
-    recog.onend = () => setListening(false);
-    recog.onerror = () => setListening(false);
-    voiceRef.current = recog;
-    recog.start();
-    setListening(true);
-  };
 
   // ── App ────────────────────────────────────────────────────────────────
   const hasMessages = !!active && active.messages.length > 0;
@@ -1229,6 +1295,26 @@ export default function App() {
               <FileText className="h-4 w-4 shrink-0 text-violet-400" />
               <span>Reports</span>
               <span className="ml-auto text-[10px] text-[var(--metis-fg-dim)]">⌘P</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setBriefingOpen(true)}
+              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] text-[var(--metis-fg-muted)] transition hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]"
+              title="Daily briefing (⌘D)"
+            >
+              <Sunrise className="h-4 w-4 shrink-0 text-violet-400" />
+              <span>Briefing</span>
+              <span className="ml-auto text-[10px] text-[var(--metis-fg-dim)]">⌘D</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMissionsOpen(true)}
+              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] text-[var(--metis-fg-muted)] transition hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]"
+              title="Missions (⌘O)"
+            >
+              <Workflow className="h-4 w-4 shrink-0 text-violet-400" />
+              <span>Missions</span>
+              <span className="ml-auto text-[10px] text-[var(--metis-fg-dim)]">⌘O</span>
             </button>
             <button
               type="button"
@@ -1414,6 +1500,34 @@ export default function App() {
                     }}
                     copiedMsgId={copiedMsgId}
                     onCopy={copyMsg}
+                    onApproval={async (actionId, decision) => {
+                      if (!client) return;
+                      // Optimistic: move from pending → log immediately so
+                      // the user sees feedback even before the server
+                      // round-trip lands.
+                      setSessions((all) =>
+                        all.map((s) =>
+                          s.id !== active!.id
+                            ? s
+                            : {
+                                ...s,
+                                messages: s.messages.map((mm) => {
+                                  if (mm.id !== m.id) return mm;
+                                  const found = (mm.pendingApprovals || []).find((a) => a.id === actionId);
+                                  return {
+                                    ...mm,
+                                    pendingApprovals: (mm.pendingApprovals || []).filter((a) => a.id !== actionId),
+                                    approvalLog: found
+                                      ? [...(mm.approvalLog || []), { ...found, outcome: decision === 'approve' ? 'approved' as const : 'denied' as const }]
+                                      : (mm.approvalLog || []),
+                                  };
+                                }),
+                              },
+                        ),
+                      );
+                      try { await client.decideAction(actionId, decision); }
+                      catch (e) { console.warn('[metis] decision POST failed:', e); }
+                    }}
                   />
                 ))}
                 <div ref={chatBottomRef} className="h-2" />
@@ -1481,8 +1595,6 @@ export default function App() {
               </div>
             )}
             <div className="flex flex-wrap items-center gap-1.5 px-1.5 pb-1.5">
-              <ModeSelector value={mode} onChange={setMode} />
-              <PermissionSelector value={permission} onChange={setPermission} />
               {/* Paperclip attach button */}
               <button
                 type="button"
@@ -1496,20 +1608,15 @@ export default function App() {
               <span className="hidden text-[11px] text-[var(--metis-fg-dim)] sm:inline">
                 <kbd className="rounded border border-[var(--metis-border)] bg-[var(--metis-code-bg)] px-1.5 py-0.5 text-[10px] text-[var(--metis-code-fg)]">↵</kbd> {mode === 'job' ? 'schedule' : 'send'} · <kbd className="rounded border border-[var(--metis-border)] bg-[var(--metis-code-bg)] px-1.5 py-0.5 text-[10px] text-[var(--metis-code-fg)]">⇧↵</kbd> newline
               </span>
-              <div className="ml-auto flex items-center gap-1.5">
-                {/* Voice mic button */}
-                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                {typeof window !== 'undefined' && !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) && (
-                  <button
-                    type="button"
-                    onClick={toggleVoice}
-                    className={`inline-flex h-9 w-9 items-center justify-center rounded-full transition ${listening ? 'bg-rose-500/20 text-rose-400 ring-2 ring-rose-500/30' : 'text-[var(--metis-fg-muted)] hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]'}`}
-                    aria-label={listening ? 'Stop listening' : 'Voice input'}
-                    title={listening ? 'Stop voice input' : 'Voice input (push to talk)'}
-                  >
-                    {listening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-                  </button>
-                )}
+              <div className="ml-auto inline-flex items-center gap-1.5">
+                <VoiceButton
+                  onAppend={(t) => {
+                    const sep = input && !/\s$/.test(input) ? ' ' : '';
+                    setInput(input + sep + t);
+                  }}
+                  onInterim={() => { /* live preview reserved for future */ }}
+                  disabled={streaming}
+                />
                 {streaming ? (
                   <button
                     type="button"
@@ -1536,6 +1643,16 @@ export default function App() {
               </div>
             </div>
           </form>
+
+          {/* Composer controls (Mode / Permission / Tone) — below the
+              prompt box but still in sight. The model picker is gone:
+              the backend auto-routes via the cloud cascade + the
+              manager-orchestrator planner. */}
+          <div className="mx-auto mt-2 flex max-w-[760px] flex-wrap items-center justify-center gap-1.5 px-1.5 text-center">
+            <ModeSelector value={mode} onChange={setMode} />
+            <PermissionSelector value={permission} onChange={setPermission} />
+            <ToneSelector value={tone} onChange={setTone} />
+          </div>
         </div>
       </main>
 
@@ -1744,6 +1861,28 @@ export default function App() {
         )}
       </AnimatePresence>
 
+      {/* Daily briefing — read past plans + run today's now */}
+      <AnimatePresence>
+        {briefingOpen && client && (
+          <BriefingPanel
+            client={client}
+            reduceMotion={!!reduceMotion}
+            onClose={() => setBriefingOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Missions — autonomous_loop runs, with resume + delete */}
+      <AnimatePresence>
+        {missionsOpen && client && (
+          <MissionsPanel
+            client={client}
+            reduceMotion={!!reduceMotion}
+            onClose={() => setMissionsOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Reports — browse saved run artifacts */}
       <AnimatePresence>
         {reportsOpen && client && (
@@ -1875,6 +2014,7 @@ function MessageBubble({
   onOpenArtifact,
   copiedMsgId,
   onCopy,
+  onApproval,
 }: {
   msg: Message;
   isLast: boolean;
@@ -1884,6 +2024,7 @@ function MessageBubble({
   onOpenArtifact: (id: string) => void;
   copiedMsgId: string | null;
   onCopy: (id: string, content: string) => void;
+  onApproval?: (actionId: string, decision: 'approve' | 'deny') => void;
 }) {
   const isUser = msg.role === 'user';
   const liveAgent = !isUser && streaming && isLast;
@@ -1938,6 +2079,14 @@ function MessageBubble({
           {msg.status === 'error' && (
             <span className="inline-flex items-center gap-1 text-[11px] text-rose-400">
               <CircleX className="h-3 w-3" /> Error
+            </span>
+          )}
+          {msg.routedModel && msg.status === 'done' && (
+            <span
+              className="inline-flex items-center gap-1 rounded-full border border-[var(--metis-border)] bg-[var(--metis-bg)] px-1.5 py-0.5 text-[10px] text-[var(--metis-fg-dim)]"
+              title={`Auto-routed to ${msg.routedModel}`}
+            >
+              via {prettyModel(msg.routedModel)}
             </span>
           )}
           <span className="ml-auto text-[10px] text-[var(--metis-fg-dim)]">{relTime(msg.ts)}</span>
@@ -1996,6 +2145,57 @@ function MessageBubble({
             <FileText className="h-3 w-3" />
             Saved <span className="font-medium">{msg.savedArtifact.title}</span>
           </button>
+        )}
+        {/* MVP 14 — pending tool approvals */}
+        {(msg.pendingApprovals || []).map((a) => (
+          <div
+            key={a.id}
+            className="mt-2 grid gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-[12.5px] text-amber-100"
+          >
+            <div className="flex items-start gap-2">
+              <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-300" />
+              <div className="min-w-0 flex-1">
+                <div className="text-[11px] uppercase tracking-widest text-amber-300/80">Approval needed</div>
+                <code className="mt-0.5 block break-words font-mono text-[11.5px] text-amber-50">{a.summary}</code>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => onApproval?.(a.id, 'deny')}
+                className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-[11.5px] text-amber-100 hover:bg-amber-500/20"
+              >
+                Deny
+              </button>
+              <button
+                type="button"
+                onClick={() => onApproval?.(a.id, 'approve')}
+                className="ml-auto inline-flex items-center gap-1 rounded-md bg-emerald-500 px-2.5 py-1 text-[11.5px] font-medium text-white hover:brightness-110"
+              >
+                <Check className="h-3 w-3" /> Approve
+              </button>
+            </div>
+          </div>
+        ))}
+        {(msg.approvalLog || []).length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {(msg.approvalLog || []).map((a) => {
+              const cls = a.outcome === 'approved'
+                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'
+                : a.outcome === 'denied'
+                ? 'border-rose-500/30 bg-rose-500/10 text-rose-200'
+                : 'border-[var(--metis-border)] bg-[var(--metis-bg)] text-[var(--metis-fg-muted)]';
+              return (
+                <span
+                  key={a.id}
+                  className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] ${cls}`}
+                  title={a.summary}
+                >
+                  {a.outcome === 'approved' ? '✓' : a.outcome === 'denied' ? '✗' : '⌛'} {a.tool}
+                </span>
+              );
+            })}
+          </div>
         )}
       </div>
     </motion.div>
@@ -2373,6 +2573,9 @@ function SettingsBody({
         <ArrowRight className="h-4 w-4 text-[var(--metis-fg-dim)]" />
       </button>
 
+      {/* PWA install (MVP 10) */}
+      <InstallAppButton />
+
       {/* Shortcuts */}
       <div className="rounded-xl border border-[var(--metis-border)] bg-[var(--metis-elevated)] p-3">
         <div className="text-xs font-medium text-[var(--metis-fg-dim)]">Shortcuts</div>
@@ -2539,6 +2742,47 @@ function Splash({ reduceMotion }: { reduceMotion: boolean }) {
           </motion.button>
         )}
       </motion.div>
+    </div>
+  );
+}
+
+// ── Tone selector (MVP 8: per-turn temperature preset) ─────────────────────
+
+const TONE_META: Record<Tone, { label: string; tip: string }> = {
+  precise:  { label: 'Precise',  tip: 'Lower temperature — focused, deterministic answers (0.2).' },
+  balanced: { label: 'Balanced', tip: 'Default temperature — natural, varied (0.7).' },
+  creative: { label: 'Creative', tip: 'Higher temperature — more diverse, exploratory (1.0).' },
+};
+
+function ToneSelector({ value, onChange }: { value: Tone; onChange: (v: Tone) => void }) {
+  const order: Tone[] = ['precise', 'balanced', 'creative'];
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Tone"
+      className="inline-flex items-center gap-0.5 rounded-full border border-[var(--metis-border)] bg-[var(--metis-bg)] p-0.5"
+    >
+      {order.map((t) => {
+        const meta = TONE_META[t];
+        const sel  = value === t;
+        return (
+          <button
+            key={t}
+            type="button"
+            role="radio"
+            aria-checked={sel}
+            onClick={() => onChange(t)}
+            title={meta.tip}
+            className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] transition ${
+              sel
+                ? 'border border-violet-500/40 bg-violet-500/10 text-violet-200'
+                : 'border border-transparent text-[var(--metis-fg-muted)] hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]'
+            }`}
+          >
+            {meta.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
