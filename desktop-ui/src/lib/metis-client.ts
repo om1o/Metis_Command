@@ -305,6 +305,20 @@ export interface RelationshipInput {
   tags?: string[];
 }
 
+// ── Projects / Workspaces ──────────────────────────────────────────────────
+
+export interface Project {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  instructions: string;
+  attachments: string[];
+  memory_namespace: string;
+  created_at: number;
+  updated_at: number;
+}
+
 // ── Inbox ──────────────────────────────────────────────────────────────────
 
 export interface InboxItem {
@@ -882,6 +896,60 @@ export class MetisClient {
 
   async placeRelationshipCall(rid: string, twimlUrl?: string): Promise<{ ok: boolean; id: string; to: string }> {
     return this.post(`/relationships/${encodeURIComponent(rid)}/call`, twimlUrl ? { twiml_url: twimlUrl } : {});
+  }
+
+  // ── Projects / Workspaces ────────────────────────────────────────────────
+
+  async listProjects(): Promise<Project[]> {
+    return this.get('/projects');
+  }
+
+  async getProject(slug: string): Promise<Project> {
+    return this.get(`/projects/${encodeURIComponent(slug)}`);
+  }
+
+  async createProject(name: string, description = '', instructions = ''): Promise<Project> {
+    return this.post('/projects', { name, description, instructions });
+  }
+
+  async updateProject(slug: string, updates: { name?: string; description?: string; instructions?: string }): Promise<Project> {
+    const res = await fetch(`${this.baseUrl}/projects/${encodeURIComponent(slug)}`, {
+      method: 'PATCH',
+      headers: this.headers(),
+      body: JSON.stringify(updates),
+    });
+    if (!res.ok) throw new Error(`update project: ${res.status}`);
+    return res.json();
+  }
+
+  async deleteProject(slug: string): Promise<{ ok: boolean; slug: string }> {
+    const res = await fetch(`${this.baseUrl}/projects/${encodeURIComponent(slug)}`, {
+      method: 'DELETE',
+      headers: this.headers(),
+    });
+    if (!res.ok) throw new Error(`delete project: ${res.status}`);
+    return res.json();
+  }
+
+  async getActiveProject(): Promise<Project | null> {
+    try {
+      const data = await this.get<Project | Record<string, never>>('/projects/active');
+      if (data && 'slug' in data && (data as Project).slug) return data as Project;
+      return null;
+    } catch { return null; }
+  }
+
+  async setActiveProject(slug: string): Promise<{ ok: boolean; slug: string }> {
+    return this.post(`/projects/${encodeURIComponent(slug)}/activate`, {});
+  }
+
+  async clearActiveProject(): Promise<{ ok: boolean }> {
+    const res = await fetch(`${this.baseUrl}/projects/active`, {
+      method: 'DELETE',
+      headers: this.headers(),
+    });
+    if (!res.ok) throw new Error(`clear active project: ${res.status}`);
+    return res.json();
   }
 
   // ── Analytics ────────────────────────────────────────────────────────────

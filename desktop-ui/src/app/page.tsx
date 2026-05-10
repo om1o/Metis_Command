@@ -50,6 +50,7 @@ import {
   MessageCircle,
   Scale,
   Paperclip,
+  FolderOpen,
 } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { createLocalClient, MetisClient, AuthUser, Schedule, Artifact, RunMode, RunPermission, SessionMessage, SessionSearchResult } from '@/lib/metis-client';
@@ -64,6 +65,7 @@ import ConnectionsPanel from '@/components/connections-panel';
 import InstallAppButton from '@/components/install-app-button';
 import BriefingPanel from '@/components/briefing-panel';
 import MissionsPanel from '@/components/missions-panel';
+import ProjectsPanel from '@/components/projects-panel';
 import VoiceButton from '@/components/voice-button';
 import MemoryPanel from '@/components/memory-panel';
 import HostAutomationMvp from '@/components/host-automation-mvp';
@@ -334,6 +336,8 @@ export default function App() {
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
   const [briefingOpen, setBriefingOpen] = useState(false);
   const [missionsOpen, setMissionsOpen] = useState(false);
+  const [projectsOpen, setProjectsOpen] = useState(false);
+  const [activeProjectSlug, setActiveProjectSlug] = useState<string | null>(null);
   const [health, setHealth] = useState<SystemHealth | null>(null);
   const [activeArtifactId, setActiveArtifactId] = useState<string | null>(null);
   const [reportArtifact, setReportArtifact] = useState<Artifact | null>(null);
@@ -552,16 +556,17 @@ export default function App() {
     return () => { cancelled = true; };
   }, [client, connectionsOpen]);
 
-  // Load manager name + app version once on login.
+  // Load manager name + app version + active project once on login.
   useEffect(() => {
     if (!client) return;
     let cancelled = false;
     (async () => {
       try {
-        const [cfg, ver] = await Promise.all([client.getManagerConfig(), client.getVersion()]);
+        const [cfg, ver, proj] = await Promise.all([client.getManagerConfig(), client.getVersion(), client.getActiveProject()]);
         if (cancelled) return;
         if (cfg.config.manager_name) setManagerName(cfg.config.manager_name);
         if (ver.version) setAppVersion(ver.version);
+        setActiveProjectSlug(proj?.slug ?? null);
       } catch { /* non-critical */ }
     })();
     return () => { cancelled = true; };
@@ -632,6 +637,7 @@ export default function App() {
       else if (k === 'g')   { e.preventDefault(); setConnectionsOpen((v) => !v); }
       else if (k === 'd')   { e.preventDefault(); setBriefingOpen((v) => !v); }
       else if (k === 'o')   { e.preventDefault(); setMissionsOpen((v) => !v); }
+      else if (k === 'w')   { e.preventDefault(); setProjectsOpen((v) => !v); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -1146,6 +1152,21 @@ export default function App() {
             </button>
             <button
               type="button"
+              onClick={() => setProjectsOpen(true)}
+              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] text-[var(--metis-fg-muted)] transition hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]"
+              title="Projects / Workspaces (⌘W)"
+            >
+              <FolderOpen className="h-4 w-4 shrink-0 text-violet-400" />
+              <span>Projects</span>
+              {activeProjectSlug && (
+                <span className="ml-1 max-w-[80px] truncate rounded-full border border-violet-500/40 bg-violet-500/10 px-1.5 py-0.5 text-[9px] text-violet-300">
+                  {activeProjectSlug}
+                </span>
+              )}
+              <span className="ml-auto text-[10px] text-[var(--metis-fg-dim)]">⌘W</span>
+            </button>
+            <button
+              type="button"
               onClick={() => setConnectionsOpen(true)}
               className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] text-[var(--metis-fg-muted)] transition hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]"
               title="Connections (⌘G)"
@@ -1232,6 +1253,18 @@ export default function App() {
               >
                 <BarChart3 className="h-4 w-4" />
               </button>
+              <button
+                type="button"
+                onClick={() => setProjectsOpen(true)}
+                className="metis-icon-btn relative"
+                aria-label="Projects"
+                title="Projects (⌘W)"
+              >
+                <FolderOpen className="h-4 w-4" />
+                {activeProjectSlug && (
+                  <span className="absolute -right-0.5 -top-0.5 inline-flex h-2 w-2 rounded-full bg-violet-400" />
+                )}
+              </button>
             </>
           )}
           <button
@@ -1261,6 +1294,17 @@ export default function App() {
           <div className="flex min-w-0 items-center gap-2">
             <Sparkles className="h-4 w-4 text-violet-400" />
             <div className="truncate text-sm font-medium">{active?.title ?? 'New conversation'}</div>
+            {activeProjectSlug && (
+              <button
+                type="button"
+                onClick={() => setProjectsOpen(true)}
+                className="hidden shrink-0 items-center gap-1 rounded-full border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-300 transition hover:bg-violet-500/20 sm:flex"
+                title={`Active workspace: ${activeProjectSlug}`}
+              >
+                <FolderOpen className="h-2.5 w-2.5" />
+                {activeProjectSlug}
+              </button>
+            )}
             {streaming && (
               <HeaderStatus
                 streaming={streaming}
@@ -1724,6 +1768,19 @@ export default function App() {
             client={client}
             reduceMotion={!!reduceMotion}
             onClose={() => setAnalyticsOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Projects */}
+      <AnimatePresence>
+        {projectsOpen && client && (
+          <ProjectsPanel
+            client={client}
+            reduceMotion={!!reduceMotion}
+            activeProjectSlug={activeProjectSlug}
+            onActiveChange={(slug) => setActiveProjectSlug(slug)}
+            onClose={() => setProjectsOpen(false)}
           />
         )}
       </AnimatePresence>
