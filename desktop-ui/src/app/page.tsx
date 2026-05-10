@@ -5,6 +5,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useCallback,
   FormEvent,
   KeyboardEvent,
 } from 'react';
@@ -56,6 +57,13 @@ import {
   RotateCcw,
   Pencil,
   Download,
+  Pin,
+  PinOff,
+  Zap,
+  Lightbulb,
+  BookOpen,
+  RefreshCw,
+  Eraser,
 } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { createLocalClient, MetisClient, AuthUser, Schedule, Artifact, RunMode, RunPermission, SessionMessage, SessionSearchResult } from '@/lib/metis-client';
@@ -117,7 +125,28 @@ interface Session {
   createdAt: number;
   updatedAt: number;
   messages: Message[];
+  pinned?: boolean;
 }
+
+// ── Slash commands ─────────────────────────────────────────────────────────
+
+interface SlashCmd {
+  cmd: string;
+  label: string;
+  desc: string;
+  icon: typeof Zap;
+  expand: string;
+}
+
+const SLASH_COMMANDS: SlashCmd[] = [
+  { cmd: '/code',     label: 'Write code',       desc: 'Write, explain, or debug code',         icon: Code,      expand: '/code ' },
+  { cmd: '/plan',     label: 'Make a plan',       desc: 'Break the goal into concrete steps',    icon: ListChecks,expand: '/plan ' },
+  { cmd: '/search',   label: 'Research',          desc: 'Search and summarize sources',          icon: Search,    expand: '/search ' },
+  { cmd: '/think',    label: 'Think carefully',   desc: 'Reason step-by-step before answering', icon: Lightbulb, expand: '/think ' },
+  { cmd: '/remember', label: 'Save to memory',    desc: 'Persist a fact for future sessions',   icon: BookOpen,  expand: '/remember ' },
+  { cmd: '/clear',    label: 'New session',       desc: 'Start a fresh conversation',            icon: Eraser,    expand: '' },
+  { cmd: '/help',     label: 'Show shortcuts',    desc: 'Open the keyboard shortcuts cheatsheet',icon: HelpCircle,expand: '' },
+];
 
 interface Attachment {
   name: string;
@@ -360,6 +389,14 @@ export default function App() {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
 
+  // Slash command autocomplete state
+  const [slashOpen, setSlashOpen] = useState(false);
+  const [slashFilter, setSlashFilter] = useState('');
+  const [slashIdx, setSlashIdx] = useState(0);
+
+  // Pinned session IDs (persisted in localStorage)
+  const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
+
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
   const workspaceRef = useRef<HTMLDivElement>(null);
@@ -554,6 +591,24 @@ export default function App() {
   useEffect(() => {
     try { localStorage.setItem('metis-tone', tone); } catch {}
   }, [tone]);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('metis-pinned');
+      if (raw) setPinnedIds(new Set(JSON.parse(raw) as string[]));
+    } catch {}
+  }, []);
+  useEffect(() => {
+    try { localStorage.setItem('metis-pinned', JSON.stringify([...pinnedIds])); } catch {}
+  }, [pinnedIds]);
+
+  const togglePin = useCallback((id: string) => {
+    setPinnedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
 
   // Probe the system once at start + whenever the connections panel
   // closes (so a refresh inside it can update the dot color).
@@ -652,6 +707,10 @@ export default function App() {
       else if (k === 'o')   { e.preventDefault(); setMissionsOpen((v) => !v); }
       else if (k === 'w')   { e.preventDefault(); setProjectsOpen((v) => !v); }
       else if (k === 'e' && activeId) { e.preventDefault(); exportSession(); }
+      // ⌘Shift+C — copy the last agent response to clipboard
+      else if (k === 'c' && e.shiftKey) { e.preventDefault(); copyAgent(); }
+      // ⌘Shift+R — regenerate the last agent response
+      else if (k === 'r' && e.shiftKey) { e.preventDefault(); regenerate(); }
       else if (e.key === '[') {
         // Navigate to previous session in list
         e.preventDefault();
@@ -1075,8 +1134,46 @@ export default function App() {
     );
   };
 
+  // Derived slash command matches for the autocomplete menu
+  const slashMatches = useMemo(() => {
+    const f = slashFilter.toLowerCase();
+    return SLASH_COMMANDS.filter(
+      (c) => c.cmd.includes(f) || c.label.toLowerCase().includes(f) || c.desc.toLowerCase().includes(f),
+    );
+  }, [slashFilter]);
+
+  const applySlashCmd = useCallback((cmd: SlashCmd) => {
+    setSlashOpen(false);
+    setSlashFilter('');
+    setSlashIdx(0);
+    if (cmd.cmd === '/clear') {
+      newSession();
+    } else if (cmd.cmd === '/help') {
+      setSettingsOpen(true);
+    } else {
+      setInput(cmd.expand);
+      requestAnimationFrame(() => {
+        const t = composerRef.current;
+        if (t) { t.style.height = 'auto'; t.style.height = `${Math.min(t.scrollHeight, 220)}px`; t.focus(); }
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleSubmit = (e: FormEvent) => { e.preventDefault(); send(); };
   const onComposerKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    // Slash menu navigation
+    if (slashOpen) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); setSlashIdx((i) => Math.min(i + 1, slashMatches.length - 1)); return; }
+      if (e.key === 'ArrowUp')   { e.preventDefault(); setSlashIdx((i) => Math.max(i - 1, 0)); return; }
+      if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) {
+        e.preventDefault();
+        if (slashMatches[slashIdx]) applySlashCmd(slashMatches[slashIdx]);
+        return;
+      }
+      if (e.key === 'Escape') { e.preventDefault(); setSlashOpen(false); setSlashFilter(''); return; }
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
     // Up arrow on an empty input → recall the last user message for editing.
     if (e.key === 'ArrowUp' && !input && !streaming) {
@@ -1089,6 +1186,27 @@ export default function App() {
           if (t) { t.style.height = 'auto'; t.style.height = `${Math.min(t.scrollHeight, 220)}px`; t.setSelectionRange(t.value.length, t.value.length); }
         });
       }
+    }
+  };
+
+  const onComposerChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    setInput(val);
+    const t = e.target;
+    t.style.height = 'auto';
+    t.style.height = `${Math.min(t.scrollHeight, 220)}px`;
+    // Show slash menu when user types '/' at start or after newline/space
+    const cursor = t.selectionStart ?? 0;
+    const before = val.slice(0, cursor);
+    const slashMatch = /(?:^|\n| )(\/.*)$/.exec(before);
+    if (slashMatch) {
+      const fragment = slashMatch[1];
+      setSlashFilter(fragment.slice(1)); // strip the leading /
+      setSlashOpen(true);
+      setSlashIdx(0);
+    } else {
+      setSlashOpen(false);
+      setSlashFilter('');
     }
   };
 
@@ -1192,6 +1310,8 @@ export default function App() {
             deleteSession={deleteSession}
             renameSession={renameSession}
             openPersistedSession={openPersistedSession}
+            pinnedIds={pinnedIds}
+            togglePin={togglePin}
             clearAll={() => {
               if (sessions.length === 0) return;
               const ok = window.confirm(`Delete all ${sessions.length} session${sessions.length === 1 ? '' : 's'}? This can't be undone.`);
@@ -1625,6 +1745,49 @@ export default function App() {
             className="hidden"
             onChange={(e) => { if (e.target.files) { handleFiles(e.target.files); e.target.value = ''; } }}
           />
+          {/* Slash command autocomplete */}
+          <AnimatePresence>
+            {slashOpen && slashMatches.length > 0 && (
+              <motion.div
+                key="slash-menu"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 6 }}
+                transition={{ duration: 0.12 }}
+                className="mx-auto mb-1.5 w-full max-w-[760px] overflow-hidden rounded-2xl border border-[var(--metis-border)] bg-[var(--metis-composer-bg)] shadow-xl"
+                style={{ boxShadow: 'var(--metis-composer-shadow)' }}
+              >
+                {slashMatches.map((cmd, idx) => {
+                  const Icon = cmd.icon;
+                  return (
+                    <button
+                      key={cmd.cmd}
+                      type="button"
+                      onMouseDown={(e) => { e.preventDefault(); applySlashCmd(cmd); }}
+                      className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-[13px] transition ${
+                        idx === slashIdx
+                          ? 'bg-violet-500/10 text-[var(--metis-fg)]'
+                          : 'text-[var(--metis-fg-muted)] hover:bg-[var(--metis-hover-surface)]'
+                      }`}
+                    >
+                      <span className={`shrink-0 rounded-lg border border-[var(--metis-border)] p-1.5 ${idx === slashIdx ? 'border-violet-500/40 bg-violet-500/10 text-violet-300' : 'bg-[var(--metis-elevated)] text-[var(--metis-fg-dim)]'}`}>
+                        <Icon className="h-3.5 w-3.5" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <span className="font-mono text-[11.5px] font-medium text-violet-300">{cmd.cmd}</span>
+                        <span className="ml-2 text-[12px] text-[var(--metis-fg)]">{cmd.label}</span>
+                        <p className="mt-0.5 truncate text-[11px] text-[var(--metis-fg-dim)]">{cmd.desc}</p>
+                      </div>
+                      {idx === slashIdx && (
+                        <kbd className="shrink-0 rounded border border-[var(--metis-border)] bg-[var(--metis-code-bg)] px-1.5 py-0.5 text-[10px] text-[var(--metis-code-fg)]">↵</kbd>
+                      )}
+                    </button>
+                  );
+                })}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <form
             onSubmit={handleSubmit}
             className="metis-glow-border mx-auto w-full max-w-[760px] rounded-[24px] border border-[var(--metis-composer-border)] p-1.5 transition-[box-shadow,border-color]"
@@ -1637,12 +1800,7 @@ export default function App() {
               ref={composerRef}
               rows={1}
               value={input}
-              onChange={(e) => {
-                setInput(e.target.value);
-                const t = e.target;
-                t.style.height = 'auto';
-                t.style.height = `${Math.min(t.scrollHeight, 220)}px`;
-              }}
+              onChange={onComposerChange}
               onKeyDown={onComposerKey}
               placeholder={mode === 'job' ? 'Schedule a job — e.g. \'check my stocks every weekday morning\'' : 'Ask plainly, or paste context first — coaching tip: \'before you answer, ask me 3 clarifying questions\''}
               disabled={!client}
@@ -2416,7 +2574,7 @@ function groupSessionsByDate(sessions: Session[]): { label: string; sessions: Se
 }
 
 function SessionsList({
-  client, sessions, activeId, setActiveId, deleteSession, renameSession, openPersistedSession, clearAll,
+  client, sessions, activeId, setActiveId, deleteSession, renameSession, openPersistedSession, pinnedIds, togglePin, clearAll,
 }: {
   client: MetisClient;
   sessions: Session[];
@@ -2425,6 +2583,8 @@ function SessionsList({
   deleteSession: (id: string) => void;
   renameSession: (id: string, title: string) => void;
   openPersistedSession: (id: string, fallbackTitle?: string) => Promise<void>;
+  pinnedIds: Set<string>;
+  togglePin: (id: string) => void;
   clearAll: () => void;
 }) {
   const [query, setQuery] = useState('');
@@ -2522,69 +2682,105 @@ function SessionsList({
         ) : (
           <>
             {(() => {
-              const renderItem = (s: Session) => (
-                <li key={s.id}>
-                  {renamingId === s.id ? (
-                    <div className="flex items-center gap-1 rounded-lg bg-[var(--metis-hover-surface)] px-2.5 py-1.5">
-                      <input
-                        autoFocus
-                        value={renameValue}
-                        onChange={(e) => setRenameValue(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') { renameSession(s.id, renameValue); setRenamingId(null); }
-                          if (e.key === 'Escape') setRenamingId(null);
-                        }}
-                        onBlur={() => { if (renameValue.trim()) renameSession(s.id, renameValue); setRenamingId(null); }}
-                        className="min-w-0 flex-1 bg-transparent text-[13px] text-[var(--metis-fg)] outline-none"
-                      />
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setActiveId(s.id)}
-                      className={`group flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition ${
-                        activeId === s.id
-                          ? 'bg-[var(--metis-hover-surface)] text-[var(--metis-fg)]'
-                          : 'text-[var(--metis-chats-item)] hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]'
-                      }`}
-                      title={s.title}
-                    >
-                      <span className={`inline-flex h-1.5 w-1.5 shrink-0 rounded-full ${activeId === s.id ? 'bg-violet-400' : 'bg-[var(--metis-fg-faint)]'}`} aria-hidden />
-                      <span className="truncate text-[13px]">{s.title}</span>
-                      <span
-                        role="button"
-                        tabIndex={0}
-                        onClick={(e) => { e.stopPropagation(); setRenameValue(s.title); setRenamingId(s.id); }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); setRenameValue(s.title); setRenamingId(s.id); }
-                        }}
-                        className="ml-auto inline-flex cursor-pointer items-center justify-center rounded p-1 text-[var(--metis-fg-dim)] opacity-0 transition hover:text-violet-400 group-hover:opacity-100"
-                        title="Rename"
+              const renderItem = (s: Session) => {
+                const isPinned = pinnedIds.has(s.id);
+                return (
+                  <li key={s.id}>
+                    {renamingId === s.id ? (
+                      <div className="flex items-center gap-1 rounded-lg bg-[var(--metis-hover-surface)] px-2.5 py-1.5">
+                        <input
+                          autoFocus
+                          value={renameValue}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') { renameSession(s.id, renameValue); setRenamingId(null); }
+                            if (e.key === 'Escape') setRenamingId(null);
+                          }}
+                          onBlur={() => { if (renameValue.trim()) renameSession(s.id, renameValue); setRenamingId(null); }}
+                          className="min-w-0 flex-1 bg-transparent text-[13px] text-[var(--metis-fg)] outline-none"
+                        />
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setActiveId(s.id)}
+                        className={`group flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition ${
+                          activeId === s.id
+                            ? 'bg-[var(--metis-hover-surface)] text-[var(--metis-fg)]'
+                            : 'text-[var(--metis-chats-item)] hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]'
+                        }`}
+                        title={s.title}
                       >
-                        <Pencil className="h-3 w-3" />
-                      </span>
-                      <span
-                        role="button"
-                        tabIndex={0}
-                        onClick={(e) => { e.stopPropagation(); deleteSession(s.id); }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); deleteSession(s.id); }
-                        }}
-                        className="inline-flex cursor-pointer items-center justify-center rounded p-1 text-[var(--metis-fg-dim)] opacity-0 transition hover:text-rose-400 group-hover:opacity-100"
-                        title="Delete"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </span>
-                    </button>
-                  )}
-                </li>
-              );
+                        {isPinned ? (
+                          <Pin className="h-2.5 w-2.5 shrink-0 text-violet-400" aria-hidden />
+                        ) : (
+                          <span className={`inline-flex h-1.5 w-1.5 shrink-0 rounded-full ${activeId === s.id ? 'bg-violet-400' : 'bg-[var(--metis-fg-faint)]'}`} aria-hidden />
+                        )}
+                        <span className="truncate text-[13px]">{s.title}</span>
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => { e.stopPropagation(); togglePin(s.id); }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); togglePin(s.id); }
+                          }}
+                          className={`ml-auto inline-flex cursor-pointer items-center justify-center rounded p-1 transition ${
+                            isPinned
+                              ? 'text-violet-400 opacity-100'
+                              : 'text-[var(--metis-fg-dim)] opacity-0 hover:text-violet-400 group-hover:opacity-100'
+                          }`}
+                          title={isPinned ? 'Unpin' : 'Pin to top'}
+                          aria-label={isPinned ? 'Unpin session' : 'Pin session'}
+                        >
+                          {isPinned ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
+                        </span>
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => { e.stopPropagation(); setRenameValue(s.title); setRenamingId(s.id); }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); setRenameValue(s.title); setRenamingId(s.id); }
+                          }}
+                          className="inline-flex cursor-pointer items-center justify-center rounded p-1 text-[var(--metis-fg-dim)] opacity-0 transition hover:text-violet-400 group-hover:opacity-100"
+                          title="Rename"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </span>
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => { e.stopPropagation(); deleteSession(s.id); }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); deleteSession(s.id); }
+                          }}
+                          className="inline-flex cursor-pointer items-center justify-center rounded p-1 text-[var(--metis-fg-dim)] opacity-0 transition hover:text-rose-400 group-hover:opacity-100"
+                          title="Delete"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </span>
+                      </button>
+                    )}
+                  </li>
+                );
+              };
               if (query.trim().length >= 2) {
                 return <ul className="space-y-0.5">{filtered.map(renderItem)}</ul>;
               }
-              const groups = groupSessionsByDate(filtered);
+              // In grouped mode: pinned sessions shown first regardless of date group
+              const pinnedSessions = filtered.filter((s) => pinnedIds.has(s.id));
+              const unpinnedSessions = filtered.filter((s) => !pinnedIds.has(s.id));
+              const groups = groupSessionsByDate(unpinnedSessions);
               return (
                 <div className="space-y-3 pt-0.5">
+                  {pinnedSessions.length > 0 && (
+                    <div>
+                      <div className="mb-0.5 flex items-center gap-1 px-1">
+                        <Pin className="h-2.5 w-2.5 text-violet-400" />
+                        <span className="text-[10px] font-medium uppercase tracking-widest text-[var(--metis-chats-label)]">Pinned</span>
+                      </div>
+                      <ul className="space-y-0.5">{pinnedSessions.map(renderItem)}</ul>
+                    </div>
+                  )}
                   {groups.map((group) => (
                     <div key={group.label}>
                       <div className="mb-0.5 px-1 text-[10px] font-medium uppercase tracking-widest text-[var(--metis-chats-label)]">

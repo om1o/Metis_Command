@@ -5,13 +5,29 @@ import { Copy, Check } from 'lucide-react';
 
 // ── Block types ─────────────────────────────────────────────────────────────
 
+type TableRow = string[];
+
 type Block =
   | { type: 'h'; level: 1 | 2 | 3; text: string }
   | { type: 'p'; text: string }
   | { type: 'ul'; items: string[] }
   | { type: 'ol'; items: string[] }
   | { type: 'code'; lang: string; text: string }
-  | { type: 'blockquote'; text: string };
+  | { type: 'blockquote'; text: string }
+  | { type: 'table'; headers: TableRow; rows: TableRow[] }
+  | { type: 'hr' };
+
+function parseTableLine(line: string): string[] {
+  return line
+    .replace(/^\|/, '')
+    .replace(/\|$/, '')
+    .split('|')
+    .map((c) => c.trim());
+}
+
+function isSeparatorRow(cells: string[]): boolean {
+  return cells.every((c) => /^:?-+:?$/.test(c));
+}
 
 export function parseBlocks(src: string): Block[] {
   const lines = src.replace(/\r\n/g, '\n').split('\n');
@@ -39,6 +55,13 @@ export function parseBlocks(src: string): Block[] {
       continue;
     }
 
+    // horizontal rule
+    if (/^(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) {
+      blocks.push({ type: 'hr' });
+      i++;
+      continue;
+    }
+
     // blockquote
     if (/^\s*>\s*/.test(line)) {
       const items: string[] = [];
@@ -48,6 +71,23 @@ export function parseBlocks(src: string): Block[] {
       }
       blocks.push({ type: 'blockquote', text: items.join(' ') });
       continue;
+    }
+
+    // table — header row must start with | and next non-blank line must be separator
+    if (/^\|/.test(line) && i + 1 < lines.length) {
+      const headerCells = parseTableLine(line);
+      const sepLine = lines[i + 1];
+      const sepCells = /^\|/.test(sepLine) ? parseTableLine(sepLine) : [];
+      if (sepCells.length > 0 && isSeparatorRow(sepCells)) {
+        i += 2; // skip header + separator
+        const rows: TableRow[] = [];
+        while (i < lines.length && /^\|/.test(lines[i])) {
+          rows.push(parseTableLine(lines[i]));
+          i++;
+        }
+        blocks.push({ type: 'table', headers: headerCells, rows });
+        continue;
+      }
     }
 
     // bullets
@@ -85,7 +125,9 @@ export function parseBlocks(src: string): Block[] {
       !/^\s*[-*•]\s+/.test(lines[i]) &&
       !/^\s*\d+\.\s+/.test(lines[i]) &&
       !/^```/.test(lines[i]) &&
-      !/^\s*>\s*/.test(lines[i])
+      !/^\s*>\s*/.test(lines[i]) &&
+      !/^\|/.test(lines[i]) &&
+      !/^(-{3,}|\*{3,}|_{3,})\s*$/.test(lines[i])
     ) {
       buf.push(lines[i]);
       i++;
@@ -178,6 +220,46 @@ export function CodeBlock({ lang, text }: { lang: string; text: string }) {
   );
 }
 
+// ── Table ────────────────────────────────────────────────────────────────────
+
+function TableBlock({ headers, rows }: { headers: TableRow; rows: TableRow[] }) {
+  return (
+    <div className="overflow-x-auto rounded-xl border border-[var(--metis-border)]">
+      <table className="min-w-full text-[13px]">
+        <thead className="bg-[var(--metis-elevated)]">
+          <tr>
+            {headers.map((h, i) => (
+              <th
+                key={i}
+                className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--metis-fg-muted)] border-b border-[var(--metis-border)]"
+              >
+                {renderInline(h, `th-${i}`)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, ri) => (
+            <tr
+              key={ri}
+              className={ri % 2 === 0 ? 'bg-transparent' : 'bg-[var(--metis-elevated)]/40'}
+            >
+              {row.map((cell, ci) => (
+                <td
+                  key={ci}
+                  className="px-3 py-2 text-[var(--metis-fg)] border-b border-[var(--metis-border)] last:border-b-0"
+                >
+                  {renderInline(cell, `td-${ri}-${ci}`)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 // ── Main MarkdownView ────────────────────────────────────────────────────────
 
 export default function MarkdownView({ source }: { source: string }) {
@@ -209,6 +291,12 @@ export default function MarkdownView({ source }: { source: string }) {
           <ol key={k} className="ml-5 list-decimal space-y-1.5">
             {b.items.map((it, j) => <li key={`${k}-${j}`}>{renderInline(it, `${k}-${j}`)}</li>)}
           </ol>
+        );
+        if (b.type === 'table') return (
+          <TableBlock key={k} headers={(b as { type: 'table'; headers: TableRow; rows: TableRow[] }).headers} rows={(b as { type: 'table'; headers: TableRow; rows: TableRow[] }).rows} />
+        );
+        if (b.type === 'hr') return (
+          <hr key={k} className="border-[var(--metis-border)]" />
         );
         return <CodeBlock key={k} lang={(b as { type: 'code'; lang: string; text: string }).lang} text={(b as { type: 'code'; lang: string; text: string }).text} />;
       })}

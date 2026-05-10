@@ -1,10 +1,22 @@
 # Metis Command — 18-Phase Roadmap
 
-> Updated 2026-05-10 · v0.29.0 · 48 Python modules, 6 HTML pages, 4 JS files, 2700-line API bridge, 11 local Ollama models, 4 persistent agents running.
+> Updated 2026-05-10 · v0.30.0 · 48 Python modules, 6 HTML pages, 4 JS files, 2700-line API bridge, 11 local Ollama models, 4 persistent agents running.
 
 ---
 
-## Current State (v0.29.0)
+## Current State (v0.30.0)
+
+### Completed (v0.30.0)
+- ✅ **Markdown table rendering** — `MarkdownView` now parses and renders pipe-syntax markdown tables with alternating row shading, header styling, and inline formatting in cells; horizontal rules (`---`) also supported
+- ✅ **Slash command autocomplete** — typing `/` in the composer shows an animated floating menu with 7 built-in commands (`/code`, `/plan`, `/search`, `/think`, `/remember`, `/clear`, `/help`); arrow-key navigation, Tab/Enter to select, Escape to dismiss; `/clear` starts a new session, `/help` opens Settings
+- ✅ **⌘Shift+C copy last response** — new global shortcut copies the last agent message to clipboard (in addition to the per-message copy button)
+- ✅ **⌘Shift+R regenerate** — new global shortcut retriggers the last turn (same as the Retry hover button)
+- ✅ **Session pinning** — hover any session → 📌 pin button; pinned sessions float to a "Pinned" group at the top of the sidebar regardless of date; pin state persists via `localStorage`; pinned indicator replaces the dot with a pin icon
+- ✅ Version bumped to 0.30.0
+
+---
+
+## Previous State (v0.29.0)
 
 ### Completed (v0.29.0)
 - ✅ **Session date grouping** — sidebar SessionsList now groups conversations under "Today / Yesterday / This Week / Earlier" section headers; flat list is restored automatically when a search query is active
