@@ -541,6 +541,7 @@ export class MetisClient {
       // MVP 8: per-turn overrides. Win over saved manager_config.
       model?: string;
       temperature?: number;
+      projectSlug?: string | null;
     } = {},
   ): AsyncGenerator<StreamEvent> {
     const res = await fetch(`${this.baseUrl}/chat`, {
@@ -554,6 +555,7 @@ export class MetisClient {
         permission: options.permission ?? 'balanced',
         ...(options.model       ? { model: options.model } : {}),
         ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
+        ...(options.projectSlug ? { project_slug: options.projectSlug } : {}),
       }),
     });
     if (!res.ok) throw new Error(`Metis chat: ${res.status}`);

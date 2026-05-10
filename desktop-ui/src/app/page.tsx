@@ -53,6 +53,8 @@ import {
   FolderOpen,
   ThumbsUp,
   ThumbsDown,
+  RotateCcw,
+  Pencil,
 } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { createLocalClient, MetisClient, AuthUser, Schedule, Artifact, RunMode, RunPermission, SessionMessage, SessionSearchResult } from '@/lib/metis-client';
@@ -197,6 +199,12 @@ function relTime(ms: number): string {
   if (d < 3_600_000)  return `${Math.floor(d / 60_000)}m ago`;
   if (d < 86_400_000) return `${Math.floor(d / 3_600_000)}h ago`;
   return `${Math.floor(d / 86_400_000)}d ago`;
+}
+
+function absTime(ms: number): string {
+  return new Date(ms).toLocaleString(undefined, {
+    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
 }
 
 function pickTitle(text: string): string {
@@ -773,9 +781,7 @@ export default function App() {
           mode: 'task',
           permission,
           temperature: TONE_TEMP[tone],
-          // No model override — the backend auto-routes via cloud cascade
-          // (Groq → GLM → OpenAI → local) and the manager planner picks
-          // specialists for sub-steps as needed.
+          projectSlug: activeProjectSlug,
         });
         for await (const ev of stream) {
           if (ac.signal.aborted) break;
@@ -801,6 +807,9 @@ export default function App() {
             savedArtifact = { id: ev.id, title: typeof ev.title === 'string' ? ev.title : 'Manager run report' };
             setActiveArtifactId(ev.id);
             setWorkspaceOpen(true);
+          } else if (ev.type === 'session_title' && typeof ev.title === 'string') {
+            const newTitle = ev.title as string;
+            setSessions((all) => all.map((s) => s.id === sId ? { ...s, title: newTitle } : s));
           } else if (ev.type === 'manager_identity' && typeof ev.model === 'string' && ev.model) {
             // Auto-router decision — capture so we can show "via X" on the
             // finished message. Both direct + orchestrator paths emit this.
@@ -885,6 +894,98 @@ export default function App() {
   };
 
   const stop = () => { abortRef.current?.abort(); setStreaming(false); };
+
+  // Re-run the last user message against a fresh agent placeholder.
+  // Only valid when the last message is a completed agent response.
+  const regenerate = () => {
+    if (!active || streaming || !client) return;
+    const msgs = active.messages;
+    if (msgs.length < 2) return;
+    const last = msgs[msgs.length - 1];
+    if (last.role !== 'agent' || last.status !== 'done') return;
+    const lastUser = [...msgs].reverse().find((m) => m.role === 'user');
+    if (!lastUser) return;
+
+    const sId = active.id;
+    const newAgentId = newId();
+
+    setSessions((all) =>
+      all.map((s) =>
+        s.id === sId
+          ? { ...s, messages: [...s.messages.slice(0, -1), { id: newAgentId, role: 'agent' as const, content: '', ts: Date.now(), status: 'thinking' as AgentStatus }] }
+          : s,
+      ),
+    );
+    setStreaming(true);
+    const ac = new AbortController();
+    abortRef.current = ac;
+
+    (async () => {
+      let acc = '';
+      let saved: { id: string; name: string } | undefined;
+      let savedArtifact: { id: string; title: string } | undefined;
+      let routedModel: string | undefined;
+      try {
+        const stream = client.chat('manager', lastUser.content, sId, {
+          mode: 'task',
+          permission,
+          temperature: TONE_TEMP[tone],
+          projectSlug: activeProjectSlug,
+        });
+        for await (const ev of stream) {
+          if (ac.signal.aborted) break;
+          if (ev.type === 'token' && ev.delta) {
+            acc += ev.delta;
+            setSessions((all) =>
+              all.map((s) =>
+                s.id === sId
+                  ? { ...s, messages: s.messages.map((m) => m.id === newAgentId ? { ...m, content: stripRelationshipBlock(acc), status: 'working' as AgentStatus } : m) }
+                  : s,
+              ),
+            );
+          } else if (ev.type === 'session_title' && typeof ev.title === 'string') {
+            setSessions((all) => all.map((s) => s.id === sId ? { ...s, title: ev.title as string } : s));
+          } else if (ev.type === 'relationship_saved' && typeof ev.id === 'string' && typeof ev.name === 'string') {
+            saved = { id: ev.id, name: ev.name };
+            setUnreadCount((c) => c + 1);
+          } else if (ev.type === 'run_artifact_saved' && typeof ev.id === 'string') {
+            savedArtifact = { id: ev.id, title: typeof ev.title === 'string' ? ev.title : 'Manager run report' };
+            setActiveArtifactId(ev.id);
+            setWorkspaceOpen(true);
+          } else if (ev.type === 'manager_identity' && typeof ev.model === 'string' && ev.model) {
+            routedModel = ev.model;
+          }
+        }
+        if (!ac.signal.aborted) {
+          const finalContent = stripRelationshipBlock(acc);
+          setSessions((all) =>
+            all.map((s) =>
+              s.id === sId
+                ? { ...s, messages: s.messages.map((m) => m.id === newAgentId ? { ...m, content: finalContent, status: 'done' as AgentStatus, savedRelationship: saved, savedArtifact, routedModel } : m) }
+                : s,
+            ),
+          );
+        }
+      } catch (err) {
+        setSessions((all) =>
+          all.map((s) =>
+            s.id === sId
+              ? { ...s, messages: s.messages.map((m) => m.id === newAgentId ? { ...m, content: acc + `\n\n[Error: ${String(err)}]`, status: 'error' as AgentStatus } : m) }
+              : s,
+          ),
+        );
+      } finally {
+        if (abortRef.current === ac) abortRef.current = null;
+        setStreaming(false);
+      }
+    })();
+  };
+
+  const renameSession = (id: string, newTitle: string) => {
+    const t = newTitle.trim();
+    if (!t) return;
+    setSessions((all) => all.map((s) => s.id === id ? { ...s, title: t } : s));
+  };
 
   // After a job is created, drop a confirmation message into the active
   // (or new) session so the user has a visible breadcrumb of what they
@@ -1034,6 +1135,7 @@ export default function App() {
             activeId={activeId}
             setActiveId={setActiveId}
             deleteSession={deleteSession}
+            renameSession={renameSession}
             openPersistedSession={openPersistedSession}
             clearAll={() => {
               if (sessions.length === 0) return;
@@ -1421,6 +1523,11 @@ export default function App() {
                     }}
                     rating={feedbackRatings[m.id]}
                     onFeedback={m.role === 'agent' ? (r) => postFeedback(m.id, active!.id, r, m.content) : undefined}
+                    onRegenerate={
+                      idx === active!.messages.length - 1 && m.role === 'agent' && m.status === 'done' && !streaming
+                        ? regenerate
+                        : undefined
+                    }
                   />
                 ))}
                 <div ref={chatBottomRef} className="h-2" />
@@ -1923,6 +2030,7 @@ function MessageBubble({
   onApproval,
   rating,
   onFeedback,
+  onRegenerate,
 }: {
   msg: Message;
   isLast: boolean;
@@ -1935,6 +2043,7 @@ function MessageBubble({
   onApproval?: (actionId: string, decision: 'approve' | 'deny') => void;
   rating?: 'up' | 'down';
   onFeedback?: (r: 'up' | 'down') => void;
+  onRegenerate?: () => void;
 }) {
   const isUser = msg.role === 'user';
   const liveAgent = !isUser && streaming && isLast;
@@ -1955,7 +2064,7 @@ function MessageBubble({
           style={{ wordBreak: 'break-word' }}
         >
           <p className="whitespace-pre-wrap">{msg.content}</p>
-          <div className="mt-1 text-right text-[10px] text-[var(--metis-fg-dim)]">{relTime(msg.ts)}</div>
+          <div className="mt-1 text-right text-[10px] text-[var(--metis-fg-dim)]" title={absTime(msg.ts)}>{relTime(msg.ts)}</div>
         </div>
       </motion.div>
     );
@@ -1999,7 +2108,7 @@ function MessageBubble({
               via {prettyModel(msg.routedModel)}
             </span>
           )}
-          <span className="ml-auto text-[10px] text-[var(--metis-fg-dim)]">{relTime(msg.ts)}</span>
+          <span className="ml-auto text-[10px] text-[var(--metis-fg-dim)]" title={absTime(msg.ts)}>{relTime(msg.ts)}</span>
           {msg.content && !liveAgent && (
             <>
               <button
@@ -2043,6 +2152,18 @@ function MessageBubble({
                     <ThumbsDown className="h-3 w-3" />
                   </button>
                 </div>
+              )}
+              {onRegenerate && (
+                <button
+                  type="button"
+                  onClick={onRegenerate}
+                  className="opacity-0 group-hover:opacity-100 inline-flex items-center gap-1 rounded-md border border-[var(--metis-border)] px-1.5 py-0.5 text-[10px] text-[var(--metis-fg-dim)] transition hover:bg-[var(--metis-hover-surface)] hover:text-violet-300"
+                  title="Regenerate response"
+                  aria-label="Regenerate"
+                >
+                  <RotateCcw className="h-3 w-3" />
+                  Retry
+                </button>
               )}
             </>
           )}
@@ -2191,13 +2312,14 @@ function stripHtml(value: string): string {
 }
 
 function SessionsList({
-  client, sessions, activeId, setActiveId, deleteSession, openPersistedSession, clearAll,
+  client, sessions, activeId, setActiveId, deleteSession, renameSession, openPersistedSession, clearAll,
 }: {
   client: MetisClient;
   sessions: Session[];
   activeId: string | null;
   setActiveId: (id: string) => void;
   deleteSession: (id: string) => void;
+  renameSession: (id: string, title: string) => void;
   openPersistedSession: (id: string, fallbackTitle?: string) => Promise<void>;
   clearAll: () => void;
 }) {
@@ -2205,6 +2327,8 @@ function SessionsList({
   const [serverResults, setServerResults] = useState<SessionSearchResult[]>([]);
   const [serverSearching, setServerSearching] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return sessions;
@@ -2296,31 +2420,59 @@ function SessionsList({
             <ul className="space-y-0.5">
               {filtered.map((s) => (
                 <li key={s.id}>
-                  <button
-                    type="button"
-                    onClick={() => setActiveId(s.id)}
-                    className={`group flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition ${
-                      activeId === s.id
-                        ? 'bg-[var(--metis-hover-surface)] text-[var(--metis-fg)]'
-                        : 'text-[var(--metis-chats-item)] hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]'
-                    }`}
-                    title={s.title}
-                  >
-                    <span className={`inline-flex h-1.5 w-1.5 shrink-0 rounded-full ${activeId === s.id ? 'bg-violet-400' : 'bg-[var(--metis-fg-faint)]'}`} aria-hidden />
-                    <span className="truncate text-[13px]">{s.title}</span>
-                    <span
-                      role="button"
-                      tabIndex={0}
-                      onClick={(e) => { e.stopPropagation(); deleteSession(s.id); }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); deleteSession(s.id); }
-                      }}
-                      className="ml-auto inline-flex cursor-pointer items-center justify-center rounded p-1 text-[var(--metis-fg-dim)] opacity-0 transition hover:text-rose-400 group-hover:opacity-100"
-                      title="Delete"
+                  {renamingId === s.id ? (
+                    <div className="flex items-center gap-1 rounded-lg bg-[var(--metis-hover-surface)] px-2.5 py-1.5">
+                      <input
+                        autoFocus
+                        value={renameValue}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') { renameSession(s.id, renameValue); setRenamingId(null); }
+                          if (e.key === 'Escape') setRenamingId(null);
+                        }}
+                        onBlur={() => { if (renameValue.trim()) renameSession(s.id, renameValue); setRenamingId(null); }}
+                        className="min-w-0 flex-1 bg-transparent text-[13px] text-[var(--metis-fg)] outline-none"
+                      />
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setActiveId(s.id)}
+                      className={`group flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition ${
+                        activeId === s.id
+                          ? 'bg-[var(--metis-hover-surface)] text-[var(--metis-fg)]'
+                          : 'text-[var(--metis-chats-item)] hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]'
+                      }`}
+                      title={s.title}
                     >
-                      <Trash2 className="h-3 w-3" />
-                    </span>
-                  </button>
+                      <span className={`inline-flex h-1.5 w-1.5 shrink-0 rounded-full ${activeId === s.id ? 'bg-violet-400' : 'bg-[var(--metis-fg-faint)]'}`} aria-hidden />
+                      <span className="truncate text-[13px]">{s.title}</span>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => { e.stopPropagation(); setRenameValue(s.title); setRenamingId(s.id); }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); setRenameValue(s.title); setRenamingId(s.id); }
+                        }}
+                        className="ml-auto inline-flex cursor-pointer items-center justify-center rounded p-1 text-[var(--metis-fg-dim)] opacity-0 transition hover:text-violet-400 group-hover:opacity-100"
+                        title="Rename"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </span>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => { e.stopPropagation(); deleteSession(s.id); }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); deleteSession(s.id); }
+                        }}
+                        className="inline-flex cursor-pointer items-center justify-center rounded p-1 text-[var(--metis-fg-dim)] opacity-0 transition hover:text-rose-400 group-hover:opacity-100"
+                        title="Delete"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </span>
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>

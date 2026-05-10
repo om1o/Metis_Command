@@ -1,12 +1,25 @@
 # Metis Command — 18-Phase Roadmap
 
-> Updated 2026-05-10 · v0.26.0 · 48 Python modules, 6 HTML pages, 4 JS files, 2700-line API bridge, 11 local Ollama models, 4 persistent agents running.
+> Updated 2026-05-10 · v0.27.0 · 48 Python modules, 6 HTML pages, 4 JS files, 2700-line API bridge, 11 local Ollama models, 4 persistent agents running.
 
 ---
 
-## Current State (v0.26.0)
+## Current State (v0.27.0)
+
+### Completed (v0.27.0)
+- ✅ **session_title SSE** — `send()` now handles the `session_title` event the backend emits after each turn, updating the session title in the sidebar without a page reload
+- ✅ **project_slug in chat** — `MetisClient.chat()` accepts `projectSlug` option and forwards it as `project_slug` to the backend; the active workspace is now always injected into every chat turn
+- ✅ **Regenerate response** — Hover the last agent message → "Retry ↺" button replaces the message in-place and re-streams from the same user prompt
+- ✅ **Session rename** — Hover a session in the sidebar → pencil icon → inline rename input (Enter/blur to save, Escape to cancel)
+- ✅ **Absolute timestamp tooltips** — Hovering any message timestamp shows the full date/time (e.g. "May 10, 2:34 PM")
+- ✅ Version bumped to 0.27.0
+
+---
+
+## Previous State (v0.26.0)
 
 ### Completed (v0.26.0)
+
 - ✅ Message feedback — thumbs up/down buttons on agent messages in React UI; `postMessageFeedback()` added to `MetisClient`; optimistic state stored per-message; wired to `POST /messages/feedback`
 - ✅ Active project name in header — header pill and sidebar badge now show the project **name** instead of its URL slug; `onActiveChange(slug, name)` callback updated in `ProjectsPanel`
 - ✅ Fixed collapsed sidebar — Briefing (⌘D) and Missions (⌘O) icon buttons were missing from the collapsed icon strip; added alongside all other panels
