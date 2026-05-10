@@ -145,6 +145,9 @@ const SLASH_COMMANDS: SlashCmd[] = [
   { cmd: '/plan',      label: 'Make a plan',       desc: 'Break the goal into concrete steps',     icon: ListChecks,expand: '/plan ' },
   { cmd: '/search',    label: 'Research',          desc: 'Search and summarize sources',           icon: Search,    expand: '/search ' },
   { cmd: '/think',     label: 'Think carefully',   desc: 'Reason step-by-step before answering',  icon: Lightbulb, expand: '/think ' },
+  { cmd: '/draft',     label: 'Draft a message',   desc: 'Write a polished email, doc, or reply', icon: FileText,  expand: '/draft ' },
+  { cmd: '/fix',       label: 'Fix my writing',    desc: 'Proofread, fix grammar and clarity',    icon: RefreshCw, expand: '/fix ' },
+  { cmd: '/translate', label: 'Translate',         desc: 'Translate text to another language',    icon: Globe,     expand: '/translate ' },
   { cmd: '/summarize', label: 'Summarize',         desc: 'Condense into 3-5 concise bullet points',icon: ListChecks,expand: '/summarize ' },
   { cmd: '/bullets',   label: 'Bullet list',       desc: 'Format response as structured bullets',  icon: ListChecks,expand: '/bullets ' },
   { cmd: '/remember',  label: 'Save to memory',    desc: 'Persist a fact for future sessions',    icon: BookOpen,  expand: '/remember ' },
@@ -159,6 +162,9 @@ const SLASH_PREFIXES: Record<string, string> = {
   '/plan':      'Break the following goal into a numbered, actionable plan with clear, concrete steps.\n\n',
   '/search':    'Research the following topic thoroughly. Summarize key findings and cite relevant sources.\n\n',
   '/think':     'Think through this step-by-step, showing your full reasoning before giving a final answer.\n\n',
+  '/draft':     'Write a polished, professional draft of the following email, document, or message. Use a clear structure with a natural, confident tone. Output the draft only — no commentary.\n\n',
+  '/fix':       'Proofread the following text. Fix grammar, spelling, punctuation, and clarity. Preserve the original voice and intent. Return only the corrected text.\n\n',
+  '/translate': 'Translate the following text. Specify the target language in your message (e.g. "/translate to Spanish: …"). Preserve meaning, tone, and formatting.\n\n',
   '/summarize': 'Summarize the following in exactly 3-5 concise bullet points. Be specific and avoid filler.\n\n',
   '/bullets':   'Format your entire response as a structured bullet-point list with clear, short points.\n\n',
   '/remember':  'Please save the following information to memory for use in future sessions: ',
@@ -673,8 +679,19 @@ export default function App() {
     return () => { cancelled = true; clearInterval(id); };
   }, [client, inboxOpen]);
   useEffect(() => {
-    try { localStorage.setItem('metis-sessions', JSON.stringify(sessions.slice(0, 30))); } catch {}
-  }, [sessions]);
+    // Persist up to 60 sessions; pinned sessions are always kept.
+    // When count exceeds 60, trim oldest unpinned down to 55.
+    const MAX_SESSIONS = 60;
+    const TARGET_SESSIONS = 55;
+    let toSave = sessions;
+    if (sessions.length > MAX_SESSIONS) {
+      const pinned = sessions.filter((s) => pinnedIds.has(s.id));
+      const unpinned = sessions.filter((s) => !pinnedIds.has(s.id));
+      const keep = unpinned.slice(0, Math.max(0, TARGET_SESSIONS - pinned.length));
+      toSave = [...pinned, ...keep].sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
+    }
+    try { localStorage.setItem('metis-sessions', JSON.stringify(toSave.slice(0, MAX_SESSIONS))); } catch {}
+  }, [sessions, pinnedIds]);
 
   useEffect(() => {
     if (!client || !activeArtifactId) {
@@ -780,6 +797,18 @@ export default function App() {
   };
 
   // ── sessions ────────────────────────────────────────────────────────────
+
+  // Trim in-memory sessions to keep total at or below MAX when we add new ones.
+  // Pinned sessions are always preserved; oldest unpinned are pruned first.
+  const trimSessions = useCallback((all: Session[]): Session[] => {
+    const MAX = 65;
+    if (all.length <= MAX) return all;
+    const pinned   = all.filter((s) => pinnedIds.has(s.id));
+    const unpinned = all.filter((s) => !pinnedIds.has(s.id));
+    const keep = unpinned.slice(0, Math.max(0, MAX - pinned.length));
+    return [...pinned, ...keep].sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
+  }, [pinnedIds]);
+
   const newSession = () => {
     setActiveId(null);
     setInput('');
@@ -837,7 +866,7 @@ export default function App() {
         updatedAt: Date.now(),
         messages: [],
       };
-      setSessions((all) => [session as Session, ...all]);
+      setSessions((all) => trimSessions([session as Session, ...all]));
       setActiveId(session.id);
     }
 
@@ -2218,7 +2247,21 @@ export default function App() {
 
 // ── Empty hero ─────────────────────────────────────────────────────────────
 
+function useTimeGreeting(): string {
+  const [greeting, setGreeting] = useState('');
+  useEffect(() => {
+    const h = new Date().getHours();
+    if (h < 5)       setGreeting('Working late?');
+    else if (h < 12) setGreeting('Good morning.');
+    else if (h < 17) setGreeting('Good afternoon.');
+    else if (h < 21) setGreeting('Good evening.');
+    else             setGreeting('Good night.');
+  }, []);
+  return greeting;
+}
+
 function EmptyHero({ onPick }: { onPick: (s: string) => void }) {
+  const greeting = useTimeGreeting();
   return (
     <div className="relative mx-auto flex h-full w-full max-w-[760px] flex-col justify-center px-4 py-10 sm:px-6 sm:py-14">
       <div
@@ -2233,7 +2276,7 @@ function EmptyHero({ onPick }: { onPick: (s: string) => void }) {
           <span className="ml-1 text-[11px] uppercase tracking-[0.18em] text-[var(--metis-fg-dim)]">Agent</span>
         </div>
         <h1 className="text-balance text-3xl font-light tracking-[-0.02em] text-[var(--metis-hero-title)] sm:text-5xl sm:leading-[1.05]">
-          What can your agent do for you today?
+          {greeting ? <>{greeting} <span className="text-[var(--metis-fg-muted)]">What are we working on?</span></> : 'What can your agent do for you today?'}
         </h1>
         <p className="mt-3 max-w-xl text-balance text-sm text-[var(--metis-hero-sub)] sm:text-base">
           Tell it a goal in plain English. It plans the steps, does the work, and shows you everything as it goes.

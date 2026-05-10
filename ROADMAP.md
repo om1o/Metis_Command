@@ -1,10 +1,20 @@
 # Metis Command — 18-Phase Roadmap
 
-> Updated 2026-05-10 · v0.31.0 · 48 Python modules, 6 HTML pages, 4 JS files, 2700-line API bridge, 11 local Ollama models, 4 persistent agents running.
+> Updated 2026-05-10 · v0.32.0 · 48 Python modules, 6 HTML pages, 4 JS files, 2700-line API bridge, 11 local Ollama models, 4 persistent agents running.
 
 ---
 
-## Current State (v0.31.0)
+## Current State (v0.32.0)
+
+### Completed (v0.32.0)
+- ✅ **Three new slash commands** — `/draft` (write polished emails/docs/messages), `/fix` (proofread and fix grammar/clarity), `/translate` (translate to a target language); 12 commands total in autocomplete
+- ✅ **Session auto-trim** — when in-memory sessions exceed 65, oldest unpinned sessions are pruned down to ~55; pinned sessions are always preserved; localStorage cap raised from 30 → 60 with same pinned protection
+- ✅ **Time-aware greeting on empty hero** — replaces static "What can your agent do for you today?" with a contextual greeting based on time of day (Good morning / afternoon / evening / Working late?)
+- ✅ Version bumped to 0.32.0
+
+---
+
+## Previous State (v0.31.0)
 
 ### Completed (v0.31.0)
 - ✅ **Token count badge on agent messages** — backend emits a `turn_complete` SSE event after each turn with an estimated token count (`len(response) // 4`); UI renders a `~N tok` pill next to the "via model" badge on every completed agent response
