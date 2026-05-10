@@ -36,7 +36,7 @@ from run_contracts import build_run_contract, normalize_mode, normalize_permissi
 import auth_local  # noqa: E402
 import auth_engine  # noqa: E402
 
-app = FastAPI(title="Metis API Bridge", version="21.0.0")
+app = FastAPI(title="Metis API Bridge", version=METIS_VERSION)
 
 # Frontend lives in ./frontend (HTML + static)
 _FRONTEND_DIR = Path(__file__).parent / "frontend"
@@ -60,7 +60,6 @@ PUBLIC_PATHS = {"/", "/health", "/version", "/status",
 
 PUBLIC_PREFIXES = ("/static/",)
 
-app.version = METIS_VERSION
 
 
 def _verify_token(token: str | None) -> bool:

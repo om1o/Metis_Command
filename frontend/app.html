@@ -803,7 +803,7 @@ pre:hover .code-copy{opacity:1}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v22.0</span>
+      <span class="ver" id="versionPill">v0.34.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -1271,14 +1271,34 @@ pre:hover .code-copy{opacity:1}
         </div>
       </div>
       <div class="shortcuts-section">
-        <div class="shortcuts-section-title">Slash Commands</div>
+        <div class="shortcuts-section-title">Slash Commands — Specialist Routing</div>
         <div class="shortcuts-grid">
-          <div class="shortcut-row"><span class="s-desc">Coder persona</span><span class="s-keys"><kbd>/code</kbd></span></div>
-          <div class="shortcut-row"><span class="s-desc">Plan a task</span><span class="s-keys"><kbd>/plan</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Code-focused response</span><span class="s-keys"><kbd>/code</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Step-by-step reasoning</span><span class="s-keys"><kbd>/think</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Structured plan</span><span class="s-keys"><kbd>/plan</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Find patterns &amp; insights</span><span class="s-keys"><kbd>/analyze</kbd></span></div>
+        </div>
+      </div>
+      <div class="shortcuts-section">
+        <div class="shortcuts-section-title">Slash Commands — Text Transforms</div>
+        <div class="shortcuts-grid">
+          <div class="shortcut-row"><span class="s-desc">Condense to bullets</span><span class="s-keys"><kbd>/summarize</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Format as bullet list</span><span class="s-keys"><kbd>/bullets</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Write polished draft</span><span class="s-keys"><kbd>/draft</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Proofread &amp; fix grammar</span><span class="s-keys"><kbd>/fix</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Translate text</span><span class="s-keys"><kbd>/translate</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Generate outline / TOC</span><span class="s-keys"><kbd>/outline</kbd></span></div>
+        </div>
+      </div>
+      <div class="shortcuts-section">
+        <div class="shortcuts-section-title">Slash Commands — Session &amp; Memory</div>
+        <div class="shortcuts-grid">
           <div class="shortcut-row"><span class="s-desc">Search sessions</span><span class="s-keys"><kbd>/search</kbd></span></div>
-          <div class="shortcut-row"><span class="s-desc">Change model</span><span class="s-keys"><kbd>/model</kbd></span></div>
-          <div class="shortcut-row"><span class="s-desc">Remember a fact</span><span class="s-keys"><kbd>/remember</kbd></span></div>
-          <div class="shortcut-row"><span class="s-desc">Forget a fact</span><span class="s-keys"><kbd>/forget</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Change model tier</span><span class="s-keys"><kbd>/model</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Compare models</span><span class="s-keys"><kbd>/compare</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Save fact to memory</span><span class="s-keys"><kbd>/remember</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Remove fact from memory</span><span class="s-keys"><kbd>/forget</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Check budget</span><span class="s-keys"><kbd>/wallet</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Clear conversation</span><span class="s-keys"><kbd>/clear</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Export session</span><span class="s-keys"><kbd>/export</kbd></span></div>
         </div>
@@ -1434,6 +1454,11 @@ function isDirectMode() {
 
 applyConfig(cfg);
 renderModelMenu();
+
+// Override the static fallback pill with the real server version
+fetch('/version').then(r => r.json()).then(v => {
+  if (v?.version) document.getElementById('versionPill').textContent = 'v' + v.version;
+}).catch(() => {});
 
 if (cfg?.manager_name) {
   setTimeout(() => {
@@ -3982,6 +4007,29 @@ COMMANDS.push({
   run: () => window.open('/workflows/page/builder', '_blank'),
 });
 
+COMMANDS.push({
+  id: 'wallet', icon: '💳', t: 'Check budget & spend',
+  d: 'View current spend vs monthly cap and mode', kbd: '',
+  run: async () => {
+    try {
+      const w = await api.wallet();
+      const spent = w.spent_cents ?? w.total_spent_cents ?? 0;
+      const cap   = w.cap_cents   ?? w.monthly_cap_cents  ?? 1000;
+      const pct   = cap > 0 ? Math.round(spent / cap * 100) : 0;
+      const mode  = w.mode || 'simulated';
+      if (window.toast) toast('info', `💳 Budget: ${pct}% used`, `$${(spent/100).toFixed(4)} of $${(cap/100).toFixed(2)} · ${mode}`, 5000);
+    } catch (e) {
+      if (window.toast) toast('error', 'Wallet unavailable', e.message, 3000);
+    }
+  },
+});
+
+COMMANDS.push({
+  id: 'tour', icon: '🧭', t: 'Restart onboarding tour',
+  d: 'Replay the 5-step guided tour of Metis features', kbd: '',
+  run: () => { localStorage.removeItem('metis.tour_done'); renderTourStep(0); },
+});
+
 // ── Sidebar collapse (Ctrl+B) ───────────────────────────────────────────
 function toggleSidebar() {
   const layout = document.querySelector('.layout');
@@ -4029,15 +4077,50 @@ function updateDirectBadge() {
 }
 
 // ── Slash command menu ───────────────────────────────────────────────────
+// Helper: prepend a slash command into the input and position cursor at end
+function _slashPrepend(cmd) {
+  msgInput.value = cmd + ' ';
+  msgInput.focus();
+  msgInput.setSelectionRange(cmd.length + 1, cmd.length + 1);
+  msgInput.dispatchEvent(new Event('input'));
+}
+
 const SLASH_CMDS = [
-  { cmd: '/code',     icon: '⚙️',  desc: 'Switch to Coder mode',          action: () => { currentMode = 'chat'; renderModeDropdown(); if (window.toast) toast('info', 'Coder mode', 'Routing to Coder specialist', 1500); } },
-  { cmd: '/plan',     icon: '🗺️',  desc: 'Plan a task step-by-step',      action: () => { msgInput.value = 'Create a detailed step-by-step plan for: '; msgInput.focus(); msgInput.dispatchEvent(new Event('input')); } },
-  { cmd: '/search',   icon: '🔍',  desc: 'Search past sessions',           action: () => { const s = document.getElementById('sessionSearchInput'); if (s) { s.focus(); s.select(); } } },
-  { cmd: '/model',    icon: '🧠',  desc: 'Switch model',                   action: () => document.getElementById('inputModelBtn')?.click() },
-  { cmd: '/remember', icon: '📌',  desc: 'Save a fact to memory',          action: () => { msgInput.value = '/remember '; msgInput.focus(); msgInput.setSelectionRange(10, 10); msgInput.dispatchEvent(new Event('input')); } },
-  { cmd: '/forget',   icon: '🗑️',  desc: 'Remove a fact from memory',     action: () => { msgInput.value = '/forget '; msgInput.focus(); msgInput.setSelectionRange(8, 8); msgInput.dispatchEvent(new Event('input')); } },
-  { cmd: '/clear',    icon: '🧹',  desc: 'Start a new conversation',       action: () => newChat() },
-  { cmd: '/export',   icon: '📥',  desc: 'Export session as Markdown',     action: () => api.exportSession(currentSession, 'md').then(() => { if (window.toast) toast('success', 'Exported', 'Markdown file downloaded', 2000); }).catch(e => { if (window.toast) toast('error', 'Export failed', e.message, 3000); }) },
+  // ── Navigation / UI ───────────────────────────────────────────
+  { cmd: '/search',   icon: '🔍',  desc: 'Search past sessions',                       action: () => { const s = document.getElementById('sessionSearchInput'); if (s) { s.focus(); s.select(); } } },
+  { cmd: '/clear',    icon: '🧹',  desc: 'Start a new conversation',                   action: () => newChat() },
+  { cmd: '/export',   icon: '📥',  desc: 'Export session as Markdown',                 action: () => api.exportSession(currentSession, 'md').then(() => { if (window.toast) toast('success', 'Exported', 'Markdown file downloaded', 2000); }).catch(e => { if (window.toast) toast('error', 'Export failed', e.message, 3000); }) },
+  { cmd: '/model',    icon: '🧠',  desc: 'Switch model tier',                          action: () => document.getElementById('inputModelBtn')?.click() },
+  { cmd: '/compare',  icon: '⚖️',  desc: 'Compare models side-by-side',                action: () => openCmpPanel(msgInput.value.trim()) },
+  { cmd: '/tour',     icon: '🧭',  desc: 'Restart the onboarding tour',                action: () => { localStorage.removeItem('metis.tour_done'); renderTourStep(0); } },
+  // ── Specialist routing ─────────────────────────────────────────
+  { cmd: '/code',     icon: '⚙️',  desc: 'Code-focused response (Coder specialist)',   action: () => _slashPrepend('/code') },
+  { cmd: '/think',    icon: '🤔',  desc: 'Step-by-step reasoning (Thinker specialist)', action: () => _slashPrepend('/think') },
+  { cmd: '/plan',     icon: '🗺️',  desc: 'Structured multi-step plan',                 action: () => _slashPrepend('/plan') },
+  // ── Text transforms (backend-handled) ─────────────────────────
+  { cmd: '/summarize', icon: '📋', desc: 'Condense the conversation to 3–5 bullets',   action: () => _slashPrepend('/summarize') },
+  { cmd: '/bullets',  icon: '•',   desc: 'Format a response as a structured list',     action: () => _slashPrepend('/bullets') },
+  { cmd: '/draft',    icon: '✍️',  desc: 'Write a polished draft or email',            action: () => _slashPrepend('/draft') },
+  { cmd: '/fix',      icon: '🔧',  desc: 'Proofread and fix grammar',                  action: () => _slashPrepend('/fix') },
+  { cmd: '/translate', icon: '🌐', desc: 'Translate to a language',                    action: () => _slashPrepend('/translate') },
+  { cmd: '/analyze',  icon: '📊',  desc: 'Find patterns and insights',                 action: () => _slashPrepend('/analyze') },
+  { cmd: '/outline',  icon: '📑',  desc: 'Generate a structured outline / TOC',        action: () => _slashPrepend('/outline') },
+  // ── Memory ────────────────────────────────────────────────────
+  { cmd: '/remember', icon: '📌',  desc: 'Save a fact to semantic memory',             action: () => _slashPrepend('/remember') },
+  { cmd: '/forget',   icon: '🗑️',  desc: 'Remove a fact from memory',                 action: () => _slashPrepend('/forget') },
+  // ── Budget ────────────────────────────────────────────────────
+  { cmd: '/wallet',   icon: '💳',  desc: 'Check budget and spend summary',             action: async () => {
+    try {
+      const w = await api.wallet();
+      const spent = w.spent_cents ?? w.total_spent_cents ?? 0;
+      const cap   = w.cap_cents   ?? w.monthly_cap_cents  ?? 1000;
+      const pct   = cap > 0 ? Math.round(spent / cap * 100) : 0;
+      const mode  = w.mode || 'simulated';
+      if (window.toast) toast('info', `💳 Budget: ${pct}% used`, `$${(spent/100).toFixed(4)} of $${(cap/100).toFixed(2)} · ${mode}`, 5000);
+    } catch (e) {
+      if (window.toast) toast('error', 'Wallet unavailable', e.message, 3000);
+    }
+  }},
 ];
 
 let _slashActive = false;
@@ -4071,7 +4154,7 @@ function renderSlashMenu() {
       e.preventDefault();
       _slashFiltered[i]?.action();
       hideSlashMenu();
-      if (!msgInput.value.startsWith('/remember') && !msgInput.value.startsWith('/forget') && !msgInput.value.startsWith('/plan')) {
+      if (!msgInput.value.trim()) {
         msgInput.value = '';
         msgInput.style.height = 'auto';
         sendBtn.disabled = true;
