@@ -47,6 +47,7 @@ import {
   Search,
   Sunrise,
   Workflow,
+  LayoutGrid,
   HelpCircle,
   MessageCircle,
   Scale,
@@ -64,6 +65,7 @@ import ConnectionsPanel from '@/components/connections-panel';
 import InstallAppButton from '@/components/install-app-button';
 import BriefingPanel from '@/components/briefing-panel';
 import MissionsPanel from '@/components/missions-panel';
+import MissionDashboard from '@/components/mission-dashboard';
 import VoiceButton from '@/components/voice-button';
 import MemoryPanel from '@/components/memory-panel';
 import HostAutomationMvp from '@/components/host-automation-mvp';
@@ -554,6 +556,7 @@ export default function App() {
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
   const [briefingOpen, setBriefingOpen] = useState(false);
   const [missionsOpen, setMissionsOpen] = useState(false);
+  const [dashboardOpen, setDashboardOpen] = useState(false);
   const [health, setHealth] = useState<SystemHealth | null>(null);
   const [activeArtifactId, setActiveArtifactId] = useState<string | null>(null);
   const [reportArtifact, setReportArtifact] = useState<Artifact | null>(null);
@@ -852,6 +855,7 @@ export default function App() {
       else if (k === 'g')   { e.preventDefault(); setConnectionsOpen((v) => !v); }
       else if (k === 'd')   { e.preventDefault(); setBriefingOpen((v) => !v); }
       else if (k === 'o')   { e.preventDefault(); setMissionsOpen((v) => !v); }
+      else if (k === 'g')   { e.preventDefault(); setDashboardOpen((v) => !v); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -1392,6 +1396,16 @@ export default function App() {
               <Workflow className="h-4 w-4 shrink-0 text-violet-400" />
               <span>Missions</span>
               <span className="ml-auto text-[10px] text-[var(--metis-fg-dim)]">⌘O</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setDashboardOpen(true)}
+              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] text-[var(--metis-fg-muted)] transition hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]"
+              title="Mission dashboard — run many in parallel (⌘G)"
+            >
+              <LayoutGrid className="h-4 w-4 shrink-0 text-violet-400" />
+              <span>Dashboard</span>
+              <span className="ml-auto text-[10px] text-[var(--metis-fg-dim)]">⌘G</span>
             </button>
             <button
               type="button"
@@ -1956,6 +1970,17 @@ export default function App() {
             client={client}
             reduceMotion={!!reduceMotion}
             onClose={() => setMissionsOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Mission dashboard — N parallel autonomous missions in a grid */}
+      <AnimatePresence>
+        {dashboardOpen && client && (
+          <MissionDashboard
+            client={client}
+            reduceMotion={!!reduceMotion}
+            onClose={() => setDashboardOpen(false)}
           />
         )}
       </AnimatePresence>
