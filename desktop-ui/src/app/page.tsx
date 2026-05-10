@@ -151,6 +151,8 @@ const SLASH_COMMANDS: SlashCmd[] = [
   { cmd: '/summarize', label: 'Summarize',         desc: 'Condense into 3-5 concise bullet points',icon: ListChecks,expand: '/summarize ' },
   { cmd: '/bullets',   label: 'Bullet list',       desc: 'Format response as structured bullets',  icon: ListChecks,expand: '/bullets ' },
   { cmd: '/remember',  label: 'Save to memory',    desc: 'Persist a fact for future sessions',    icon: BookOpen,  expand: '/remember ' },
+  { cmd: '/analyze',   label: 'Analyze data',      desc: 'Find patterns, trends, and insights',   icon: BarChart3, expand: '/analyze ' },
+  { cmd: '/outline',   label: 'Create outline',    desc: 'Build a structured outline or ToC',     icon: ListChecks,expand: '/outline ' },
   { cmd: '/clear',     label: 'New session',       desc: 'Start a fresh conversation',             icon: Eraser,    expand: '' },
   { cmd: '/help',      label: 'Show shortcuts',    desc: 'Open the keyboard shortcuts cheatsheet', icon: HelpCircle,expand: '' },
 ];
@@ -168,6 +170,8 @@ const SLASH_PREFIXES: Record<string, string> = {
   '/summarize': 'Summarize the following in exactly 3-5 concise bullet points. Be specific and avoid filler.\n\n',
   '/bullets':   'Format your entire response as a structured bullet-point list with clear, short points.\n\n',
   '/remember':  'Please save the following information to memory for use in future sessions: ',
+  '/analyze':   'Analyze the following data, text, or topic. Identify key patterns, trends, anomalies, and actionable insights. Structure your response clearly with sections for findings and recommendations.\n\n',
+  '/outline':   'Create a clear, structured outline for the following topic or document. Use numbered sections with descriptive headings and brief bullet-point sub-items. Return the outline only — no preamble.\n\n',
 };
 
 interface Attachment {
@@ -274,6 +278,41 @@ function prettyModel(id: string): string {
   if (id.startsWith('gpt-'))    return `openai · ${id}`;
   if (id.includes(':'))         return id.split(':')[0];
   return id;
+}
+
+// Per-output-token cost in USD per 1 000 tokens for common model families.
+// Local (Ollama) models are free. Unknown models default to 0.
+const MODEL_PRICES_PER_1K: Record<string, number> = {
+  // OpenAI
+  'gpt-4o':           0.010,
+  'gpt-4o-mini':      0.0006,
+  'gpt-4-turbo':      0.030,
+  'gpt-4':            0.060,
+  'gpt-3.5-turbo':    0.002,
+  // Groq (fast inference — priced near Llama costs)
+  'llama-3.3-70b':    0.00059,
+  'llama-3.1-70b':    0.00059,
+  'llama-3.1-8b':     0.00008,
+  'llama3-70b':       0.00059,
+  'llama3-8b':        0.00008,
+  'mixtral-8x7b':     0.00027,
+  'gemma2-9b':        0.00020,
+  // GLM
+  'glm-4':            0.00100,
+  'glm-3-turbo':      0.00050,
+};
+
+function estimateCostUsd(modelId: string | undefined, tokens: number): number | null {
+  if (!modelId) return null;
+  const key = Object.keys(MODEL_PRICES_PER_1K).find((k) => modelId.toLowerCase().includes(k));
+  if (!key) return null; // local model or unknown — don't show cost
+  return (MODEL_PRICES_PER_1K[key] * tokens) / 1000;
+}
+
+function formatCost(usd: number): string {
+  if (usd < 0.001) return `$${(usd * 1000).toFixed(3)}m`; // milli-dollars
+  if (usd < 0.01)  return `$${usd.toFixed(4)}`;
+  return `$${usd.toFixed(3)}`;
 }
 
 // Removes the auto-save fenced JSON block the Manager appends when it
@@ -418,6 +457,9 @@ export default function App() {
 
   // Pinned session IDs (persisted in localStorage)
   const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
+
+  // Search jump-to-match: the message ID to scroll to + briefly highlight
+  const [highlightMsgId, setHighlightMsgId] = useState<string | null>(null);
 
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
@@ -818,7 +860,7 @@ export default function App() {
     setSessions((s) => s.filter((x) => x.id !== id));
     if (activeId === id) setActiveId(null);
   };
-  const openPersistedSession = async (id: string, fallbackTitle = 'Saved session') => {
+  const openPersistedSession = async (id: string, fallbackTitle = 'Saved session', matchSnippet?: string) => {
     if (!client) return;
     const rows = await client.loadSession(id);
     const messages: Message[] = rows.map((row: SessionMessage, index: number) => ({
@@ -838,6 +880,16 @@ export default function App() {
       messages,
     }, ...all.filter((s) => s.id !== id)]);
     setActiveId(id);
+    // Jump-to-match: find the first message that contains the search snippet
+    // and flash-highlight it after the session renders.
+    if (matchSnippet) {
+      const needle = matchSnippet.toLowerCase().slice(0, 120);
+      const hit = messages.find((m) => m.content.toLowerCase().includes(needle));
+      if (hit) {
+        setHighlightMsgId(hit.id);
+        setTimeout(() => setHighlightMsgId(null), 2800);
+      }
+    }
   };
 
   // ── send ────────────────────────────────────────────────────────────────
@@ -1746,6 +1798,7 @@ export default function App() {
                     streaming={streaming}
                     reduceMotion={!!reduceMotion}
                     agentName={managerName}
+                    isHighlighted={m.id === highlightMsgId}
                     onOpenArtifact={(id) => {
                       setActiveArtifactId(id);
                       setWorkspaceOpen(true);
@@ -2347,6 +2400,7 @@ function MessageBubble({
   rating,
   onFeedback,
   onRegenerate,
+  isHighlighted,
 }: {
   msg: Message;
   isLast: boolean;
@@ -2360,10 +2414,20 @@ function MessageBubble({
   rating?: 'up' | 'down';
   onFeedback?: (r: 'up' | 'down') => void;
   onRegenerate?: () => void;
+  isHighlighted?: boolean;
 }) {
   const isUser = msg.role === 'user';
   const liveAgent = !isUser && streaming && isLast;
   const [expanded, setExpanded] = useState(false);
+  const bubbleRef = useRef<HTMLDivElement>(null);
+
+  // Scroll highlighted message into view on mount / when highlight is set.
+  useEffect(() => {
+    if (isHighlighted && bubbleRef.current) {
+      bubbleRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [isHighlighted]);
+
   // Threshold: expand button appears when content exceeds ~1200 chars.
   const isLong = !liveAgent && msg.content.length > 1200;
   const motionProps = {
@@ -2374,9 +2438,13 @@ function MessageBubble({
 
   if (isUser) {
     return (
-      <motion.div className="flex justify-end" {...motionProps}>
+      <motion.div ref={bubbleRef} className="flex justify-end" {...motionProps}>
         <div
-          className="max-w-[min(100%,520px)] rounded-2xl border border-[var(--metis-bubble-user-border)] bg-[var(--metis-bubble-user)] px-3.5 py-2.5 text-[14px] leading-6 text-[var(--metis-bubble-fg)]"
+          className={`max-w-[min(100%,520px)] rounded-2xl border px-3.5 py-2.5 text-[14px] leading-6 text-[var(--metis-bubble-fg)] transition-shadow ${
+            isHighlighted
+              ? 'border-violet-400/60 bg-[var(--metis-bubble-user)] ring-2 ring-violet-400/30'
+              : 'border-[var(--metis-bubble-user-border)] bg-[var(--metis-bubble-user)]'
+          }`}
           style={{ wordBreak: 'break-word' }}
         >
           <p className="whitespace-pre-wrap">{msg.content}</p>
@@ -2387,7 +2455,11 @@ function MessageBubble({
   }
 
   return (
-    <motion.div className="group flex gap-3" {...motionProps}>
+    <motion.div
+      ref={bubbleRef}
+      className={`group flex gap-3 rounded-xl transition-shadow ${isHighlighted ? 'ring-2 ring-violet-400/30' : ''}`}
+      {...motionProps}
+    >
       <div className="shrink-0">
         <div className={`flex h-8 w-8 items-center justify-center rounded-full border border-[var(--metis-border)] bg-[var(--metis-elevated)] ${liveAgent ? 'ring-2 ring-violet-500/30' : ''}`}>
           <Sparkles className={`h-4 w-4 text-violet-400 ${liveAgent ? 'animate-pulse' : ''}`} />
@@ -2424,14 +2496,19 @@ function MessageBubble({
               via {prettyModel(msg.routedModel)}
             </span>
           )}
-          {msg.tokenCount && msg.status === 'done' && (
-            <span
-              className="inline-flex items-center gap-0.5 rounded-full border border-[var(--metis-border)] bg-[var(--metis-bg)] px-1.5 py-0.5 text-[10px] text-[var(--metis-fg-dim)]"
-              title={`~${msg.tokenCount.toLocaleString()} tokens in this response`}
-            >
-              ~{msg.tokenCount >= 1000 ? `${(msg.tokenCount / 1000).toFixed(1)}k` : msg.tokenCount} tok
-            </span>
-          )}
+          {msg.tokenCount && msg.status === 'done' && (() => {
+            const costUsd = estimateCostUsd(msg.routedModel, msg.tokenCount);
+            const costLabel = costUsd !== null ? ` · ${formatCost(costUsd)}` : '';
+            const tokLabel = msg.tokenCount >= 1000 ? `${(msg.tokenCount / 1000).toFixed(1)}k` : String(msg.tokenCount);
+            return (
+              <span
+                className="inline-flex items-center gap-0.5 rounded-full border border-[var(--metis-border)] bg-[var(--metis-bg)] px-1.5 py-0.5 text-[10px] text-[var(--metis-fg-dim)]"
+                title={`~${msg.tokenCount.toLocaleString()} tokens in this response${costUsd !== null ? ` · estimated cost ${formatCost(costUsd)}` : ' (local model — no cost)'}`}
+              >
+                ~{tokLabel} tok{costLabel}
+              </span>
+            );
+          })()}
           <span className="ml-auto text-[10px] text-[var(--metis-fg-dim)]" title={absTime(msg.ts)}>{relTime(msg.ts)}</span>
           {msg.content && !liveAgent && (
             <>
@@ -2665,7 +2742,7 @@ function SessionsList({
   setActiveId: (id: string) => void;
   deleteSession: (id: string) => void;
   renameSession: (id: string, title: string) => void;
-  openPersistedSession: (id: string, fallbackTitle?: string) => Promise<void>;
+  openPersistedSession: (id: string, fallbackTitle?: string, matchSnippet?: string) => Promise<void>;
   pinnedIds: Set<string>;
   togglePin: (id: string) => void;
   clearAll: () => void;
@@ -2892,7 +2969,7 @@ function SessionsList({
                       <li key={`${result.session_id}-${result.created_at}`}>
                         <button
                           type="button"
-                          onClick={() => { void openPersistedSession(result.session_id, result.session_title || 'Saved session'); }}
+                          onClick={() => { void openPersistedSession(result.session_id, result.session_title || 'Saved session', stripHtml(result.snippet)); }}
                           className="w-full rounded-lg border border-[var(--metis-border)] bg-[var(--metis-bg)] px-2 py-2 text-left hover:bg-[var(--metis-hover-surface)]"
                           title={stripHtml(result.snippet)}
                         >

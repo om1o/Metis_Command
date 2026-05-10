@@ -1,10 +1,20 @@
 # Metis Command — 18-Phase Roadmap
 
-> Updated 2026-05-10 · v0.32.0 · 48 Python modules, 6 HTML pages, 4 JS files, 2700-line API bridge, 11 local Ollama models, 4 persistent agents running.
+> Updated 2026-05-10 · v0.33.0 · 48 Python modules, 6 HTML pages, 4 JS files, 2700-line API bridge, 11 local Ollama models, 4 persistent agents running.
 
 ---
 
-## Current State (v0.32.0)
+## Current State (v0.33.0)
+
+### Completed (v0.33.0)
+- ✅ **Two new slash commands** — `/analyze` (find patterns, trends, and insights in data) and `/outline` (structured outline or table of contents); 14 commands total in autocomplete
+- ✅ **Search jump-to-match** — clicking a server search result now loads the session and scrolls directly to the matching message, flashing a violet ring highlight for ~2.8 s so the user can instantly see what matched
+- ✅ **Cost-per-message in token badge** — token count badge now includes an estimated cost (`~2.1k tok · $0.0012`) for cloud models using a live price map (GPT-4o, GPT-4, GPT-3.5, Groq Llama/Mixtral/Gemma, GLM); local Ollama models show no cost (free); tooltip explains both figures
+- ✅ Version bumped to 0.33.0
+
+---
+
+## Previous State (v0.32.0)
 
 ### Completed (v0.32.0)
 - ✅ **Three new slash commands** — `/draft` (write polished emails/docs/messages), `/fix` (proofread and fix grammar/clarity), `/translate` (translate to a target language); 12 commands total in autocomplete
