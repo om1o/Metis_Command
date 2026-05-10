@@ -653,6 +653,25 @@ export class MetisClient {
     return this.get(`/sessions/${encodeURIComponent(id)}?limit=${limit}`);
   }
 
+  async renameSession(id: string, title: string): Promise<{ ok: boolean; session_id: string; title: string }> {
+    return this.post(`/sessions/${encodeURIComponent(id)}/rename`, { title });
+  }
+
+  /** Returns the raw URL for direct download (anchor href). */
+  exportSessionUrl(id: string, format: 'md' | 'json' | 'txt' = 'md'): string {
+    const auth = this.token ? `?token=${encodeURIComponent(this.token)}` : '';
+    return `${this.baseUrl}/sessions/${encodeURIComponent(id)}/export?format=${format}${auth ? '&' + auth.slice(1) : ''}`;
+  }
+
+  /** Fetch and return the export as a string (for clipboard / in-page download). */
+  async exportSession(id: string, format: 'md' | 'json' | 'txt' = 'md'): Promise<string> {
+    const res = await fetch(`${this.baseUrl}/sessions/${encodeURIComponent(id)}/export?format=${format}`, {
+      headers: this.headers(),
+    });
+    if (!res.ok) throw new Error(`export session: ${res.status}`);
+    return res.text();
+  }
+
   // ── Artifacts ───────────────────────────────────────────────────────────
 
   async getArtifacts(limit = 50): Promise<Artifact[]> {

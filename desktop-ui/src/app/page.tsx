@@ -55,6 +55,7 @@ import {
   ThumbsDown,
   RotateCcw,
   Pencil,
+  Download,
 } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { createLocalClient, MetisClient, AuthUser, Schedule, Artifact, RunMode, RunPermission, SessionMessage, SessionSearchResult } from '@/lib/metis-client';
@@ -650,10 +651,34 @@ export default function App() {
       else if (k === 'd')   { e.preventDefault(); setBriefingOpen((v) => !v); }
       else if (k === 'o')   { e.preventDefault(); setMissionsOpen((v) => !v); }
       else if (k === 'w')   { e.preventDefault(); setProjectsOpen((v) => !v); }
+      else if (k === 'e' && activeId) { e.preventDefault(); exportSession(); }
+      else if (e.key === '[') {
+        // Navigate to previous session in list
+        e.preventDefault();
+        setSessions((all) => {
+          if (all.length === 0) return all;
+          const idx = all.findIndex((s) => s.id === activeId);
+          const prev = idx <= 0 ? all[all.length - 1] : all[idx - 1];
+          setActiveId(prev.id);
+          return all;
+        });
+      }
+      else if (e.key === ']') {
+        // Navigate to next session in list
+        e.preventDefault();
+        setSessions((all) => {
+          if (all.length === 0) return all;
+          const idx = all.findIndex((s) => s.id === activeId);
+          const next = idx < 0 || idx >= all.length - 1 ? all[0] : all[idx + 1];
+          setActiveId(next.id);
+          return all;
+        });
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId, sessions]);
 
   // ── auth ────────────────────────────────────────────────────────────────
   const handleAuth = ({ token, user, mode }: AuthSuccess) => {
@@ -985,6 +1010,24 @@ export default function App() {
     const t = newTitle.trim();
     if (!t) return;
     setSessions((all) => all.map((s) => s.id === id ? { ...s, title: t } : s));
+    // Best-effort backend persistence — silent on failure since local state is already updated.
+    if (client) client.renameSession(id, t).catch(() => {});
+  };
+
+  const exportSession = async () => {
+    if (!active || !client) return;
+    try {
+      const md = await client.exportSession(active.id, 'md');
+      const blob = new Blob([md], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${active.title.replace(/[^a-zA-Z0-9-_ ]/g, '').trim().replace(/\s+/g, '-').toLowerCase() || 'conversation'}.md`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.warn('[metis] export failed:', e);
+    }
   };
 
   // After a job is created, drop a confirmation message into the active
@@ -1396,6 +1439,18 @@ export default function App() {
                   <span className="absolute -right-0.5 -top-0.5 inline-flex h-2 w-2 rounded-full bg-violet-400" />
                 )}
               </button>
+              <button
+                type="button"
+                onClick={() => setConnectionsOpen(true)}
+                className="metis-icon-btn relative"
+                aria-label="Connections"
+                title="Connections (⌘G)"
+              >
+                <Globe className="h-4 w-4" />
+                {health && (
+                  <span className={`absolute -right-0.5 -top-0.5 inline-flex h-2 w-2 rounded-full ${health.ollama.ok || health.groq.ok || health.glm.ok || health.openai.ok ? 'bg-emerald-400' : 'bg-rose-400'}`} />
+                )}
+              </button>
             </>
           )}
           <button
@@ -1446,6 +1501,17 @@ export default function App() {
           </div>
           <div className="ml-auto flex items-center gap-1">
             <ConnectionsBadge health={health} onOpen={() => setConnectionsOpen(true)} />
+            {active && active.messages.length > 0 && (
+              <button
+                type="button"
+                onClick={exportSession}
+                className="metis-icon-btn"
+                title="Export conversation (⌘E)"
+                aria-label="Export conversation"
+              >
+                <Download className="h-4 w-4" />
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setInboxOpen(true)}
@@ -1596,6 +1662,11 @@ export default function App() {
             )}
             <div className="flex flex-wrap items-center gap-1.5 px-1.5 pb-1.5">
               {/* Paperclip attach button */}
+              {input.length > 400 && (
+                <span className={`text-[11px] tabular-nums ${input.length > 3000 ? 'text-amber-400' : 'text-[var(--metis-fg-dim)]'}`}>
+                  {input.length.toLocaleString()} chars
+                </span>
+              )}
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}

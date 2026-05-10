@@ -1,10 +1,22 @@
 # Metis Command — 18-Phase Roadmap
 
-> Updated 2026-05-10 · v0.27.0 · 48 Python modules, 6 HTML pages, 4 JS files, 2700-line API bridge, 11 local Ollama models, 4 persistent agents running.
+> Updated 2026-05-10 · v0.28.0 · 48 Python modules, 6 HTML pages, 4 JS files, 2700-line API bridge, 11 local Ollama models, 4 persistent agents running.
 
 ---
 
-## Current State (v0.27.0)
+## Current State (v0.28.0)
+
+### Completed (v0.28.0)
+- ✅ **Session rename persistence** — `renameSession()` now calls `POST /sessions/:id/rename` after updating local state; renames survive page reload
+- ✅ **Export conversation** — `⌘E` (and the ↓ button in the chat header) downloads the active session as a `.md` file; `MetisClient.exportSession()` + `exportSessionUrl()` added
+- ✅ **Session keyboard navigation** — `⌘[` / `⌘]` jump to the previous / next session in the sidebar list (was documented in v0.21 but missing from the React shortcuts handler)
+- ✅ **Connections in collapsed sidebar** — Globe icon button (with health-status dot) added to the collapsed icon strip; it was missing despite every other panel being present
+- ✅ **Composer character count** — displays `N chars` next to the attach button when the draft exceeds 400 characters; turns amber at >3000
+- ✅ Version bumped to 0.28.0
+
+---
+
+## Previous State (v0.27.0)
 
 ### Completed (v0.27.0)
 - ✅ **session_title SSE** — `send()` now handles the `session_title` event the backend emits after each turn, updating the session title in the sidebar without a page reload
