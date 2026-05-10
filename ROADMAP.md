@@ -1,10 +1,21 @@
 # Metis Command — 18-Phase Roadmap
 
-> Updated 2026-05-10 · v0.28.0 · 48 Python modules, 6 HTML pages, 4 JS files, 2700-line API bridge, 11 local Ollama models, 4 persistent agents running.
+> Updated 2026-05-10 · v0.29.0 · 48 Python modules, 6 HTML pages, 4 JS files, 2700-line API bridge, 11 local Ollama models, 4 persistent agents running.
 
 ---
 
-## Current State (v0.28.0)
+## Current State (v0.29.0)
+
+### Completed (v0.29.0)
+- ✅ **Session date grouping** — sidebar SessionsList now groups conversations under "Today / Yesterday / This Week / Earlier" section headers; flat list is restored automatically when a search query is active
+- ✅ **Streaming markdown rendering** — agent messages now render through `MarkdownView` while streaming instead of plain whitespace-pre-wrap text; code blocks, headers, and lists format live as they arrive
+- ✅ **Up-arrow edit last message** — pressing ↑ in an empty composer recalls the last user message for inline editing; cursor placed at end; resizes the textarea automatically
+- ✅ **Export shortcut documented** — `⌘E` and "Edit last message" (↑) added to the Settings → Shortcuts reference list
+- ✅ Version bumped to 0.29.0
+
+---
+
+## Previous State (v0.28.0)
 
 ### Completed (v0.28.0)
 - ✅ **Session rename persistence** — `renameSession()` now calls `POST /sessions/:id/rename` after updating local state; renames survive page reload

@@ -1078,6 +1078,18 @@ export default function App() {
   const handleSubmit = (e: FormEvent) => { e.preventDefault(); send(); };
   const onComposerKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+    // Up arrow on an empty input → recall the last user message for editing.
+    if (e.key === 'ArrowUp' && !input && !streaming) {
+      const lastUser = active?.messages.slice().reverse().find((m) => m.role === 'user');
+      if (lastUser) {
+        e.preventDefault();
+        setInput(lastUser.content);
+        requestAnimationFrame(() => {
+          const t = composerRef.current;
+          if (t) { t.style.height = 'auto'; t.style.height = `${Math.min(t.scrollHeight, 220)}px`; t.setSelectionRange(t.value.length, t.value.length); }
+        });
+      }
+    }
   };
 
   const copyAgent = async () => {
@@ -2242,7 +2254,7 @@ function MessageBubble({
         {msg.content ? (
           <div className="text-[var(--metis-bubble-fg)]">
             {liveAgent ? (
-              <p className="whitespace-pre-wrap text-[14px] leading-6">{msg.content}</p>
+              <MarkdownView source={msg.content} />
             ) : (
               <div className={isLong && !expanded ? 'max-h-48 overflow-hidden' : ''}>
                 <MarkdownView source={msg.content} />
@@ -2382,6 +2394,27 @@ function stripHtml(value: string): string {
   return value.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
 }
 
+function groupSessionsByDate(sessions: Session[]): { label: string; sessions: Session[] }[] {
+  const now = Date.now();
+  const startOfToday = (() => { const d = new Date(now); d.setHours(0, 0, 0, 0); return d.getTime(); })();
+  const startOfYesterday = startOfToday - 86_400_000;
+  const startOfWeek = startOfToday - 6 * 86_400_000;
+  const groups: { label: string; sessions: Session[] }[] = [
+    { label: 'Today',      sessions: [] },
+    { label: 'Yesterday',  sessions: [] },
+    { label: 'This Week',  sessions: [] },
+    { label: 'Earlier',    sessions: [] },
+  ];
+  for (const s of sessions) {
+    const ts = s.updatedAt || s.createdAt;
+    if (ts >= startOfToday)       groups[0].sessions.push(s);
+    else if (ts >= startOfYesterday) groups[1].sessions.push(s);
+    else if (ts >= startOfWeek)   groups[2].sessions.push(s);
+    else                          groups[3].sessions.push(s);
+  }
+  return groups.filter((g) => g.sessions.length > 0);
+}
+
 function SessionsList({
   client, sessions, activeId, setActiveId, deleteSession, renameSession, openPersistedSession, clearAll,
 }: {
@@ -2488,8 +2521,8 @@ function SessionsList({
           </div>
         ) : (
           <>
-            <ul className="space-y-0.5">
-              {filtered.map((s) => (
+            {(() => {
+              const renderItem = (s: Session) => (
                 <li key={s.id}>
                   {renamingId === s.id ? (
                     <div className="flex items-center gap-1 rounded-lg bg-[var(--metis-hover-surface)] px-2.5 py-1.5">
@@ -2545,8 +2578,24 @@ function SessionsList({
                     </button>
                   )}
                 </li>
-              ))}
-            </ul>
+              );
+              if (query.trim().length >= 2) {
+                return <ul className="space-y-0.5">{filtered.map(renderItem)}</ul>;
+              }
+              const groups = groupSessionsByDate(filtered);
+              return (
+                <div className="space-y-3 pt-0.5">
+                  {groups.map((group) => (
+                    <div key={group.label}>
+                      <div className="mb-0.5 px-1 text-[10px] font-medium uppercase tracking-widest text-[var(--metis-chats-label)]">
+                        {group.label}
+                      </div>
+                      <ul className="space-y-0.5">{group.sessions.map(renderItem)}</ul>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
             {query.trim().length >= 2 && (
               <div className="mt-3 border-t border-[var(--metis-border)] pt-2">
                 <div className="mb-1.5 flex items-center gap-1.5 px-1 text-[10px] font-medium uppercase tracking-widest text-[var(--metis-chats-label)]">
@@ -2748,21 +2797,23 @@ function SettingsBody({
         <div className="text-xs font-medium text-[var(--metis-fg-dim)]">Shortcuts</div>
         <div className="mt-2 space-y-1.5 text-sm text-[var(--metis-fg-muted)]">
           {[
-            ['New session',       '⌘ N'],
-            ['Focus message box', '⌘ K'],
-            ['Toggle sidebar',    '⌘ B'],
-            ['Toggle workspace',  '⌘ /'],
-            ['Inbox',             '⌘ I'],
-            ['Jobs panel',        '⌘ J'],
-            ['Relationships',     '⌘ R'],
-            ['Memory',            '⌘ M'],
-            ['Reports',           '⌘ P'],
-            ['Briefing',          '⌘ D'],
-            ['Missions',          '⌘ O'],
-            ['Projects',          '⌘ W'],
-            ['Analytics',         '⌘ A'],
-            ['Connections',       '⌘ G'],
-            ['Settings',          '⌘ ,'],
+            ['New session',        '⌘ N'],
+            ['Focus message box',  '⌘ K'],
+            ['Export conversation','⌘ E'],
+            ['Edit last message',  '↑'],
+            ['Toggle sidebar',     '⌘ B'],
+            ['Toggle workspace',   '⌘ /'],
+            ['Inbox',              '⌘ I'],
+            ['Jobs panel',         '⌘ J'],
+            ['Relationships',      '⌘ R'],
+            ['Memory',             '⌘ M'],
+            ['Reports',            '⌘ P'],
+            ['Briefing',           '⌘ D'],
+            ['Missions',           '⌘ O'],
+            ['Projects',           '⌘ W'],
+            ['Analytics',          '⌘ A'],
+            ['Connections',        '⌘ G'],
+            ['Settings',           '⌘ ,'],
           ].map(([a, b]) => (
             <div key={a} className="flex items-center justify-between gap-4">
               <span>{a}</span>
