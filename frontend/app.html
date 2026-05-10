@@ -803,7 +803,7 @@ pre:hover .code-copy{opacity:1}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.34.0</span>
+      <span class="ver" id="versionPill">v0.35.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -1252,6 +1252,7 @@ pre:hover .code-copy{opacity:1}
           <div class="shortcut-row"><span class="s-desc">Command palette</span><span class="s-keys"><kbd>⌘</kbd><kbd>K</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">New conversation</span><span class="s-keys"><kbd>⌘</kbd><kbd>L</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Toggle sidebar</span><span class="s-keys"><kbd>⌘</kbd><kbd>B</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Toggle dark/light theme</span><span class="s-keys"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>T</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">This cheat sheet</span><span class="s-keys"><kbd>⌘</kbd><kbd>/</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Previous session</span><span class="s-keys"><kbd>⌘</kbd><kbd>[</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Next session</span><span class="s-keys"><kbd>⌘</kbd><kbd>]</kbd></span></div>
@@ -1267,7 +1268,7 @@ pre:hover .code-copy{opacity:1}
           <div class="shortcut-row"><span class="s-desc">Copy last response</span><span class="s-keys"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>C</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Regenerate</span><span class="s-keys"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>R</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Push-to-talk mic</span><span class="s-keys"><kbd>⌘</kbd><kbd>M</kbd></span></div>
-          <div class="shortcut-row"><span class="s-desc">Focus input</span><span class="s-keys"><kbd>⌘</kbd><kbd>Shift</kbd><kbd>N</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Focus input</span><span class="s-keys"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>N</kbd></span></div>
         </div>
       </div>
       <div class="shortcuts-section">
@@ -1299,6 +1300,9 @@ pre:hover .code-copy{opacity:1}
           <div class="shortcut-row"><span class="s-desc">Save fact to memory</span><span class="s-keys"><kbd>/remember</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Remove fact from memory</span><span class="s-keys"><kbd>/forget</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Check budget</span><span class="s-keys"><kbd>/wallet</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Pin / unpin session</span><span class="s-keys"><kbd>/pin</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">System diagnostics</span><span class="s-keys"><kbd>/debug</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Open this help guide</span><span class="s-keys"><kbd>/help</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Clear conversation</span><span class="s-keys"><kbd>/clear</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Export session</span><span class="s-keys"><kbd>/export</kbd></span></div>
         </div>
@@ -3435,6 +3439,18 @@ document.addEventListener('keydown', (e) => {
       msgInput.setSelectionRange(txt.length, txt.length);
     }
   }
+
+  // Ctrl+Shift+T → toggle dark / light theme
+  if (meta && e.shiftKey && e.key === 'T') {
+    e.preventDefault();
+    const cur = document.documentElement.dataset.theme || 'dark';
+    const nxt = cur === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = nxt;
+    document.getElementById('themeToggleBtn').textContent = nxt === 'dark' ? '🌙' : '☀️';
+    localStorage.setItem('metis.theme', nxt);
+    if (window.toast) toast('success', nxt === 'dark' ? '🌙 Dark theme' : '☀️ Light theme', '⌘⇧T to toggle', 1500);
+    return;
+  }
 });
 
 // ── Notification bell + panel ──────────────────────────────────────────
@@ -4071,6 +4087,29 @@ COMMANDS.push({
   run: openShortcutsModal,
 });
 
+COMMANDS.push({
+  id: 'pin-session', icon: '📌', t: 'Pin / unpin current session',
+  d: 'Toggle pin — pinned sessions float to the top of the list', kbd: '',
+  run: () => {
+    togglePin(currentSession); loadSessions();
+    const now = getPinned().has(currentSession);
+    if (window.toast) toast('success', now ? '📌 Pinned' : '📌 Unpinned', now ? 'Session appears at top' : 'Session unpinned', 1500);
+  },
+});
+
+COMMANDS.push({
+  id: 'toggle-theme', icon: '🎨', t: 'Toggle dark / light theme',
+  d: 'Switch between dark and light mode', kbd: '⌘⇧T',
+  run: () => {
+    const cur = document.documentElement.dataset.theme || 'dark';
+    const nxt = cur === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = nxt;
+    document.getElementById('themeToggleBtn').textContent = nxt === 'dark' ? '🌙' : '☀️';
+    localStorage.setItem('metis.theme', nxt);
+    if (window.toast) toast('success', nxt === 'dark' ? '🌙 Dark theme' : '☀️ Light theme', '', 1500);
+  },
+});
+
 // ── Direct mode header badge ─────────────────────────────────────────────
 function updateDirectBadge() {
   document.getElementById('directBadge')?.classList.toggle('visible', currentMode === 'direct');
@@ -4121,6 +4160,20 @@ const SLASH_CMDS = [
       if (window.toast) toast('error', 'Wallet unavailable', e.message, 3000);
     }
   }},
+  // ── Session control ───────────────────────────────────────────
+  { cmd: '/pin',    icon: '📌',  desc: 'Pin or unpin the current session',           action: () => {
+    togglePin(currentSession); loadSessions();
+    const now = getPinned().has(currentSession);
+    if (window.toast) toast('success', now ? '📌 Session pinned' : '📌 Unpinned', now ? 'Appears at top of list' : 'Removed from pinned', 1800);
+  }},
+  { cmd: '/debug',  icon: '🔬',  desc: 'Show system diagnostics',                    action: async () => {
+    const sessions = document.querySelectorAll('.session-item[data-id]').length;
+    const model    = document.getElementById('modelLabel')?.textContent?.trim() || '?';
+    const health   = document.getElementById('healthText')?.textContent?.trim() || '?';
+    const msgs     = chatInner.querySelectorAll('.msg').length;
+    if (window.toast) toast('info', '🔬 Diagnostics', `${msgs} msgs · ${sessions} sessions · ${model} · ${health}`, 6000);
+  }},
+  { cmd: '/help',   icon: '❓',  desc: 'Open keyboard shortcuts & commands guide',   action: () => openShortcutsModal() },
 ];
 
 let _slashActive = false;
@@ -4195,7 +4248,7 @@ msgInput.addEventListener('keydown', (e) => {
     e.preventDefault();
     _slashFiltered[_slashIdx]?.action();
     hideSlashMenu();
-    if (!msgInput.value.startsWith('/remember') && !msgInput.value.startsWith('/forget') && !msgInput.value.startsWith('/plan')) {
+    if (!msgInput.value.trim()) {
       msgInput.value = '';
       msgInput.style.height = 'auto';
       sendBtn.disabled = true;
