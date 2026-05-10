@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { MetisClient, BriefingSummary, BriefingDetail } from '@/lib/metis-client';
 import { Mark } from '@/components/brand';
+import MarkdownView from '@/components/markdown-view';
 
 interface Props {
   client: MetisClient;
@@ -195,10 +196,8 @@ export default function BriefingPanel({ client, reduceMotion, onClose }: Props) 
                 </p>
               </div>
             ) : (
-              <article className="prose prose-invert prose-violet max-w-none text-[14px] leading-7 text-[var(--metis-fg)]">
-                <pre className="whitespace-pre-wrap rounded-xl border border-[var(--metis-border)] bg-[var(--metis-bg)] p-4 text-[13px] leading-6 text-[var(--metis-fg)]" style={{ fontFamily: 'inherit' }}>
-                  {detail.content}
-                </pre>
+              <article className="max-w-none text-[14px] leading-7">
+                <MarkdownView source={detail.content} />
               </article>
             )}
           </div>

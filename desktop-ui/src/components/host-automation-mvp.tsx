@@ -143,21 +143,24 @@ export default function HostAutomationMvp({ client }: { client: MetisClient }) {
               { label: 'Screenshot', action: 'screenshot' as const },
               { label: 'Close', action: 'close' as const },
             ] as const
-          ).map(({ label, action, accent }) => (
-            <button
-              key={action}
-              type="button"
-              disabled={bBusy}
-              onClick={() => void runBrowser(action)}
-              className={`rounded-lg border px-2 py-1 text-[11px] transition disabled:opacity-40 ${
-                accent
-                  ? 'border-violet-500/30 bg-violet-500/10 text-violet-200 hover:bg-violet-500/20'
-                  : 'border-[var(--metis-border)] bg-[var(--metis-bg)] text-[var(--metis-fg-muted)] hover:bg-[var(--metis-hover-surface)]'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
+          ).map(({ label, action, ...rest }) => {
+            const accent = 'accent' in rest && rest.accent;
+            return (
+              <button
+                key={action}
+                type="button"
+                disabled={bBusy}
+                onClick={() => void runBrowser(action)}
+                className={`rounded-lg border px-2 py-1 text-[11px] transition disabled:opacity-40 ${
+                  accent
+                    ? 'border-violet-500/30 bg-violet-500/10 text-violet-200 hover:bg-violet-500/20'
+                    : 'border-[var(--metis-border)] bg-[var(--metis-bg)] text-[var(--metis-fg-muted)] hover:bg-[var(--metis-hover-surface)]'
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
           {bBusy && <Loader2 className="h-3.5 w-3.5 animate-spin text-violet-400" aria-label="busy" />}
         </div>
         {bOut && (

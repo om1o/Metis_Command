@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Loader2,
@@ -22,6 +22,7 @@ import {
   PersistedMissionDetail,
 } from '@/lib/metis-client';
 import { Mark } from '@/components/brand';
+import MarkdownView from '@/components/markdown-view';
 
 interface Props {
   client: MetisClient;
@@ -66,6 +67,16 @@ const STATUS_COLOR: Record<string, string> = {
   stopped: 'text-slate-300 border-slate-500/30 bg-slate-500/10',
 };
 
+type StatusFilter = 'all' | 'running' | 'success' | 'failed' | 'pending' | 'stopped';
+
+const FILTER_TABS: { id: StatusFilter; label: string }[] = [
+  { id: 'all',     label: 'All' },
+  { id: 'running', label: 'Running' },
+  { id: 'success', label: 'Done' },
+  { id: 'failed',  label: 'Failed' },
+  { id: 'pending', label: 'Pending' },
+];
+
 export default function MissionsPanel({ client, reduceMotion, onClose }: Props) {
   const [items, setItems] = useState<PersistedMission[] | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -74,6 +85,7 @@ export default function MissionsPanel({ client, reduceMotion, onClose }: Props) 
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [filterStatus, setFilterStatus] = useState<StatusFilter>('all');
 
   const refresh = useCallback(async () => {
     setLoadingList(true);
@@ -153,6 +165,16 @@ export default function MissionsPanel({ client, reduceMotion, onClose }: Props) 
 
   const canResume = (s: string): boolean => s === 'paused' || s === 'failed' || s === 'stopped';
 
+  const filteredItems = useMemo(() => {
+    if (!items) return null;
+    if (filterStatus === 'all') return items;
+    return items.filter((m) => {
+      const s = m.status || 'pending';
+      if (filterStatus === 'failed') return s === 'failed' || s === 'stopped';
+      return s === filterStatus;
+    });
+  }, [items, filterStatus]);
+
   return (
     <div
       className="fixed inset-0 z-[120] flex items-center justify-center p-4"
@@ -175,6 +197,32 @@ export default function MissionsPanel({ client, reduceMotion, onClose }: Props) 
           <span className="ml-2 inline-flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[10px] uppercase tracking-widest text-violet-300">
             <Workflow className="h-3 w-3" /> {(items || []).length}
           </span>
+          {/* Status filter tabs */}
+          <div className="ml-3 hidden items-center gap-0.5 rounded-full border border-[var(--metis-border)] bg-[var(--metis-bg)] p-0.5 sm:inline-flex">
+            {FILTER_TABS.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setFilterStatus(tab.id)}
+                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] transition ${
+                  filterStatus === tab.id
+                    ? 'bg-violet-500/15 text-violet-200'
+                    : 'text-[var(--metis-fg-dim)] hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]'
+                }`}
+              >
+                {tab.label}
+                {tab.id !== 'all' && items && (
+                  <span className="tabular-nums text-[9px] opacity-70">
+                    {items.filter((m) => {
+                      const s = m.status || 'pending';
+                      if (tab.id === 'failed') return s === 'failed' || s === 'stopped';
+                      return s === tab.id;
+                    }).length}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
           <button
             type="button"
             onClick={refresh}
@@ -193,17 +241,19 @@ export default function MissionsPanel({ client, reduceMotion, onClose }: Props) 
         <div className="grid h-[calc(85vh-56px)] grid-cols-[300px_1fr]">
           {/* Mission list */}
           <div className="overflow-y-auto border-r border-[var(--metis-border)] py-2">
-            {!items ? (
+            {!filteredItems ? (
               <div className="flex items-center gap-2 px-4 py-6 text-[12.5px] text-[var(--metis-fg-muted)]">
                 <Loader2 className="h-4 w-4 animate-spin text-violet-400" /> Loading…
               </div>
-            ) : items.length === 0 ? (
+            ) : filteredItems.length === 0 ? (
               <div className="mx-3 mt-2 rounded-xl border border-dashed border-[var(--metis-border)] p-3 text-[11.5px] text-[var(--metis-fg-dim)]">
-                No missions yet. Autonomous missions kicked off via the chat or schedules will show up here.
+                {filterStatus === 'all'
+                  ? 'No missions yet. Autonomous missions kicked off via the chat or schedules will show up here.'
+                  : `No ${filterStatus} missions.`}
               </div>
             ) : (
               <ul className="grid gap-0.5">
-                {items.map((m) => {
+                {filteredItems.map((m) => {
                   const sel = activeId === m.id;
                   const status = m.status || 'pending';
                   const dur = fmtDuration(m.started_at, m.ended_at);
@@ -300,8 +350,10 @@ export default function MissionsPanel({ client, reduceMotion, onClose }: Props) 
                 {/* Final answer */}
                 {detail.final_answer ? (
                   <div className="rounded-xl border border-[var(--metis-border)] bg-[var(--metis-bg)] px-4 py-3">
-                    <div className="text-[11px] uppercase tracking-widest text-[var(--metis-fg-dim)]">Answer</div>
-                    <div className="mt-1 whitespace-pre-wrap text-[13.5px] leading-6 text-[var(--metis-fg)]">{detail.final_answer}</div>
+                    <div className="mb-2 text-[11px] uppercase tracking-widest text-[var(--metis-fg-dim)]">Answer</div>
+                    <div className="text-[13.5px]">
+                      <MarkdownView source={detail.final_answer} />
+                    </div>
                   </div>
                 ) : null}
 
