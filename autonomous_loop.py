@@ -451,6 +451,14 @@ def run_mission(
                 cancel=cancel,
                 session_id=session_id,
             )
+            # MVP 23: live viewport — fire a screenshot/live_artifact
+            # event the moment a vision tool produces an image, so the
+            # UI can show what the agent is seeing in real time.
+            if step.ok:
+                _maybe_emit_live_artifact(
+                    on_event, step.observation,
+                    step_index=step.index, tool=step.tool,
+                )
             _emit(on_event, {"type": "step_end", "step": step.index,
                              "ok": step.ok, "tool": step.tool,
                              "duration_ms": step.duration_ms,
@@ -611,6 +619,12 @@ def resume_mission(
                 auto_approve=auto_approve, on_event=on_event,
                 cancel=cancel, session_id=session_id,
             )
+            # MVP 23: live viewport for resumed missions too.
+            if step.ok:
+                _maybe_emit_live_artifact(
+                    on_event, step.observation,
+                    step_index=step.index, tool=step.tool,
+                )
         _emit(on_event, {"type": "step_end", "step": step.index,
                          "ok": step.ok, "tool": step.tool,
                          "duration_ms": step.duration_ms,
@@ -928,5 +942,84 @@ def _emit(on_event: Callable[[dict], None] | None, payload: dict) -> None:
         return
     try:
         on_event(payload)
+    except Exception:
+        pass
+
+
+# MVP 23: live agent viewport. After every tool call, if the
+# observation is an image artifact (screenshot, browser_screenshot,
+# vision-driven captures) we encode the image as base64 + emit a
+# `live_artifact` event so the UI can show what the agent just saw.
+# Capped at 200KB on-wire so a long mission doesn't blow up the SSE
+# connection — a screenshot bigger than that gets a path-only stub
+# (the UI can fetch via /artifacts/{id} on demand).
+
+_LIVE_ARTIFACT_BYTE_CAP = 200_000
+
+
+def _maybe_emit_live_artifact(
+    on_event: Callable[[dict], None] | None,
+    observation: Any,
+    *,
+    step_index: int,
+    tool: str,
+) -> None:
+    """If observation is an image artifact, fire a live_artifact event.
+
+    Best-effort and silent — never raises into the mission loop.
+    Accepts: an Artifact dataclass, a dict shaped like one, or a raw
+    path string ending in a known image extension.
+    """
+    if on_event is None or observation is None:
+        return
+    try:
+        from pathlib import Path as _P
+        # Tolerate dataclass, dict, or raw path.
+        path: str | None = None
+        atype: str | None = None
+        title: str | None = None
+        aid: str | None = None
+        if hasattr(observation, "type") and hasattr(observation, "path"):
+            atype = getattr(observation, "type", None)
+            path  = getattr(observation, "path", None)
+            title = getattr(observation, "title", None)
+            aid   = getattr(observation, "id", None)
+        elif isinstance(observation, dict):
+            atype = observation.get("type")
+            path  = observation.get("path") or observation.get("saved_to")
+            title = observation.get("title")
+            aid   = observation.get("id")
+        elif isinstance(observation, str) and observation.lower().endswith((".png", ".jpg", ".jpeg")):
+            path = observation
+
+        if not path:
+            return
+        p = _P(path)
+        if not p.exists():
+            return
+        # Only emit for image-shaped observations.
+        is_image = (atype == "image") or p.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}
+        if not is_image:
+            return
+        size = p.stat().st_size
+        payload: dict[str, Any] = {
+            "type":       "live_artifact",
+            "kind":       "image",
+            "path":       str(p),
+            "title":      title or p.name,
+            "tool":       tool,
+            "step":       step_index,
+            "byte_size":  size,
+        }
+        if aid:
+            payload["artifact_id"] = aid
+        if size <= _LIVE_ARTIFACT_BYTE_CAP:
+            import base64 as _b64
+            mime = "image/png" if p.suffix.lower() == ".png" else "image/jpeg"
+            payload["image_b64"] = f"data:{mime};base64," + _b64.b64encode(p.read_bytes()).decode("ascii")
+        try:
+            on_event(payload)
+        except Exception:
+            pass
     except Exception:
         pass

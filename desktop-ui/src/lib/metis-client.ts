@@ -111,7 +111,9 @@ export interface StreamEvent {
     | 'plan'
     | 'replan'
     | 'finish'
-    | 'cancelled';
+    | 'cancelled'
+    // MVP 23 — live agent viewport
+    | 'live_artifact';
   delta?: string;
   duration_ms?: number;
   tokens?: number;

@@ -113,6 +113,18 @@ interface Message {
     duration_ms?: number;
     status: 'running' | 'done' | 'failed';
   }>;
+  // MVP 23 — live agent viewport: screenshots / browser captures the
+  // agent took during the mission, newest-last. Image is a data: URI
+  // (already base64 from the bridge); path is the on-disk artifact.
+  liveShots?: Array<{
+    step?: number;
+    tool?: string;
+    title?: string;
+    image?: string;          // data:image/...;base64,...
+    path?: string;
+    artifactId?: string;
+    ts: number;
+  }>;
 }
 
 interface Session {
@@ -1050,6 +1062,23 @@ export default function App() {
             setSessions((all) => all.map((s) => s.id === sId ? {
               ...s, messages: s.messages.map((m) => m.id === agentMsg.id
                 ? { ...m, content: acc, missionStatus: 'success' }
+                : m),
+            } : s));
+          } else if ((ev.type as string) === 'live_artifact' && isAutoRun) {
+            // MVP 23: agent just produced a screenshot / browser capture.
+            // Append to liveShots so the bubble can render the thumbnail strip.
+            const shot = {
+              step:       typeof ev.step === 'number' ? ev.step : undefined,
+              tool:       typeof ev.tool === 'string' ? ev.tool : undefined,
+              title:      typeof ev.title === 'string' ? ev.title : undefined,
+              image:      typeof ev.image_b64 === 'string' ? ev.image_b64 : undefined,
+              path:       typeof ev.path === 'string' ? ev.path : undefined,
+              artifactId: typeof ev.artifact_id === 'string' ? ev.artifact_id : undefined,
+              ts:         Date.now(),
+            };
+            setSessions((all) => all.map((s) => s.id === sId ? {
+              ...s, messages: s.messages.map((m) => m.id === agentMsg.id
+                ? { ...m, liveShots: [...(m.liveShots || []), shot].slice(-12) }
                 : m),
             } : s));
           } else if (ev.type === 'mission_end' && isAutoRun) {
@@ -2077,6 +2106,8 @@ function MessageBubble({
   const isUser = msg.role === 'user';
   const liveAgent = !isUser && streaming && isLast;
   const [expanded, setExpanded] = useState(false);
+  // MVP 23: lightbox state for full-size view of a live screenshot.
+  const [lightboxShot, setLightboxShot] = useState<string | null>(null);
   // Threshold: expand button appears when content exceeds ~1200 chars.
   const isLong = !liveAgent && msg.content.length > 1200;
   const motionProps = {
@@ -2193,6 +2224,57 @@ function MessageBubble({
             <FileText className="h-3 w-3" />
             Saved <span className="font-medium">{msg.savedArtifact.title}</span>
           </button>
+        )}
+        {/* MVP 23 — live agent viewport: thumbnail strip of screenshots */}
+        {(msg.liveShots && msg.liveShots.length > 0) && (
+          <div className="mt-2 flex flex-wrap items-start gap-1.5">
+            {msg.liveShots.map((shot, i) => {
+              const src = shot.image; // data: URI
+              if (!src) {
+                return (
+                  <div key={i} className="flex h-16 w-24 items-center justify-center rounded-md border border-[var(--metis-border)] bg-[var(--metis-bg)] text-[10px] text-[var(--metis-fg-dim)]">
+                    {shot.tool || 'shot'}
+                  </div>
+                );
+              }
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setLightboxShot(src)}
+                  className="group relative overflow-hidden rounded-md border border-[var(--metis-border)] transition hover:border-violet-500/60 focus:outline-none focus:ring-2 focus:ring-violet-500/40"
+                  title={`Step ${shot.step ?? '?'} · ${shot.tool ?? 'capture'}`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={src}
+                    alt={shot.title || shot.tool || 'live capture'}
+                    className="h-16 w-24 object-cover"
+                  />
+                  {shot.step !== undefined && (
+                    <span className="absolute left-1 top-1 rounded bg-black/60 px-1 text-[9px] font-bold text-white">
+                      {shot.step}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {/* MVP 23 — lightbox */}
+        {lightboxShot && (
+          <div
+            className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+            onClick={() => setLightboxShot(null)}
+            style={{ background: 'rgba(0,0,0,0.85)' }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={lightboxShot}
+              alt="agent capture full size"
+              className="max-h-[92vh] max-w-[92vw] rounded-lg shadow-2xl"
+            />
+          </div>
         )}
         {/* MVP 22 — autonomous mission step trail */}
         {(msg.missionSteps && msg.missionSteps.length > 0) && (
