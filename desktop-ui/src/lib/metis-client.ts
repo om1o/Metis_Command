@@ -340,7 +340,28 @@ export interface AnalyticsSummary {
   wallet: { spent_cents: number; cap_cents: number };
 }
 
-// ── Client ──────────────────────────────────────────────────────────────────
+// ── Host automation MVP (authenticated) ───────────────────────────────────────
+
+export type AutomationBrowserAction =
+  | 'start'
+  | 'goto'
+  | 'snapshot'
+  | 'click'
+  | 'fill'
+  | 'extract'
+  | 'screenshot'
+  | 'close';
+
+export interface AutomationBrowserInput {
+  action: AutomationBrowserAction;
+  url?: string;
+  target?: string;
+  value?: string;
+  by_text?: boolean;
+  selector?: string | null;
+  full_page?: boolean;
+  headless?: boolean;
+}
 
 export class MetisClient {
   private baseUrl: string;
@@ -401,6 +422,51 @@ export class MetisClient {
 
   async setManagerConfig(updates: Partial<ManagerConfig>): Promise<{ config: ManagerConfig; is_configured: boolean }> {
     return this.post('/manager/config', updates);
+  }
+
+  /** Playwright-backed browser automation (bundled chromium). Same safety rules as ``tools.browser_agent``. */
+  async automationBrowser(input: AutomationBrowserInput): Promise<unknown> {
+    const res = await fetch(`${this.baseUrl}/automation/browser`, {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) {
+      let detail = '';
+      try {
+        const j = (await res.json()) as unknown;
+        detail = typeof j === 'object' && j && 'detail' in j ? JSON.stringify(j) : res.statusText;
+      } catch {
+        detail = res.statusText;
+      }
+      throw new Error(`Metis automation/browser: ${res.status} ${detail}`);
+    }
+    return res.json();
+  }
+
+  /** Allow-listed shell. First call usually returns `{ confirm_required }` via HTTP **428**. */
+  async automationShell(input: {
+    cmd: string;
+    cwd?: string | null;
+    confirm_token?: string | null;
+  }): Promise<unknown> {
+    const res = await fetch(`${this.baseUrl}/automation/shell`, {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify({
+        cmd: input.cmd,
+        cwd: input.cwd || null,
+        confirm_token: input.confirm_token || null,
+      }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (res.ok || res.status === 428) {
+      return body;
+    }
+    const msg = typeof body === 'object' && body && 'detail' in body
+      ? JSON.stringify((body as { detail: unknown }).detail)
+      : res.statusText;
+    throw new Error(`Metis automation/shell: ${res.status} ${msg}`);
   }
 
   // ── Streaming chat (SSE) ────────────────────────────────────────────────

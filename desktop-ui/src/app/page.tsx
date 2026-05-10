@@ -47,7 +47,11 @@ import {
   Search,
   Mic,
   MicOff,
+  HelpCircle,
+  MessageCircle,
+  Scale,
   Paperclip,
+  Terminal,
 } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { createLocalClient, MetisClient, AuthUser, Schedule, Artifact, RunMode, RunPermission, SessionMessage, SessionSearchResult } from '@/lib/metis-client';
@@ -59,6 +63,7 @@ import RelationshipsPanel from '@/components/relationships-panel';
 import InboxPanel from '@/components/inbox-panel';
 import ConnectionsPanel from '@/components/connections-panel';
 import MemoryPanel from '@/components/memory-panel';
+import HostAutomationMvp from '@/components/host-automation-mvp';
 import ReportsPanel from '@/components/reports-panel';
 import AnalyticsPanel from '@/components/analytics-panel';
 import type { SystemHealth } from '@/lib/metis-client';
@@ -134,6 +139,33 @@ const SUGGESTIONS: { icon: typeof Mail; label: string; prompt: string }[] = [
   { icon: Globe,    label: 'Research a topic',    prompt: 'Research the top 3 trends in AI agents this week and produce a one-page brief with sources.' },
   { icon: Calendar, label: 'Plan my week',        prompt: 'Look at my calendar and to-do list. Draft a focused weekly plan that protects deep-work time.' },
   { icon: Code,     label: 'Build a small tool',  prompt: 'Build a small Python script that watches my Downloads folder and auto-organizes files by type.' },
+];
+
+const QUESTION_STARTERS: { icon: typeof Mail; label: string; prompt: string }[] = [
+  {
+    icon: HelpCircle,
+    label: 'Clarify before you answer',
+    prompt:
+      'Before you answer my next message: ask me up to 5 short, specific questions until you are sure what "done" looks like. Wait for my answers, then help me.',
+  },
+  {
+    icon: MessageCircle,
+    label: 'Stress-test my idea',
+    prompt:
+      'I will describe a decision or idea in my next message. Your job is to poke holes lovingly: assumptions, blind spots, and what evidence would falsify my take. Finish with two better questions I should answer.',
+  },
+  {
+    icon: Brain,
+    label: 'Teach me, then quiz',
+    prompt:
+      'Explain the topic from my next message for a curious beginner — use a crisp outline + one concrete analogy. End with exactly 3 quick questions that check whether I understood; wait for my answers and correct misconceptions.',
+  },
+  {
+    icon: Scale,
+    label: 'Frame a tough decision',
+    prompt:
+      'Help me decide the tradeoff described in my next message. Lay out objectives, constraints, options, then score them with pros/cons you would bet on — and spell out what new information would most change your mind.',
+  },
 ];
 
 // ── Utility ────────────────────────────────────────────────────────────────
@@ -466,6 +498,7 @@ export default function App() {
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
+  const [automationOpen, setAutomationOpen] = useState(false);
   const [health, setHealth] = useState<SystemHealth | null>(null);
   const [activeArtifactId, setActiveArtifactId] = useState<string | null>(null);
   const [reportArtifact, setReportArtifact] = useState<Artifact | null>(null);
@@ -756,6 +789,7 @@ export default function App() {
       else if (k === 'p')   { e.preventDefault(); setReportsOpen((v) => !v); }
       else if (k === 'a')   { e.preventDefault(); setAnalyticsOpen((v) => !v); }
       else if (k === 'g')   { e.preventDefault(); setConnectionsOpen((v) => !v); }
+      else if (k === 't')   { e.preventDefault(); setAutomationOpen((v) => !v); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -1211,6 +1245,16 @@ export default function App() {
             </button>
             <button
               type="button"
+              onClick={() => setAutomationOpen(true)}
+              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] text-[var(--metis-fg-muted)] transition hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]"
+              title="Automation (⌘T)"
+            >
+              <Terminal className="h-4 w-4 shrink-0 text-emerald-400" />
+              <span>Automation</span>
+              <span className="ml-auto text-[10px] text-[var(--metis-fg-dim)]">⌘T</span>
+            </button>
+            <button
+              type="button"
               onClick={() => setConnectionsOpen(true)}
               className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] text-[var(--metis-fg-muted)] transition hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]"
               title="Connections (⌘G)"
@@ -1296,6 +1340,15 @@ export default function App() {
                 title="Analytics (⌘A)"
               >
                 <BarChart3 className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setAutomationOpen(true)}
+                className="metis-icon-btn"
+                aria-label="Automation"
+                title="Automation (⌘T)"
+              >
+                <Terminal className="h-4 w-4" />
               </button>
             </>
           )}
@@ -1421,7 +1474,7 @@ export default function App() {
                 t.style.height = `${Math.min(t.scrollHeight, 220)}px`;
               }}
               onKeyDown={onComposerKey}
-              placeholder={mode === 'job' ? 'Schedule a job — e.g. \'check my stocks every weekday morning\'' : 'Ask your agent to do something…'}
+              placeholder={mode === 'job' ? 'Schedule a job — e.g. \'check my stocks every weekday morning\'' : 'Ask plainly, or paste context first — coaching tip: \'before you answer, ask me 3 clarifying questions\''}
               disabled={!client}
               className="max-h-[220px] min-h-[44px] w-full resize-none bg-transparent px-3 py-3 text-[14.5px] text-[var(--metis-foreground)] placeholder:text-[var(--metis-fg-dim)] outline-none"
               aria-label="Message"
@@ -1740,6 +1793,17 @@ export default function App() {
         )}
       </AnimatePresence>
 
+      {/* Automation — browser + shell panel */}
+      <AnimatePresence>
+        {automationOpen && client && (
+          <AutomationPanel
+            client={client}
+            reduceMotion={!!reduceMotion}
+            onClose={() => setAutomationOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Settings */}
       <AnimatePresence>
         {settingsOpen && client && (
@@ -1799,6 +1863,32 @@ function EmptyHero({ onPick }: { onPick: (s: string) => void }) {
                 <p className="mt-1 line-clamp-2 text-xs text-[var(--metis-sugg-muted)]">{prompt}</p>
               </div>
               <ArrowRight className="mt-1 h-4 w-4 text-[var(--metis-fg-dim)] opacity-0 transition group-hover:translate-x-0.5 group-hover:opacity-100" />
+            </button>
+          ))}
+        </div>
+        <p className="mt-10 text-[11px] font-medium uppercase tracking-[0.16em] text-[var(--metis-fg-dim)]">
+          Ask better questions — sharper answers
+        </p>
+        <p className="mt-1 max-w-xl text-[13px] text-[var(--metis-fg-muted)]">
+          Coaching-style prompts wake up reasoning: clarify intent, expose blind spots, and force the model to engage instead of waffle.
+        </p>
+        <div className="mt-4 grid gap-2.5 sm:grid-cols-2 sm:gap-3">
+          {QUESTION_STARTERS.map(({ icon: Icon, label, prompt }) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => onPick(prompt)}
+              suppressHydrationWarning
+              className="group relative flex items-start gap-3 rounded-2xl border border-[var(--metis-border)] bg-[var(--metis-bg)]/70 p-3.5 text-left transition hover:border-violet-400/35 hover:bg-[var(--metis-hover-surface)]"
+            >
+              <span className="rounded-lg border border-[var(--metis-border)] bg-[var(--metis-elevated)] p-2 text-amber-300/90">
+                <Icon className="h-4 w-4" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="text-[13px] font-medium text-[var(--metis-fg)] group-hover:text-violet-200">{label}</div>
+                <p className="mt-1 line-clamp-2 text-xs text-[var(--metis-fg-dim)]">{prompt}</p>
+              </div>
+              <ArrowRight className="mt-1 h-4 w-4 text-[var(--metis-fg-dim)] opacity-0 transition group-hover:translate-x-0.5 group-hover:opacity-70" />
             </button>
           ))}
         </div>
@@ -2293,6 +2383,9 @@ function SettingsBody({
         )}
       </div>
 
+      {/* Local browser + guarded shell MVP */}
+      <HostAutomationMvp client={client} />
+
       {/* Connections quick-link */}
       <button
         type="button"
@@ -2328,6 +2421,7 @@ function SettingsBody({
             ['Memory',            '⌘ M'],
             ['Reports',           '⌘ P'],
             ['Analytics',         '⌘ A'],
+            ['Automation',        '⌘ T'],
             ['Settings',          '⌘ ,'],
           ].map(([a, b]) => (
             <div key={a} className="flex items-center justify-between gap-4">

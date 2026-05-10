@@ -13,16 +13,17 @@ import os
 import uuid
 from typing import Any
 
-from dotenv import load_dotenv
-load_dotenv()
+from metis_env import load_metis_env  # noqa: E402
 
-# noqa-block: imports below intentionally come AFTER load_dotenv() so any
+load_metis_env()
+
+# noqa-block: imports below intentionally come AFTER load_metis_env() so any
 # settings read at module load time pick up values from .env.
 from pathlib import Path  # noqa: E402
 
 from fastapi import FastAPI, HTTPException, Query, Request  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
-from fastapi.responses import Response, StreamingResponse, FileResponse, RedirectResponse  # noqa: E402
+from fastapi.responses import Response, StreamingResponse, FileResponse, RedirectResponse, JSONResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 from pydantic import BaseModel, Field  # noqa: E402
 
@@ -252,6 +253,28 @@ class ForgeRequest(BaseModel):
     goal: str
 
 
+class AutomationBrowserRequest(BaseModel):
+    """MVP automation — maps to ``tools.browser_agent`` (Playwright Chromium)."""
+
+    action: str = Field(
+        "snapshot",
+        description="One of: start, goto, snapshot, click, fill, extract, screenshot, close",
+    )
+    url: str = ""
+    target: str = ""
+    value: str = ""
+    by_text: bool = False
+    selector: str | None = None
+    full_page: bool = False
+    headless: bool = True
+
+
+class AutomationShellRequest(BaseModel):
+    """Allow-listed shell commands with human confirm (first call → 428 + token)."""
+
+    cmd: str = Field(..., min_length=1)
+    cwd: str | None = None
+    confirm_token: str | None = Field(None, description="Token from HTTP 428 on the first POST")
 # ── Health + meta ────────────────────────────────────────────────────────────
 
 @app.get("/")
@@ -289,18 +312,27 @@ def system_health() -> dict:
     except Exception as e:
         out["ollama"] = {"ok": False, "reason": f"unreachable: {e}"}
 
+    # Use the same base URLs + model defaults as `providers/groq` and `providers/glm`.
+    # (Previously GLM was hard-probed against api.z.ai while chat + .env defaulted to
+    # open.bigmodel.cn — keys valid on one host always failed health on the other.)
+    from providers import groq as _groq_pv
+    from providers import glm as _glm_pv
+
     def _probe_cloud(name: str, env_key: str, url: str, model: str) -> dict:
         key = (os.getenv(env_key) or "").strip()
         if not key:
-            return {"ok": False, "reason": "no key in .env",
-                    "fix": f"Set {env_key}=<your-key> in .env and restart the bridge."}
+            from metis_env import provider_key_hint
+
+            return provider_key_hint(env_key)
         try:
             import requests as _req
             r = _req.post(url,
                 headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-                json={"model": model, "max_tokens": 1, "stream": False,
-                      "messages": [{"role": "user", "content": "hi"}]},
-                timeout=8)
+                # Tiny completions can confuse some gateways; keep this a normal micro-reply.
+                json={"model": model, "max_tokens": 32, "stream": False,
+                      "temperature": 0,
+                      "messages": [{"role": "user", "content": "Reply with OK."}]},
+                timeout=15)
             if r.ok:
                 return {"ok": True, "model": model}
             try:
@@ -308,25 +340,91 @@ def system_health() -> dict:
                 msg = detail.get("message") if isinstance(detail, dict) else str(detail)
             except Exception:
                 msg = r.text[:200]
-            return {"ok": False, "reason": f"HTTP {r.status_code}: {msg or 'unknown'}"}
+            base_hint = ""
+            if name == "glm":
+                base_hint = " Check GLM_BASE matches your console (China: open.bigmodel.cn; international: api.z.ai)."
+            elif name == "groq":
+                base_hint = " Check GROQ_MODEL is a current Groq model id."
+            return {
+                "ok": False,
+                "reason": f"HTTP {r.status_code}: {msg or 'unknown'}{base_hint}",
+            }
         except Exception as e:
             return {"ok": False, "reason": f"unreachable: {e}"}
 
-    out["groq"] = _probe_cloud(
-        "groq", "GROQ_API_KEY",
-        "https://api.groq.com/openai/v1/chat/completions",
-        os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
-    )
-    out["glm"] = _probe_cloud(
+    def _probe_groq() -> dict:
+        """Groq validates API keys cleanly via GET /v1/models; chat probes can falsely
+        fail when GROQ_MODEL is wrong even though the key is good.
+        """
+        dest = {"destination": _groq_pv.base_url()}
+        key = (os.getenv("GROQ_API_KEY") or "").strip()
+        model = (os.getenv("GROQ_MODEL") or "").strip() or _groq_pv.default_model()
+        if not key:
+            from metis_env import provider_key_hint
+
+            return {**provider_key_hint("GROQ_API_KEY"), **dest}
+        try:
+            import requests as _req
+            base = _groq_pv.base_url()
+            rm = _req.get(
+                f"{base}/models",
+                headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+                timeout=18,
+            )
+            if rm.status_code == 200:
+                j = rm.json()
+                mc = len((j or {}).get("data")) if isinstance(j, dict) and isinstance(j.get("data"), list) else 0
+                return {"ok": True, "model": model, "models": mc, **dest}
+            try:
+                detail = rm.json().get("error", {})
+                msg = detail.get("message") if isinstance(detail, dict) else str(detail)
+            except Exception:
+                msg = rm.text[:200]
+            if rm.status_code in (401, 403):
+                return {
+                    "ok": False,
+                    "reason": f"HTTP {rm.status_code}: invalid or revoked key — {msg or 'unknown'}",
+                    **dest,
+                }
+            # Unexpected status — fall back to a tiny completion in case GET is blocked locally.
+            fb = _probe_cloud("groq", "GROQ_API_KEY", f"{base}/chat/completions", model)
+            if fb.get("ok"):
+                return {**fb, **dest}
+            return {
+                "ok": False,
+                "reason": f"HTTP {rm.status_code} on GET /models: {msg or 'unknown'}; chat probe: {(fb.get('reason') or '')}",
+                **dest,
+            }
+        except Exception as e_get:
+            base = _groq_pv.base_url()
+            fb = _probe_cloud("groq", "GROQ_API_KEY", f"{base}/chat/completions", model)
+            if fb.get("ok"):
+                return {**fb, **dest}
+            return {
+                "ok": False,
+                "reason": f"GET /models failed ({e_get}); chat probe: {fb.get('reason', 'failed')}",
+                **dest,
+            }
+
+    _glm_model = (os.getenv("GLM_MODEL") or "").strip() or _glm_pv.default_model()
+
+    out["groq"] = _probe_groq()
+
+    glm_health = _probe_cloud(
         "glm", "GLM_API_KEY",
-        "https://api.z.ai/api/paas/v4/chat/completions",
-        os.getenv("GLM_MODEL", "glm-4.6"),
+        f"{_glm_pv.base_url()}/chat/completions",
+        _glm_model,
     )
-    out["openai"] = _probe_cloud(
+    glm_health["destination"] = _glm_pv.base_url()
+    out["glm"] = glm_health
+    _openai_url = "https://api.openai.com/v1/chat/completions"
+    openai_health = _probe_cloud(
         "openai", "OPENAI_API_KEY",
-        "https://api.openai.com/v1/chat/completions",
+        _openai_url,
         os.getenv("OPENAI_MODEL_NAME", "gpt-4o-mini"),
     )
+    openai_health["destination"] = "https://api.openai.com/v1"
+    out["openai"] = openai_health
 
     # Twilio + SMTP — we can't fully probe without sending, but we can
     # confirm credentials are present.
@@ -423,6 +521,95 @@ def status() -> dict:
         "brain":   brain_stats,
         "mission_pool": pool_stats,
     }
+
+
+# ── Automation MVP (browser session + guarded shell; authenticated callers only) ─
+
+_AUTOMATION_BROWSER_ACTIONS = frozenset({"start", "goto", "snapshot", "click", "fill", "extract", "screenshot", "close"})
+
+
+@app.post("/automation/browser")
+def automation_browser(req: AutomationBrowserRequest) -> dict[str, Any]:
+    """Operate the bundled Playwright driver (see ``tools/browser_agent.py``).
+
+    Localhost URLs are blocked unless METIS_BROWSER_ALLOW_LOCALHOST=1 — same rule as agents.
+    """
+    act = (req.action or "").strip().lower()
+    if act not in _AUTOMATION_BROWSER_ACTIONS:
+        raise HTTPException(status_code=400, detail=f"unsupported action '{req.action}'")
+
+    import tools.browser_agent as ba
+
+    try:
+        if act == "start":
+            return ba.start(headless=req.headless)
+        if act == "goto":
+            url = req.url.strip()
+            if not url:
+                raise HTTPException(status_code=400, detail="url is required for goto")
+            return ba.goto(url)
+        if act == "snapshot":
+            cap = min(32000, max(512, int(os.getenv("METIS_BROWSER_SNAPSHOT_CHARS", "6000"))))
+            return ba.snapshot_meta(max_chars=cap)
+        if act == "click":
+            t = req.target.strip()
+            if not t:
+                raise HTTPException(status_code=400, detail="target is required for click")
+            return ba.click(t, by_text=bool(req.by_text))
+        if act == "fill":
+            sel = req.target.strip()
+            if not sel:
+                raise HTTPException(status_code=400, detail="target (CSS selector) is required for fill")
+            return ba.fill(sel, req.value)
+        if act == "extract":
+            return ba.extract(req.selector)
+        if act == "screenshot":
+            art = ba.screenshot(full_page=req.full_page)
+            return {"ok": True, "artifact": art.to_dict()}
+        if act == "close":
+            return ba.close()
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/automation/shell")
+def automation_shell(req: AutomationShellRequest) -> Any:
+    """Run exactly one shell string through ``tools.shell`` allowlist.
+
+    Without ``confirm_token`` the first POST returns **428** with a short-lived approval token so
+    a UI can show the command before it executes.
+    """
+    from safety import ConfirmRequired
+    from tools.shell import ShellBlocked, run as shell_run
+
+    cwd = req.cwd.strip() if (req.cwd and req.cwd.strip()) else None
+
+    try:
+        return shell_run(
+            req.cmd.strip(),
+            cwd=cwd,
+            confirm=True,
+            confirm_token=(req.confirm_token.strip() if req.confirm_token else None),
+        )
+    except ShellBlocked as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except ConfirmRequired as e:
+        tok = e.args[0] if getattr(e, "args", ()) else ""
+        return JSONResponse(
+            status_code=428,
+            content={
+                "ok": False,
+                "confirm_required": True,
+                "confirm_token": str(tok),
+                "command": req.cmd.strip(),
+                "ttl_hint_s": float(os.getenv("METIS_CONFIRM_TTL_S", "300")),
+                "instruction": 'POST again with the same cmd and Body field "confirm_token".',
+            },
+        )
 
 
 # ── Streaming chat ───────────────────────────────────────────────────────────

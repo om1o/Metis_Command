@@ -40,6 +40,16 @@ BLOCK_HOSTS = {
 
 BLOCK_SCHEMES = {"file", "chrome", "chrome-extension"}
 
+
+def _block_hosts_active() -> set[str]:
+    """Localhost is blocked by default so agents cannot silently drive loopback admins.
+    Set METIS_BROWSER_ALLOW_LOCALHOST=1 to allow automation against 127.0.0.1 (e.g. your own Dev UI).
+    """
+    blocked = set(BLOCK_HOSTS)
+    if os.getenv("METIS_BROWSER_ALLOW_LOCALHOST", "").strip().lower() in {"1", "true", "yes", "on"}:
+        blocked -= {"localhost", "127.0.0.1"}
+    return blocked
+
 SUBMIT_ALLOWLIST_HOSTS: set[str] = set()  # populated by user via allow_submit()
 
 SCREENSHOTS_DIR = Path("artifacts") / "browser"
@@ -55,7 +65,8 @@ def _check_url(url: str) -> None:
     if parsed.scheme in BLOCK_SCHEMES:
         raise PermissionError(f"Scheme blocked: {parsed.scheme}")
     host = (parsed.hostname or "").lower()
-    if any(host == b or host.endswith(f".{b}") for b in BLOCK_HOSTS):
+    blocked = _block_hosts_active()
+    if any(host == b or host.endswith(f".{b}") for b in blocked):
         raise PermissionError(f"Host blocked: {host}")
 
 
@@ -245,6 +256,13 @@ def fill(selector: str, value: str) -> dict[str, Any]:
 @audited("browser.extract")
 def extract(selector: str | None = None) -> dict[str, Any]:
     return browser.extract(selector)
+
+
+@audited("browser.snapshot_meta")
+def snapshot_meta(*, max_chars: int = 4000) -> dict[str, Any]:
+    """LLM-readable page sketch (interactive elements + text preview)."""
+    browser.start(headless=True)
+    return browser.snapshot(max_chars=max_chars)
 
 
 @audited("browser.screenshot")

@@ -1,10 +1,24 @@
 # Metis Command — 18-Phase Roadmap
 
-> Updated 2026-05-09 · v0.22.0 · 47 Python modules, 6 HTML pages, 4 JS files, 2680-line API bridge, 11 local Ollama models, 4 persistent agents running.
+> Updated 2026-05-09 · v0.23.0 · 48 Python modules, 6 HTML pages, 4 JS files, 2700-line API bridge, 11 local Ollama models, 4 persistent agents running.
 
 ---
 
-## Current State (v0.22.0)
+## Current State (v0.23.0)
+
+### Completed (v0.23.0)
+- ✅ Host Automation MVP — `POST /automation/browser` (Playwright Chromium: start, goto, snapshot, click, fill, extract, screenshot, close) + `POST /automation/shell` (allow-listed shell with 428 confirm-gate)
+- ✅ `AutomationPanel` — full-screen modal (⌘T) with Browser tab (URL nav, click, fill, extract) and Shell tab (allow-listed programs chip bar, stdout/stderr rendered separately, exit-code badge)
+- ✅ `HostAutomationMvp` — compact version embedded in Settings with click/fill/extract sub-panels and smart output rendering (renders text/title for snapshots, exit-code + stdout/stderr for shell)
+- ✅ `MetisClient.automationBrowser()` + `automationShell()` — typed TypeScript methods covering all actions
+- ✅ Sidebar "Automation" nav button (⌘T, collapsed icon) alongside Jobs/Inbox/Relationships
+- ✅ `METIS_BROWSER_ALLOW_LOCALHOST` env flag — safely allows automation against 127.0.0.1 dev servers
+- ✅ Connections panel now shows endpoint URL on cloud-provider failure for easier debugging
+- ✅ Version bumped to 0.23.0
+
+---
+
+## Previous State (v0.22.0)
 
 ### Completed (v0.22.0)
 - ✅ Projects / Workspaces — `projects.py` fully wired: `GET/POST /projects`, `GET/PATCH/DELETE /projects/{slug}`, `POST /projects/{slug}/activate`, `GET/DELETE /projects/active`
