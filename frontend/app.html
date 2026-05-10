@@ -39,10 +39,10 @@ body::before{content:"";position:fixed;inset:0;background:
 
 #mp-dot, #mp-ring, #mp-grain { display: none !important; }
 
-.layout{position:relative;z-index:1;display:grid;grid-template-columns:280px 1fr;height:100vh}
+.layout{position:relative;z-index:1;display:grid;grid-template-columns:280px 1fr;height:100vh;transition:grid-template-columns .28s cubic-bezier(.4,0,.2,1)}
 
 /* ── Sidebar ── */
-.side{background:rgba(7,7,26,.7);backdrop-filter:blur(20px);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.side{background:rgba(7,7,26,.7);backdrop-filter:blur(20px);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:opacity .25s,transform .28s cubic-bezier(.4,0,.2,1)}
 
 /* Sidebar header: stretched clickable wordmark + version pill */
 .side-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;min-height:64px}
@@ -544,6 +544,34 @@ pre:hover .code-copy{opacity:1}
 [data-theme="light"] .settings-panel{background:rgba(240,241,247,.98)}
 [data-theme="light"] .mission{background:rgba(245,246,250,.9)}
 
+/* Light theme — scrollbars */
+[data-theme="light"] .chat::-webkit-scrollbar-thumb,
+[data-theme="light"] .session-list::-webkit-scrollbar-thumb,
+[data-theme="light"] .palette-list::-webkit-scrollbar-thumb,
+[data-theme="light"] .model-menu::-webkit-scrollbar-thumb,
+[data-theme="light"] .input-dropdown::-webkit-scrollbar-thumb{background:rgba(0,0,0,.15)}
+[data-theme="light"] .chat::-webkit-scrollbar-thumb:hover,
+[data-theme="light"] .session-list::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,.25)}
+
+/* Light theme — code blocks */
+[data-theme="light"] .msg-bubble pre{background:rgba(0,0,0,.05);border:1px solid rgba(0,0,0,.08)}
+[data-theme="light"] .msg-bubble code{background:rgba(0,0,0,.07)}
+[data-theme="light"] .code-copy{background:rgba(0,0,0,.06);border-color:rgba(0,0,0,.12);color:rgba(15,15,32,.5)}
+[data-theme="light"] .code-copy:hover{background:rgba(0,0,0,.1);color:var(--text)}
+
+/* Light theme — slide-out panels */
+[data-theme="light"] .notif-panel,[data-theme="light"] .mktp-panel{background:rgba(240,241,247,.98)}
+[data-theme="light"] .tour-card{background:rgba(240,241,247,.97)}
+[data-theme="light"] .sched-modal{background:rgba(240,241,247,.98)}
+[data-theme="light"] .sched-field input,[data-theme="light"] .sched-field select,[data-theme="light"] .sched-field textarea{background:rgba(0,0,0,.05);border-color:rgba(0,0,0,.14);color:var(--text)}
+
+/* Light theme — misc UI */
+[data-theme="light"] .input-row{background:rgba(255,255,255,.9)}
+[data-theme="light"] .thinking-timer{background:linear-gradient(135deg,rgba(124,58,237,.08),rgba(124,58,237,.04));border-color:rgba(124,58,237,.18)}
+[data-theme="light"] .reasoning-toggle{background:rgba(124,58,237,.06);border-color:rgba(124,58,237,.14)}
+[data-theme="light"] .reasoning-body{background:rgba(124,58,237,.03);border-color:rgba(124,58,237,.1)}
+[data-theme="light"] .sidebar-overlay{background:rgba(220,221,230,.65)}
+
 /* ── Theme toggle button ── */
 .theme-toggle{background:transparent;border:none;color:var(--subtle);cursor:pointer;padding:7px;border-radius:7px;transition:all .15s;display:flex;align-items:center;justify-content:center;font-size:15px;line-height:1}
 .theme-toggle:hover{color:var(--text);background:var(--panel)}
@@ -803,7 +831,7 @@ pre:hover .code-copy{opacity:1}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.35.0</span>
+      <span class="ver" id="versionPill">v0.36.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -999,7 +1027,7 @@ pre:hover .code-copy{opacity:1}
         <div class="input-dropdown left" id="modeDropdown"></div>
         <!-- Model dropdown (upward) -->
         <div class="input-dropdown right" id="modelDropdown"></div>
-        <div class="input-hint"><kbd>&#x21B5;</kbd> send · <kbd>&#x21E7;&#x21B5;</kbd> newline · <kbd>&#x2318;K</kbd> palette</div>
+        <div class="input-hint" style="display:flex;justify-content:space-between;align-items:center"><span><kbd>&#x21B5;</kbd> send · <kbd>&#x21E7;&#x21B5;</kbd> newline · <kbd>&#x2318;K</kbd> palette</span><span id="wordCountBadge" style="display:none;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--subtle)"></span></div>
       </div>
     </div>
   </main>
@@ -1253,6 +1281,7 @@ pre:hover .code-copy{opacity:1}
           <div class="shortcut-row"><span class="s-desc">New conversation</span><span class="s-keys"><kbd>⌘</kbd><kbd>L</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Toggle sidebar</span><span class="s-keys"><kbd>⌘</kbd><kbd>B</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Toggle dark/light theme</span><span class="s-keys"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>T</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Export session as Markdown</span><span class="s-keys"><kbd>⌘</kbd><kbd>E</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">This cheat sheet</span><span class="s-keys"><kbd>⌘</kbd><kbd>/</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Previous session</span><span class="s-keys"><kbd>⌘</kbd><kbd>[</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Next session</span><span class="s-keys"><kbd>⌘</kbd><kbd>]</kbd></span></div>
@@ -1289,6 +1318,10 @@ pre:hover .code-copy{opacity:1}
           <div class="shortcut-row"><span class="s-desc">Proofread &amp; fix grammar</span><span class="s-keys"><kbd>/fix</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Translate text</span><span class="s-keys"><kbd>/translate</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Generate outline / TOC</span><span class="s-keys"><kbd>/outline</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Explain like I'm 5</span><span class="s-keys"><kbd>/eli5</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Rewrite clearly &amp; concisely</span><span class="s-keys"><kbd>/rewrite</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Format as markdown table</span><span class="s-keys"><kbd>/table</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">One-sentence summary</span><span class="s-keys"><kbd>/tldr</kbd></span></div>
         </div>
       </div>
       <div class="shortcuts-section">
@@ -1457,6 +1490,14 @@ function isDirectMode() {
 }
 
 applyConfig(cfg);
+
+// Time-of-day verb in the empty-state greeting
+(function() {
+  const h = new Date().getHours();
+  const verb = h < 5 ? 'hack' : h < 12 ? 'build' : h < 17 ? 'create' : h < 21 ? 'explore' : 'hack';
+  const em = document.querySelector('#emptyTitle em');
+  if (em) em.textContent = verb;
+})();
 renderModelMenu();
 
 // Override the static fallback pill with the real server version
@@ -2247,6 +2288,19 @@ msgInput.addEventListener('input', () => {
   msgInput.style.height = 'auto';
   msgInput.style.height = Math.min(msgInput.scrollHeight, 200) + 'px';
   if (!isStreaming) sendBtn.disabled = !msgInput.value.trim() && !attachedFiles.length;
+  // Word count badge
+  const badge = document.getElementById('wordCountBadge');
+  if (badge) {
+    const txt = msgInput.value;
+    if (txt.trim()) {
+      const words = txt.trim().split(/\s+/).length;
+      const chars = txt.length;
+      badge.textContent = `${words}w · ${chars}c`;
+      badge.style.display = '';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
 });
 msgInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) {
@@ -2980,6 +3034,11 @@ document.addEventListener('keydown', (e) => {
   } else if (meta && e.key === 'b') {
     e.preventDefault();
     toggleSidebar();
+  } else if (meta && e.key === 'e') {
+    e.preventDefault();
+    api.exportSession(currentSession, 'md')
+      .then(() => { if (window.toast) toast('success', 'Exported', 'Session downloaded as Markdown', 2000); })
+      .catch(err => { if (window.toast) toast('error', 'Export failed', err.message, 3000); });
   } else if (meta && e.key === 'm') {
     e.preventDefault();
     document.getElementById('micBtn')?.click();
@@ -4144,6 +4203,10 @@ const SLASH_CMDS = [
   { cmd: '/translate', icon: '🌐', desc: 'Translate to a language',                    action: () => _slashPrepend('/translate') },
   { cmd: '/analyze',  icon: '📊',  desc: 'Find patterns and insights',                 action: () => _slashPrepend('/analyze') },
   { cmd: '/outline',  icon: '📑',  desc: 'Generate a structured outline / TOC',        action: () => _slashPrepend('/outline') },
+  { cmd: '/eli5',    icon: '🧒',  desc: 'Explain like I\'m 5 years old',              action: () => _slashPrepend('/eli5') },
+  { cmd: '/rewrite', icon: '✒️',  desc: 'Rewrite more clearly and concisely',          action: () => _slashPrepend('/rewrite') },
+  { cmd: '/table',   icon: '📋',  desc: 'Format information as a markdown table',      action: () => _slashPrepend('/table') },
+  { cmd: '/tldr',    icon: '⚡',  desc: 'Ultra-short one-sentence summary',            action: () => _slashPrepend('/tldr') },
   // ── Memory ────────────────────────────────────────────────────
   { cmd: '/remember', icon: '📌',  desc: 'Save a fact to semantic memory',             action: () => _slashPrepend('/remember') },
   { cmd: '/forget',   icon: '🗑️',  desc: 'Remove a fact from memory',                 action: () => _slashPrepend('/forget') },
