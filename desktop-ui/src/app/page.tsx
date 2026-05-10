@@ -102,6 +102,17 @@ interface Message {
   pendingApprovals?: Array<{ id: string; tool: string; summary: string }>;
   // History of decisions for this turn (handled = clicked, expired = timed out)
   approvalLog?: Array<{ id: string; tool: string; summary: string; outcome: 'approved' | 'denied' | 'expired' }>;
+  // MVP 22 — autonomous mission step trail (role='autonomous' / /run prefix)
+  missionId?: string;
+  missionStatus?: string;
+  missionSteps?: Array<{
+    index: number;
+    description: string;
+    tool?: string | null;
+    ok?: boolean;
+    duration_ms?: number;
+    status: 'running' | 'done' | 'failed';
+  }>;
 }
 
 interface Session {
@@ -951,18 +962,19 @@ export default function App() {
       let savedArtifact: { id: string; title: string } | undefined;
       let routedModel: string | undefined;
       try {
+        // MVP 22: /run prefix → autonomous loop instead of manager.
+        const isAutoRun = text.trimStart().startsWith('/run ');
         const fullText = capturedAttachments.length > 0
           ? (text ? text + '\n\n' : '') + capturedAttachments
               .map((a) => `**Attached: ${a.name}**\n\`\`\`\n${a.content.slice(0, 8000)}\n\`\`\``)
               .join('\n\n')
           : text;
-        const stream = client.chat('manager', fullText, sId, {
+        const chatText  = isAutoRun ? text.trimStart().slice(5).trim() : fullText;
+        const chatRole  = isAutoRun ? 'autonomous' : 'manager';
+        const stream = client.chat(chatRole, chatText, sId, {
           mode: 'task',
           permission,
           temperature: TONE_TEMP[tone],
-          // No model override — the backend auto-routes via cloud cascade
-          // (Groq → GLM → OpenAI → local) and the manager planner picks
-          // specialists for sub-steps as needed.
         });
         for await (const ev of stream) {
           if (ac.signal.aborted) break;
@@ -1010,6 +1022,42 @@ export default function App() {
                   : s,
               ),
             );
+          } else if (ev.type === 'mission_start' && isAutoRun) {
+            setSessions((all) => all.map((s) => s.id === sId ? {
+              ...s, messages: s.messages.map((m) => m.id === agentMsg.id
+                ? { ...m, missionId: typeof ev.mission_id === 'string' ? ev.mission_id : undefined, missionStatus: 'running', missionSteps: [] }
+                : m),
+            } : s));
+          } else if (ev.type === 'step_start' && isAutoRun) {
+            setSessions((all) => all.map((s) => s.id === sId ? {
+              ...s, messages: s.messages.map((m) => {
+                if (m.id !== agentMsg.id) return m;
+                const newStep = { index: Number(ev.step || 0), description: String(ev.description || ''), status: 'running' as const };
+                return { ...m, missionSteps: [...(m.missionSteps || []).filter(x => x.index !== newStep.index), newStep] };
+              }),
+            } : s));
+          } else if (ev.type === 'step_end' && isAutoRun) {
+            setSessions((all) => all.map((s) => s.id === sId ? {
+              ...s, messages: s.messages.map((m) => {
+                if (m.id !== agentMsg.id) return m;
+                return { ...m, missionSteps: (m.missionSteps || []).map(x => x.index === Number(ev.step || 0)
+                  ? { ...x, ok: Boolean(ev.ok), tool: typeof ev.tool === 'string' ? ev.tool : x.tool, duration_ms: Number(ev.duration_ms || 0), status: ev.ok ? 'done' as const : 'failed' as const }
+                  : x) };
+              }),
+            } : s));
+          } else if (ev.type === 'finish' && isAutoRun) {
+            acc = String(ev.answer || acc);
+            setSessions((all) => all.map((s) => s.id === sId ? {
+              ...s, messages: s.messages.map((m) => m.id === agentMsg.id
+                ? { ...m, content: acc, missionStatus: 'success' }
+                : m),
+            } : s));
+          } else if (ev.type === 'mission_end' && isAutoRun) {
+            setSessions((all) => all.map((s) => s.id === sId ? {
+              ...s, messages: s.messages.map((m) => m.id === agentMsg.id
+                ? { ...m, missionStatus: String(ev.status || 'done') }
+                : m),
+            } : s));
           } else if (ev.type === 'approval_expired' && typeof ev.id === 'string') {
             // Card sat too long — gate already default-denied. Strike it.
             setSessions((all) =>
@@ -2145,6 +2193,29 @@ function MessageBubble({
             <FileText className="h-3 w-3" />
             Saved <span className="font-medium">{msg.savedArtifact.title}</span>
           </button>
+        )}
+        {/* MVP 22 — autonomous mission step trail */}
+        {(msg.missionSteps && msg.missionSteps.length > 0) && (
+          <div className="mt-2 rounded-xl border border-[var(--metis-border)] bg-[var(--metis-bg)] divide-y divide-[var(--metis-border)] text-[12px]">
+            {msg.missionSteps.sort((a, b) => a.index - b.index).map((step) => (
+              <div key={step.index} className="flex items-start gap-2 px-3 py-1.5">
+                <span className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[9px] font-bold ${
+                  step.status === 'running'
+                    ? 'border-violet-500/40 bg-violet-500/10 text-violet-300 animate-pulse'
+                    : step.ok || step.status === 'done'
+                      ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
+                      : 'border-rose-500/40 bg-rose-500/10 text-rose-200'
+                }`}>
+                  {step.index}
+                </span>
+                <div className="flex-1 leading-snug text-[var(--metis-fg-muted)]">
+                  {step.description}
+                  {step.tool && <code className="ml-1 rounded bg-[var(--metis-code-bg)] px-1 text-[10.5px] text-[var(--metis-code-fg)]">{step.tool}</code>}
+                  {step.duration_ms ? <span className="ml-1 text-[10px] text-[var(--metis-fg-dim)]">{step.duration_ms}ms</span> : null}
+                </div>
+              </div>
+            ))}
+          </div>
         )}
         {/* MVP 14 — pending tool approvals */}
         {(msg.pendingApprovals || []).map((a) => (

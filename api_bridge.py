@@ -811,6 +811,63 @@ async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
                         break
             except Exception as e:
                 yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+        elif req.role == "autonomous":
+            # MVP 22: /run [goal] → autonomous_loop.run_mission streaming live
+            # step events back to the chat bubble. Same queue+thread pattern as
+            # the manager path; every mission event (step_start/step_end/
+            # mission_start/mission_end/tool_call/finish) is forwarded raw so
+            # the UI can render a live step-trail.
+            import queue as _queue
+            import threading as _threading
+            import permissions as _perm
+            from autonomous_loop import run_mission as _run_mission
+
+            ev_queue_a: _queue.Queue = _queue.Queue()
+            DONE_A = object()
+            tier_a = req.permission if req.permission in ("read", "balanced", "full") else "balanced"
+            _perm.set_session(
+                req.session_id,
+                tier=tier_a,
+                emit=lambda ev, q=ev_queue_a: q.put(ev),
+            )
+
+            def _auto_runner():
+                try:
+                    _run_mission(
+                        wire_message,
+                        max_steps=12,
+                        auto_approve=(tier_a == "full"),
+                        on_event=lambda ev: ev_queue_a.put(ev),
+                        session_id=req.session_id,
+                        user_id=user_id,
+                    )
+                except Exception as e:
+                    ev_queue_a.put({"type": "error", "message": str(e)})
+                finally:
+                    ev_queue_a.put(DONE_A)
+
+            _threading.Thread(
+                target=_auto_runner, daemon=True,
+                name=f"auto:{req.session_id[:8]}",
+            ).start()
+
+            try:
+                while True:
+                    try:
+                        ev = ev_queue_a.get(timeout=15)
+                    except _queue.Empty:
+                        yield "data: {\"type\": \"heartbeat\", \"message\": \"awaiting approval\"}\n\n"
+                        continue
+                    if ev is DONE_A:
+                        break
+                    # Mirror final_answer to full_answer so it lands in
+                    # the run-report / chat history correctly.
+                    if ev.get("type") == "mission_end":
+                        full_answer = str(ev.get("answer") or "")
+                    yield f"data: {json.dumps(ev)}\n\n"
+            finally:
+                _perm.clear_session(req.session_id)
+
         elif req.role == "manager":
             # MVP 14: run the orchestrator on a worker thread so the SSE
             # generator can keep yielding events to the browser even

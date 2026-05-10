@@ -101,7 +101,17 @@ export interface StreamEvent {
     | 'run_artifact_saved'
     | 'approval_required'
     | 'approval_expired'
-    | 'error';
+    | 'error'
+    // MVP 22 — autonomous mission events (role='autonomous')
+    | 'mission_start'
+    | 'mission_resume'
+    | 'mission_end'
+    | 'step_start'
+    | 'step_end'
+    | 'plan'
+    | 'replan'
+    | 'finish'
+    | 'cancelled';
   delta?: string;
   duration_ms?: number;
   tokens?: number;
