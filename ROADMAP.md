@@ -1,6 +1,28 @@
 # Metis Command — 18-Phase Roadmap
 
-> Updated 2026-05-09 · v0.23.0 · 48 Python modules, 6 HTML pages, 4 JS files, 2700-line API bridge, 11 local Ollama models, 4 persistent agents running.
+> Updated 2026-05-10 · v0.26.0 · 48 Python modules, 6 HTML pages, 4 JS files, 2700-line API bridge, 11 local Ollama models, 4 persistent agents running.
+
+---
+
+## Current State (v0.26.0)
+
+### Completed (v0.26.0)
+- ✅ Message feedback — thumbs up/down buttons on agent messages in React UI; `postMessageFeedback()` added to `MetisClient`; optimistic state stored per-message; wired to `POST /messages/feedback`
+- ✅ Active project name in header — header pill and sidebar badge now show the project **name** instead of its URL slug; `onActiveChange(slug, name)` callback updated in `ProjectsPanel`
+- ✅ Fixed collapsed sidebar — Briefing (⌘D) and Missions (⌘O) icon buttons were missing from the collapsed icon strip; added alongside all other panels
+- ✅ Fixed keyboard shortcuts modal — "Projects (⌘W)" was absent from the Settings → Shortcuts list; added in correct position
+- ✅ Version bumped to 0.26.0
+
+---
+
+## Previous State (v0.25.0)
+
+### Completed (v0.25.0)
+- ✅ Projects / Workspaces — `ProjectsPanel` slide-out with full CRUD (create, rename, custom instructions, delete, activate/deactivate), active-project indicator, expand/collapse sections
+- ✅ Active project context injection — backend prepends project instructions on every chat turn when a project is active
+- ✅ Project badge in header — `📁 ProjectName` pill next to conversation title; click to open panel
+- ✅ Sidebar "Projects" nav item (⌘W) with active-project indicator dot in collapsed mode
+- ✅ Version bumped to 0.25.0
 
 ---
 

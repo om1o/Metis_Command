@@ -952,6 +952,22 @@ export class MetisClient {
     return res.json();
   }
 
+  // ── Message feedback ──────────────────────────────────────────────────────
+
+  async postMessageFeedback(
+    sessionId: string,
+    messageId: string,
+    rating: 'up' | 'down',
+    content?: string,
+  ): Promise<{ ok: boolean }> {
+    return this.post('/messages/feedback', {
+      session_id: sessionId,
+      message_id: messageId,
+      rating,
+      content,
+    });
+  }
+
   // ── Analytics ────────────────────────────────────────────────────────────
 
   async getAnalytics(): Promise<AnalyticsSummary> {

@@ -51,6 +51,8 @@ import {
   Scale,
   Paperclip,
   FolderOpen,
+  ThumbsUp,
+  ThumbsDown,
 } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { createLocalClient, MetisClient, AuthUser, Schedule, Artifact, RunMode, RunPermission, SessionMessage, SessionSearchResult } from '@/lib/metis-client';
@@ -338,6 +340,8 @@ export default function App() {
   const [missionsOpen, setMissionsOpen] = useState(false);
   const [projectsOpen, setProjectsOpen] = useState(false);
   const [activeProjectSlug, setActiveProjectSlug] = useState<string | null>(null);
+  const [activeProjectName, setActiveProjectName] = useState<string | null>(null);
+  const [feedbackRatings, setFeedbackRatings] = useState<Record<string, 'up' | 'down'>>({});
   const [health, setHealth] = useState<SystemHealth | null>(null);
   const [activeArtifactId, setActiveArtifactId] = useState<string | null>(null);
   const [reportArtifact, setReportArtifact] = useState<Artifact | null>(null);
@@ -945,6 +949,13 @@ export default function App() {
     } catch {}
   };
 
+  const postFeedback = async (msgId: string, sessionId: string, rating: 'up' | 'down', content: string) => {
+    if (!client) return;
+    setFeedbackRatings((prev) => ({ ...prev, [msgId]: rating }));
+    try { await client.postMessageFeedback(sessionId, msgId, rating, content); }
+    catch (e) { console.warn('[metis] feedback failed:', e); }
+  };
+
   const handleFiles = (files: FileList | File[]) => {
     const allowed = ['.txt', '.md', '.py', '.js', '.ts', '.tsx', '.jsx', '.json', '.csv', '.yaml', '.yml', '.toml', '.html', '.css', '.sh'];
     Array.from(files as FileList).forEach((file) => {
@@ -1160,7 +1171,7 @@ export default function App() {
               <span>Projects</span>
               {activeProjectSlug && (
                 <span className="ml-1 max-w-[80px] truncate rounded-full border border-violet-500/40 bg-violet-500/10 px-1.5 py-0.5 text-[9px] text-violet-300">
-                  {activeProjectSlug}
+                  {activeProjectName || activeProjectSlug}
                 </span>
               )}
               <span className="ml-auto text-[10px] text-[var(--metis-fg-dim)]">⌘W</span>
@@ -1246,6 +1257,24 @@ export default function App() {
               </button>
               <button
                 type="button"
+                onClick={() => setBriefingOpen(true)}
+                className="metis-icon-btn"
+                aria-label="Briefing"
+                title="Briefing (⌘D)"
+              >
+                <Sunrise className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setMissionsOpen(true)}
+                className="metis-icon-btn"
+                aria-label="Missions"
+                title="Missions (⌘O)"
+              >
+                <Workflow className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
                 onClick={() => setAnalyticsOpen(true)}
                 className="metis-icon-btn"
                 aria-label="Analytics"
@@ -1299,10 +1328,10 @@ export default function App() {
                 type="button"
                 onClick={() => setProjectsOpen(true)}
                 className="hidden shrink-0 items-center gap-1 rounded-full border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-300 transition hover:bg-violet-500/20 sm:flex"
-                title={`Active workspace: ${activeProjectSlug}`}
+                title={`Active workspace: ${activeProjectName || activeProjectSlug}`}
               >
                 <FolderOpen className="h-2.5 w-2.5" />
-                {activeProjectSlug}
+                {activeProjectName || activeProjectSlug}
               </button>
             )}
             {streaming && (
@@ -1390,6 +1419,8 @@ export default function App() {
                       try { await client.decideAction(actionId, decision); }
                       catch (e) { console.warn('[metis] decision POST failed:', e); }
                     }}
+                    rating={feedbackRatings[m.id]}
+                    onFeedback={m.role === 'agent' ? (r) => postFeedback(m.id, active!.id, r, m.content) : undefined}
                   />
                 ))}
                 <div ref={chatBottomRef} className="h-2" />
@@ -1779,7 +1810,7 @@ export default function App() {
             client={client}
             reduceMotion={!!reduceMotion}
             activeProjectSlug={activeProjectSlug}
-            onActiveChange={(slug) => setActiveProjectSlug(slug)}
+            onActiveChange={(slug, name) => { setActiveProjectSlug(slug); setActiveProjectName(name); }}
             onClose={() => setProjectsOpen(false)}
           />
         )}
@@ -1890,6 +1921,8 @@ function MessageBubble({
   copiedMsgId,
   onCopy,
   onApproval,
+  rating,
+  onFeedback,
 }: {
   msg: Message;
   isLast: boolean;
@@ -1900,6 +1933,8 @@ function MessageBubble({
   copiedMsgId: string | null;
   onCopy: (id: string, content: string) => void;
   onApproval?: (actionId: string, decision: 'approve' | 'deny') => void;
+  rating?: 'up' | 'down';
+  onFeedback?: (r: 'up' | 'down') => void;
 }) {
   const isUser = msg.role === 'user';
   const liveAgent = !isUser && streaming && isLast;
@@ -1966,16 +2001,50 @@ function MessageBubble({
           )}
           <span className="ml-auto text-[10px] text-[var(--metis-fg-dim)]">{relTime(msg.ts)}</span>
           {msg.content && !liveAgent && (
-            <button
-              type="button"
-              onClick={() => onCopy(msg.id, msg.content)}
-              className="opacity-0 group-hover:opacity-100 inline-flex items-center gap-1 rounded-md border border-[var(--metis-border)] px-1.5 py-0.5 text-[10px] text-[var(--metis-fg-dim)] transition hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]"
-              title="Copy message"
-              aria-label="Copy message"
-            >
-              {copiedMsgId === msg.id ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
-              {copiedMsgId === msg.id ? 'Copied' : 'Copy'}
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => onCopy(msg.id, msg.content)}
+                className="opacity-0 group-hover:opacity-100 inline-flex items-center gap-1 rounded-md border border-[var(--metis-border)] px-1.5 py-0.5 text-[10px] text-[var(--metis-fg-dim)] transition hover:bg-[var(--metis-hover-surface)] hover:text-[var(--metis-fg)]"
+                title="Copy message"
+                aria-label="Copy message"
+              >
+                {copiedMsgId === msg.id ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                {copiedMsgId === msg.id ? 'Copied' : 'Copy'}
+              </button>
+              {onFeedback && (
+                <div className="opacity-0 group-hover:opacity-100 inline-flex items-center gap-0.5 transition">
+                  <button
+                    type="button"
+                    onClick={() => onFeedback('up')}
+                    className={`rounded-md border px-1 py-0.5 text-[10px] transition ${
+                      rating === 'up'
+                        ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400'
+                        : 'border-[var(--metis-border)] text-[var(--metis-fg-dim)] hover:bg-[var(--metis-hover-surface)] hover:text-emerald-400'
+                    }`}
+                    title="Good response"
+                    aria-label="Thumbs up"
+                    aria-pressed={rating === 'up'}
+                  >
+                    <ThumbsUp className="h-3 w-3" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onFeedback('down')}
+                    className={`rounded-md border px-1 py-0.5 text-[10px] transition ${
+                      rating === 'down'
+                        ? 'border-rose-500/40 bg-rose-500/10 text-rose-400'
+                        : 'border-[var(--metis-border)] text-[var(--metis-fg-dim)] hover:bg-[var(--metis-hover-surface)] hover:text-rose-400'
+                    }`}
+                    title="Poor response"
+                    aria-label="Thumbs down"
+                    aria-pressed={rating === 'down'}
+                  >
+                    <ThumbsDown className="h-3 w-3" />
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
         {msg.content ? (
@@ -2467,6 +2536,7 @@ function SettingsBody({
             ['Reports',           '⌘ P'],
             ['Briefing',          '⌘ D'],
             ['Missions',          '⌘ O'],
+            ['Projects',          '⌘ W'],
             ['Analytics',         '⌘ A'],
             ['Connections',       '⌘ G'],
             ['Settings',          '⌘ ,'],

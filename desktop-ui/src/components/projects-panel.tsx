@@ -24,7 +24,7 @@ interface Props {
   client: MetisClient;
   reduceMotion: boolean;
   activeProjectSlug: string | null;
-  onActiveChange: (slug: string | null) => void;
+  onActiveChange: (slug: string | null, name: string | null) => void;
   onClose: () => void;
 }
 
@@ -153,13 +153,14 @@ export default function ProjectsPanel({ client, reduceMotion, activeProjectSlug,
   useEffect(() => { queueMicrotask(refresh); }, [refresh]);
 
   const activate = async (slug: string) => {
+    const project = items?.find((p) => p.slug === slug);
     try {
       if (slug === activeProjectSlug) {
         await client.clearActiveProject();
-        onActiveChange(null);
+        onActiveChange(null, null);
       } else {
         await client.setActiveProject(slug);
-        onActiveChange(slug);
+        onActiveChange(slug, project?.name ?? slug);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -196,7 +197,7 @@ export default function ProjectsPanel({ client, reduceMotion, activeProjectSlug,
     setDeletingSlug(slug);
     try {
       await client.deleteProject(slug);
-      if (activeProjectSlug === slug) onActiveChange(null);
+      if (activeProjectSlug === slug) onActiveChange(null, null);
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
