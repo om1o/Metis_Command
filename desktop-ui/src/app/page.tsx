@@ -117,6 +117,8 @@ interface Message {
   pendingApprovals?: Array<{ id: string; tool: string; summary: string }>;
   // History of decisions for this turn (handled = clicked, expired = timed out)
   approvalLog?: Array<{ id: string; tool: string; summary: string; outcome: 'approved' | 'denied' | 'expired' }>;
+  // Estimated token count for this turn, set from the turn_complete SSE event.
+  tokenCount?: number;
 }
 
 interface Session {
@@ -139,14 +141,28 @@ interface SlashCmd {
 }
 
 const SLASH_COMMANDS: SlashCmd[] = [
-  { cmd: '/code',     label: 'Write code',       desc: 'Write, explain, or debug code',         icon: Code,      expand: '/code ' },
-  { cmd: '/plan',     label: 'Make a plan',       desc: 'Break the goal into concrete steps',    icon: ListChecks,expand: '/plan ' },
-  { cmd: '/search',   label: 'Research',          desc: 'Search and summarize sources',          icon: Search,    expand: '/search ' },
-  { cmd: '/think',    label: 'Think carefully',   desc: 'Reason step-by-step before answering', icon: Lightbulb, expand: '/think ' },
-  { cmd: '/remember', label: 'Save to memory',    desc: 'Persist a fact for future sessions',   icon: BookOpen,  expand: '/remember ' },
-  { cmd: '/clear',    label: 'New session',       desc: 'Start a fresh conversation',            icon: Eraser,    expand: '' },
-  { cmd: '/help',     label: 'Show shortcuts',    desc: 'Open the keyboard shortcuts cheatsheet',icon: HelpCircle,expand: '' },
+  { cmd: '/code',      label: 'Write code',       desc: 'Write, explain, or debug code',          icon: Code,      expand: '/code ' },
+  { cmd: '/plan',      label: 'Make a plan',       desc: 'Break the goal into concrete steps',     icon: ListChecks,expand: '/plan ' },
+  { cmd: '/search',    label: 'Research',          desc: 'Search and summarize sources',           icon: Search,    expand: '/search ' },
+  { cmd: '/think',     label: 'Think carefully',   desc: 'Reason step-by-step before answering',  icon: Lightbulb, expand: '/think ' },
+  { cmd: '/summarize', label: 'Summarize',         desc: 'Condense into 3-5 concise bullet points',icon: ListChecks,expand: '/summarize ' },
+  { cmd: '/bullets',   label: 'Bullet list',       desc: 'Format response as structured bullets',  icon: ListChecks,expand: '/bullets ' },
+  { cmd: '/remember',  label: 'Save to memory',    desc: 'Persist a fact for future sessions',    icon: BookOpen,  expand: '/remember ' },
+  { cmd: '/clear',     label: 'New session',       desc: 'Start a fresh conversation',             icon: Eraser,    expand: '' },
+  { cmd: '/help',      label: 'Show shortcuts',    desc: 'Open the keyboard shortcuts cheatsheet', icon: HelpCircle,expand: '' },
 ];
+
+// Maps slash command prefix → system-level instruction injected before the user's text.
+// The prefix is stripped from the message; only the instruction + user text is sent.
+const SLASH_PREFIXES: Record<string, string> = {
+  '/code':      'You are helping write, explain, or debug code. Respond with well-formatted code and clear explanations.\n\n',
+  '/plan':      'Break the following goal into a numbered, actionable plan with clear, concrete steps.\n\n',
+  '/search':    'Research the following topic thoroughly. Summarize key findings and cite relevant sources.\n\n',
+  '/think':     'Think through this step-by-step, showing your full reasoning before giving a final answer.\n\n',
+  '/summarize': 'Summarize the following in exactly 3-5 concise bullet points. Be specific and avoid filler.\n\n',
+  '/bullets':   'Format your entire response as a structured bullet-point list with clear, short points.\n\n',
+  '/remember':  'Please save the following information to memory for use in future sessions: ',
+};
 
 interface Attachment {
   name: string;
@@ -855,12 +871,23 @@ export default function App() {
       let saved: { id: string; name: string } | undefined;
       let savedArtifact: { id: string; title: string } | undefined;
       let routedModel: string | undefined;
+      let turnTokens: number | undefined;
       try {
+        // Slash command prefix injection: strip the command and prepend a
+        // system-level instruction so the agent understands the intent.
+        let effectiveText = text;
+        for (const [cmd, prefix] of Object.entries(SLASH_PREFIXES)) {
+          if (text.toLowerCase().startsWith(cmd + ' ') || text.toLowerCase() === cmd) {
+            const rest = text.slice(cmd.length).trimStart();
+            effectiveText = prefix + (rest || '');
+            break;
+          }
+        }
         const fullText = capturedAttachments.length > 0
-          ? (text ? text + '\n\n' : '') + capturedAttachments
+          ? (effectiveText ? effectiveText + '\n\n' : '') + capturedAttachments
               .map((a) => `**Attached: ${a.name}**\n\`\`\`\n${a.content.slice(0, 8000)}\n\`\`\``)
               .join('\n\n')
-          : text;
+          : effectiveText;
         const stream = client.chat('manager', fullText, sId, {
           mode: 'task',
           permission,
@@ -938,6 +965,8 @@ export default function App() {
                   : s,
               ),
             );
+          } else if (ev.type === 'turn_complete' && typeof ev.tokens === 'number') {
+            turnTokens = ev.tokens;
           }
         }
         if (!ac.signal.aborted) {
@@ -949,7 +978,7 @@ export default function App() {
                     ...s,
                     messages: s.messages.map((m) =>
                       m.id === agentMsg.id
-                        ? { ...m, content: finalContent, status: 'done', savedRelationship: saved, savedArtifact, routedModel }
+                        ? { ...m, content: finalContent, status: 'done', savedRelationship: saved, savedArtifact, routedModel, tokenCount: turnTokens }
                         : m,
                     ),
                   }
@@ -1009,6 +1038,7 @@ export default function App() {
       let saved: { id: string; name: string } | undefined;
       let savedArtifact: { id: string; title: string } | undefined;
       let routedModel: string | undefined;
+      let turnTokens: number | undefined;
       try {
         const stream = client.chat('manager', lastUser.content, sId, {
           mode: 'task',
@@ -1038,6 +1068,8 @@ export default function App() {
             setWorkspaceOpen(true);
           } else if (ev.type === 'manager_identity' && typeof ev.model === 'string' && ev.model) {
             routedModel = ev.model;
+          } else if (ev.type === 'turn_complete' && typeof ev.tokens === 'number') {
+            turnTokens = ev.tokens;
           }
         }
         if (!ac.signal.aborted) {
@@ -1045,7 +1077,7 @@ export default function App() {
           setSessions((all) =>
             all.map((s) =>
               s.id === sId
-                ? { ...s, messages: s.messages.map((m) => m.id === newAgentId ? { ...m, content: finalContent, status: 'done' as AgentStatus, savedRelationship: saved, savedArtifact, routedModel } : m) }
+                ? { ...s, messages: s.messages.map((m) => m.id === newAgentId ? { ...m, content: finalContent, status: 'done' as AgentStatus, savedRelationship: saved, savedArtifact, routedModel, tokenCount: turnTokens } : m) }
                 : s,
             ),
           );
@@ -2349,6 +2381,14 @@ function MessageBubble({
               via {prettyModel(msg.routedModel)}
             </span>
           )}
+          {msg.tokenCount && msg.status === 'done' && (
+            <span
+              className="inline-flex items-center gap-0.5 rounded-full border border-[var(--metis-border)] bg-[var(--metis-bg)] px-1.5 py-0.5 text-[10px] text-[var(--metis-fg-dim)]"
+              title={`~${msg.tokenCount.toLocaleString()} tokens in this response`}
+            >
+              ~{msg.tokenCount >= 1000 ? `${(msg.tokenCount / 1000).toFixed(1)}k` : msg.tokenCount} tok
+            </span>
+          )}
           <span className="ml-auto text-[10px] text-[var(--metis-fg-dim)]" title={absTime(msg.ts)}>{relTime(msg.ts)}</span>
           {msg.content && !liveAgent && (
             <>
@@ -2993,23 +3033,25 @@ function SettingsBody({
         <div className="text-xs font-medium text-[var(--metis-fg-dim)]">Shortcuts</div>
         <div className="mt-2 space-y-1.5 text-sm text-[var(--metis-fg-muted)]">
           {[
-            ['New session',        '⌘ N'],
-            ['Focus message box',  '⌘ K'],
-            ['Export conversation','⌘ E'],
-            ['Edit last message',  '↑'],
-            ['Toggle sidebar',     '⌘ B'],
-            ['Toggle workspace',   '⌘ /'],
-            ['Inbox',              '⌘ I'],
-            ['Jobs panel',         '⌘ J'],
-            ['Relationships',      '⌘ R'],
-            ['Memory',             '⌘ M'],
-            ['Reports',            '⌘ P'],
-            ['Briefing',           '⌘ D'],
-            ['Missions',           '⌘ O'],
-            ['Projects',           '⌘ W'],
-            ['Analytics',          '⌘ A'],
-            ['Connections',        '⌘ G'],
-            ['Settings',           '⌘ ,'],
+            ['New session',           '⌘ N'],
+            ['Focus message box',     '⌘ K'],
+            ['Export conversation',   '⌘ E'],
+            ['Edit last message',     '↑'],
+            ['Copy last response',    '⌘ ⇧ C'],
+            ['Regenerate response',   '⌘ ⇧ R'],
+            ['Toggle sidebar',        '⌘ B'],
+            ['Toggle workspace',      '⌘ /'],
+            ['Inbox',                 '⌘ I'],
+            ['Jobs panel',            '⌘ J'],
+            ['Relationships',         '⌘ R'],
+            ['Memory',                '⌘ M'],
+            ['Reports',               '⌘ P'],
+            ['Briefing',              '⌘ D'],
+            ['Missions',              '⌘ O'],
+            ['Projects',              '⌘ W'],
+            ['Analytics',             '⌘ A'],
+            ['Connections',           '⌘ G'],
+            ['Settings',              '⌘ ,'],
           ].map(([a, b]) => (
             <div key={a} className="flex items-center justify-between gap-4">
               <span>{a}</span>

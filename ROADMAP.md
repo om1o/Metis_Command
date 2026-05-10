@@ -1,10 +1,21 @@
 # Metis Command — 18-Phase Roadmap
 
-> Updated 2026-05-10 · v0.30.0 · 48 Python modules, 6 HTML pages, 4 JS files, 2700-line API bridge, 11 local Ollama models, 4 persistent agents running.
+> Updated 2026-05-10 · v0.31.0 · 48 Python modules, 6 HTML pages, 4 JS files, 2700-line API bridge, 11 local Ollama models, 4 persistent agents running.
 
 ---
 
-## Current State (v0.30.0)
+## Current State (v0.31.0)
+
+### Completed (v0.31.0)
+- ✅ **Token count badge on agent messages** — backend emits a `turn_complete` SSE event after each turn with an estimated token count (`len(response) // 4`); UI renders a `~N tok` pill next to the "via model" badge on every completed agent response
+- ✅ **Slash command prefix injection** — `/code`, `/plan`, `/search`, `/think`, `/summarize`, `/bullets`, and `/remember` now inject a system-level instruction before the user's text when submitted (e.g. `/code fix this bug` becomes `You are helping write, explain, or debug code…\n\nfix this bug`); the slash prefix is stripped from the user-visible message bubble
+- ✅ **Two new slash commands** — `/summarize` (condense to 3-5 bullet points) and `/bullets` (format entire response as structured bullets) added to the autocomplete menu; 9 commands total
+- ✅ **Shortcuts reference updated** — `⌘ ⇧ C` (Copy last response) and `⌘ ⇧ R` (Regenerate response) added to the Settings → Shortcuts cheat-sheet
+- ✅ Version bumped to 0.31.0
+
+---
+
+## Previous State (v0.30.0)
 
 ### Completed (v0.30.0)
 - ✅ **Markdown table rendering** — `MarkdownView` now parses and renders pipe-syntax markdown tables with alternating row shading, header styling, and inline formatting in cells; horizontal rules (`---`) also supported

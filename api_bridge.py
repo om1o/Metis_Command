@@ -983,6 +983,15 @@ async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
         if session_title:
             yield f"data: {json.dumps({'type': 'session_title', 'session_id': req.session_id, 'title': session_title})}\n\n"
 
+        # Per-turn token estimate so the UI can display a token count badge.
+        if full_answer:
+            try:
+                from usage_tracker import estimate_tokens as _et
+                turn_tokens = _et(full_answer)
+            except Exception:
+                turn_tokens = max(1, len(full_answer) // 4)
+            yield f"data: {json.dumps({'type': 'turn_complete', 'tokens': turn_tokens})}\n\n"
+
         # Fire an in-app notification for background job completions so the
         # user's bell badge lights up even when they navigate away.
         if full_answer and run_mode == "job":

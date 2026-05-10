@@ -101,6 +101,7 @@ export interface StreamEvent {
     | 'run_artifact_saved'
     | 'approval_required'
     | 'approval_expired'
+    | 'turn_complete'
     | 'error';
   delta?: string;
   duration_ms?: number;
