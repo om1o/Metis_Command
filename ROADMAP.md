@@ -1,10 +1,46 @@
 # Metis Command — 18-Phase Roadmap
 
-> Updated 2026-05-10 · v0.33.0 · 48 Python modules, 6 HTML pages, 4 JS files, 2700-line API bridge, 11 local Ollama models, 4 persistent agents running.
+> Updated 2026-05-10 · v0.37.0 · 56 Python modules, 6 HTML pages, 4 JS files, 4500-line app.html, 11 local Ollama models, 4 persistent agents running.
 
 ---
 
-## Current State (v0.33.0)
+## Current State (v0.37.0)
+
+### Completed (v0.37.0)
+- ✅ **Auto-scroll lock + jump-to-bottom button** — chat auto-scroll pauses when user scrolls up; a floating `↓` button appears to resume and snap to latest; End key also jumps to bottom; auto-scroll re-enables on every new send
+- ✅ **Draft persistence** — textarea content saved to localStorage on every keystroke, restored on page reload, cleared on send; no more lost drafts after accidental refresh
+- ✅ **Suggestion card rotation** — empty-state suggestion grid now draws from a pool of 16 diverse prompts (code, research, travel, writing, data, brainstorm, etc.); "More ideas" shuffle button rotates through 4 at a time
+- ✅ **Slash command prefix injection** — all slash commands now properly inject natural-language system instructions before the user's content (`/eli5 X` → `Explain the following in the simplest terms…\n\nX`); slash prefix is stripped from the user-visible bubble
+- ✅ **Three new slash commands** — `/tone` (adjust tone: formal/casual/friendly), `/expand` (add depth and examples), `/shorten` (strip to essentials); 26 commands total
+- ✅ **Message timestamps** — every message now shows a relative timestamp (just now / Xs ago / Nm ago / HH:MM) that fades in on hover; updates live for the first few minutes; absolute time in tooltip
+- ✅ **⌘, settings shortcut** — Cmd+Comma opens the Settings panel; End key jumps to chat bottom; both documented in the shortcuts modal
+- ✅ Version bumped to 0.37.0
+
+---
+
+## Previous State (v0.36.0)
+
+### Completed (v0.36.0)
+- ✅ **Light theme polish** — scrollbars, code blocks, notification/marketplace/tour/scheduler panels, input row, reasoning toggle, thinking timer all styled for light mode
+- ✅ **Smooth sidebar collapse animation** — grid-template-columns + opacity transition instead of abrupt snap
+- ✅ **Four new slash commands** — `/eli5`, `/rewrite`, `/table`, `/tldr`; 22 commands total
+- ✅ **Dynamic time-of-day greeting** — empty state verb rotates: build → create → explore → hack
+- ✅ **Word count badge** — shows `Nw · Nc` in the input hint row while typing
+- ✅ Version bumped to 0.36.0
+
+---
+
+## Previous State (v0.35.0)
+
+### Completed (v0.35.0)
+- ✅ **Slash command input-guard fix** — selecting a slash command no longer sends immediately
+- ✅ **Theme toggle shortcut** — ⌘⇧T documented in keyboard help modal
+- ✅ **New slash commands** — `/pin`, `/debug`, `/help`
+- ✅ Version bumped to 0.35.0
+
+---
+
+## Previous State (v0.33.0)
 
 ### Completed (v0.33.0)
 - ✅ **Two new slash commands** — `/analyze` (find patterns, trends, and insights in data) and `/outline` (structured outline or table of contents); 14 commands total in autocomplete

@@ -749,6 +749,24 @@ pre:hover .code-copy{opacity:1}
 .side-toggle-btn svg{width:16px;height:16px;stroke:currentColor;stroke-width:2;fill:none}
 @media(max-width:880px){.side-toggle-btn{display:none}}
 
+/* ── Jump-to-bottom floating button ─────────────────────────────────── */
+.jump-bottom-btn{position:absolute;bottom:90px;right:24px;width:36px;height:36px;border-radius:50%;background:var(--panel-2);border:1px solid var(--border-2);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,0,0,.3);transition:all .2s;opacity:0;pointer-events:none;z-index:20}
+.jump-bottom-btn.visible{opacity:1;pointer-events:auto;animation:badge-pop .2s cubic-bezier(.34,1.4,.64,1)}
+.jump-bottom-btn:hover{background:var(--accent-soft);border-color:var(--accent);color:var(--text);transform:translateY(-2px)}
+.jump-bottom-btn svg{width:16px;height:16px;stroke:currentColor;stroke-width:2.5;fill:none}
+[data-theme="light"] .jump-bottom-btn{background:rgba(255,255,255,.9);border-color:rgba(0,0,0,.15)}
+
+/* ── Message timestamps ──────────────────────────────────────────────── */
+.msg-time{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--subtle);margin-top:3px;opacity:0;transition:opacity .15s;cursor:default;user-select:none;padding:0 2px}
+.msg:hover .msg-time{opacity:1}
+.msg.user .msg-time{text-align:right}
+.msg.assistant .msg-time{text-align:left}
+
+/* ── Suggestion shuffle button ───────────────────────────────────────── */
+.sugg-shuffle-btn{display:flex;align-items:center;gap:6px;margin:8px auto 0;padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--subtle);font-family:inherit;font-size:12px;cursor:pointer;transition:all .18s}
+.sugg-shuffle-btn:hover{color:var(--text);border-color:var(--border-2);background:var(--panel)}
+.sugg-shuffle-btn svg{width:13px;height:13px;stroke:currentColor;stroke-width:2;fill:none}
+
 /* ── Direct mode badge ──────────────────────────────────────────────── */
 .direct-badge{display:none;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.3);font-family:'JetBrains Mono',monospace;font-size:10.5px;color:#FBBF24;letter-spacing:.04em;flex-shrink:0;white-space:nowrap}
 .direct-badge.visible{display:flex}
@@ -831,7 +849,7 @@ pre:hover .code-copy{opacity:1}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.36.0</span>
+      <span class="ver" id="versionPill">v0.37.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -972,27 +990,19 @@ pre:hover .code-copy{opacity:1}
           <img src="/static/assets/metis-logomark-transparent.png" alt="">
           <h2 id="emptyTitle">What can I help you <em>build</em>, <span id="emptyDirector">Director</span>?</h2>
           <p id="emptySub">I'm <span id="emptyManager">Manager</span>. I delegate to specialists when their depth helps and synthesize their work into one clean answer. Ask me anything.</p>
-          <div class="suggestions" id="suggestions">
-            <button class="suggestion" data-q="What can you do? Walk me through your specialists.">
-              <div class="stitle">🎯 What can you do?</div>
-              <div class="ssub">Tour your specialists and capabilities</div>
-            </button>
-            <button class="suggestion" data-q="Write a Python function that finds duplicate files in a directory by content hash.">
-              <div class="stitle">⚙️ Write some code</div>
-              <div class="ssub">Delegates to Coder + Thinker</div>
-            </button>
-            <button class="suggestion" data-q="Explain the difference between fine-tuning and RAG, in 4 bullet points.">
-              <div class="stitle">📚 Explain a concept</div>
-              <div class="ssub">Routes to Scholar for the explanation</div>
-            </button>
-            <button class="suggestion" data-q="Plan a 3-day trip to Tokyo for a software engineer interested in food.">
-              <div class="stitle">🗾 Plan something</div>
-              <div class="ssub">Multi-agent: Researcher + Thinker</div>
-            </button>
-          </div>
+          <div class="suggestions" id="suggestions"></div>
+          <button class="sugg-shuffle-btn" id="suggShuffleBtn" title="Shuffle suggestions">
+            <svg viewBox="0 0 24 24"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/></svg>
+            More ideas
+          </button>
         </div>
       </div>
     </div>
+
+    <!-- Jump-to-bottom button (appears when scrolled up) -->
+    <button class="jump-bottom-btn" id="jumpBottomBtn" title="Jump to latest (End)" aria-label="Jump to bottom">
+      <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
 
     <div class="input-wrap">
       <div class="input-inner" style="position:relative">
@@ -1282,6 +1292,7 @@ pre:hover .code-copy{opacity:1}
           <div class="shortcut-row"><span class="s-desc">Toggle sidebar</span><span class="s-keys"><kbd>⌘</kbd><kbd>B</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Toggle dark/light theme</span><span class="s-keys"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>T</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Export session as Markdown</span><span class="s-keys"><kbd>⌘</kbd><kbd>E</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Settings</span><span class="s-keys"><kbd>⌘</kbd><kbd>,</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">This cheat sheet</span><span class="s-keys"><kbd>⌘</kbd><kbd>/</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Previous session</span><span class="s-keys"><kbd>⌘</kbd><kbd>[</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Next session</span><span class="s-keys"><kbd>⌘</kbd><kbd>]</kbd></span></div>
@@ -1322,6 +1333,9 @@ pre:hover .code-copy{opacity:1}
           <div class="shortcut-row"><span class="s-desc">Rewrite clearly &amp; concisely</span><span class="s-keys"><kbd>/rewrite</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Format as markdown table</span><span class="s-keys"><kbd>/table</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">One-sentence summary</span><span class="s-keys"><kbd>/tldr</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Adjust tone (formal/casual/etc)</span><span class="s-keys"><kbd>/tone</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Expand with more detail</span><span class="s-keys"><kbd>/expand</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Shorten to essentials</span><span class="s-keys"><kbd>/shorten</kbd></span></div>
         </div>
       </div>
       <div class="shortcuts-section">
@@ -1359,6 +1373,7 @@ let abortController = null;
 let cfg = null;
 let availableModels = [];
 let currentMode = 'chat';
+let _autoScroll = true;
 
 const empty = document.getElementById('empty');
 const chatInner = document.getElementById('chatInner');
@@ -1366,6 +1381,20 @@ const chat = document.getElementById('chat');
 const msgInput = document.getElementById('msgInput');
 const sendBtn = document.getElementById('sendBtn');
 const sendIcon = document.getElementById('sendIcon');
+
+// ── Auto-scroll lock + jump-to-bottom ──────────────────────────────────
+const jumpBottomBtn = document.getElementById('jumpBottomBtn');
+chat.addEventListener('scroll', () => {
+  const atBottom = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 80;
+  if (atBottom && !_autoScroll) _autoScroll = true;
+  else if (!atBottom && _autoScroll) _autoScroll = false;
+  jumpBottomBtn.classList.toggle('visible', !atBottom);
+});
+jumpBottomBtn.addEventListener('click', () => {
+  _autoScroll = true;
+  chat.scrollTo({ top: chat.scrollHeight, behavior: 'smooth' });
+  jumpBottomBtn.classList.remove('visible');
+});
 
 // ── Boot ────────────────────────────────────────────────────────────────
 const user = await ensureAuthed();
@@ -1393,6 +1422,15 @@ try {
 // If we somehow ended up here without setup, send to wizard.
 if (!configRes?.is_configured) {
   window.location.replace('/setup');
+}
+
+// ── Draft persistence ───────────────────────────────────────────────────
+{
+  const _savedDraft = localStorage.getItem('metis.draft');
+  if (_savedDraft) {
+    msgInput.value = _savedDraft;
+    msgInput.dispatchEvent(new Event('input'));
+  }
 }
 
 // ── DOM refs (declared BEFORE the boot calls below so they're in scope) ─
@@ -1948,6 +1986,15 @@ function resetCrew() {
 }
 
 // ── Message rendering ───────────────────────────────────────────────────
+function _fmtMsgTime(d) {
+  const now = Date.now();
+  const diff = Math.floor((now - d.getTime()) / 1000);
+  if (diff < 5)   return 'just now';
+  if (diff < 60)  return `${diff}s ago`;
+  if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
 function makeMsg(role) {
   const el = document.createElement('div');
   el.className = `msg ${role}`;
@@ -1960,11 +2007,24 @@ function makeMsg(role) {
   content.className = 'msg-content';
   const bubble = document.createElement('div');
   bubble.className = 'msg-bubble';
+  // Timestamp element — shown on hover
+  const ts = document.createElement('div');
+  ts.className = 'msg-time';
+  const msgDate = new Date();
+  ts.textContent = _fmtMsgTime(msgDate);
+  ts.title = msgDate.toLocaleString();
+  // Keep it live for a few minutes so "just now" / "Xs ago" updates
+  const _tsInterval = setInterval(() => {
+    const fresh = _fmtMsgTime(msgDate);
+    ts.textContent = fresh;
+    if (fresh.endsWith('ago') && parseInt(fresh) > 5) clearInterval(_tsInterval);
+  }, 15000);
   content.appendChild(bubble);
+  content.appendChild(ts);
   el.appendChild(avatar);
   el.appendChild(content);
   chatInner.appendChild(el);
-  chat.scrollTop = chat.scrollHeight;
+  if (_autoScroll) chat.scrollTop = chat.scrollHeight;
   return bubble;
 }
 
@@ -2301,6 +2361,8 @@ msgInput.addEventListener('input', () => {
       badge.style.display = 'none';
     }
   }
+  // Draft persistence — save current value
+  try { localStorage.setItem('metis.draft', msgInput.value); } catch {}
 });
 msgInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) {
@@ -2331,6 +2393,8 @@ async function sendMessage() {
   empty.style.display = 'none';
   msgInput.value = '';
   msgInput.style.height = 'auto';
+  try { localStorage.removeItem('metis.draft'); } catch {}
+  _autoScroll = true; // re-enable scroll on new send
 
   // Capture attached files for THIS turn (clear after sending)
   const turnFiles = attachedFiles.slice();
@@ -2356,6 +2420,39 @@ async function sendMessage() {
     }
   }
   text = augmentedText;
+
+  // ── Slash command prefix injection ────────────────────────────────────
+  // Convert /cmd prefixes into natural-language system instructions.
+  // The prefix is stripped from the user-visible bubble (displayText below).
+  const SLASH_PREFIX_MAP = {
+    '/code':      'You are helping write, explain, or debug code. Respond with clean, well-commented code and a short explanation.\n\n',
+    '/think':     'Think step-by-step through this problem before answering. Show your reasoning clearly.\n\n',
+    '/plan':      'Create a detailed, structured, numbered plan for the following. Break it into clear phases.\n\n',
+    '/summarize': 'Condense the following into 3–5 concise bullet points capturing the key ideas:\n\n',
+    '/bullets':   'Format your entire response as a structured, hierarchical bullet list.\n\n',
+    '/draft':     'Write a polished, professional draft for the following. Use clear and engaging language.\n\n',
+    '/fix':       'Proofread and correct the following text for grammar, clarity, and style. Explain each change.\n\n',
+    '/translate': 'Translate the following text accurately, preserving tone and meaning.\n\n',
+    '/analyze':   'Analyze the following and identify key patterns, trends, insights, and actionable takeaways:\n\n',
+    '/outline':   'Generate a clear, hierarchical outline or table of contents for the following topic:\n\n',
+    '/eli5':      'Explain the following in the simplest terms possible, as if explaining to a curious 5-year-old:\n\n',
+    '/rewrite':   'Rewrite the following text to be clearer, more concise, and easier to read. Preserve the meaning.\n\n',
+    '/table':     'Present the following information as a well-structured Markdown table with clear headers:\n\n',
+    '/tldr':      'Summarize the following in a single sentence (TL;DR):\n\n',
+    '/tone':      'Rewrite or respond to the following while adjusting the tone as specified (formal, casual, friendly, assertive, etc.):\n\n',
+    '/expand':    'Expand on the following with more detail, examples, context, and depth:\n\n',
+    '/shorten':   'Shorten the following to its essential points only, removing all filler and redundancy:\n\n',
+    '/remember':  'Please save the following fact to your long-term memory for future reference:\n\n',
+    '/forget':    'Please remove the following fact from your memory:\n\n',
+  };
+  let _slashStripped = text;
+  for (const [cmd, instr] of Object.entries(SLASH_PREFIX_MAP)) {
+    if (text.toLowerCase().startsWith(cmd + ' ') || text.toLowerCase() === cmd) {
+      _slashStripped = text.slice(cmd.length).trimStart();
+      text = instr + (_slashStripped || text.slice(cmd.length));
+      break;
+    }
+  }
 
   // ── Image generation mode ─────────────────────────────────────────────
   if (currentMode === 'image') {
@@ -2455,7 +2552,7 @@ async function sendMessage() {
 
   // Render user bubble with attachments (images inline, files as pills)
   const userBubble = makeMsg('user');
-  const displayText = text.replace(/^AUTOMATION REQUEST:\s*/i, '').replace(/\n\n--- File:[\s\S]*?--- end [^-]*---/g, '').trim();
+  const displayText = (_slashStripped || text).replace(/^AUTOMATION REQUEST:\s*/i, '').replace(/\n\n--- File:[\s\S]*?--- end [^-]*---/g, '').trim();
   userBubble.textContent = displayText || '(file attached)';
   if (turnFiles.length) {
     const attachWrap = document.createElement('div');
@@ -2759,13 +2856,54 @@ async function sendMessage() {
   }
 }
 
-document.querySelectorAll('.suggestion').forEach(b => {
-  b.addEventListener('click', () => {
-    msgInput.value = b.dataset.q;
-    msgInput.dispatchEvent(new Event('input'));
-    msgInput.focus();
+// ── Suggestion card rotation ────────────────────────────────────────────
+const SUGGESTION_POOL = [
+  { title: '🎯 What can you do?',     sub: 'Tour your specialists and capabilities',       q: 'What can you do? Walk me through your specialists.' },
+  { title: '⚙️ Write some code',      sub: 'Delegates to Coder + Thinker',                 q: 'Write a Python function that finds duplicate files in a directory by content hash.' },
+  { title: '📚 Explain a concept',    sub: 'Routes to Scholar for depth',                  q: 'Explain the difference between fine-tuning and RAG, in 4 bullet points.' },
+  { title: '🗾 Plan a trip',           sub: 'Multi-agent: Researcher + Thinker',            q: 'Plan a 3-day trip to Tokyo for a software engineer interested in food.' },
+  { title: '✍️ Draft an email',        sub: 'Polished, professional writing',               q: '/draft Write a follow-up email after a job interview.' },
+  { title: '🔍 Research a topic',      sub: 'Deep web research via Researcher',             q: 'What are the latest developments in quantum computing in 2025?' },
+  { title: '🐛 Debug my code',         sub: 'Coder specialist for analysis',                q: 'Help me debug this Python error: TypeError: unsupported operand type(s) for +' },
+  { title: '📊 Analyze data',          sub: 'Find patterns and insights',                  q: '/analyze What trends should I look for in monthly sales data?' },
+  { title: '🧠 Think through a problem', sub: 'Step-by-step reasoning',                    q: '/think What are the tradeoffs between microservices and monolithic architecture?' },
+  { title: '📝 Write an outline',      sub: 'Structured plan or table of contents',         q: '/outline How to build a SaaS product from scratch' },
+  { title: '🌐 Translate text',        sub: 'Multilingual translation',                     q: '/translate Translate "The future belongs to those who prepare for it today." to Spanish, French, and Japanese.' },
+  { title: '💡 Brainstorm ideas',      sub: 'Creative multi-angle thinking',                q: 'Give me 10 unique app ideas that solve real problems for remote workers.' },
+  { title: '📋 Summarize this',        sub: 'Condense to key points',                      q: '/summarize What is the history and impact of the internet in 5 bullet points?' },
+  { title: '🔬 Compare options',       sub: 'Side-by-side analysis',                       q: 'Compare PostgreSQL vs MongoDB for a startup building a social platform.' },
+  { title: '🚀 Build a startup idea',  sub: 'From concept to pitch',                       q: 'I have an idea for an AI-powered meal planner. Help me build a one-page pitch.' },
+  { title: '🎨 Design feedback',       sub: 'UI/UX critique and suggestions',               q: 'Give me 5 best practices for designing a mobile-first dashboard.' },
+];
+let _suggOffset = 0;
+function _shuffleSuggestions() {
+  // Rotate by 4 each click, wrapping around
+  _suggOffset = (_suggOffset + 4) % SUGGESTION_POOL.length;
+  renderSuggestions();
+}
+function renderSuggestions() {
+  const container = document.getElementById('suggestions');
+  if (!container) return;
+  const items = [];
+  for (let i = 0; i < 4; i++) {
+    items.push(SUGGESTION_POOL[(_suggOffset + i) % SUGGESTION_POOL.length]);
+  }
+  container.innerHTML = items.map(s => `
+    <button class="suggestion" data-q="${s.q.replace(/"/g,'&quot;')}">
+      <div class="stitle">${s.title}</div>
+      <div class="ssub">${s.sub}</div>
+    </button>
+  `).join('');
+  container.querySelectorAll('.suggestion').forEach(b => {
+    b.addEventListener('click', () => {
+      msgInput.value = b.dataset.q;
+      msgInput.dispatchEvent(new Event('input'));
+      msgInput.focus();
+    });
   });
-});
+}
+renderSuggestions();
+document.getElementById('suggShuffleBtn')?.addEventListener('click', _shuffleSuggestions);
 
 // ── Sign out / settings / new chat ──────────────────────────────────────
 async function signOut() {
@@ -3042,6 +3180,14 @@ document.addEventListener('keydown', (e) => {
   } else if (meta && e.key === 'm') {
     e.preventDefault();
     document.getElementById('micBtn')?.click();
+  } else if (meta && e.key === ',') {
+    e.preventDefault();
+    openSettings();
+  } else if (e.key === 'End') {
+    // End key jumps to bottom of chat
+    _autoScroll = true;
+    chat.scrollTo({ top: chat.scrollHeight, behavior: 'smooth' });
+    jumpBottomBtn.classList.remove('visible');
   } else if (e.key === 'Escape') {
     if (overlay.classList.contains('show')) closePalette();
     if (document.getElementById('settingsPanel').classList.contains('open')) closeSettings();
@@ -4207,6 +4353,9 @@ const SLASH_CMDS = [
   { cmd: '/rewrite', icon: '✒️',  desc: 'Rewrite more clearly and concisely',          action: () => _slashPrepend('/rewrite') },
   { cmd: '/table',   icon: '📋',  desc: 'Format information as a markdown table',      action: () => _slashPrepend('/table') },
   { cmd: '/tldr',    icon: '⚡',  desc: 'Ultra-short one-sentence summary',            action: () => _slashPrepend('/tldr') },
+  { cmd: '/tone',    icon: '🎙️', desc: 'Adjust tone — formal, casual, friendly…',     action: () => _slashPrepend('/tone') },
+  { cmd: '/expand',  icon: '📖',  desc: 'Expand with more detail and examples',        action: () => _slashPrepend('/expand') },
+  { cmd: '/shorten', icon: '✂️',  desc: 'Shorten to the essential points',             action: () => _slashPrepend('/shorten') },
   // ── Memory ────────────────────────────────────────────────────
   { cmd: '/remember', icon: '📌',  desc: 'Save a fact to semantic memory',             action: () => _slashPrepend('/remember') },
   { cmd: '/forget',   icon: '🗑️',  desc: 'Remove a fact from memory',                 action: () => _slashPrepend('/forget') },
