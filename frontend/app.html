@@ -882,7 +882,7 @@ pre.collapsible.expanded code{max-height:none}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.61.0</span>
+      <span class="ver" id="versionPill">v0.62.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -2676,6 +2676,9 @@ async function sendMessage() {
     '/retro':       'Facilitate a thorough sprint or project retrospective for the following. Structure it with four sections: What Went Well (specific wins to celebrate and repeat), What Didn\'t Go Well (honest assessment of problems without blame), Root Causes (the underlying reasons behind the problems), and Action Items (concrete, assigned, time-bound improvements for next sprint). Be specific, constructive, and forward-focused:\n\n',
     '/prd':         'Write a complete Product Requirements Document (PRD) for the following feature or product. Include: an executive summary and problem statement, target users and their jobs-to-be-done, success metrics and KPIs, detailed functional requirements (organized by user story or use case), non-functional requirements (performance, security, accessibility), out-of-scope exclusions, open questions and risks, and a dependency map. Be precise enough for engineering to estimate and design:\n\n',
     '/metrics':     'Design a comprehensive metrics and KPI framework for the following product, team, or initiative. Include: the north star metric with rationale, a metrics hierarchy (L1 / L2 / L3), definitions for each metric with precise measurement methodology, data sources and instrumentation requirements, target benchmarks or thresholds, anti-metrics to watch (leading indicators of gaming), and a recommended dashboard structure. Make it actionable and tied to business outcomes:\n\n',
+    '/persona-map': 'Create a detailed persona map for the following product, service, or domain. Identify 3–4 distinct user personas with: a name and demographic snapshot, their primary goals and motivations, key frustrations and pain points, the jobs they are trying to get done, their current workarounds, and a one-sentence summary of what they need most. Include a brief section on which persona is the primary focus and why:\n\n',
+    '/jtbd':        'Apply the Jobs-to-be-Done (JTBD) framework to the following product, feature, or problem. Identify: the functional job (what the user is trying to accomplish), the emotional job (how they want to feel), the social job (how they want to be perceived), the forces driving them to seek a new solution (push and pull), the forces creating inertia (habits and anxieties), and 3–5 specific job statements in the format "When [situation], I want to [motivation], so I can [outcome]." Make it specific and actionable for product decisions:\n\n',
+    '/north-star':  'Define a clear North Star metric for the following product, team, or business. Explain: what the metric is and how it is precisely measured, why it best captures the value delivered to users, how it connects to long-term business health, what behaviors or actions move it up (and what could game it), how to break it into leading indicators teams can act on week-to-week, and what the target or benchmark should be at key milestones. Make it concrete enough that any team member could explain it in one sentence:\n\n',
   };
   let _slashStripped = text;
   for (const [cmd, instr] of Object.entries(SLASH_PREFIX_MAP)) {
@@ -3148,6 +3151,9 @@ async function sendMessage() {
           { label: 'Run a retro →',              q: '/retro Run a retrospective on what we just discussed — what went well, what didn\'t, and what to do differently.' },
           { label: 'Write a PRD →',              q: '/prd Write a PRD for the feature or product we just discussed — include user stories, requirements, and success metrics.' },
           { label: 'Define the metrics →',       q: '/metrics Design a metrics framework for the product or initiative we just discussed — north star, KPIs, and instrumentation.' },
+          { label: 'Map the personas →',          q: '/persona-map Create a persona map for the product or users we just discussed — goals, pains, and jobs-to-be-done.' },
+          { label: 'Find the JTBD →',             q: '/jtbd Apply the Jobs-to-be-Done framework to what we just discussed — identify the functional, emotional, and social jobs.' },
+          { label: 'Define the north star →',     q: '/north-star Define a North Star metric for the product or team we just discussed — how to measure it and what moves it.' },
         ];
         const _chipOffset = (_chipTurn || 0) % _chipPool.length;
         const chipDefs = [
@@ -3277,6 +3283,9 @@ const SUGGESTION_POOL = [
   { title: '🔁 Run a retrospective',      sub: 'Went well / didn\'t / root causes / action items',                   q: '/retro Run a retrospective for a two-week product sprint — surface wins, problems, root causes, and concrete action items for next sprint.' },
   { title: '📄 Write a PRD',              sub: 'Full product requirements doc with stories and KPIs',                 q: '/prd Write a PRD for a real-time in-app notification system for a B2B SaaS product — include user stories, success metrics, and scope boundaries.' },
   { title: '📈 Build a metrics framework', sub: 'North star, KPI hierarchy, instrumentation plan',                   q: '/metrics Design a metrics framework for a consumer mobile app — define the north star metric, L1/L2/L3 KPIs, and recommended dashboard structure.' },
+  { title: '🧑 Map your personas',         sub: '3–4 distinct users with goals, pains, and jobs',                     q: '/persona-map Create a persona map for a B2B SaaS productivity tool — identify 3 distinct user types with their goals, frustrations, and jobs-to-be-done.' },
+  { title: '💼 Find the JTBD',             sub: 'Functional, emotional, and social jobs with job statements',          q: '/jtbd Apply the Jobs-to-be-Done framework to an AI writing assistant — what functional, emotional, and social jobs are users hiring it for?' },
+  { title: '⭐ Define the North Star',      sub: 'One metric that captures user value and business health',              q: '/north-star Define the North Star metric for a consumer habit-tracking app — how to measure it, break it into leading indicators, and set milestones.' },
 ];
 let _suggOffset = 0;
 function _shuffleSuggestions() {
@@ -4848,6 +4857,27 @@ const SLASH_CMDS = [
   { cmd: '/retro',     icon: '🔁',  desc: 'Sprint or project retrospective with action items',            action: () => _slashPrepend('/retro') },
   { cmd: '/prd',       icon: '📄',  desc: 'Write a Product Requirements Document with user stories',      action: () => _slashPrepend('/prd') },
   { cmd: '/metrics',   icon: '📈',  desc: 'Design a metrics & KPI framework with north star metric',      action: () => _slashPrepend('/metrics') },
+  { cmd: '/deck',      icon: '🖥️',  desc: 'Write a slide deck outline with speaker notes',                action: () => _slashPrepend('/deck') },
+  { cmd: '/rubric',    icon: '📏',  desc: 'Create a grading rubric with performance levels',              action: () => _slashPrepend('/rubric') },
+  { cmd: '/sop',       icon: '📋',  desc: 'Write a Standard Operating Procedure',                         action: () => _slashPrepend('/sop') },
+  { cmd: '/brief',     icon: '📎',  desc: 'Write a creative or project brief with objectives and scope',  action: () => _slashPrepend('/brief') },
+  { cmd: '/vision',    icon: '🔭',  desc: 'Write a vision or mission statement with variations',          action: () => _slashPrepend('/vision') },
+  { cmd: '/onepager',  icon: '📄',  desc: 'Write a one-page executive summary',                           action: () => _slashPrepend('/onepager') },
+  { cmd: '/roadmap',   icon: '🗺️',  desc: 'Build a strategic product roadmap with phases and milestones', action: () => _slashPrepend('/roadmap') },
+  { cmd: '/okr',       icon: '🎯',  desc: 'Write OKRs with measurable Key Results and baselines',         action: () => _slashPrepend('/okr') },
+  { cmd: '/framework', icon: '🧩',  desc: 'Design a thinking framework or decision matrix',               action: () => _slashPrepend('/framework') },
+  { cmd: '/case-study',icon: '📖',  desc: 'Write a case study with problem, solution, and results',       action: () => _slashPrepend('/case-study') },
+  { cmd: '/gap-analysis',icon:'🔍', desc: 'Run a gap analysis — current state vs. desired state',         action: () => _slashPrepend('/gap-analysis') },
+  { cmd: '/hypothesis',icon: '🧪',  desc: 'Write a testable hypothesis with variables and method',        action: () => _slashPrepend('/hypothesis') },
+  { cmd: '/sprint',    icon: '🏃',  desc: 'Write a sprint plan with user stories and acceptance criteria', action: () => _slashPrepend('/sprint') },
+  { cmd: '/manifesto', icon: '📣',  desc: 'Write a bold manifesto with values and rallying call to action',action: () => _slashPrepend('/manifesto') },
+  { cmd: '/journey',   icon: '🗺️',  desc: 'Map a customer journey with stages and pain points',           action: () => _slashPrepend('/journey') },
+  { cmd: '/audit',     icon: '🔎',  desc: 'Run a structured audit with severity ratings and top fixes',   action: () => _slashPrepend('/audit') },
+  { cmd: '/benchmark', icon: '📊',  desc: 'Benchmark against industry baselines with gap score',          action: () => _slashPrepend('/benchmark') },
+  { cmd: '/playbook',  icon: '📖',  desc: 'Write an operational playbook with runbook and checklist',     action: () => _slashPrepend('/playbook') },
+  { cmd: '/persona-map',icon:'🧑',  desc: 'Create a 3–4 persona map with goals, pains, and jobs',         action: () => _slashPrepend('/persona-map') },
+  { cmd: '/jtbd',      icon: '💼',  desc: 'Apply Jobs-to-be-Done framework with job statements',          action: () => _slashPrepend('/jtbd') },
+  { cmd: '/north-star',icon: '⭐',  desc: 'Define a North Star metric with leading indicators',            action: () => _slashPrepend('/north-star') },
   // ── Memory ────────────────────────────────────────────────────
   { cmd: '/remember', icon: '📌',  desc: 'Save a fact to semantic memory',             action: () => _slashPrepend('/remember') },
   { cmd: '/forget',   icon: '🗑️',  desc: 'Remove a fact from memory',                 action: () => _slashPrepend('/forget') },
