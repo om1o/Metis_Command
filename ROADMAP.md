@@ -1,10 +1,23 @@
 # Metis Command — 18-Phase Roadmap
 
-> Updated 2026-05-10 · v0.38.0 · 56 Python modules, 6 HTML pages, 4 JS files, ~4600-line app.html, 11 local Ollama models, 4 persistent agents running.
+> Updated 2026-05-10 · v0.39.0 · 56 Python modules, 6 HTML pages, 4 JS files, ~4400-line app.html, 11 local Ollama models, 4 persistent agents running.
 
 ---
 
-## Current State (v0.38.0)
+## Current State (v0.39.0)
+
+### Completed (v0.39.0)
+- ✅ **Three new slash commands** — `/ask` (reframe any thought as a clear, well-formed question), `/steps` (break a goal into numbered action steps), `/brainstorm` (generate 10+ creative ideas on a topic); 35 slash commands total
+- ✅ **Task list (checkbox) rendering** — markdown `- [ ]` and `- [x]` items now render as styled checkbox lists with `☐`/`☑` glyphs and violet accent color, separate from plain bullet lists
+- ✅ **Ctrl+Enter to send** — alternative send shortcut alongside plain Enter; documented in keyboard shortcuts modal for users who expect the two-key pattern
+- ✅ **Enhanced `/stats` command** — now reports character count and session duration (e.g. `12m`) alongside the existing message and word counts
+- ✅ **Four new suggestion cards** — `/steps`, `/ask`, `/eli5`, `/brainstorm` starter cards added to the 16-card shuffle pool (now 20 cards)
+- ✅ **Input auto-focus on load** — composer textarea is focused automatically after boot if no other element has focus, so users can start typing immediately
+- ✅ Version bumped to 0.39.0
+
+---
+
+## Previous State (v0.38.0)
 
 ### Completed (v0.38.0)
 - ✅ **`/stats` slash command** — instant session statistics toast: total messages, your messages vs AI messages, approximate word count, active model

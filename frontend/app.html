@@ -183,6 +183,9 @@ body::before{content:"";position:fixed;inset:0;background:
 pre:hover .code-copy{opacity:1}
 .code-copy:hover{background:rgba(255,255,255,.12);color:var(--text)}
 .code-copy.copied{color:var(--gr);border-color:rgba(34,197,94,.4)}
+.task-list{list-style:none;padding-left:4px}
+.task-item{display:flex;align-items:flex-start;gap:6px;padding:2px 0}
+.task-cb{font-size:14px;line-height:1.4;flex-shrink:0;color:var(--vi2)}
 
 /* Reasoning / thinking toggle */
 .reasoning-wrap{margin-bottom:6px}
@@ -858,7 +861,7 @@ pre:hover .code-copy{opacity:1}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.38.0</span>
+      <span class="ver" id="versionPill">v0.39.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -1312,7 +1315,7 @@ pre:hover .code-copy{opacity:1}
       <div class="shortcuts-section">
         <div class="shortcuts-section-title">Conversation</div>
         <div class="shortcuts-grid">
-          <div class="shortcut-row"><span class="s-desc">Send message</span><span class="s-keys"><kbd>↵</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Send message</span><span class="s-keys"><kbd>↵</kbd> or <kbd>⌘</kbd><kbd>↵</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Newline</span><span class="s-keys"><kbd>⇧</kbd><kbd>↵</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Stop generation</span><span class="s-keys"><kbd>Esc</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Edit last message</span><span class="s-keys"><kbd>↑</kbd></span></div>
@@ -1350,6 +1353,9 @@ pre:hover .code-copy{opacity:1}
           <div class="shortcut-row"><span class="s-desc">Generate a quiz</span><span class="s-keys"><kbd>/quiz</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Pros and cons analysis</span><span class="s-keys"><kbd>/pros</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Define a term clearly</span><span class="s-keys"><kbd>/define</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Reframe as a clear question</span><span class="s-keys"><kbd>/ask</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Break into numbered steps</span><span class="s-keys"><kbd>/steps</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Generate 10+ creative ideas</span><span class="s-keys"><kbd>/brainstorm</kbd></span></div>
         </div>
       </div>
       <div class="shortcuts-section">
@@ -1389,6 +1395,7 @@ let cfg = null;
 let availableModels = [];
 let currentMode = 'chat';
 let _autoScroll = true;
+let _sessionStartTime = Date.now();
 
 const empty = document.getElementById('empty');
 const chatInner = document.getElementById('chatInner');
@@ -1557,6 +1564,9 @@ renderModelMenu();
 fetch('/version').then(r => r.json()).then(v => {
   if (v?.version) document.getElementById('versionPill').textContent = 'v' + v.version;
 }).catch(() => {});
+
+// Auto-focus the composer after boot (skip if user already focused elsewhere)
+setTimeout(() => { if (document.activeElement === document.body) msgInput.focus(); }, 400);
 
 if (cfg?.manager_name) {
   setTimeout(() => {
@@ -2408,6 +2418,9 @@ msgInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
     if (!sendBtn.disabled) sendMessage();
+  } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    if (!sendBtn.disabled) sendMessage();
   }
 });
 sendBtn.addEventListener('click', () => {
@@ -2917,6 +2930,10 @@ const SUGGESTION_POOL = [
   { title: '🔬 Compare options',       sub: 'Side-by-side analysis',                       q: 'Compare PostgreSQL vs MongoDB for a startup building a social platform.' },
   { title: '🚀 Build a startup idea',  sub: 'From concept to pitch',                       q: 'I have an idea for an AI-powered meal planner. Help me build a one-page pitch.' },
   { title: '🎨 Design feedback',       sub: 'UI/UX critique and suggestions',               q: 'Give me 5 best practices for designing a mobile-first dashboard.' },
+  { title: '🪜 Step-by-step guide',    sub: 'Numbered actions you can follow',               q: '/steps How do I deploy a Python FastAPI app to a cloud server?' },
+  { title: '❓ Ask a better question', sub: 'Sharpen any vague query',                       q: '/ask I want to improve my productivity' },
+  { title: '🔎 Quick explainer',       sub: 'Plain-language breakdown',                      q: '/eli5 How does HTTPS encryption actually work?' },
+  { title: '⚡ Instant brainstorm',    sub: '10+ creative ideas in seconds',                 q: '/brainstorm Side-project ideas for a developer who loves automation' },
 ];
 let _suggOffset = 0;
 function _shuffleSuggestions() {
@@ -3122,6 +3139,7 @@ function newChat() {
   chatInner.appendChild(empty);
   empty.style.display = '';
   currentSession = 'sess-' + Date.now();
+  _sessionStartTime = Date.now();
   // Clear session title and message count from header
   const titleEl = document.getElementById('sessionTitleHeader');
   titleEl.textContent = '';
@@ -3289,7 +3307,17 @@ function renderMarkdown(raw) {
   // 7. Horizontal rules
   text = text.replace(/^---+$/gm, '<hr>');
 
-  // 8. Unordered lists — group consecutive lines starting with - or *
+  // 8. Task lists (- [ ] / - [x]) — must come before plain unordered lists
+  text = text.replace(/(?:^[\-\*] \[[ xX]\] .+(?:\n|$))+/gm, match => {
+    const items = match.trim().split('\n').map(l => {
+      const checked = /^[\-\*] \[[xX]\]/.test(l);
+      const label = l.replace(/^[\-\*] \[[ xX]\] /, '');
+      return `<li class="task-item"><span class="task-cb">${checked ? '☑' : '☐'}</span> ${label}</li>`;
+    }).join('');
+    return `<ul class="task-list">${items}</ul>\n`;
+  });
+
+  // 8b. Unordered lists — group consecutive lines starting with - or *
   text = text.replace(/(?:^[\-\*] .+(?:\n|$))+/gm, match => {
     const items = match.trim().split('\n')
       .map(l => `<li>${l.replace(/^[\-\*] /, '')}</li>`).join('');
@@ -4414,6 +4442,9 @@ const SLASH_CMDS = [
   { cmd: '/quiz',    icon: '🧠',  desc: 'Generate a quiz with questions & answers',    action: () => _slashPrepend('/quiz') },
   { cmd: '/pros',    icon: '⚖️',  desc: 'Pros and cons analysis',                      action: () => _slashPrepend('/pros') },
   { cmd: '/define',  icon: '📖',  desc: 'Define a term clearly with examples',         action: () => _slashPrepend('/define') },
+  { cmd: '/ask',     icon: '❓',  desc: 'Reframe as a clear, well-formed question',    action: () => _slashPrepend('/ask') },
+  { cmd: '/steps',   icon: '🪜',  desc: 'Break into numbered action steps',            action: () => _slashPrepend('/steps') },
+  { cmd: '/brainstorm', icon: '💡', desc: 'Generate 10+ creative ideas on a topic',   action: () => _slashPrepend('/brainstorm') },
   // ── Memory ────────────────────────────────────────────────────
   { cmd: '/remember', icon: '📌',  desc: 'Save a fact to semantic memory',             action: () => _slashPrepend('/remember') },
   { cmd: '/forget',   icon: '🗑️',  desc: 'Remove a fact from memory',                 action: () => _slashPrepend('/forget') },
@@ -4441,8 +4472,11 @@ const SLASH_CMDS = [
     const asstMsgs = chatInner.querySelectorAll('.msg.assistant').length;
     const allText  = Array.from(chatInner.querySelectorAll('.msg-bubble')).map(b => b.textContent).join(' ');
     const words    = allText.trim() ? allText.trim().split(/\s+/).length : 0;
+    const chars    = allText.length;
     const model    = document.getElementById('modelLabel')?.textContent?.trim() || '?';
-    if (window.toast) toast('info', '📊 Session Stats', `${userMsgs + asstMsgs} msgs · ${userMsgs} you · ${asstMsgs} AI · ~${words.toLocaleString()} words · ${model}`, 7000);
+    const elapsed  = Math.floor((Date.now() - _sessionStartTime) / 1000);
+    const duration = elapsed < 60 ? `${elapsed}s` : elapsed < 3600 ? `${Math.floor(elapsed/60)}m` : `${Math.floor(elapsed/3600)}h ${Math.floor((elapsed%3600)/60)}m`;
+    if (window.toast) toast('info', '📊 Session Stats', `${userMsgs + asstMsgs} msgs · ${userMsgs} you · ${asstMsgs} AI · ~${words.toLocaleString()} words · ${chars.toLocaleString()} chars · ${duration} · ${model}`, 8000);
   }},
   { cmd: '/debug',  icon: '🔬',  desc: 'Show system diagnostics',                    action: async () => {
     const sessions = document.querySelectorAll('.session-item[data-id]').length;
