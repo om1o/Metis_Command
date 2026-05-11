@@ -882,7 +882,7 @@ pre.collapsible.expanded code{max-height:none}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.54.0</span>
+      <span class="ver" id="versionPill">v0.55.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -1427,6 +1427,9 @@ pre.collapsible.expanded code{max-height:none}
           <div class="shortcut-row"><span class="s-desc">Write a hypothetical scenario or thought experiment</span><span class="s-keys"><kbd>/scenario</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Write structured release notes or changelog</span><span class="s-keys"><kbd>/changelog</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Write detailed technical specifications</span><span class="s-keys"><kbd>/specs</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Write a slide deck outline with speaker notes</span><span class="s-keys"><kbd>/deck</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Create a grading rubric or evaluation criteria</span><span class="s-keys"><kbd>/rubric</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Write a Standard Operating Procedure</span><span class="s-keys"><kbd>/sop</kbd></span></div>
         </div>
       </div>
       <div class="shortcuts-section">
@@ -2634,6 +2637,9 @@ async function sendMessage() {
     '/scenario':   'Write a vivid, well-reasoned hypothetical scenario or thought experiment for the following. Set the context clearly, explore what realistically could happen step by step, highlight key decision points and consequences, and close with the most likely outcome and key lessons. Make it concrete, plausible, and thought-provoking:\n\n',
     '/changelog':  'Write a clear, well-structured changelog or release notes for the following. Use Keep a Changelog conventions where applicable — organize entries under sections like Added, Changed, Fixed, Removed, or Improved. Write in plain, action-oriented language. Lead with the most impactful changes. If a version number or date is provided, include it prominently:\n\n',
     '/specs':      'Write detailed technical specifications for the following feature, system, or product. Structure it with: an overview and goals, non-goals and out-of-scope items, functional requirements (what it must do), non-functional requirements (performance, security, scalability), system design or architecture overview, key edge cases and error handling, open questions, and success metrics or acceptance criteria:\n\n',
+    '/deck':       'Write a clear, structured slide deck outline for the following topic or presentation. Include: a title slide, an agenda slide, 4–6 content slides each with a bold heading and 3–5 concise bullet points, a summary or key takeaways slide, and a closing Q&A slide. Add brief speaker notes for each content slide:\n\n',
+    '/rubric':     'Create a detailed grading rubric or evaluation criteria for the following task, project, or assignment. Include 4–5 key criteria, clear performance level descriptions (Excellent / Proficient / Developing / Beginning), specific observable evidence for each level, and point values or weightings where applicable:\n\n',
+    '/sop':        'Write a clear, well-structured Standard Operating Procedure (SOP) for the following process or task. Include: a purpose and scope statement, roles and responsibilities, numbered step-by-step procedure, quality control or approval checkpoints, and a document metadata section (version, date, owner). Use plain, unambiguous language:\n\n',
   };
   let _slashStripped = text;
   for (const [cmd, instr] of Object.entries(SLASH_PREFIX_MAP)) {
@@ -3085,12 +3091,15 @@ async function sendMessage() {
           { label: 'Write a scenario →',     q: '/scenario Write a hypothetical scenario based on what we just discussed.' },
           { label: 'Write a changelog →',    q: '/changelog Write a clear changelog entry for what we just discussed.' },
           { label: 'Write the specs →',      q: '/specs Write technical specifications for what we just discussed.' },
+          { label: 'Build a deck →',          q: '/deck Create a slide deck outline for the key ideas we just discussed.' },
+          { label: 'Write a rubric →',        q: '/rubric Create a grading rubric for evaluating what we just discussed.' },
+          { label: 'Write an SOP →',          q: '/sop Write a standard operating procedure for the process we just discussed.' },
         ];
         const _chipOffset = (_chipTurn || 0) % _chipPool.length;
         const chipDefs = [
           _chipPool[_chipOffset % _chipPool.length],
-          _chipPool[(_chipOffset + 16) % _chipPool.length],
-          _chipPool[(_chipOffset + 32) % _chipPool.length],
+          _chipPool[(_chipOffset + 17) % _chipPool.length],
+          _chipPool[(_chipOffset + 34) % _chipPool.length],
         ];
         chips.innerHTML = chipDefs.map(c =>
           `<button class="followup-chip" data-q="${c.q.replace(/"/g,'&quot;')}">${c.label}</button>`
@@ -3193,6 +3202,9 @@ const SUGGESTION_POOL = [
   { title: '🔮 Explore a scenario',      sub: 'Hypothetical with decision points and outcomes',           q: '/scenario What would happen if a mid-size SaaS company replaced its entire support team with AI agents overnight?' },
   { title: '📋 Write a changelog',       sub: 'Release notes in Keep a Changelog format',                 q: '/changelog Write a changelog for a v2.0 release of a mobile app that added offline mode, redesigned onboarding, and fixed 12 bugs.' },
   { title: '📐 Write the specs',         sub: 'Technical requirements, design, edge cases',               q: '/specs Write technical specifications for a real-time collaborative document editing feature in a web app.' },
+  { title: '🖥️ Build a deck outline',    sub: 'Slide-by-slide structure with speaker notes',               q: '/deck Write a slide deck outline for a 10-minute presentation on why AI will transform knowledge work.' },
+  { title: '📏 Create a rubric',         sub: 'Evaluation criteria with performance levels',               q: '/rubric Create a rubric for evaluating the quality of a blog post: clarity, depth, originality, structure, and engagement.' },
+  { title: '📋 Write an SOP',            sub: 'Step-by-step standard operating procedure',                 q: '/sop Write an SOP for onboarding a new software engineer to a remote engineering team.' },
 ];
 let _suggOffset = 0;
 function _shuffleSuggestions() {
