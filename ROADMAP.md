@@ -1,12 +1,24 @@
 # Metis Command — 18-Phase Roadmap
 
-> Updated 2026-05-11 · v0.45.0 · 56 Python modules, 6 HTML pages, 4 JS files, ~4800-line app.html, 11 local Ollama models, 4 persistent agents running.
+> Updated 2026-05-11 · v0.46.0 · 56 Python modules, 6 HTML pages, 4 JS files, ~4900-line app.html, 11 local Ollama models, 4 persistent agents running.
 
 ---
 
-## Current State (v0.45.0)
+## Current State (v0.46.0)
+
+### Completed (v0.46.0)
+- ✅ **Three new slash commands** — `/thread` (format content as a numbered Twitter/X thread with hook and CTA), `/pitch` (startup/product pitch covering problem, solution, audience, and call to action), `/haiku` (strict 5-7-5 syllable haiku with evocative imagery); 56 slash commands total; all three wired with prefix injection in `SLASH_PREFIX_MAP`
+- ✅ **Follow-up chip pool expanded to 24** — added `Make it a thread →`, `Give the pitch →`, `Write a haiku →`; fixed duplicate `Simplify this →` chip (was at indices 3 and 12 — index 12 replaced with `Turn into steps →`); stride updated from +7/+14 to +8/+16 for even 8-turn rotation across all 24 chips
+- ✅ **Three new suggestion cards** — `/thread`, `/pitch`, `/haiku` starter cards added to the empty-state shuffle pool (now 41 cards total)
+- ✅ **Shortcuts modal completeness** — added `/thread`, `/pitch`, `/haiku` to the Text Transforms section
+- ✅ Version bumped to 0.46.0
+
+---
+
+## Previous State (v0.45.0)
 
 ### Completed (v0.45.0)
+
 - ✅ **Three new slash commands** — `/letter` (write a formal letter with proper salutation, body, and closing), `/faq` (generate a FAQ section with 6+ Q&A pairs), `/analogy` (explain using 2–3 creative analogies from different domains); 53 slash commands total; all three wired with prefix injection in `SLASH_PREFIX_MAP`
 - ✅ **Follow-up chip pool expanded to 21** — added `Write me a letter →`, `Show with an analogy →`, `Turn into FAQ →`; stride updated from +6/+12 to +7/+14 for even 7-turn rotation across all 21 chips
 - ✅ **Three new suggestion cards** — `/letter`, `/faq`, `/analogy` starter cards added to the empty-state shuffle pool (now 38 cards total)

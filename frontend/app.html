@@ -882,7 +882,7 @@ pre.collapsible.expanded code{max-height:none}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.45.0</span>
+      <span class="ver" id="versionPill">v0.46.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -1400,6 +1400,9 @@ pre.collapsible.expanded code{max-height:none}
           <div class="shortcut-row"><span class="s-desc">Write a formal letter</span><span class="s-keys"><kbd>/letter</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Generate a FAQ section</span><span class="s-keys"><kbd>/faq</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Explain using analogies</span><span class="s-keys"><kbd>/analogy</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Format as Twitter/X thread</span><span class="s-keys"><kbd>/thread</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Write a startup pitch</span><span class="s-keys"><kbd>/pitch</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Write a haiku (5-7-5)</span><span class="s-keys"><kbd>/haiku</kbd></span></div>
         </div>
       </div>
       <div class="shortcuts-section">
@@ -2580,6 +2583,9 @@ async function sendMessage() {
     '/letter':    'Write a formal letter for the following request. Include a proper salutation, well-structured body paragraphs, and a professional closing. Use clear, polished language:\n\n',
     '/faq':       'Generate a clear, well-organized FAQ (Frequently Asked Questions) section for the following topic. Include at least 6 questions with concise, accurate answers:\n\n',
     '/analogy':   'Explain the following concept using 2–3 creative analogies drawn from different domains (nature, everyday life, history, sports, etc.). Make abstract ideas tangible and memorable:\n\n',
+    '/thread':    'Format the following content as an engaging Twitter/X thread. Number each tweet (1/, 2/, etc.), keep each tweet under 280 characters, open with a strong hook, and close with a clear takeaway or call to action:\n\n',
+    '/pitch':     'Write a compelling startup or product pitch for the following. Cover: the problem, the solution, the target audience, key benefits, and a punchy call to action. Keep it concise and persuasive:\n\n',
+    '/haiku':     'Write a haiku about the following topic. Strictly follow the 5-7-5 syllable structure. Make it vivid and evocative, with a resonant or surprising final line:\n\n',
   };
   let _slashStripped = text;
   for (const [cmd, instr] of Object.entries(SLASH_PREFIX_MAP)) {
@@ -2995,7 +3001,7 @@ async function sendMessage() {
           { label: 'Debate this →',         q: '/debate What are the strongest arguments for and against this?' },
           { label: 'Make a timeline →',     q: '/timeline Organize this into a chronological timeline.' },
           { label: 'Turn into a quiz →',    q: '/quiz Create a 5-question quiz based on what you just explained.' },
-          { label: 'Simplify this →',       q: '/eli5 Can you simplify what you just explained?' },
+          { label: 'Turn into steps →',     q: '/steps Break down what you just said into numbered action steps.' },
           { label: 'List the pros & cons →',q: '/pros What are the pros and cons of what you just described?' },
           { label: 'Give me 3 bullets →',   q: '/summarize Condense your last response into exactly 3 bullet points.' },
           { label: 'Make it a poem →',      q: '/poem Turn your last response into a short poem.' },
@@ -3004,12 +3010,15 @@ async function sendMessage() {
           { label: 'Write me a letter →',   q: '/letter Write a formal letter based on the topic we just discussed.' },
           { label: 'Show with an analogy →', q: '/analogy Can you explain this using a creative analogy?' },
           { label: 'Turn into FAQ →',        q: '/faq Convert what you just explained into a FAQ format.' },
+          { label: 'Make it a thread →',     q: '/thread Format what you just explained as a Twitter/X thread.' },
+          { label: 'Give the pitch →',       q: '/pitch Turn the key idea into a short startup pitch.' },
+          { label: 'Write a haiku →',        q: '/haiku Capture the essence of your last response in a haiku.' },
         ];
         const _chipOffset = (_chipTurn || 0) % _chipPool.length;
         const chipDefs = [
           _chipPool[_chipOffset % _chipPool.length],
-          _chipPool[(_chipOffset + 7) % _chipPool.length],
-          _chipPool[(_chipOffset + 14) % _chipPool.length],
+          _chipPool[(_chipOffset + 8) % _chipPool.length],
+          _chipPool[(_chipOffset + 16) % _chipPool.length],
         ];
         chips.innerHTML = chipDefs.map(c =>
           `<button class="followup-chip" data-q="${c.q.replace(/"/g,'&quot;')}">${c.label}</button>`
@@ -3085,6 +3094,9 @@ const SUGGESTION_POOL = [
   { title: '✉️ Write a letter',           sub: 'Formal letter with proper structure',               q: '/letter Write a professional letter requesting an extension on a project deadline.' },
   { title: '❔ Generate an FAQ',          sub: 'Q&A format from any topic',                         q: '/faq What are the most common questions about starting a side business from scratch?' },
   { title: '🔮 Explain by analogy',       sub: 'Creative comparisons that make ideas stick',        q: '/analogy Explain how a computer CPU works using 3 different everyday analogies.' },
+  { title: '🧵 Write a Twitter thread',   sub: 'Format any topic as an engaging social thread',      q: '/thread Break down the key principles of writing clean, maintainable code into a Twitter thread.' },
+  { title: '🚀 Write a pitch',            sub: 'Startup-style persuasive pitch in minutes',          q: '/pitch Write a one-minute pitch for a personal finance app that gamifies saving money.' },
+  { title: '🌸 Write a haiku',            sub: 'Concise 5-7-5 syllable poetry',                      q: '/haiku Write a haiku about the feeling of shipping something you built from scratch.' },
 ];
 let _suggOffset = 0;
 function _shuffleSuggestions() {
@@ -4626,6 +4638,9 @@ const SLASH_CMDS = [
   { cmd: '/letter',   icon: '✉️',  desc: 'Write a formal letter with proper structure',     action: () => _slashPrepend('/letter') },
   { cmd: '/faq',      icon: '❔',  desc: 'Generate a FAQ section from any content',         action: () => _slashPrepend('/faq') },
   { cmd: '/analogy',  icon: '🔮',  desc: 'Explain using creative analogies',                action: () => _slashPrepend('/analogy') },
+  { cmd: '/thread',   icon: '🧵',  desc: 'Format as a Twitter/X thread',                    action: () => _slashPrepend('/thread') },
+  { cmd: '/pitch',    icon: '🚀',  desc: 'Write a startup or product pitch',                action: () => _slashPrepend('/pitch') },
+  { cmd: '/haiku',    icon: '🌸',  desc: 'Write a haiku (5-7-5 syllables)',                 action: () => _slashPrepend('/haiku') },
   // ── Memory ────────────────────────────────────────────────────
   { cmd: '/remember', icon: '📌',  desc: 'Save a fact to semantic memory',             action: () => _slashPrepend('/remember') },
   { cmd: '/forget',   icon: '🗑️',  desc: 'Remove a fact from memory',                 action: () => _slashPrepend('/forget') },
