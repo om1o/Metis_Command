@@ -882,7 +882,7 @@ pre.collapsible.expanded code{max-height:none}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.52.0</span>
+      <span class="ver" id="versionPill">v0.53.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -1421,6 +1421,9 @@ pre.collapsible.expanded code{max-height:none}
           <div class="shortcut-row"><span class="s-desc">Write a professional cover letter</span><span class="s-keys"><kbd>/cover</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Write a detailed review with rating</span><span class="s-keys"><kbd>/review</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Write a project or business proposal</span><span class="s-keys"><kbd>/proposal</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Write a concise abstract</span><span class="s-keys"><kbd>/abstract</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Write a step-by-step tutorial</span><span class="s-keys"><kbd>/tutorial</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Write a project or incident postmortem</span><span class="s-keys"><kbd>/postmortem</kbd></span></div>
         </div>
       </div>
       <div class="shortcuts-section">
@@ -2622,6 +2625,9 @@ async function sendMessage() {
     '/cover':      'Write a compelling, professional cover letter for the following job, role, or application. Include an attention-grabbing opening paragraph, 2–3 body paragraphs that highlight relevant experience and specific achievements, and a confident closing with a call to action. Match the tone to the industry and position:\n\n',
     '/review':     'Write a detailed, well-structured review of the following product, tool, book, service, or concept. Include: an overview, key strengths (at least 3), notable weaknesses or limitations, standout details worth highlighting, and a final verdict with a rating out of 5. Write in an engaging, authoritative voice:\n\n',
     '/proposal':   'Write a clear, persuasive project or business proposal for the following. Structure it with: an executive summary, the problem or opportunity being addressed, the proposed solution and approach, scope and deliverables, a high-level timeline, estimated budget or resources required, and a compelling closing recommendation:\n\n',
+    '/abstract':   'Write a concise, well-structured abstract for the following paper, project, report, or concept. Include: a brief context or background, the core subject or argument, key findings or contributions, and the significance or takeaway. Keep it under 250 words. Write in clear, precise, professional language:\n\n',
+    '/tutorial':   'Write a clear, beginner-friendly step-by-step tutorial or how-to guide for the following. Include: a short intro explaining what the reader will learn and why it matters, numbered steps with precise actionable instructions, code snippets or examples where applicable, common mistakes to avoid, and a brief summary or next steps section:\n\n',
+    '/postmortem': 'Write a detailed but constructive project or incident postmortem for the following. Structure it with: a brief executive summary of what happened, a timeline of key events, a thorough root cause analysis, what went well, what went wrong, and specific action items with owners to prevent recurrence. Use a blameless, learning-focused tone throughout:\n\n',
   };
   let _slashStripped = text;
   for (const [cmd, instr] of Object.entries(SLASH_PREFIX_MAP)) {
@@ -3067,12 +3073,15 @@ async function sendMessage() {
           { label: 'Write a cover letter →', q: '/cover Write a cover letter based on the topic we just discussed.' },
           { label: 'Write a review →',       q: '/review Write a detailed review of what we just discussed.' },
           { label: 'Write a proposal →',     q: '/proposal Write a project proposal based on what we just discussed.' },
+          { label: 'Write an abstract →',    q: '/abstract Write a concise abstract for the concept we just discussed.' },
+          { label: 'Make it a tutorial →',   q: '/tutorial Turn what we just discussed into a step-by-step tutorial.' },
+          { label: 'Postmortem it →',        q: '/postmortem Write a postmortem analysis for what we just discussed.' },
         ];
         const _chipOffset = (_chipTurn || 0) % _chipPool.length;
         const chipDefs = [
           _chipPool[_chipOffset % _chipPool.length],
-          _chipPool[(_chipOffset + 14) % _chipPool.length],
-          _chipPool[(_chipOffset + 28) % _chipPool.length],
+          _chipPool[(_chipOffset + 15) % _chipPool.length],
+          _chipPool[(_chipOffset + 30) % _chipPool.length],
         ];
         chips.innerHTML = chipDefs.map(c =>
           `<button class="followup-chip" data-q="${c.q.replace(/"/g,'&quot;')}">${c.label}</button>`
@@ -3169,6 +3178,9 @@ const SUGGESTION_POOL = [
   { title: '📬 Write a cover letter',    sub: 'Targeted, compelling, and professionally structured',     q: '/cover Write a cover letter for a senior product manager role at a fast-growing AI startup.' },
   { title: '⭐ Write a review',           sub: 'Strengths, weaknesses, and a verdict out of 5',           q: '/review Write a detailed review of Notion as a productivity and knowledge management tool.' },
   { title: '📋 Write a proposal',        sub: 'Problem, solution, deliverables, and recommendation',     q: '/proposal Write a project proposal for building an internal AI assistant for a 50-person engineering team.' },
+  { title: '📝 Write an abstract',       sub: 'Concise academic or executive abstract under 250 words',  q: '/abstract Write an abstract for a research paper on the impact of large language models on knowledge work.' },
+  { title: '📚 Write a tutorial',        sub: 'Step-by-step how-to guide for any topic',                 q: '/tutorial Write a beginner\'s tutorial on how to use Git for version control from the command line.' },
+  { title: '🔍 Write a postmortem',      sub: 'Blameless incident or project analysis',                  q: '/postmortem Write a postmortem for a web app that went down due to an unexpected database misconfiguration.' },
 ];
 let _suggOffset = 0;
 function _shuffleSuggestions() {
@@ -4728,6 +4740,12 @@ const SLASH_CMDS = [
   { cmd: '/newsletter', icon: '📰',  desc: 'Write an email newsletter with sections and CTA',        action: () => _slashPrepend('/newsletter') },
   { cmd: '/tagline',    icon: '🏷️',  desc: 'Create 5 punchy brand taglines or slogans',              action: () => _slashPrepend('/tagline') },
   { cmd: '/meeting',    icon: '📝',  desc: 'Write structured meeting notes with action items',        action: () => _slashPrepend('/meeting') },
+  { cmd: '/cover',      icon: '📬',  desc: 'Write a professional cover letter',                        action: () => _slashPrepend('/cover') },
+  { cmd: '/review',     icon: '⭐',  desc: 'Write a detailed review with strengths and a rating',      action: () => _slashPrepend('/review') },
+  { cmd: '/proposal',   icon: '📋',  desc: 'Write a project or business proposal',                     action: () => _slashPrepend('/proposal') },
+  { cmd: '/abstract',   icon: '📝',  desc: 'Write a concise academic or executive abstract',           action: () => _slashPrepend('/abstract') },
+  { cmd: '/tutorial',   icon: '📚',  desc: 'Write a step-by-step tutorial or how-to guide',            action: () => _slashPrepend('/tutorial') },
+  { cmd: '/postmortem', icon: '🔍',  desc: 'Write a blameless project or incident postmortem',         action: () => _slashPrepend('/postmortem') },
   // ── Memory ────────────────────────────────────────────────────
   { cmd: '/remember', icon: '📌',  desc: 'Save a fact to semantic memory',             action: () => _slashPrepend('/remember') },
   { cmd: '/forget',   icon: '🗑️',  desc: 'Remove a fact from memory',                 action: () => _slashPrepend('/forget') },
