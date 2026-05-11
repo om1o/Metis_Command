@@ -882,7 +882,7 @@ pre.collapsible.expanded code{max-height:none}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.58.0</span>
+      <span class="ver" id="versionPill">v0.59.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -1439,6 +1439,9 @@ pre.collapsible.expanded code{max-height:none}
           <div class="shortcut-row"><span class="s-desc">Case study with problem, solution &amp; results</span><span class="s-keys"><kbd>/case-study</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Gap analysis: current vs. desired state</span><span class="s-keys"><kbd>/gap-analysis</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Testable hypothesis with if-then structure</span><span class="s-keys"><kbd>/hypothesis</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Sprint plan with user stories &amp; acceptance criteria</span><span class="s-keys"><kbd>/sprint</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Bold brand or product manifesto</span><span class="s-keys"><kbd>/manifesto</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Customer journey map by stage</span><span class="s-keys"><kbd>/journey</kbd></span></div>
         </div>
       </div>
       <div class="shortcuts-section">
@@ -2658,6 +2661,9 @@ async function sendMessage() {
     '/case-study':  'Write a detailed, well-structured case study for the following subject, company, project, or event. Include: an executive summary, background and context, the core problem or challenge, the approach or solution taken, key actions and decision points, measurable results and outcomes, lessons learned, and a brief conclusion. Use a narrative arc that makes the case study engaging and instructive:\n\n',
     '/gap-analysis': 'Perform a thorough gap analysis for the following situation, goal, or initiative. Structure it with: the current state (where things stand now), the desired future state (where they need to be), a breakdown of the key gaps across dimensions like capability, resources, processes, and knowledge, the root causes behind each gap, prioritized recommendations for closing the gaps, and success metrics to track progress. Be specific and actionable:\n\n',
     '/hypothesis':  'Write a clear, testable hypothesis for the following question, problem, or research area. Structure it with: the background or context that motivates the hypothesis, a precise, falsifiable hypothesis statement (If… then… because… format), the key variables and how they relate, the proposed method or experiment to test it, the expected outcome and what would confirm or refute it, and potential confounds or limitations. Make it rigorous and scientifically grounded:\n\n',
+    '/sprint':      'Write a detailed sprint plan for the following feature, goal, or initiative. Include: a sprint goal statement, user stories in "As a… I want… so that…" format (4–6 stories), acceptance criteria for each story, story point estimates, and a brief section on risks or blockers to watch. Format clearly for a development team:\n\n',
+    '/manifesto':   'Write a bold, inspiring manifesto for the following brand, product, movement, or idea. Open with a powerful declaration of belief, articulate the problems with the status quo, state the core principles and values (5–7 points), describe the world you are building toward, and close with a rallying call to action. Make it emotional, memorable, and conviction-driven:\n\n',
+    '/journey':     'Map a detailed customer or user journey for the following product, service, or experience. Structure it with: a persona profile, the key stages of the journey (Awareness → Consideration → Decision → Onboarding → Retention), the user\'s thoughts, feelings, and actions at each stage, pain points and moments of friction, and opportunities to improve the experience. Present it in a clear, stagewise format:\n\n',
   };
   let _slashStripped = text;
   for (const [cmd, instr] of Object.entries(SLASH_PREFIX_MAP)) {
@@ -3121,6 +3127,9 @@ async function sendMessage() {
           { label: 'Write a case study →',    q: '/case-study Write a case study based on the situation or example we just discussed.' },
           { label: 'Run a gap analysis →',    q: '/gap-analysis Run a gap analysis between where things are now and where they need to be based on what we discussed.' },
           { label: 'Write a hypothesis →',    q: '/hypothesis Write a testable hypothesis for the question or problem we just discussed.' },
+          { label: 'Plan a sprint →',          q: '/sprint Write a sprint plan with user stories and acceptance criteria for what we just discussed.' },
+          { label: 'Write a manifesto →',      q: '/manifesto Write a bold manifesto for the idea or brand we just discussed.' },
+          { label: 'Map the journey →',        q: '/journey Map the customer journey for the product or experience we just discussed.' },
         ];
         const _chipOffset = (_chipTurn || 0) % _chipPool.length;
         const chipDefs = [
@@ -3241,6 +3250,9 @@ const SUGGESTION_POOL = [
   { title: '📖 Write a case study',      sub: 'Narrative with problem, solution, and results',                  q: '/case-study Write a case study on how a small SaaS company reduced churn by 40% by redesigning their onboarding flow.' },
   { title: '🔍 Run a gap analysis',      sub: 'Current vs. desired state with action plan',                     q: '/gap-analysis Run a gap analysis for a mid-size startup trying to move from product-market fit to enterprise readiness.' },
   { title: '🧪 Write a hypothesis',      sub: 'Testable if-then with variables and validation',                 q: '/hypothesis Write a hypothesis for testing whether a shorter onboarding flow increases 7-day user activation rates.' },
+  { title: '🏃 Plan a sprint',           sub: 'User stories, acceptance criteria, story points',                q: '/sprint Write a sprint plan for adding a real-time notifications feature to a B2B SaaS platform.' },
+  { title: '📣 Write a manifesto',       sub: 'Bold declaration of values and rallying call to action',          q: '/manifesto Write a manifesto for a startup building AI tools that put creativity back in the hands of individuals.' },
+  { title: '🗺️ Map the journey',          sub: 'Stage-by-stage customer experience with pain points',             q: '/journey Map the customer journey for a first-time user signing up for an AI productivity tool.' },
 ];
 let _suggOffset = 0;
 function _shuffleSuggestions() {
