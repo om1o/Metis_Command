@@ -882,7 +882,7 @@ pre.collapsible.expanded code{max-height:none}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.57.0</span>
+      <span class="ver" id="versionPill">v0.58.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -1436,6 +1436,9 @@ pre.collapsible.expanded code{max-height:none}
           <div class="shortcut-row"><span class="s-desc">Strategic roadmap with phases &amp; milestones</span><span class="s-keys"><kbd>/roadmap</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Objectives and Key Results (OKRs)</span><span class="s-keys"><kbd>/okr</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Structured thinking or decision framework</span><span class="s-keys"><kbd>/framework</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Case study with problem, solution &amp; results</span><span class="s-keys"><kbd>/case-study</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Gap analysis: current vs. desired state</span><span class="s-keys"><kbd>/gap-analysis</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Testable hypothesis with if-then structure</span><span class="s-keys"><kbd>/hypothesis</kbd></span></div>
         </div>
       </div>
       <div class="shortcuts-section">
@@ -2652,6 +2655,9 @@ async function sendMessage() {
     '/roadmap':    'Write a clear, strategic product or project roadmap for the following. Structure it with: an executive summary of the goal, 3–5 distinct phases or milestones (each with a name, timeframe, key deliverables, and success metrics), dependencies or risks to watch, and a brief section on ownership and resourcing. Make it both strategic and actionable:\n\n',
     '/okr':        'Write a structured set of OKRs (Objectives and Key Results) for the following goal, team, or initiative. Include 2–3 Objectives, each with 3–4 measurable Key Results. For each KR, specify the metric, the current baseline, and the target. Add a brief note on why each Objective matters and how progress will be tracked. Format clearly for team alignment:\n\n',
     '/framework':  'Design a clear, structured thinking framework or decision matrix for the following problem, decision, or challenge. Include: a name for the framework, the core question it answers, 3–5 key dimensions or criteria, how to weight or apply each, a worked example using the topic provided, and guidance on when to use or not use this framework:\n\n',
+    '/case-study':  'Write a detailed, well-structured case study for the following subject, company, project, or event. Include: an executive summary, background and context, the core problem or challenge, the approach or solution taken, key actions and decision points, measurable results and outcomes, lessons learned, and a brief conclusion. Use a narrative arc that makes the case study engaging and instructive:\n\n',
+    '/gap-analysis': 'Perform a thorough gap analysis for the following situation, goal, or initiative. Structure it with: the current state (where things stand now), the desired future state (where they need to be), a breakdown of the key gaps across dimensions like capability, resources, processes, and knowledge, the root causes behind each gap, prioritized recommendations for closing the gaps, and success metrics to track progress. Be specific and actionable:\n\n',
+    '/hypothesis':  'Write a clear, testable hypothesis for the following question, problem, or research area. Structure it with: the background or context that motivates the hypothesis, a precise, falsifiable hypothesis statement (If… then… because… format), the key variables and how they relate, the proposed method or experiment to test it, the expected outcome and what would confirm or refute it, and potential confounds or limitations. Make it rigorous and scientifically grounded:\n\n',
   };
   let _slashStripped = text;
   for (const [cmd, instr] of Object.entries(SLASH_PREFIX_MAP)) {
@@ -3112,6 +3118,9 @@ async function sendMessage() {
           { label: 'Build a roadmap →',       q: '/roadmap Create a strategic roadmap with phases and milestones for what we just discussed.' },
           { label: 'Write OKRs →',            q: '/okr Write a set of OKRs with measurable Key Results for the goal we just discussed.' },
           { label: 'Build a framework →',     q: '/framework Design a structured thinking framework or decision matrix for the problem we just discussed.' },
+          { label: 'Write a case study →',    q: '/case-study Write a case study based on the situation or example we just discussed.' },
+          { label: 'Run a gap analysis →',    q: '/gap-analysis Run a gap analysis between where things are now and where they need to be based on what we discussed.' },
+          { label: 'Write a hypothesis →',    q: '/hypothesis Write a testable hypothesis for the question or problem we just discussed.' },
         ];
         const _chipOffset = (_chipTurn || 0) % _chipPool.length;
         const chipDefs = [
@@ -3229,6 +3238,9 @@ const SUGGESTION_POOL = [
   { title: '🗺️ Build a roadmap',          sub: 'Phases, milestones, and success metrics',                     q: '/roadmap Build a product roadmap for an AI writing assistant from beta to general availability over 6 months.' },
   { title: '🎯 Write OKRs',              sub: 'Objectives and Key Results with baselines and targets',         q: '/okr Write OKRs for a product team focused on improving user retention and expanding to enterprise customers.' },
   { title: '🧩 Build a framework',       sub: 'Decision matrix or structured thinking tool',                   q: '/framework Design a framework for deciding whether a startup should build, buy, or partner for a new capability.' },
+  { title: '📖 Write a case study',      sub: 'Narrative with problem, solution, and results',                  q: '/case-study Write a case study on how a small SaaS company reduced churn by 40% by redesigning their onboarding flow.' },
+  { title: '🔍 Run a gap analysis',      sub: 'Current vs. desired state with action plan',                     q: '/gap-analysis Run a gap analysis for a mid-size startup trying to move from product-market fit to enterprise readiness.' },
+  { title: '🧪 Write a hypothesis',      sub: 'Testable if-then with variables and validation',                 q: '/hypothesis Write a hypothesis for testing whether a shorter onboarding flow increases 7-day user activation rates.' },
 ];
 let _suggOffset = 0;
 function _shuffleSuggestions() {
