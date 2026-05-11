@@ -882,7 +882,7 @@ pre.collapsible.expanded code{max-height:none}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.56.0</span>
+      <span class="ver" id="versionPill">v0.57.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -1433,6 +1433,9 @@ pre.collapsible.expanded code{max-height:none}
           <div class="shortcut-row"><span class="s-desc">Write a creative or project brief</span><span class="s-keys"><kbd>/brief</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Write a vision or mission statement</span><span class="s-keys"><kbd>/vision</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Write a one-page executive summary</span><span class="s-keys"><kbd>/onepager</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Strategic roadmap with phases &amp; milestones</span><span class="s-keys"><kbd>/roadmap</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Objectives and Key Results (OKRs)</span><span class="s-keys"><kbd>/okr</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Structured thinking or decision framework</span><span class="s-keys"><kbd>/framework</kbd></span></div>
         </div>
       </div>
       <div class="shortcuts-section">
@@ -2646,6 +2649,9 @@ async function sendMessage() {
     '/brief':      'Write a clear, comprehensive creative or project brief for the following. Include: project overview and objectives, target audience, key messages and tone, deliverables and scope, constraints or requirements, timeline or milestones, and success criteria. Make it actionable and easy to hand off to a team:\n\n',
     '/vision':     'Write a compelling vision or mission statement for the following organization, product, or initiative. Capture the long-term aspiration, the core purpose, and the values that guide decisions. Offer 2–3 variations ranging from punchy (under 20 words) to narrative (2–3 sentences). Explain the strategic thinking behind each:\n\n',
     '/onepager':   'Write a polished one-page executive summary for the following topic, project, or proposal. Structure it with: a bold headline, a 2–3 sentence overview, key highlights or bullet points (4–6 items), a brief section on impact or value, and a clear call to action. Keep it scannable and persuasive — everything a decision-maker needs on a single page:\n\n',
+    '/roadmap':    'Write a clear, strategic product or project roadmap for the following. Structure it with: an executive summary of the goal, 3–5 distinct phases or milestones (each with a name, timeframe, key deliverables, and success metrics), dependencies or risks to watch, and a brief section on ownership and resourcing. Make it both strategic and actionable:\n\n',
+    '/okr':        'Write a structured set of OKRs (Objectives and Key Results) for the following goal, team, or initiative. Include 2–3 Objectives, each with 3–4 measurable Key Results. For each KR, specify the metric, the current baseline, and the target. Add a brief note on why each Objective matters and how progress will be tracked. Format clearly for team alignment:\n\n',
+    '/framework':  'Design a clear, structured thinking framework or decision matrix for the following problem, decision, or challenge. Include: a name for the framework, the core question it answers, 3–5 key dimensions or criteria, how to weight or apply each, a worked example using the topic provided, and guidance on when to use or not use this framework:\n\n',
   };
   let _slashStripped = text;
   for (const [cmd, instr] of Object.entries(SLASH_PREFIX_MAP)) {
@@ -3103,6 +3109,9 @@ async function sendMessage() {
           { label: 'Write a brief →',         q: '/brief Write a creative brief for the concept we just discussed.' },
           { label: 'Write a vision →',        q: '/vision Write a vision statement for what we just discussed.' },
           { label: 'Make a one-pager →',      q: '/onepager Write a one-page executive summary of the concept we just discussed.' },
+          { label: 'Build a roadmap →',       q: '/roadmap Create a strategic roadmap with phases and milestones for what we just discussed.' },
+          { label: 'Write OKRs →',            q: '/okr Write a set of OKRs with measurable Key Results for the goal we just discussed.' },
+          { label: 'Build a framework →',     q: '/framework Design a structured thinking framework or decision matrix for the problem we just discussed.' },
         ];
         const _chipOffset = (_chipTurn || 0) % _chipPool.length;
         const chipDefs = [
@@ -3217,6 +3226,9 @@ const SUGGESTION_POOL = [
   { title: '📝 Write a brief',           sub: 'Creative or project brief with objectives and scope',        q: '/brief Write a creative brief for a brand redesign campaign targeting millennial professionals.' },
   { title: '🔭 Write a vision statement',sub: 'Aspirational mission with 2–3 length variations',            q: '/vision Write a vision statement for an AI startup building tools that make knowledge workers 10x more effective.' },
   { title: '📄 Write a one-pager',       sub: 'Executive summary on a single scannable page',               q: '/onepager Write a one-page summary for a new internal AI assistant rollout at a 200-person company.' },
+  { title: '🗺️ Build a roadmap',          sub: 'Phases, milestones, and success metrics',                     q: '/roadmap Build a product roadmap for an AI writing assistant from beta to general availability over 6 months.' },
+  { title: '🎯 Write OKRs',              sub: 'Objectives and Key Results with baselines and targets',         q: '/okr Write OKRs for a product team focused on improving user retention and expanding to enterprise customers.' },
+  { title: '🧩 Build a framework',       sub: 'Decision matrix or structured thinking tool',                   q: '/framework Design a framework for deciding whether a startup should build, buy, or partner for a new capability.' },
 ];
 let _suggOffset = 0;
 function _shuffleSuggestions() {
