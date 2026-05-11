@@ -882,7 +882,7 @@ pre.collapsible.expanded code{max-height:none}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.50.0</span>
+      <span class="ver" id="versionPill">v0.51.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -1415,6 +1415,9 @@ pre.collapsible.expanded code{max-height:none}
           <div class="shortcut-row"><span class="s-desc">Write a structured report</span><span class="s-keys"><kbd>/report</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Write social media captions</span><span class="s-keys"><kbd>/caption</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Build a business case</span><span class="s-keys"><kbd>/case</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Write an email newsletter</span><span class="s-keys"><kbd>/newsletter</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Create brand taglines &amp; slogans</span><span class="s-keys"><kbd>/tagline</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Write structured meeting notes</span><span class="s-keys"><kbd>/meeting</kbd></span></div>
         </div>
       </div>
       <div class="shortcuts-section">
@@ -2607,9 +2610,12 @@ async function sendMessage() {
     '/swot':      'Create a SWOT analysis for the following subject. Format it as four clearly labeled sections — Strengths, Weaknesses, Opportunities, and Threats — each with 4–6 specific, well-reasoned bullet points:\n\n',
     '/persona':   'Create a detailed user persona or character profile for the following. Include name, demographics, background, goals, frustrations, behaviors, and a brief day-in-the-life narrative. Make it feel realistic and specific:\n\n',
     '/press':     'Write a professional press release for the following announcement. Include a punchy headline, dateline, strong opening paragraph (who/what/where/when/why), a supporting quote, a background paragraph, and a boilerplate "About" section:\n\n',
-    '/report':    'Write a clear, structured business or research report on the following. Include an executive summary, key findings organized under headings, supporting evidence or data points, and a concise conclusion with recommendations:\n\n',
-    '/caption':   'Write 3–5 engaging social media captions for the following topic or content. Vary the tone and length — include one short punchy version, one that leads with a question, and one with a clear call to action. Include relevant hashtag suggestions:\n\n',
-    '/case':      'Write a compelling business case for the following proposal or decision. Structure it with: the problem statement, proposed solution, key benefits, potential risks and mitigations, estimated effort or cost, and a clear recommendation:\n\n',
+    '/report':     'Write a clear, structured business or research report on the following. Include an executive summary, key findings organized under headings, supporting evidence or data points, and a concise conclusion with recommendations:\n\n',
+    '/caption':    'Write 3–5 engaging social media captions for the following topic or content. Vary the tone and length — include one short punchy version, one that leads with a question, and one with a clear call to action. Include relevant hashtag suggestions:\n\n',
+    '/case':       'Write a compelling business case for the following proposal or decision. Structure it with: the problem statement, proposed solution, key benefits, potential risks and mitigations, estimated effort or cost, and a clear recommendation:\n\n',
+    '/newsletter': 'Write an email newsletter for the following topic or audience. Include a compelling subject line (format: "Subject: …"), a punchy preview text line, an engaging intro paragraph, 2–3 short content sections with headers, and a clear call-to-action closing. Write in a warm, engaging tone:\n\n',
+    '/tagline':    'Create 5 memorable brand taglines or slogans for the following product, company, or concept. Each should be punchy (under 10 words), emotionally resonant, and convey a distinct angle. After listing them, briefly explain the strategy behind each:\n\n',
+    '/meeting':    'Write clear, structured meeting notes for the following. Include sections for: Date & Attendees (use placeholders if not specified), Agenda / Topics Covered, Key Decisions Made, Action Items (with owners and due dates), and Next Steps. Format in clean Markdown:\n\n',
   };
   let _slashStripped = text;
   for (const [cmd, instr] of Object.entries(SLASH_PREFIX_MAP)) {
@@ -3009,7 +3015,7 @@ async function sendMessage() {
         fbUp.addEventListener('click', () => submitFeedback('up'));
         fbDown.addEventListener('click', () => submitFeedback('down'));
 
-        // Follow-up quick-reply chips — rotate 3 from a pool of 36 (stride +11/+22)
+        // Follow-up quick-reply chips — rotate 3 from a pool of 39 (stride +13/+26)
         const chips = document.createElement('div');
         chips.className = 'followup-chips';
         const _chipPool = [
@@ -3049,12 +3055,15 @@ async function sendMessage() {
           { label: 'Write a report →',       q: '/report Write a structured report based on what we just discussed.' },
           { label: 'Write captions →',       q: '/caption Write social media captions for the key ideas we discussed.' },
           { label: 'Build a business case →',q: '/case Write a business case for the approach we just discussed.' },
+          { label: 'Write a newsletter →',   q: '/newsletter Write an email newsletter about the key ideas we just covered.' },
+          { label: 'Create a tagline →',     q: '/tagline Create 5 catchy taglines for the concept we just discussed.' },
+          { label: 'Write meeting notes →',  q: '/meeting Write meeting notes summarizing everything we just discussed.' },
         ];
         const _chipOffset = (_chipTurn || 0) % _chipPool.length;
         const chipDefs = [
           _chipPool[_chipOffset % _chipPool.length],
-          _chipPool[(_chipOffset + 11) % _chipPool.length],
-          _chipPool[(_chipOffset + 22) % _chipPool.length],
+          _chipPool[(_chipOffset + 13) % _chipPool.length],
+          _chipPool[(_chipOffset + 26) % _chipPool.length],
         ];
         chips.innerHTML = chipDefs.map(c =>
           `<button class="followup-chip" data-q="${c.q.replace(/"/g,'&quot;')}">${c.label}</button>`
@@ -3145,6 +3154,9 @@ const SUGGESTION_POOL = [
   { title: '📋 Write a report',           sub: 'Structured findings, insights, and recommendations',   q: '/report Write a report on the current state of remote work adoption across the tech industry.' },
   { title: '📲 Write social captions',    sub: '3–5 captions with CTA and hashtag suggestions',        q: '/caption Write social media captions for a new AI productivity app launching to the public.' },
   { title: '💼 Build a business case',    sub: 'Problem, solution, benefits, risks, and recommendation',q: '/case Build a business case for adopting AI-assisted customer support at a mid-size SaaS company.' },
+  { title: '📰 Write a newsletter',       sub: 'Subject line, sections, and call-to-action',            q: '/newsletter Write an email newsletter about the top 3 trends shaping the future of software development.' },
+  { title: '🏷️ Create a tagline',         sub: '5 punchy brand slogans with strategy notes',             q: '/tagline Create taglines for a productivity app that uses AI to help people focus on what matters most.' },
+  { title: '📝 Write meeting notes',      sub: 'Agenda, decisions, action items, next steps',            q: '/meeting Write meeting notes for a product kickoff where we aligned on Q3 priorities and assigned owners.' },
 ];
 let _suggOffset = 0;
 function _shuffleSuggestions() {
@@ -4700,7 +4712,10 @@ const SLASH_CMDS = [
   { cmd: '/press',   icon: '📣',  desc: 'Write a professional press release',                  action: () => _slashPrepend('/press') },
   { cmd: '/report',  icon: '📋',  desc: 'Write a structured business or research report',        action: () => _slashPrepend('/report') },
   { cmd: '/caption', icon: '📲',  desc: 'Write social media captions with CTAs and hashtags',    action: () => _slashPrepend('/caption') },
-  { cmd: '/case',    icon: '💼',  desc: 'Build a compelling business case for a decision',        action: () => _slashPrepend('/case') },
+  { cmd: '/case',       icon: '💼',  desc: 'Build a compelling business case for a decision',        action: () => _slashPrepend('/case') },
+  { cmd: '/newsletter', icon: '📰',  desc: 'Write an email newsletter with sections and CTA',        action: () => _slashPrepend('/newsletter') },
+  { cmd: '/tagline',    icon: '🏷️',  desc: 'Create 5 punchy brand taglines or slogans',              action: () => _slashPrepend('/tagline') },
+  { cmd: '/meeting',    icon: '📝',  desc: 'Write structured meeting notes with action items',        action: () => _slashPrepend('/meeting') },
   // ── Memory ────────────────────────────────────────────────────
   { cmd: '/remember', icon: '📌',  desc: 'Save a fact to semantic memory',             action: () => _slashPrepend('/remember') },
   { cmd: '/forget',   icon: '🗑️',  desc: 'Remove a fact from memory',                 action: () => _slashPrepend('/forget') },
