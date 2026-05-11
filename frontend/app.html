@@ -183,6 +183,11 @@ body::before{content:"";position:fixed;inset:0;background:
 pre:hover .code-copy{opacity:1}
 .code-copy:hover{background:rgba(255,255,255,.12);color:var(--text)}
 .code-copy.copied{color:var(--gr);border-color:rgba(34,197,94,.4)}
+/* ── Collapsible code blocks ── */
+pre.collapsible code{max-height:340px;overflow:hidden;display:block}
+pre.collapsible.expanded code{max-height:none}
+.code-expand-btn{display:block;width:100%;text-align:center;padding:5px 0 1px;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--subtle);background:none;border:none;border-top:1px solid var(--border);cursor:pointer;transition:color .15s;margin-top:6px}
+.code-expand-btn:hover{color:var(--vi2)}
 .task-list{list-style:none;padding-left:4px}
 .task-item{display:flex;align-items:flex-start;gap:6px;padding:2px 0}
 .task-cb{font-size:14px;line-height:1.4;flex-shrink:0;color:var(--vi2)}
@@ -452,10 +457,10 @@ pre:hover .code-copy{opacity:1}
 .followup-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;opacity:0;transition:opacity .25s .1s}
 .msg.assistant:hover .followup-chips{opacity:1}
 .followup-chip{background:transparent;border:1px solid var(--border);color:var(--subtle);font-size:10.5px;padding:3px 9px;border-radius:20px;cursor:pointer;font-family:inherit;transition:all .15s;white-space:nowrap}
-.followup-chip:hover{color:var(--vio);border-color:var(--vio);background:rgba(139,92,246,.07)}
+.followup-chip:hover{color:var(--vi2);border-color:var(--vi);background:rgba(124,58,237,.08)}
 
 /* ── Chat reading progress bar ── */
-#chatProgress{position:sticky;top:0;left:0;height:2px;width:0%;background:var(--vio);border-radius:0 2px 2px 0;z-index:10;transition:width .1s linear;flex-shrink:0;opacity:.7}
+#chatProgress{position:sticky;top:0;left:0;height:2px;width:0%;background:var(--vi);border-radius:0 2px 2px 0;z-index:10;transition:width .1s linear;flex-shrink:0;opacity:.7}
 
 /* ── Relationship items ── */
 .rel-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;font-size:12px;color:var(--muted);cursor:pointer;transition:all .15s;margin-bottom:2px}
@@ -870,7 +875,7 @@ pre:hover .code-copy{opacity:1}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.40.0</span>
+      <span class="ver" id="versionPill">v0.41.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -1369,6 +1374,9 @@ pre:hover .code-copy{opacity:1}
           <div class="shortcut-row"><span class="s-desc">Summarize conversation so far</span><span class="s-keys"><kbd>/recap</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Extract action items &amp; next steps</span><span class="s-keys"><kbd>/action</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Critical review &amp; counterarguments</span><span class="s-keys"><kbd>/critique</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Side-by-side comparison</span><span class="s-keys"><kbd>/versus</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Suggest improvements</span><span class="s-keys"><kbd>/improve</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Extract &amp; define key terms</span><span class="s-keys"><kbd>/glossary</kbd></span></div>
         </div>
       </div>
       <div class="shortcuts-section">
@@ -1409,6 +1417,7 @@ let availableModels = [];
 let currentMode = 'chat';
 let _autoScroll = true;
 let _sessionStartTime = Date.now();
+let _chipTurn = 0;
 
 const empty = document.getElementById('empty');
 const chatInner = document.getElementById('chatInner');
@@ -2909,13 +2918,25 @@ async function sendMessage() {
         fbUp.addEventListener('click', () => submitFeedback('up'));
         fbDown.addEventListener('click', () => submitFeedback('down'));
 
-        // Follow-up quick-reply chips
+        // Follow-up quick-reply chips — rotate 3 from a pool of 9
         const chips = document.createElement('div');
         chips.className = 'followup-chips';
+        const _chipPool = [
+          { label: 'Tell me more →',      q: 'Can you expand on that and tell me more?' },
+          { label: 'Give an example →',   q: 'Can you give me a concrete example?' },
+          { label: "What's next? →",      q: "What should I do next based on this?" },
+          { label: 'Simplify this →',     q: 'Can you explain that more simply?' },
+          { label: 'Why does this work?', q: 'Can you explain the reasoning behind this?' },
+          { label: 'Any downsides? →',    q: 'What are the potential downsides or trade-offs?' },
+          { label: 'Go deeper →',         q: 'Can you go deeper on the most important part?' },
+          { label: 'Summarize it →',      q: '/tldr Summarize the key takeaway in one sentence.' },
+          { label: 'Action steps →',      q: '/steps What are the concrete next steps I should take?' },
+        ];
+        const _chipOffset = (_chipTurn || 0) % _chipPool.length;
         const chipDefs = [
-          { label: 'Tell me more →',    q: 'Can you expand on that and tell me more?' },
-          { label: 'Give an example →', q: 'Can you give me a concrete example?' },
-          { label: "What's next? →",    q: "What should I do next based on this?" },
+          _chipPool[_chipOffset % _chipPool.length],
+          _chipPool[(_chipOffset + 3) % _chipPool.length],
+          _chipPool[(_chipOffset + 6) % _chipPool.length],
         ];
         chips.innerHTML = chipDefs.map(c =>
           `<button class="followup-chip" data-q="${c.q.replace(/"/g,'&quot;')}">${c.label}</button>`
@@ -2928,6 +2949,7 @@ async function sendMessage() {
           });
         });
         replyContent.appendChild(chips);
+        _chipTurn++;
       }
     }
   } catch (err) {
@@ -2972,6 +2994,10 @@ const SUGGESTION_POOL = [
   { title: '❓ Ask a better question', sub: 'Sharpen any vague query',                       q: '/ask I want to improve my productivity' },
   { title: '🔎 Quick explainer',       sub: 'Plain-language breakdown',                      q: '/eli5 How does HTTPS encryption actually work?' },
   { title: '⚡ Instant brainstorm',    sub: '10+ creative ideas in seconds',                 q: '/brainstorm Side-project ideas for a developer who loves automation' },
+  { title: '⚔️ Compare two options',   sub: 'Side-by-side structured breakdown',              q: '/versus React vs Vue for a small team building a SaaS dashboard' },
+  { title: '✨ Improve this',          sub: 'Enhancements and optimizations',                 q: '/improve My landing page headline: "We help teams work better together"' },
+  { title: '📚 Build a glossary',      sub: 'Define all the key terms',                      q: '/glossary Explain the core terms in machine learning: model, training, inference, overfitting, gradient descent' },
+  { title: '✍️ Creative writing',       sub: 'Stories, hooks, and imaginative prompts',      q: 'Write a short opening paragraph for a sci-fi story set on a space station in 2147.' },
 ];
 let _suggOffset = 0;
 function _shuffleSuggestions() {
@@ -3386,7 +3412,12 @@ function renderMarkdown(raw) {
     const linesBit = lineCount > 1 ? `${lineCount}L` : '';
     const labelParts = [lang, linesBit].filter(Boolean);
     const langLabel = labelParts.length ? `<span class="code-lang">${escapeHtml(labelParts.join(' · '))}</span>` : '';
-    return `</p><pre>${langLabel}<button class="code-copy" onclick="this.textContent='copied';navigator.clipboard.writeText(this.parentElement.querySelector('code').textContent);setTimeout(()=>this.textContent='copy',1500);this.classList.add('copied');setTimeout(()=>this.classList.remove('copied'),1500)">copy</button><code>${escaped}</code></pre><p>`;
+    const collapsible = lineCount > 25;
+    const preClass = collapsible ? ' class="collapsible"' : '';
+    const expandBtn = collapsible
+      ? `<button class="code-expand-btn" onclick="const p=this.closest('pre');p.classList.toggle('expanded');this.textContent=p.classList.contains('expanded')?'▴ Collapse':'▾ Show ${lineCount - 18} more lines'">▾ Show ${lineCount - 18} more lines</button>`
+      : '';
+    return `</p><pre${preClass}>${langLabel}<button class="code-copy" onclick="this.textContent='copied';navigator.clipboard.writeText(this.parentElement.querySelector('code').textContent);setTimeout(()=>this.textContent='copy',1500);this.classList.add('copied');setTimeout(()=>this.classList.remove('copied'),1500)">copy</button><code>${escaped}</code>${expandBtn}</pre><p>`;
   });
 
   // Clean up empty paragraphs and artifacts
@@ -4486,6 +4517,9 @@ const SLASH_CMDS = [
   { cmd: '/recap',   icon: '🔁',  desc: 'Summarize the conversation so far',           action: () => _slashPrepend('/recap') },
   { cmd: '/action',  icon: '✅',  desc: 'Extract all action items and next steps',     action: () => _slashPrepend('/action') },
   { cmd: '/critique', icon: '🔍', desc: 'Critical review with counterarguments',       action: () => _slashPrepend('/critique') },
+  { cmd: '/versus',   icon: '⚔️',  desc: 'Side-by-side comparison of two things',     action: () => _slashPrepend('/versus') },
+  { cmd: '/improve',  icon: '✨',  desc: 'Suggest improvements and enhancements',      action: () => _slashPrepend('/improve') },
+  { cmd: '/glossary', icon: '📚',  desc: 'Extract and define all key terms',           action: () => _slashPrepend('/glossary') },
   // ── Memory ────────────────────────────────────────────────────
   { cmd: '/remember', icon: '📌',  desc: 'Save a fact to semantic memory',             action: () => _slashPrepend('/remember') },
   { cmd: '/forget',   icon: '🗑️',  desc: 'Remove a fact from memory',                 action: () => _slashPrepend('/forget') },

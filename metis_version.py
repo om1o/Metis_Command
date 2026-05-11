@@ -8,7 +8,7 @@ Keep METIS_VERSION in sync with:
 
 import os
 
-METIS_VERSION = "0.40.0"
+METIS_VERSION = "0.41.0"
 
 # Match site/lib/brand.ts defaults (override with env in packaged builds if needed)
 METIS_PRODUCT_NAME = "Metis Command"

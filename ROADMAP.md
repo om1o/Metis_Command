@@ -1,10 +1,22 @@
 # Metis Command — 18-Phase Roadmap
 
-> Updated 2026-05-10 · v0.40.0 · 56 Python modules, 6 HTML pages, 4 JS files, ~4450-line app.html, 11 local Ollama models, 4 persistent agents running.
+> Updated 2026-05-10 · v0.41.0 · 56 Python modules, 6 HTML pages, 4 JS files, ~4500-line app.html, 11 local Ollama models, 4 persistent agents running.
 
 ---
 
-## Current State (v0.40.0)
+## Current State (v0.41.0)
+
+### Completed (v0.41.0)
+- ✅ **CSS bugfix** — `--vio` CSS variable was undefined in two places (follow-up chip hover, reading progress bar); corrected to `--vi` / `--vi2` so both now render in the correct violet accent color
+- ✅ **Expandable code blocks** — code blocks with more than 25 lines now collapse to ~18 visible lines; a `▾ Show N more lines` toggle button expands the block inline; clicking again collapses it with `▴ Collapse`
+- ✅ **Three new slash commands** — `/versus` (structured side-by-side comparison of two options), `/improve` (suggest improvements and enhancements), `/glossary` (extract and define all key terms); 41 slash commands total
+- ✅ **Rotating follow-up chips** — chip pool expanded from 3 fixed chips to 9; each AI response shows a different set of 3 chips by cycling through the pool (`_chipTurn` counter), so the quick-reply options stay fresh across a conversation
+- ✅ **Four new suggestion cards** — `/versus`, `/improve`, `/glossary`, and a creative-writing card added to the empty-state shuffle pool (now 24 cards total)
+- ✅ Version bumped to 0.41.0
+
+---
+
+## Previous State (v0.40.0)
 
 ### Completed (v0.40.0)
 - ✅ **Three new slash commands** — `/recap` (summarize the conversation so far), `/action` (extract all action items and next steps), `/critique` (critical review with devil's advocate counterarguments); 38 slash commands total
