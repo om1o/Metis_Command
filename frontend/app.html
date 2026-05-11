@@ -882,7 +882,7 @@ pre.collapsible.expanded code{max-height:none}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.44.0</span>
+      <span class="ver" id="versionPill">v0.45.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -1397,6 +1397,9 @@ pre.collapsible.expanded code{max-height:none}
           <div class="shortcut-row"><span class="s-desc">Write a poem or verse</span><span class="s-keys"><kbd>/poem</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Playful roast with wit &amp; humor</span><span class="s-keys"><kbd>/roast</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Convert content to a checklist</span><span class="s-keys"><kbd>/checklist</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Write a formal letter</span><span class="s-keys"><kbd>/letter</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Generate a FAQ section</span><span class="s-keys"><kbd>/faq</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Explain using analogies</span><span class="s-keys"><kbd>/analogy</kbd></span></div>
         </div>
       </div>
       <div class="shortcuts-section">
@@ -1405,12 +1408,14 @@ pre.collapsible.expanded code{max-height:none}
           <div class="shortcut-row"><span class="s-desc">Search sessions</span><span class="s-keys"><kbd>/search</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Change model tier</span><span class="s-keys"><kbd>/model</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Compare models</span><span class="s-keys"><kbd>/compare</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Switch project workspace</span><span class="s-keys"><kbd>/project</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Save fact to memory</span><span class="s-keys"><kbd>/remember</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Remove fact from memory</span><span class="s-keys"><kbd>/forget</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Check budget</span><span class="s-keys"><kbd>/wallet</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Pin / unpin session</span><span class="s-keys"><kbd>/pin</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Session statistics</span><span class="s-keys"><kbd>/stats</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">System diagnostics</span><span class="s-keys"><kbd>/debug</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Restart onboarding tour</span><span class="s-keys"><kbd>/tour</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Open this help guide</span><span class="s-keys"><kbd>/help</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Clear conversation</span><span class="s-keys"><kbd>/clear</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Export session</span><span class="s-keys"><kbd>/export</kbd></span></div>
@@ -2572,6 +2577,9 @@ async function sendMessage() {
     '/poem':      'Write a short poem or verse based on the following. Use vivid imagery, rhythm, and emotional resonance. Choose a fitting form (sonnet, free verse, haiku, etc.):\n\n',
     '/roast':     'Write a playful, witty roast of the following topic or subject. Use clever observations and good-natured humor. Keep it light and fun, not mean-spirited:\n\n',
     '/checklist': 'Convert the following content into a clear, actionable checklist. Use Markdown checkbox syntax (- [ ] item). Group related items if helpful:\n\n',
+    '/letter':    'Write a formal letter for the following request. Include a proper salutation, well-structured body paragraphs, and a professional closing. Use clear, polished language:\n\n',
+    '/faq':       'Generate a clear, well-organized FAQ (Frequently Asked Questions) section for the following topic. Include at least 6 questions with concise, accurate answers:\n\n',
+    '/analogy':   'Explain the following concept using 2–3 creative analogies drawn from different domains (nature, everyday life, history, sports, etc.). Make abstract ideas tangible and memorable:\n\n',
   };
   let _slashStripped = text;
   for (const [cmd, instr] of Object.entries(SLASH_PREFIX_MAP)) {
@@ -2993,12 +3001,15 @@ async function sendMessage() {
           { label: 'Make it a poem →',      q: '/poem Turn your last response into a short poem.' },
           { label: 'Any caveats? →',        q: 'What are the main caveats or exceptions I should know about?' },
           { label: 'Compare approaches →',  q: '/versus What are the two main approaches to this, compared side by side?' },
+          { label: 'Write me a letter →',   q: '/letter Write a formal letter based on the topic we just discussed.' },
+          { label: 'Show with an analogy →', q: '/analogy Can you explain this using a creative analogy?' },
+          { label: 'Turn into FAQ →',        q: '/faq Convert what you just explained into a FAQ format.' },
         ];
         const _chipOffset = (_chipTurn || 0) % _chipPool.length;
         const chipDefs = [
           _chipPool[_chipOffset % _chipPool.length],
-          _chipPool[(_chipOffset + 6) % _chipPool.length],
-          _chipPool[(_chipOffset + 12) % _chipPool.length],
+          _chipPool[(_chipOffset + 7) % _chipPool.length],
+          _chipPool[(_chipOffset + 14) % _chipPool.length],
         ];
         chips.innerHTML = chipDefs.map(c =>
           `<button class="followup-chip" data-q="${c.q.replace(/"/g,'&quot;')}">${c.label}</button>`
@@ -3071,6 +3082,9 @@ const SUGGESTION_POOL = [
   { title: '🖋️ Write a poem',            sub: 'Verse with rhythm, imagery, and emotion',           q: '/poem Write a short poem about the feeling of discovering a new idea for the first time.' },
   { title: '😄 Roast this topic',         sub: 'Playful wit and good-natured humor',                q: '/roast Roast the concept of "disruption" as used by Silicon Valley startups.' },
   { title: '✅ Build a checklist',        sub: 'Actionable items from any content',                 q: '/checklist What should I check before launching a new web application to production?' },
+  { title: '✉️ Write a letter',           sub: 'Formal letter with proper structure',               q: '/letter Write a professional letter requesting an extension on a project deadline.' },
+  { title: '❔ Generate an FAQ',          sub: 'Q&A format from any topic',                         q: '/faq What are the most common questions about starting a side business from scratch?' },
+  { title: '🔮 Explain by analogy',       sub: 'Creative comparisons that make ideas stick',        q: '/analogy Explain how a computer CPU works using 3 different everyday analogies.' },
 ];
 let _suggOffset = 0;
 function _shuffleSuggestions() {
@@ -4609,6 +4623,9 @@ const SLASH_CMDS = [
   { cmd: '/poem',     icon: '🖋️',  desc: 'Write a poem or verse with rhythm and imagery', action: () => _slashPrepend('/poem') },
   { cmd: '/roast',    icon: '😄',  desc: 'Playful, witty roast of any topic',              action: () => _slashPrepend('/roast') },
   { cmd: '/checklist',icon: '✅',  desc: 'Convert content into an actionable checklist',   action: () => _slashPrepend('/checklist') },
+  { cmd: '/letter',   icon: '✉️',  desc: 'Write a formal letter with proper structure',     action: () => _slashPrepend('/letter') },
+  { cmd: '/faq',      icon: '❔',  desc: 'Generate a FAQ section from any content',         action: () => _slashPrepend('/faq') },
+  { cmd: '/analogy',  icon: '🔮',  desc: 'Explain using creative analogies',                action: () => _slashPrepend('/analogy') },
   // ── Memory ────────────────────────────────────────────────────
   { cmd: '/remember', icon: '📌',  desc: 'Save a fact to semantic memory',             action: () => _slashPrepend('/remember') },
   { cmd: '/forget',   icon: '🗑️',  desc: 'Remove a fact from memory',                 action: () => _slashPrepend('/forget') },

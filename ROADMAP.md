@@ -1,12 +1,24 @@
 # Metis Command — 18-Phase Roadmap
 
-> Updated 2026-05-11 · v0.44.0 · 56 Python modules, 6 HTML pages, 4 JS files, ~4750-line app.html, 11 local Ollama models, 4 persistent agents running.
+> Updated 2026-05-11 · v0.45.0 · 56 Python modules, 6 HTML pages, 4 JS files, ~4800-line app.html, 11 local Ollama models, 4 persistent agents running.
 
 ---
 
-## Current State (v0.44.0)
+## Current State (v0.45.0)
+
+### Completed (v0.45.0)
+- ✅ **Three new slash commands** — `/letter` (write a formal letter with proper salutation, body, and closing), `/faq` (generate a FAQ section with 6+ Q&A pairs), `/analogy` (explain using 2–3 creative analogies from different domains); 53 slash commands total; all three wired with prefix injection in `SLASH_PREFIX_MAP`
+- ✅ **Follow-up chip pool expanded to 21** — added `Write me a letter →`, `Show with an analogy →`, `Turn into FAQ →`; stride updated from +6/+12 to +7/+14 for even 7-turn rotation across all 21 chips
+- ✅ **Three new suggestion cards** — `/letter`, `/faq`, `/analogy` starter cards added to the empty-state shuffle pool (now 38 cards total)
+- ✅ **Shortcuts modal completeness fix** — added `/tour` and `/project` to the Session & Memory section (both were wired in SLASH_CMDS but missing from the cheat-sheet); added `/letter`, `/faq`, `/analogy` to the Text Transforms section
+- ✅ Version bumped to 0.45.0
+
+---
+
+## Previous State (v0.44.0)
 
 ### Completed (v0.44.0)
+
 - ✅ **Shortcuts modal bug fix** — `/story`, `/cite`, `/explain` (added in v0.43.0) were missing from the keyboard shortcuts help modal; all three now appear in the Text Transforms section alongside `/poem`, `/roast`, `/checklist`
 - ✅ **Three new slash commands** — `/poem` (write a poem or verse with rhythm, imagery, and emotional resonance), `/roast` (playful witty roast with good-natured humor), `/checklist` (convert any content into a Markdown checkbox checklist); 50 slash commands total in SLASH_CMDS autocomplete; all three wired with prefix injection in `SLASH_PREFIX_MAP`
 - ✅ **Follow-up chip pool expanded to 18** — added `Make it a poem →`, `Any caveats? →`, `Compare approaches →` to the 15-chip pool; rotation stride updated from +5/+10 to +6/+12 so all 18 chips appear evenly across a 6-turn cycle
