@@ -882,7 +882,7 @@ pre.collapsible.expanded code{max-height:none}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.53.0</span>
+      <span class="ver" id="versionPill">v0.54.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -1424,6 +1424,9 @@ pre.collapsible.expanded code{max-height:none}
           <div class="shortcut-row"><span class="s-desc">Write a concise abstract</span><span class="s-keys"><kbd>/abstract</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Write a step-by-step tutorial</span><span class="s-keys"><kbd>/tutorial</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Write a project or incident postmortem</span><span class="s-keys"><kbd>/postmortem</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Write a hypothetical scenario or thought experiment</span><span class="s-keys"><kbd>/scenario</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Write structured release notes or changelog</span><span class="s-keys"><kbd>/changelog</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Write detailed technical specifications</span><span class="s-keys"><kbd>/specs</kbd></span></div>
         </div>
       </div>
       <div class="shortcuts-section">
@@ -2628,6 +2631,9 @@ async function sendMessage() {
     '/abstract':   'Write a concise, well-structured abstract for the following paper, project, report, or concept. Include: a brief context or background, the core subject or argument, key findings or contributions, and the significance or takeaway. Keep it under 250 words. Write in clear, precise, professional language:\n\n',
     '/tutorial':   'Write a clear, beginner-friendly step-by-step tutorial or how-to guide for the following. Include: a short intro explaining what the reader will learn and why it matters, numbered steps with precise actionable instructions, code snippets or examples where applicable, common mistakes to avoid, and a brief summary or next steps section:\n\n',
     '/postmortem': 'Write a detailed but constructive project or incident postmortem for the following. Structure it with: a brief executive summary of what happened, a timeline of key events, a thorough root cause analysis, what went well, what went wrong, and specific action items with owners to prevent recurrence. Use a blameless, learning-focused tone throughout:\n\n',
+    '/scenario':   'Write a vivid, well-reasoned hypothetical scenario or thought experiment for the following. Set the context clearly, explore what realistically could happen step by step, highlight key decision points and consequences, and close with the most likely outcome and key lessons. Make it concrete, plausible, and thought-provoking:\n\n',
+    '/changelog':  'Write a clear, well-structured changelog or release notes for the following. Use Keep a Changelog conventions where applicable — organize entries under sections like Added, Changed, Fixed, Removed, or Improved. Write in plain, action-oriented language. Lead with the most impactful changes. If a version number or date is provided, include it prominently:\n\n',
+    '/specs':      'Write detailed technical specifications for the following feature, system, or product. Structure it with: an overview and goals, non-goals and out-of-scope items, functional requirements (what it must do), non-functional requirements (performance, security, scalability), system design or architecture overview, key edge cases and error handling, open questions, and success metrics or acceptance criteria:\n\n',
   };
   let _slashStripped = text;
   for (const [cmd, instr] of Object.entries(SLASH_PREFIX_MAP)) {
@@ -3027,7 +3033,7 @@ async function sendMessage() {
         fbUp.addEventListener('click', () => submitFeedback('up'));
         fbDown.addEventListener('click', () => submitFeedback('down'));
 
-        // Follow-up quick-reply chips — rotate 3 from a pool of 39 (stride +13/+26)
+        // Follow-up quick-reply chips — rotate 3 from a pool of 48 (stride +16/+32)
         const chips = document.createElement('div');
         chips.className = 'followup-chips';
         const _chipPool = [
@@ -3076,12 +3082,15 @@ async function sendMessage() {
           { label: 'Write an abstract →',    q: '/abstract Write a concise abstract for the concept we just discussed.' },
           { label: 'Make it a tutorial →',   q: '/tutorial Turn what we just discussed into a step-by-step tutorial.' },
           { label: 'Postmortem it →',        q: '/postmortem Write a postmortem analysis for what we just discussed.' },
+          { label: 'Write a scenario →',     q: '/scenario Write a hypothetical scenario based on what we just discussed.' },
+          { label: 'Write a changelog →',    q: '/changelog Write a clear changelog entry for what we just discussed.' },
+          { label: 'Write the specs →',      q: '/specs Write technical specifications for what we just discussed.' },
         ];
         const _chipOffset = (_chipTurn || 0) % _chipPool.length;
         const chipDefs = [
           _chipPool[_chipOffset % _chipPool.length],
-          _chipPool[(_chipOffset + 15) % _chipPool.length],
-          _chipPool[(_chipOffset + 30) % _chipPool.length],
+          _chipPool[(_chipOffset + 16) % _chipPool.length],
+          _chipPool[(_chipOffset + 32) % _chipPool.length],
         ];
         chips.innerHTML = chipDefs.map(c =>
           `<button class="followup-chip" data-q="${c.q.replace(/"/g,'&quot;')}">${c.label}</button>`
@@ -3181,6 +3190,9 @@ const SUGGESTION_POOL = [
   { title: '📝 Write an abstract',       sub: 'Concise academic or executive abstract under 250 words',  q: '/abstract Write an abstract for a research paper on the impact of large language models on knowledge work.' },
   { title: '📚 Write a tutorial',        sub: 'Step-by-step how-to guide for any topic',                 q: '/tutorial Write a beginner\'s tutorial on how to use Git for version control from the command line.' },
   { title: '🔍 Write a postmortem',      sub: 'Blameless incident or project analysis',                  q: '/postmortem Write a postmortem for a web app that went down due to an unexpected database misconfiguration.' },
+  { title: '🔮 Explore a scenario',      sub: 'Hypothetical with decision points and outcomes',           q: '/scenario What would happen if a mid-size SaaS company replaced its entire support team with AI agents overnight?' },
+  { title: '📋 Write a changelog',       sub: 'Release notes in Keep a Changelog format',                 q: '/changelog Write a changelog for a v2.0 release of a mobile app that added offline mode, redesigned onboarding, and fixed 12 bugs.' },
+  { title: '📐 Write the specs',         sub: 'Technical requirements, design, edge cases',               q: '/specs Write technical specifications for a real-time collaborative document editing feature in a web app.' },
 ];
 let _suggOffset = 0;
 function _shuffleSuggestions() {
@@ -4746,6 +4758,9 @@ const SLASH_CMDS = [
   { cmd: '/abstract',   icon: '📝',  desc: 'Write a concise academic or executive abstract',           action: () => _slashPrepend('/abstract') },
   { cmd: '/tutorial',   icon: '📚',  desc: 'Write a step-by-step tutorial or how-to guide',            action: () => _slashPrepend('/tutorial') },
   { cmd: '/postmortem', icon: '🔍',  desc: 'Write a blameless project or incident postmortem',         action: () => _slashPrepend('/postmortem') },
+  { cmd: '/scenario',   icon: '🔮',  desc: 'Write a hypothetical scenario or thought experiment',        action: () => _slashPrepend('/scenario') },
+  { cmd: '/changelog',  icon: '📋',  desc: 'Write structured release notes or a changelog entry',        action: () => _slashPrepend('/changelog') },
+  { cmd: '/specs',      icon: '📐',  desc: 'Write detailed technical specifications',                     action: () => _slashPrepend('/specs') },
   // ── Memory ────────────────────────────────────────────────────
   { cmd: '/remember', icon: '📌',  desc: 'Save a fact to semantic memory',             action: () => _slashPrepend('/remember') },
   { cmd: '/forget',   icon: '🗑️',  desc: 'Remove a fact from memory',                 action: () => _slashPrepend('/forget') },
