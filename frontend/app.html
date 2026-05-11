@@ -882,7 +882,7 @@ pre.collapsible.expanded code{max-height:none}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.48.0</span>
+      <span class="ver" id="versionPill">v0.49.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -1409,6 +1409,9 @@ pre.collapsible.expanded code{max-height:none}
           <div class="shortcut-row"><span class="s-desc">Write a structured essay</span><span class="s-keys"><kbd>/essay</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Write a screenplay scene</span><span class="s-keys"><kbd>/script</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Draft a professional email</span><span class="s-keys"><kbd>/email</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">SWOT analysis</span><span class="s-keys"><kbd>/swot</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Build a user persona</span><span class="s-keys"><kbd>/persona</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Write a press release</span><span class="s-keys"><kbd>/press</kbd></span></div>
         </div>
       </div>
       <div class="shortcuts-section">
@@ -2598,6 +2601,9 @@ async function sendMessage() {
     '/essay':     'Write a well-structured essay on the following topic. Include an engaging introduction with a clear thesis, three developed body paragraphs with evidence and analysis, and a compelling conclusion that synthesizes the argument:\n\n',
     '/script':    'Write a short script or screenplay scene for the following scenario. Use character names in ALL CAPS before their lines, stage directions in [brackets], and natural dialogue that reveals character. Format it as a proper screenplay:\n\n',
     '/email':     'Draft a professional email for the following purpose. Start with "Subject: [subject line]", then include an appropriate greeting, well-structured body paragraphs, and a polished closing with a signature placeholder. Match the appropriate tone:\n\n',
+    '/swot':      'Create a SWOT analysis for the following subject. Format it as four clearly labeled sections — Strengths, Weaknesses, Opportunities, and Threats — each with 4–6 specific, well-reasoned bullet points:\n\n',
+    '/persona':   'Create a detailed user persona or character profile for the following. Include name, demographics, background, goals, frustrations, behaviors, and a brief day-in-the-life narrative. Make it feel realistic and specific:\n\n',
+    '/press':     'Write a professional press release for the following announcement. Include a punchy headline, dateline, strong opening paragraph (who/what/where/when/why), a supporting quote, a background paragraph, and a boilerplate "About" section:\n\n',
   };
   let _slashStripped = text;
   for (const [cmd, instr] of Object.entries(SLASH_PREFIX_MAP)) {
@@ -3031,12 +3037,15 @@ async function sendMessage() {
           { label: 'Write an essay →',        q: '/essay Write a structured essay about what we just discussed.' },
           { label: 'Turn into a script →',    q: '/script Turn the key idea into a short script scene.' },
           { label: 'Draft an email →',        q: '/email Draft a professional email based on what we discussed.' },
+          { label: 'SWOT it →',              q: '/swot Do a SWOT analysis based on what we just discussed.' },
+          { label: 'Build a persona →',      q: '/persona Create a user persona based on what we just discussed.' },
+          { label: 'Write a press release →',q: '/press Write a press release announcing what we just discussed.' },
         ];
         const _chipOffset = (_chipTurn || 0) % _chipPool.length;
         const chipDefs = [
           _chipPool[_chipOffset % _chipPool.length],
-          _chipPool[(_chipOffset + 10) % _chipPool.length],
-          _chipPool[(_chipOffset + 20) % _chipPool.length],
+          _chipPool[(_chipOffset + 11) % _chipPool.length],
+          _chipPool[(_chipOffset + 22) % _chipPool.length],
         ];
         chips.innerHTML = chipDefs.map(c =>
           `<button class="followup-chip" data-q="${c.q.replace(/"/g,'&quot;')}">${c.label}</button>`
@@ -3121,6 +3130,9 @@ const SUGGESTION_POOL = [
   { title: '📄 Write an essay',           sub: 'Structured essay with thesis and argument',            q: '/essay The long-term impact of artificial intelligence on knowledge work and the economy.' },
   { title: '🎬 Write a script',           sub: 'Screenplay scene with dialogue and directions',        q: '/script Two rival startup founders unexpectedly meet at an airport and realize they need each other.' },
   { title: '📧 Draft an email',           sub: 'Professional email with subject line',                 q: '/email Request a meeting with a potential investor to pitch an AI productivity startup.' },
+  { title: '📊 SWOT analysis',           sub: 'Strengths, Weaknesses, Opportunities, Threats',        q: '/swot Analyze a solopreneur building an AI-powered writing assistant competing with established tools.' },
+  { title: '🧑 Build a persona',          sub: 'Realistic user profile with goals and frustrations',   q: '/persona Create a detailed user persona for a 34-year-old product manager adopting AI tools at work.' },
+  { title: '📣 Write a press release',    sub: 'Professional announcement with quotes and boilerplate',q: '/press A fintech startup just launched an AI-powered expense tracker that connects to any bank account.' },
 ];
 let _suggOffset = 0;
 function _shuffleSuggestions() {
@@ -4671,6 +4683,9 @@ const SLASH_CMDS = [
   { cmd: '/essay',    icon: '📄',  desc: 'Write a structured 5-paragraph essay',              action: () => _slashPrepend('/essay') },
   { cmd: '/script',   icon: '🎬',  desc: 'Write a screenplay or script scene',                action: () => _slashPrepend('/script') },
   { cmd: '/email',    icon: '📧',  desc: 'Draft a professional email with subject line',      action: () => _slashPrepend('/email') },
+  { cmd: '/swot',    icon: '📊',  desc: 'SWOT analysis — strengths, weaknesses, opportunities, threats', action: () => _slashPrepend('/swot') },
+  { cmd: '/persona', icon: '🧑',  desc: 'Build a detailed user or character persona',          action: () => _slashPrepend('/persona') },
+  { cmd: '/press',   icon: '📣',  desc: 'Write a professional press release',                  action: () => _slashPrepend('/press') },
   // ── Memory ────────────────────────────────────────────────────
   { cmd: '/remember', icon: '📌',  desc: 'Save a fact to semantic memory',             action: () => _slashPrepend('/remember') },
   { cmd: '/forget',   icon: '🗑️',  desc: 'Remove a fact from memory',                 action: () => _slashPrepend('/forget') },
