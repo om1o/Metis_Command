@@ -882,7 +882,7 @@ pre.collapsible.expanded code{max-height:none}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.59.0</span>
+      <span class="ver" id="versionPill">v0.60.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -1442,6 +1442,9 @@ pre.collapsible.expanded code{max-height:none}
           <div class="shortcut-row"><span class="s-desc">Sprint plan with user stories &amp; acceptance criteria</span><span class="s-keys"><kbd>/sprint</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Bold brand or product manifesto</span><span class="s-keys"><kbd>/manifesto</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Customer journey map by stage</span><span class="s-keys"><kbd>/journey</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Structured audit with severity ratings &amp; fixes</span><span class="s-keys"><kbd>/audit</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Benchmark against industry or competitor baselines</span><span class="s-keys"><kbd>/benchmark</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Operational playbook with runbook &amp; checklist</span><span class="s-keys"><kbd>/playbook</kbd></span></div>
         </div>
       </div>
       <div class="shortcuts-section">
@@ -2664,6 +2667,9 @@ async function sendMessage() {
     '/sprint':      'Write a detailed sprint plan for the following feature, goal, or initiative. Include: a sprint goal statement, user stories in "As a… I want… so that…" format (4–6 stories), acceptance criteria for each story, story point estimates, and a brief section on risks or blockers to watch. Format clearly for a development team:\n\n',
     '/manifesto':   'Write a bold, inspiring manifesto for the following brand, product, movement, or idea. Open with a powerful declaration of belief, articulate the problems with the status quo, state the core principles and values (5–7 points), describe the world you are building toward, and close with a rallying call to action. Make it emotional, memorable, and conviction-driven:\n\n',
     '/journey':     'Map a detailed customer or user journey for the following product, service, or experience. Structure it with: a persona profile, the key stages of the journey (Awareness → Consideration → Decision → Onboarding → Retention), the user\'s thoughts, feelings, and actions at each stage, pain points and moments of friction, and opportunities to improve the experience. Present it in a clear, stagewise format:\n\n',
+    '/audit':       'Perform a thorough audit of the following process, system, content, or strategy. Structure it with: an audit scope and objectives, an evaluation framework or criteria, a section-by-section assessment with specific findings, a severity or priority rating for each finding (Critical / High / Medium / Low), actionable recommendations for each issue, and a prioritized summary of the top 5 things to fix immediately. Be specific, rigorous, and constructive:\n\n',
+    '/benchmark':   'Create a comprehensive benchmark analysis for the following subject, metric, or capability. Include: what is being measured and why it matters, industry or competitor baseline data (with sources or estimates), the current state being evaluated, a gap assessment showing where things stand relative to best-in-class, a scoring or rating breakdown, and specific recommendations for reaching the next performance tier. Make it data-driven and actionable:\n\n',
+    '/playbook':    'Write a detailed operational playbook for the following process, role, or scenario. Structure it with: a purpose and when to use this playbook, the key roles and their responsibilities, a step-by-step runbook with decision points and branching paths, escalation procedures and thresholds, tools and resources required, common pitfalls and how to avoid them, and a quick-reference checklist at the end. Write in clear, direct language a practitioner can follow under pressure:\n\n',
   };
   let _slashStripped = text;
   for (const [cmd, instr] of Object.entries(SLASH_PREFIX_MAP)) {
@@ -3130,6 +3136,9 @@ async function sendMessage() {
           { label: 'Plan a sprint →',          q: '/sprint Write a sprint plan with user stories and acceptance criteria for what we just discussed.' },
           { label: 'Write a manifesto →',      q: '/manifesto Write a bold manifesto for the idea or brand we just discussed.' },
           { label: 'Map the journey →',        q: '/journey Map the customer journey for the product or experience we just discussed.' },
+          { label: 'Run an audit →',            q: '/audit Run a structured audit of what we just discussed — rate findings by severity and list the top fixes.' },
+          { label: 'Benchmark it →',            q: '/benchmark Benchmark what we just discussed against industry or competitor baselines.' },
+          { label: 'Write a playbook →',        q: '/playbook Write an operational playbook for the process or scenario we just discussed.' },
         ];
         const _chipOffset = (_chipTurn || 0) % _chipPool.length;
         const chipDefs = [
@@ -3253,6 +3262,9 @@ const SUGGESTION_POOL = [
   { title: '🏃 Plan a sprint',           sub: 'User stories, acceptance criteria, story points',                q: '/sprint Write a sprint plan for adding a real-time notifications feature to a B2B SaaS platform.' },
   { title: '📣 Write a manifesto',       sub: 'Bold declaration of values and rallying call to action',          q: '/manifesto Write a manifesto for a startup building AI tools that put creativity back in the hands of individuals.' },
   { title: '🗺️ Map the journey',          sub: 'Stage-by-stage customer experience with pain points',             q: '/journey Map the customer journey for a first-time user signing up for an AI productivity tool.' },
+  { title: '🔎 Run an audit',             sub: 'Severity-rated findings with prioritized recommendations',          q: '/audit Run a comprehensive audit of a SaaS company\'s onboarding flow — identify what\'s broken, what\'s missing, and what to fix first.' },
+  { title: '📊 Build a benchmark',        sub: 'Current state vs. industry best-in-class with gap score',           q: '/benchmark Benchmark a startup\'s content marketing performance against industry leaders — output, quality, reach, and conversion.' },
+  { title: '📖 Write a playbook',         sub: 'Step-by-step runbook with escalation paths and checklist',          q: '/playbook Write an operational playbook for handling a production incident at a B2B SaaS company.' },
 ];
 let _suggOffset = 0;
 function _shuffleSuggestions() {
