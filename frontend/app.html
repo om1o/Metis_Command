@@ -448,6 +448,15 @@ pre:hover .code-copy{opacity:1}
 .act-btn.fb-active-up{color:var(--gr);border-color:rgba(34,197,94,.3);background:rgba(34,197,94,.08)}
 .act-btn.fb-active-down{color:var(--co);border-color:rgba(251,113,133,.3);background:rgba(251,113,133,.08)}
 
+/* ── Follow-up quick-reply chips ── */
+.followup-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;opacity:0;transition:opacity .25s .1s}
+.msg.assistant:hover .followup-chips{opacity:1}
+.followup-chip{background:transparent;border:1px solid var(--border);color:var(--subtle);font-size:10.5px;padding:3px 9px;border-radius:20px;cursor:pointer;font-family:inherit;transition:all .15s;white-space:nowrap}
+.followup-chip:hover{color:var(--vio);border-color:var(--vio);background:rgba(139,92,246,.07)}
+
+/* ── Chat reading progress bar ── */
+#chatProgress{position:sticky;top:0;left:0;height:2px;width:0%;background:var(--vio);border-radius:0 2px 2px 0;z-index:10;transition:width .1s linear;flex-shrink:0;opacity:.7}
+
 /* ── Relationship items ── */
 .rel-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;font-size:12px;color:var(--muted);cursor:pointer;transition:all .15s;margin-bottom:2px}
 .rel-item:hover{background:var(--panel);color:var(--text)}
@@ -861,7 +870,7 @@ pre:hover .code-copy{opacity:1}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.39.0</span>
+      <span class="ver" id="versionPill">v0.40.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -998,6 +1007,7 @@ pre:hover .code-copy{opacity:1}
     </div>
 
     <div class="chat" id="chat">
+      <div id="chatProgress"></div>
       <div class="chat-inner" id="chatInner">
         <div class="empty" id="empty">
           <img src="/static/assets/metis-logomark-transparent.png" alt="">
@@ -1356,6 +1366,9 @@ pre:hover .code-copy{opacity:1}
           <div class="shortcut-row"><span class="s-desc">Reframe as a clear question</span><span class="s-keys"><kbd>/ask</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Break into numbered steps</span><span class="s-keys"><kbd>/steps</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Generate 10+ creative ideas</span><span class="s-keys"><kbd>/brainstorm</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Summarize conversation so far</span><span class="s-keys"><kbd>/recap</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Extract action items &amp; next steps</span><span class="s-keys"><kbd>/action</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Critical review &amp; counterarguments</span><span class="s-keys"><kbd>/critique</kbd></span></div>
         </div>
       </div>
       <div class="shortcuts-section">
@@ -1406,9 +1419,14 @@ const sendIcon = document.getElementById('sendIcon');
 
 // ── Auto-scroll lock + jump-to-bottom ──────────────────────────────────
 const jumpBottomBtn = document.getElementById('jumpBottomBtn');
+const chatProgress = document.getElementById('chatProgress');
 chat.addEventListener('scroll', () => {
   const atBottom = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 80;
   if (atBottom && !_autoScroll) _autoScroll = true;
+  // Update reading progress bar
+  const scrollable = chat.scrollHeight - chat.clientHeight;
+  const pct = scrollable > 0 ? Math.min(100, (chat.scrollTop / scrollable) * 100) : 0;
+  if (chatProgress) chatProgress.style.width = pct + '%';
   else if (!atBottom && _autoScroll) _autoScroll = false;
   jumpBottomBtn.classList.toggle('visible', !atBottom);
 });
@@ -2890,6 +2908,26 @@ async function sendMessage() {
         }
         fbUp.addEventListener('click', () => submitFeedback('up'));
         fbDown.addEventListener('click', () => submitFeedback('down'));
+
+        // Follow-up quick-reply chips
+        const chips = document.createElement('div');
+        chips.className = 'followup-chips';
+        const chipDefs = [
+          { label: 'Tell me more →',    q: 'Can you expand on that and tell me more?' },
+          { label: 'Give an example →', q: 'Can you give me a concrete example?' },
+          { label: "What's next? →",    q: "What should I do next based on this?" },
+        ];
+        chips.innerHTML = chipDefs.map(c =>
+          `<button class="followup-chip" data-q="${c.q.replace(/"/g,'&quot;')}">${c.label}</button>`
+        ).join('');
+        chips.querySelectorAll('.followup-chip').forEach(btn => {
+          btn.addEventListener('click', () => {
+            msgInput.value = btn.dataset.q;
+            msgInput.dispatchEvent(new Event('input'));
+            msgInput.focus();
+          });
+        });
+        replyContent.appendChild(chips);
       }
     }
   } catch (err) {
@@ -4445,6 +4483,9 @@ const SLASH_CMDS = [
   { cmd: '/ask',     icon: '❓',  desc: 'Reframe as a clear, well-formed question',    action: () => _slashPrepend('/ask') },
   { cmd: '/steps',   icon: '🪜',  desc: 'Break into numbered action steps',            action: () => _slashPrepend('/steps') },
   { cmd: '/brainstorm', icon: '💡', desc: 'Generate 10+ creative ideas on a topic',   action: () => _slashPrepend('/brainstorm') },
+  { cmd: '/recap',   icon: '🔁',  desc: 'Summarize the conversation so far',           action: () => _slashPrepend('/recap') },
+  { cmd: '/action',  icon: '✅',  desc: 'Extract all action items and next steps',     action: () => _slashPrepend('/action') },
+  { cmd: '/critique', icon: '🔍', desc: 'Critical review with counterarguments',       action: () => _slashPrepend('/critique') },
   // ── Memory ────────────────────────────────────────────────────
   { cmd: '/remember', icon: '📌',  desc: 'Save a fact to semantic memory',             action: () => _slashPrepend('/remember') },
   { cmd: '/forget',   icon: '🗑️',  desc: 'Remove a fact from memory',                 action: () => _slashPrepend('/forget') },

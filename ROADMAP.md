@@ -1,10 +1,20 @@
 # Metis Command — 18-Phase Roadmap
 
-> Updated 2026-05-10 · v0.39.0 · 56 Python modules, 6 HTML pages, 4 JS files, ~4400-line app.html, 11 local Ollama models, 4 persistent agents running.
+> Updated 2026-05-10 · v0.40.0 · 56 Python modules, 6 HTML pages, 4 JS files, ~4450-line app.html, 11 local Ollama models, 4 persistent agents running.
 
 ---
 
-## Current State (v0.39.0)
+## Current State (v0.40.0)
+
+### Completed (v0.40.0)
+- ✅ **Three new slash commands** — `/recap` (summarize the conversation so far), `/action` (extract all action items and next steps), `/critique` (critical review with devil's advocate counterarguments); 38 slash commands total
+- ✅ **Follow-up quick-reply chips** — After each AI response, three contextual pill chips appear on hover ("Tell me more →", "Give an example →", "What's next? →"); clicking pre-fills the composer for instant follow-up without typing
+- ✅ **Chat reading progress bar** — Thin 2px violet bar at the top of the messages pane tracks scroll position, giving users a sense of conversation depth at a glance
+- ✅ Version bumped to 0.40.0
+
+---
+
+## Previous State (v0.39.0)
 
 ### Completed (v0.39.0)
 - ✅ **Three new slash commands** — `/ask` (reframe any thought as a clear, well-formed question), `/steps` (break a goal into numbered action steps), `/brainstorm` (generate 10+ creative ideas on a topic); 35 slash commands total
