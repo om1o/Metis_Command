@@ -882,7 +882,7 @@ pre.collapsible.expanded code{max-height:none}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.51.0</span>
+      <span class="ver" id="versionPill">v0.52.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -1418,6 +1418,9 @@ pre.collapsible.expanded code{max-height:none}
           <div class="shortcut-row"><span class="s-desc">Write an email newsletter</span><span class="s-keys"><kbd>/newsletter</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Create brand taglines &amp; slogans</span><span class="s-keys"><kbd>/tagline</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Write structured meeting notes</span><span class="s-keys"><kbd>/meeting</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Write a professional cover letter</span><span class="s-keys"><kbd>/cover</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Write a detailed review with rating</span><span class="s-keys"><kbd>/review</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Write a project or business proposal</span><span class="s-keys"><kbd>/proposal</kbd></span></div>
         </div>
       </div>
       <div class="shortcuts-section">
@@ -2616,6 +2619,9 @@ async function sendMessage() {
     '/newsletter': 'Write an email newsletter for the following topic or audience. Include a compelling subject line (format: "Subject: …"), a punchy preview text line, an engaging intro paragraph, 2–3 short content sections with headers, and a clear call-to-action closing. Write in a warm, engaging tone:\n\n',
     '/tagline':    'Create 5 memorable brand taglines or slogans for the following product, company, or concept. Each should be punchy (under 10 words), emotionally resonant, and convey a distinct angle. After listing them, briefly explain the strategy behind each:\n\n',
     '/meeting':    'Write clear, structured meeting notes for the following. Include sections for: Date & Attendees (use placeholders if not specified), Agenda / Topics Covered, Key Decisions Made, Action Items (with owners and due dates), and Next Steps. Format in clean Markdown:\n\n',
+    '/cover':      'Write a compelling, professional cover letter for the following job, role, or application. Include an attention-grabbing opening paragraph, 2–3 body paragraphs that highlight relevant experience and specific achievements, and a confident closing with a call to action. Match the tone to the industry and position:\n\n',
+    '/review':     'Write a detailed, well-structured review of the following product, tool, book, service, or concept. Include: an overview, key strengths (at least 3), notable weaknesses or limitations, standout details worth highlighting, and a final verdict with a rating out of 5. Write in an engaging, authoritative voice:\n\n',
+    '/proposal':   'Write a clear, persuasive project or business proposal for the following. Structure it with: an executive summary, the problem or opportunity being addressed, the proposed solution and approach, scope and deliverables, a high-level timeline, estimated budget or resources required, and a compelling closing recommendation:\n\n',
   };
   let _slashStripped = text;
   for (const [cmd, instr] of Object.entries(SLASH_PREFIX_MAP)) {
@@ -3058,12 +3064,15 @@ async function sendMessage() {
           { label: 'Write a newsletter →',   q: '/newsletter Write an email newsletter about the key ideas we just covered.' },
           { label: 'Create a tagline →',     q: '/tagline Create 5 catchy taglines for the concept we just discussed.' },
           { label: 'Write meeting notes →',  q: '/meeting Write meeting notes summarizing everything we just discussed.' },
+          { label: 'Write a cover letter →', q: '/cover Write a cover letter based on the topic we just discussed.' },
+          { label: 'Write a review →',       q: '/review Write a detailed review of what we just discussed.' },
+          { label: 'Write a proposal →',     q: '/proposal Write a project proposal based on what we just discussed.' },
         ];
         const _chipOffset = (_chipTurn || 0) % _chipPool.length;
         const chipDefs = [
           _chipPool[_chipOffset % _chipPool.length],
-          _chipPool[(_chipOffset + 13) % _chipPool.length],
-          _chipPool[(_chipOffset + 26) % _chipPool.length],
+          _chipPool[(_chipOffset + 14) % _chipPool.length],
+          _chipPool[(_chipOffset + 28) % _chipPool.length],
         ];
         chips.innerHTML = chipDefs.map(c =>
           `<button class="followup-chip" data-q="${c.q.replace(/"/g,'&quot;')}">${c.label}</button>`
@@ -3157,6 +3166,9 @@ const SUGGESTION_POOL = [
   { title: '📰 Write a newsletter',       sub: 'Subject line, sections, and call-to-action',            q: '/newsletter Write an email newsletter about the top 3 trends shaping the future of software development.' },
   { title: '🏷️ Create a tagline',         sub: '5 punchy brand slogans with strategy notes',             q: '/tagline Create taglines for a productivity app that uses AI to help people focus on what matters most.' },
   { title: '📝 Write meeting notes',      sub: 'Agenda, decisions, action items, next steps',            q: '/meeting Write meeting notes for a product kickoff where we aligned on Q3 priorities and assigned owners.' },
+  { title: '📬 Write a cover letter',    sub: 'Targeted, compelling, and professionally structured',     q: '/cover Write a cover letter for a senior product manager role at a fast-growing AI startup.' },
+  { title: '⭐ Write a review',           sub: 'Strengths, weaknesses, and a verdict out of 5',           q: '/review Write a detailed review of Notion as a productivity and knowledge management tool.' },
+  { title: '📋 Write a proposal',        sub: 'Problem, solution, deliverables, and recommendation',     q: '/proposal Write a project proposal for building an internal AI assistant for a 50-person engineering team.' },
 ];
 let _suggOffset = 0;
 function _shuffleSuggestions() {
