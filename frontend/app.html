@@ -766,16 +766,23 @@ pre.collapsible.expanded code{max-height:none}
 .side-toggle-btn svg{width:16px;height:16px;stroke:currentColor;stroke-width:2;fill:none}
 @media(max-width:880px){.side-toggle-btn{display:none}}
 
-/* ── Jump-to-bottom floating button ─────────────────────────────────── */
-.jump-bottom-btn{position:absolute;bottom:90px;right:24px;width:36px;height:36px;border-radius:50%;background:var(--panel-2);border:1px solid var(--border-2);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,0,0,.3);transition:all .2s;opacity:0;pointer-events:none;z-index:20}
-.jump-bottom-btn.visible{opacity:1;pointer-events:auto;animation:badge-pop .2s cubic-bezier(.34,1.4,.64,1)}
+/* ── Jump-to-bottom / jump-to-top floating buttons ───────────────────── */
+.jump-bottom-btn,.jump-top-btn{position:absolute;right:24px;width:36px;height:36px;border-radius:50%;background:var(--panel-2);border:1px solid var(--border-2);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,0,0,.3);transition:all .2s;opacity:0;pointer-events:none;z-index:20}
+.jump-bottom-btn{bottom:90px}
+.jump-top-btn{top:12px}
+.jump-bottom-btn.visible,.jump-top-btn.visible{opacity:1;pointer-events:auto;animation:badge-pop .2s cubic-bezier(.34,1.4,.64,1)}
 .jump-bottom-btn:hover{background:var(--accent-soft);border-color:var(--accent);color:var(--text);transform:translateY(-2px)}
-.jump-bottom-btn svg{width:16px;height:16px;stroke:currentColor;stroke-width:2.5;fill:none}
-[data-theme="light"] .jump-bottom-btn{background:rgba(255,255,255,.9);border-color:rgba(0,0,0,.15)}
+.jump-top-btn:hover{background:var(--accent-soft);border-color:var(--accent);color:var(--text);transform:translateY(2px)}
+.jump-bottom-btn svg,.jump-top-btn svg{width:16px;height:16px;stroke:currentColor;stroke-width:2.5;fill:none}
+[data-theme="light"] .jump-bottom-btn,[data-theme="light"] .jump-top-btn{background:rgba(255,255,255,.9);border-color:rgba(0,0,0,.15)}
 
 /* ── Message timestamps ──────────────────────────────────────────────── */
 .msg-time{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--subtle);margin-top:3px;opacity:0;transition:opacity .15s;cursor:default;user-select:none;padding:0 2px}
 .msg:hover .msg-time{opacity:1}
+
+/* ── Read-time badge on assistant messages ───────────────────────────── */
+.read-time{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--subtle);padding:1px 6px;border-radius:4px;border:1px solid var(--border);background:var(--panel);margin-left:4px;opacity:0;transition:opacity .15s}
+.msg.assistant:hover .read-time{opacity:1}
 .msg.user .msg-time{text-align:right}
 .msg.assistant .msg-time{text-align:left}
 
@@ -875,7 +882,7 @@ pre.collapsible.expanded code{max-height:none}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.41.0</span>
+      <span class="ver" id="versionPill">v0.42.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -1027,6 +1034,10 @@ pre.collapsible.expanded code{max-height:none}
       </div>
     </div>
 
+    <!-- Jump-to-top button (appears when scrolled down) -->
+    <button class="jump-top-btn" id="jumpTopBtn" title="Jump to top" aria-label="Jump to top">
+      <svg viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>
+    </button>
     <!-- Jump-to-bottom button (appears when scrolled up) -->
     <button class="jump-bottom-btn" id="jumpBottomBtn" title="Jump to latest (End)" aria-label="Jump to bottom">
       <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
@@ -1377,6 +1388,9 @@ pre.collapsible.expanded code{max-height:none}
           <div class="shortcut-row"><span class="s-desc">Side-by-side comparison</span><span class="s-keys"><kbd>/versus</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Suggest improvements</span><span class="s-keys"><kbd>/improve</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Extract &amp; define key terms</span><span class="s-keys"><kbd>/glossary</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Build a chronological timeline</span><span class="s-keys"><kbd>/timeline</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Generate a mind map / tree</span><span class="s-keys"><kbd>/mindmap</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Structured debate (both sides)</span><span class="s-keys"><kbd>/debate</kbd></span></div>
         </div>
       </div>
       <div class="shortcuts-section">
@@ -1426,11 +1440,13 @@ const msgInput = document.getElementById('msgInput');
 const sendBtn = document.getElementById('sendBtn');
 const sendIcon = document.getElementById('sendIcon');
 
-// ── Auto-scroll lock + jump-to-bottom ──────────────────────────────────
+// ── Auto-scroll lock + jump-to-bottom / jump-to-top ────────────────────
 const jumpBottomBtn = document.getElementById('jumpBottomBtn');
+const jumpTopBtn = document.getElementById('jumpTopBtn');
 const chatProgress = document.getElementById('chatProgress');
 chat.addEventListener('scroll', () => {
   const atBottom = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 80;
+  const atTop = chat.scrollTop < 80;
   if (atBottom && !_autoScroll) _autoScroll = true;
   // Update reading progress bar
   const scrollable = chat.scrollHeight - chat.clientHeight;
@@ -1438,11 +1454,16 @@ chat.addEventListener('scroll', () => {
   if (chatProgress) chatProgress.style.width = pct + '%';
   else if (!atBottom && _autoScroll) _autoScroll = false;
   jumpBottomBtn.classList.toggle('visible', !atBottom);
+  jumpTopBtn.classList.toggle('visible', !atTop);
 });
 jumpBottomBtn.addEventListener('click', () => {
   _autoScroll = true;
   chat.scrollTo({ top: chat.scrollHeight, behavior: 'smooth' });
   jumpBottomBtn.classList.remove('visible');
+});
+jumpTopBtn.addEventListener('click', () => {
+  chat.scrollTo({ top: 0, behavior: 'smooth' });
+  jumpTopBtn.classList.remove('visible');
 });
 
 // ── Boot ────────────────────────────────────────────────────────────────
@@ -2527,6 +2548,18 @@ async function sendMessage() {
     '/quiz':      'Create a quiz with 5 well-structured questions (mix of multiple-choice and short-answer) with answers provided at the end, about the following topic:\n\n',
     '/pros':      'Provide a thorough pros and cons analysis of the following. List at least 5 points on each side with brief explanations:\n\n',
     '/define':    'Provide a clear, comprehensive definition of the following term. Include etymology if relevant, key characteristics, a practical example, and any important nuances:\n\n',
+    '/ask':       'Reframe the following as a clear, precise, well-formed question that will elicit the most useful answer:\n\n',
+    '/steps':     'Break the following goal into a numbered list of concrete, actionable steps. Be specific and sequential:\n\n',
+    '/brainstorm':'Generate 10 or more diverse, creative ideas related to the following topic. Think broadly and include unconventional angles:\n\n',
+    '/recap':     'Summarize the key points of the conversation so far in a concise, structured recap:\n\n',
+    '/action':    'Extract all action items, tasks, and next steps from the following. Format as a numbered checklist:\n\n',
+    '/critique':  'Provide a critical, devil\'s advocate review of the following. Challenge assumptions, highlight weaknesses, and present counterarguments:\n\n',
+    '/versus':    'Compare the following two options in a structured side-by-side breakdown. Use clear categories and a final recommendation:\n\n',
+    '/improve':   'Suggest specific improvements, enhancements, and optimizations for the following. Be concrete and actionable:\n\n',
+    '/glossary':  'Extract all key terms and concepts from the following and define each one clearly with context:\n\n',
+    '/timeline':  'Create a clear chronological timeline of the following events or steps. Use dates or ordered markers where applicable:\n\n',
+    '/mindmap':   'Generate a text-based mind map / hierarchical tree for the following topic. Use indentation to show relationships:\n\n',
+    '/debate':    'Structure both sides of the following topic as a formal debate. Present the strongest arguments for and against, then offer a balanced conclusion:\n\n',
   };
   let _slashStripped = text;
   for (const [cmd, instr] of Object.entries(SLASH_PREFIX_MAP)) {
@@ -2885,6 +2918,14 @@ async function sendMessage() {
           <button class="act-btn fb-up" data-act="fb-up" title="Good response"><svg viewBox="0 0 24 24" fill="none"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg></button>
           <button class="act-btn fb-down" data-act="fb-down" title="Poor response"><svg viewBox="0 0 24 24" fill="none"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z"/><path d="M17 2h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg></button>
         `;
+        // Read-time badge
+        const _rtWords = fullAnswer.trim().split(/\s+/).length;
+        const _rtMins  = Math.round(_rtWords / 200);
+        const _rtBadge = document.createElement('span');
+        _rtBadge.className = 'read-time';
+        _rtBadge.title = `${_rtWords.toLocaleString()} words`;
+        _rtBadge.textContent = _rtMins < 1 ? `${_rtWords}w` : `~${_rtMins} min read`;
+        actions.appendChild(_rtBadge);
         replyContent.appendChild(actions);
         actions.querySelector('[data-act=copy]').addEventListener('click', () => {
           navigator.clipboard.writeText(fullAnswer);
@@ -2931,12 +2972,15 @@ async function sendMessage() {
           { label: 'Go deeper →',         q: 'Can you go deeper on the most important part?' },
           { label: 'Summarize it →',      q: '/tldr Summarize the key takeaway in one sentence.' },
           { label: 'Action steps →',      q: '/steps What are the concrete next steps I should take?' },
+          { label: 'Debate this →',       q: '/debate What are the strongest arguments for and against this?' },
+          { label: 'Make a timeline →',   q: '/timeline Organize this into a chronological timeline.' },
+          { label: 'Turn into a quiz →',  q: '/quiz Create a 5-question quiz based on what you just explained.' },
         ];
         const _chipOffset = (_chipTurn || 0) % _chipPool.length;
         const chipDefs = [
           _chipPool[_chipOffset % _chipPool.length],
-          _chipPool[(_chipOffset + 3) % _chipPool.length],
-          _chipPool[(_chipOffset + 6) % _chipPool.length],
+          _chipPool[(_chipOffset + 4) % _chipPool.length],
+          _chipPool[(_chipOffset + 8) % _chipPool.length],
         ];
         chips.innerHTML = chipDefs.map(c =>
           `<button class="followup-chip" data-q="${c.q.replace(/"/g,'&quot;')}">${c.label}</button>`
@@ -2998,6 +3042,10 @@ const SUGGESTION_POOL = [
   { title: '✨ Improve this',          sub: 'Enhancements and optimizations',                 q: '/improve My landing page headline: "We help teams work better together"' },
   { title: '📚 Build a glossary',      sub: 'Define all the key terms',                      q: '/glossary Explain the core terms in machine learning: model, training, inference, overfitting, gradient descent' },
   { title: '✍️ Creative writing',       sub: 'Stories, hooks, and imaginative prompts',      q: 'Write a short opening paragraph for a sci-fi story set on a space station in 2147.' },
+  { title: '📅 Build a timeline',       sub: 'Chronological order from any event set',        q: '/timeline The history of the internet from ARPANET to modern day' },
+  { title: '🗺️ Mind map a concept',     sub: 'Visual tree of related ideas',                  q: '/mindmap Machine learning — break it into a hierarchical mind map' },
+  { title: '🎭 Debate both sides',       sub: 'Steel-man arguments for and against',           q: '/debate Universal Basic Income — strongest case for and against' },
+  { title: '🔬 Research deep-dive',     sub: 'Comprehensive multi-angle analysis',             q: 'Give me a thorough overview of CRISPR gene editing: how it works, current uses, and ethical concerns.' },
 ];
 let _suggOffset = 0;
 function _shuffleSuggestions() {
@@ -4520,6 +4568,9 @@ const SLASH_CMDS = [
   { cmd: '/versus',   icon: '⚔️',  desc: 'Side-by-side comparison of two things',     action: () => _slashPrepend('/versus') },
   { cmd: '/improve',  icon: '✨',  desc: 'Suggest improvements and enhancements',      action: () => _slashPrepend('/improve') },
   { cmd: '/glossary', icon: '📚',  desc: 'Extract and define all key terms',           action: () => _slashPrepend('/glossary') },
+  { cmd: '/timeline', icon: '📅',  desc: 'Build a chronological timeline of events',   action: () => _slashPrepend('/timeline') },
+  { cmd: '/mindmap',  icon: '🗺️',  desc: 'Generate a text-based mind map / tree',     action: () => _slashPrepend('/mindmap') },
+  { cmd: '/debate',   icon: '🎭',  desc: 'Structure both sides as a formal debate',    action: () => _slashPrepend('/debate') },
   // ── Memory ────────────────────────────────────────────────────
   { cmd: '/remember', icon: '📌',  desc: 'Save a fact to semantic memory',             action: () => _slashPrepend('/remember') },
   { cmd: '/forget',   icon: '🗑️',  desc: 'Remove a fact from memory',                 action: () => _slashPrepend('/forget') },

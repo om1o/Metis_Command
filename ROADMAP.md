@@ -1,10 +1,23 @@
 # Metis Command — 18-Phase Roadmap
 
-> Updated 2026-05-10 · v0.41.0 · 56 Python modules, 6 HTML pages, 4 JS files, ~4500-line app.html, 11 local Ollama models, 4 persistent agents running.
+> Updated 2026-05-10 · v0.42.0 · 56 Python modules, 6 HTML pages, 4 JS files, ~4600-line app.html, 11 local Ollama models, 4 persistent agents running.
 
 ---
 
-## Current State (v0.41.0)
+## Current State (v0.42.0)
+
+### Completed (v0.42.0)
+- ✅ **Scroll-to-top floating button** — mirror of the existing jump-to-bottom button; appears when the user has scrolled down; clicking snaps to the top of the chat with a smooth scroll; positioned at `top: 12px` in the chat area alongside the jump-to-bottom button
+- ✅ **Three new slash commands** — `/timeline` (build a chronological timeline of events), `/mindmap` (generate a text-based mind map / hierarchy tree), `/debate` (structure both sides as a formal debate with a balanced conclusion); 44 slash commands total; all three wired with prefix injection instructions in `SLASH_PREFIX_MAP`
+- ✅ **Backfilled `SLASH_PREFIX_MAP` entries** — `/ask`, `/steps`, `/brainstorm`, `/recap`, `/action`, `/critique`, `/versus`, `/improve`, `/glossary` were missing from the injection map despite their slash commands being present since v0.39–0.41; all now have proper system-instruction prefixes
+- ✅ **Read-time badge on assistant messages** — a subtle `~N min read` (or `Nw` for short replies) badge appears on hover alongside the copy/regen/feedback action row; computed from `fullAnswer` word count at 200 wpm; tooltip shows exact word count
+- ✅ **Expanded follow-up chip pool to 12** — added `Debate this →`, `Make a timeline →`, `Turn into a quiz →` to the 9-chip pool; rotation stride updated from +3 to +4 so all 12 chips appear evenly over a conversation
+- ✅ **Four new suggestion cards** — `/timeline`, `/mindmap`, `/debate`, and a "Research deep-dive" card added to the empty-state shuffle pool (now 28 cards total)
+- ✅ Version bumped to 0.42.0
+
+---
+
+## Previous State (v0.41.0)
 
 ### Completed (v0.41.0)
 - ✅ **CSS bugfix** — `--vio` CSS variable was undefined in two places (follow-up chip hover, reading progress bar); corrected to `--vi` / `--vi2` so both now render in the correct violet accent color
