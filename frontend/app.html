@@ -882,7 +882,7 @@ pre.collapsible.expanded code{max-height:none}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.43.0</span>
+      <span class="ver" id="versionPill">v0.44.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -1391,6 +1391,12 @@ pre.collapsible.expanded code{max-height:none}
           <div class="shortcut-row"><span class="s-desc">Build a chronological timeline</span><span class="s-keys"><kbd>/timeline</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Generate a mind map / tree</span><span class="s-keys"><kbd>/mindmap</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Structured debate (both sides)</span><span class="s-keys"><kbd>/debate</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Write a short story or narrative</span><span class="s-keys"><kbd>/story</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Research with sources &amp; citations</span><span class="s-keys"><kbd>/cite</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Explain with analogy &amp; example</span><span class="s-keys"><kbd>/explain</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Write a poem or verse</span><span class="s-keys"><kbd>/poem</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Playful roast with wit &amp; humor</span><span class="s-keys"><kbd>/roast</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Convert content to a checklist</span><span class="s-keys"><kbd>/checklist</kbd></span></div>
         </div>
       </div>
       <div class="shortcuts-section">
@@ -2563,6 +2569,9 @@ async function sendMessage() {
     '/story':     'Write a short, engaging story or narrative based on the following prompt. Include vivid details, a clear arc, and a satisfying conclusion:\n\n',
     '/cite':      'Research the following topic and provide key facts with reputable sources, references, or citations. Format clearly with source attribution:\n\n',
     '/explain':   'Explain the following concept clearly using plain language, a helpful analogy, and a real-world example. Build from basics to nuance:\n\n',
+    '/poem':      'Write a short poem or verse based on the following. Use vivid imagery, rhythm, and emotional resonance. Choose a fitting form (sonnet, free verse, haiku, etc.):\n\n',
+    '/roast':     'Write a playful, witty roast of the following topic or subject. Use clever observations and good-natured humor. Keep it light and fun, not mean-spirited:\n\n',
+    '/checklist': 'Convert the following content into a clear, actionable checklist. Use Markdown checkbox syntax (- [ ] item). Group related items if helpful:\n\n',
   };
   let _slashStripped = text;
   for (const [cmd, instr] of Object.entries(SLASH_PREFIX_MAP)) {
@@ -2962,31 +2971,34 @@ async function sendMessage() {
         fbUp.addEventListener('click', () => submitFeedback('up'));
         fbDown.addEventListener('click', () => submitFeedback('down'));
 
-        // Follow-up quick-reply chips — rotate 3 from a pool of 9
+        // Follow-up quick-reply chips — rotate 3 from a pool of 18 (stride +6)
         const chips = document.createElement('div');
         chips.className = 'followup-chips';
         const _chipPool = [
-          { label: 'Tell me more →',      q: 'Can you expand on that and tell me more?' },
-          { label: 'Give an example →',   q: 'Can you give me a concrete example?' },
-          { label: "What's next? →",      q: "What should I do next based on this?" },
-          { label: 'Simplify this →',     q: 'Can you explain that more simply?' },
-          { label: 'Why does this work?', q: 'Can you explain the reasoning behind this?' },
-          { label: 'Any downsides? →',    q: 'What are the potential downsides or trade-offs?' },
-          { label: 'Go deeper →',         q: 'Can you go deeper on the most important part?' },
-          { label: 'Summarize it →',      q: '/tldr Summarize the key takeaway in one sentence.' },
-          { label: 'Action steps →',      q: '/steps What are the concrete next steps I should take?' },
-          { label: 'Debate this →',       q: '/debate What are the strongest arguments for and against this?' },
-          { label: 'Make a timeline →',   q: '/timeline Organize this into a chronological timeline.' },
-          { label: 'Turn into a quiz →',  q: '/quiz Create a 5-question quiz based on what you just explained.' },
-          { label: 'Simplify this →',      q: '/eli5 Can you simplify what you just explained?' },
-          { label: 'List the pros & cons →', q: '/pros What are the pros and cons of what you just described?' },
-          { label: 'Give me 3 bullets →',  q: '/summarize Condense your last response into exactly 3 bullet points.' },
+          { label: 'Tell me more →',        q: 'Can you expand on that and tell me more?' },
+          { label: 'Give an example →',     q: 'Can you give me a concrete example?' },
+          { label: "What's next? →",        q: "What should I do next based on this?" },
+          { label: 'Simplify this →',       q: 'Can you explain that more simply?' },
+          { label: 'Why does this work?',   q: 'Can you explain the reasoning behind this?' },
+          { label: 'Any downsides? →',      q: 'What are the potential downsides or trade-offs?' },
+          { label: 'Go deeper →',           q: 'Can you go deeper on the most important part?' },
+          { label: 'Summarize it →',        q: '/tldr Summarize the key takeaway in one sentence.' },
+          { label: 'Action steps →',        q: '/steps What are the concrete next steps I should take?' },
+          { label: 'Debate this →',         q: '/debate What are the strongest arguments for and against this?' },
+          { label: 'Make a timeline →',     q: '/timeline Organize this into a chronological timeline.' },
+          { label: 'Turn into a quiz →',    q: '/quiz Create a 5-question quiz based on what you just explained.' },
+          { label: 'Simplify this →',       q: '/eli5 Can you simplify what you just explained?' },
+          { label: 'List the pros & cons →',q: '/pros What are the pros and cons of what you just described?' },
+          { label: 'Give me 3 bullets →',   q: '/summarize Condense your last response into exactly 3 bullet points.' },
+          { label: 'Make it a poem →',      q: '/poem Turn your last response into a short poem.' },
+          { label: 'Any caveats? →',        q: 'What are the main caveats or exceptions I should know about?' },
+          { label: 'Compare approaches →',  q: '/versus What are the two main approaches to this, compared side by side?' },
         ];
         const _chipOffset = (_chipTurn || 0) % _chipPool.length;
         const chipDefs = [
           _chipPool[_chipOffset % _chipPool.length],
-          _chipPool[(_chipOffset + 5) % _chipPool.length],
-          _chipPool[(_chipOffset + 10) % _chipPool.length],
+          _chipPool[(_chipOffset + 6) % _chipPool.length],
+          _chipPool[(_chipOffset + 12) % _chipPool.length],
         ];
         chips.innerHTML = chipDefs.map(c =>
           `<button class="followup-chip" data-q="${c.q.replace(/"/g,'&quot;')}">${c.label}</button>`
@@ -3056,6 +3068,9 @@ const SUGGESTION_POOL = [
   { title: '🔗 Find the sources',        sub: 'Facts with citations and references',              q: '/cite What does current research say about the health effects of intermittent fasting?' },
   { title: '💬 Explain with an example', sub: 'Plain language, analogy, real-world use case',    q: '/explain How does a neural network actually learn? Use an analogy and a real example.' },
   { title: '🌐 Quick translation',       sub: 'Translate to multiple languages at once',          q: '/translate "Innovation distinguishes between a leader and a follower." — translate to French, German, and Japanese.' },
+  { title: '🖋️ Write a poem',            sub: 'Verse with rhythm, imagery, and emotion',           q: '/poem Write a short poem about the feeling of discovering a new idea for the first time.' },
+  { title: '😄 Roast this topic',         sub: 'Playful wit and good-natured humor',                q: '/roast Roast the concept of "disruption" as used by Silicon Valley startups.' },
+  { title: '✅ Build a checklist',        sub: 'Actionable items from any content',                 q: '/checklist What should I check before launching a new web application to production?' },
 ];
 let _suggOffset = 0;
 function _shuffleSuggestions() {
@@ -4591,6 +4606,9 @@ const SLASH_CMDS = [
   { cmd: '/story',    icon: '📖',  desc: 'Write a short story or narrative',            action: () => _slashPrepend('/story') },
   { cmd: '/cite',     icon: '🔗',  desc: 'Research topic with sources and citations',   action: () => _slashPrepend('/cite') },
   { cmd: '/explain',  icon: '💬',  desc: 'Explain with analogy and real-world example', action: () => _slashPrepend('/explain') },
+  { cmd: '/poem',     icon: '🖋️',  desc: 'Write a poem or verse with rhythm and imagery', action: () => _slashPrepend('/poem') },
+  { cmd: '/roast',    icon: '😄',  desc: 'Playful, witty roast of any topic',              action: () => _slashPrepend('/roast') },
+  { cmd: '/checklist',icon: '✅',  desc: 'Convert content into an actionable checklist',   action: () => _slashPrepend('/checklist') },
   // ── Memory ────────────────────────────────────────────────────
   { cmd: '/remember', icon: '📌',  desc: 'Save a fact to semantic memory',             action: () => _slashPrepend('/remember') },
   { cmd: '/forget',   icon: '🗑️',  desc: 'Remove a fact from memory',                 action: () => _slashPrepend('/forget') },

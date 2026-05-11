@@ -1,10 +1,21 @@
 # Metis Command — 18-Phase Roadmap
 
-> Updated 2026-05-11 · v0.43.0 · 56 Python modules, 6 HTML pages, 4 JS files, ~4700-line app.html, 11 local Ollama models, 4 persistent agents running.
+> Updated 2026-05-11 · v0.44.0 · 56 Python modules, 6 HTML pages, 4 JS files, ~4750-line app.html, 11 local Ollama models, 4 persistent agents running.
 
 ---
 
-## Current State (v0.43.0)
+## Current State (v0.44.0)
+
+### Completed (v0.44.0)
+- ✅ **Shortcuts modal bug fix** — `/story`, `/cite`, `/explain` (added in v0.43.0) were missing from the keyboard shortcuts help modal; all three now appear in the Text Transforms section alongside `/poem`, `/roast`, `/checklist`
+- ✅ **Three new slash commands** — `/poem` (write a poem or verse with rhythm, imagery, and emotional resonance), `/roast` (playful witty roast with good-natured humor), `/checklist` (convert any content into a Markdown checkbox checklist); 50 slash commands total in SLASH_CMDS autocomplete; all three wired with prefix injection in `SLASH_PREFIX_MAP`
+- ✅ **Follow-up chip pool expanded to 18** — added `Make it a poem →`, `Any caveats? →`, `Compare approaches →` to the 15-chip pool; rotation stride updated from +5/+10 to +6/+12 so all 18 chips appear evenly across a 6-turn cycle
+- ✅ **Three new suggestion cards** — `/poem`, `/roast`, and `/checklist` starter cards added to the empty-state shuffle pool (now 35 cards total)
+- ✅ Version bumped to 0.44.0
+
+---
+
+## Previous State (v0.43.0)
 
 ### Completed (v0.43.0)
 - ✅ **Three new slash commands** — `/story` (write a short story or narrative with arc and vivid detail), `/cite` (research a topic with source attribution and references), `/explain` (explain a concept using plain language, analogy, and real-world example); 47 slash commands total; all three wired with prefix injection instructions in `SLASH_PREFIX_MAP`
