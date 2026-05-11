@@ -882,7 +882,7 @@ pre.collapsible.expanded code{max-height:none}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.47.0</span>
+      <span class="ver" id="versionPill">v0.48.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -1406,6 +1406,9 @@ pre.collapsible.expanded code{max-height:none}
           <div class="shortcut-row"><span class="s-desc">Format as numbered listicle</span><span class="s-keys"><kbd>/listicle</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Q&amp;A interview format</span><span class="s-keys"><kbd>/interview</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Write a professional bio</span><span class="s-keys"><kbd>/bio</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Write a structured essay</span><span class="s-keys"><kbd>/essay</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Write a screenplay scene</span><span class="s-keys"><kbd>/script</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Draft a professional email</span><span class="s-keys"><kbd>/email</kbd></span></div>
         </div>
       </div>
       <div class="shortcuts-section">
@@ -2592,6 +2595,9 @@ async function sendMessage() {
     '/listicle':  'Format the following content as a numbered listicle article. Give each point a bold headline and 1–2 sentences of explanation. Make it scannable and engaging:\n\n',
     '/interview': 'Generate a Q&A interview for the following topic or subject. Include 6–8 insightful questions with detailed, thoughtful answers. Format each exchange as "Q:" and "A:" pairs:\n\n',
     '/bio':       'Write a professional bio or about-me section for the following person or subject. Write in third person, highlight key achievements and personality, and close with a memorable hook. Aim for 80–120 words:\n\n',
+    '/essay':     'Write a well-structured essay on the following topic. Include an engaging introduction with a clear thesis, three developed body paragraphs with evidence and analysis, and a compelling conclusion that synthesizes the argument:\n\n',
+    '/script':    'Write a short script or screenplay scene for the following scenario. Use character names in ALL CAPS before their lines, stage directions in [brackets], and natural dialogue that reveals character. Format it as a proper screenplay:\n\n',
+    '/email':     'Draft a professional email for the following purpose. Start with "Subject: [subject line]", then include an appropriate greeting, well-structured body paragraphs, and a polished closing with a signature placeholder. Match the appropriate tone:\n\n',
   };
   let _slashStripped = text;
   for (const [cmd, instr] of Object.entries(SLASH_PREFIX_MAP)) {
@@ -3022,12 +3028,15 @@ async function sendMessage() {
           { label: 'Make it a listicle →',   q: '/listicle Format what you just explained as a numbered listicle.' },
           { label: 'Interview format →',     q: '/interview Turn this into a Q&A interview format.' },
           { label: 'Write my bio →',         q: '/bio Write a short professional bio based on what we discussed.' },
+          { label: 'Write an essay →',        q: '/essay Write a structured essay about what we just discussed.' },
+          { label: 'Turn into a script →',    q: '/script Turn the key idea into a short script scene.' },
+          { label: 'Draft an email →',        q: '/email Draft a professional email based on what we discussed.' },
         ];
         const _chipOffset = (_chipTurn || 0) % _chipPool.length;
         const chipDefs = [
           _chipPool[_chipOffset % _chipPool.length],
-          _chipPool[(_chipOffset + 9) % _chipPool.length],
-          _chipPool[(_chipOffset + 18) % _chipPool.length],
+          _chipPool[(_chipOffset + 10) % _chipPool.length],
+          _chipPool[(_chipOffset + 20) % _chipPool.length],
         ];
         chips.innerHTML = chipDefs.map(c =>
           `<button class="followup-chip" data-q="${c.q.replace(/"/g,'&quot;')}">${c.label}</button>`
@@ -3109,6 +3118,9 @@ const SUGGESTION_POOL = [
   { title: '📰 Write a listicle',         sub: 'Numbered article with bold headlines',                q: '/listicle The 10 most important habits of highly productive developers.' },
   { title: '🎤 Interview format',          sub: 'Q&A with insightful questions and answers',          q: '/interview Create an interview with a fictional senior software architect about building for scale.' },
   { title: '👤 Write a bio',              sub: 'Professional about-me in 80–120 words',               q: '/bio A software engineer with 5 years of experience, passionate about AI, open source, and teaching.' },
+  { title: '📄 Write an essay',           sub: 'Structured essay with thesis and argument',            q: '/essay The long-term impact of artificial intelligence on knowledge work and the economy.' },
+  { title: '🎬 Write a script',           sub: 'Screenplay scene with dialogue and directions',        q: '/script Two rival startup founders unexpectedly meet at an airport and realize they need each other.' },
+  { title: '📧 Draft an email',           sub: 'Professional email with subject line',                 q: '/email Request a meeting with a potential investor to pitch an AI productivity startup.' },
 ];
 let _suggOffset = 0;
 function _shuffleSuggestions() {
@@ -4656,6 +4668,9 @@ const SLASH_CMDS = [
   { cmd: '/listicle', icon: '📰',  desc: 'Format as a numbered listicle article',            action: () => _slashPrepend('/listicle') },
   { cmd: '/interview',icon: '🎤',  desc: 'Generate a Q&A interview format',                  action: () => _slashPrepend('/interview') },
   { cmd: '/bio',      icon: '👤',  desc: 'Write a professional bio or about-me',             action: () => _slashPrepend('/bio') },
+  { cmd: '/essay',    icon: '📄',  desc: 'Write a structured 5-paragraph essay',              action: () => _slashPrepend('/essay') },
+  { cmd: '/script',   icon: '🎬',  desc: 'Write a screenplay or script scene',                action: () => _slashPrepend('/script') },
+  { cmd: '/email',    icon: '📧',  desc: 'Draft a professional email with subject line',      action: () => _slashPrepend('/email') },
   // ── Memory ────────────────────────────────────────────────────
   { cmd: '/remember', icon: '📌',  desc: 'Save a fact to semantic memory',             action: () => _slashPrepend('/remember') },
   { cmd: '/forget',   icon: '🗑️',  desc: 'Remove a fact from memory',                 action: () => _slashPrepend('/forget') },
