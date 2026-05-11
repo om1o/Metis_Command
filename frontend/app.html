@@ -882,7 +882,7 @@ pre.collapsible.expanded code{max-height:none}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.49.0</span>
+      <span class="ver" id="versionPill">v0.50.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -1412,6 +1412,9 @@ pre.collapsible.expanded code{max-height:none}
           <div class="shortcut-row"><span class="s-desc">SWOT analysis</span><span class="s-keys"><kbd>/swot</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Build a user persona</span><span class="s-keys"><kbd>/persona</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Write a press release</span><span class="s-keys"><kbd>/press</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Write a structured report</span><span class="s-keys"><kbd>/report</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Write social media captions</span><span class="s-keys"><kbd>/caption</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Build a business case</span><span class="s-keys"><kbd>/case</kbd></span></div>
         </div>
       </div>
       <div class="shortcuts-section">
@@ -2604,6 +2607,9 @@ async function sendMessage() {
     '/swot':      'Create a SWOT analysis for the following subject. Format it as four clearly labeled sections — Strengths, Weaknesses, Opportunities, and Threats — each with 4–6 specific, well-reasoned bullet points:\n\n',
     '/persona':   'Create a detailed user persona or character profile for the following. Include name, demographics, background, goals, frustrations, behaviors, and a brief day-in-the-life narrative. Make it feel realistic and specific:\n\n',
     '/press':     'Write a professional press release for the following announcement. Include a punchy headline, dateline, strong opening paragraph (who/what/where/when/why), a supporting quote, a background paragraph, and a boilerplate "About" section:\n\n',
+    '/report':    'Write a clear, structured business or research report on the following. Include an executive summary, key findings organized under headings, supporting evidence or data points, and a concise conclusion with recommendations:\n\n',
+    '/caption':   'Write 3–5 engaging social media captions for the following topic or content. Vary the tone and length — include one short punchy version, one that leads with a question, and one with a clear call to action. Include relevant hashtag suggestions:\n\n',
+    '/case':      'Write a compelling business case for the following proposal or decision. Structure it with: the problem statement, proposed solution, key benefits, potential risks and mitigations, estimated effort or cost, and a clear recommendation:\n\n',
   };
   let _slashStripped = text;
   for (const [cmd, instr] of Object.entries(SLASH_PREFIX_MAP)) {
@@ -3003,7 +3009,7 @@ async function sendMessage() {
         fbUp.addEventListener('click', () => submitFeedback('up'));
         fbDown.addEventListener('click', () => submitFeedback('down'));
 
-        // Follow-up quick-reply chips — rotate 3 from a pool of 18 (stride +6)
+        // Follow-up quick-reply chips — rotate 3 from a pool of 36 (stride +11/+22)
         const chips = document.createElement('div');
         chips.className = 'followup-chips';
         const _chipPool = [
@@ -3040,6 +3046,9 @@ async function sendMessage() {
           { label: 'SWOT it →',              q: '/swot Do a SWOT analysis based on what we just discussed.' },
           { label: 'Build a persona →',      q: '/persona Create a user persona based on what we just discussed.' },
           { label: 'Write a press release →',q: '/press Write a press release announcing what we just discussed.' },
+          { label: 'Write a report →',       q: '/report Write a structured report based on what we just discussed.' },
+          { label: 'Write captions →',       q: '/caption Write social media captions for the key ideas we discussed.' },
+          { label: 'Build a business case →',q: '/case Write a business case for the approach we just discussed.' },
         ];
         const _chipOffset = (_chipTurn || 0) % _chipPool.length;
         const chipDefs = [
@@ -3133,6 +3142,9 @@ const SUGGESTION_POOL = [
   { title: '📊 SWOT analysis',           sub: 'Strengths, Weaknesses, Opportunities, Threats',        q: '/swot Analyze a solopreneur building an AI-powered writing assistant competing with established tools.' },
   { title: '🧑 Build a persona',          sub: 'Realistic user profile with goals and frustrations',   q: '/persona Create a detailed user persona for a 34-year-old product manager adopting AI tools at work.' },
   { title: '📣 Write a press release',    sub: 'Professional announcement with quotes and boilerplate',q: '/press A fintech startup just launched an AI-powered expense tracker that connects to any bank account.' },
+  { title: '📋 Write a report',           sub: 'Structured findings, insights, and recommendations',   q: '/report Write a report on the current state of remote work adoption across the tech industry.' },
+  { title: '📲 Write social captions',    sub: '3–5 captions with CTA and hashtag suggestions',        q: '/caption Write social media captions for a new AI productivity app launching to the public.' },
+  { title: '💼 Build a business case',    sub: 'Problem, solution, benefits, risks, and recommendation',q: '/case Build a business case for adopting AI-assisted customer support at a mid-size SaaS company.' },
 ];
 let _suggOffset = 0;
 function _shuffleSuggestions() {
@@ -4686,6 +4698,9 @@ const SLASH_CMDS = [
   { cmd: '/swot',    icon: '📊',  desc: 'SWOT analysis — strengths, weaknesses, opportunities, threats', action: () => _slashPrepend('/swot') },
   { cmd: '/persona', icon: '🧑',  desc: 'Build a detailed user or character persona',          action: () => _slashPrepend('/persona') },
   { cmd: '/press',   icon: '📣',  desc: 'Write a professional press release',                  action: () => _slashPrepend('/press') },
+  { cmd: '/report',  icon: '📋',  desc: 'Write a structured business or research report',        action: () => _slashPrepend('/report') },
+  { cmd: '/caption', icon: '📲',  desc: 'Write social media captions with CTAs and hashtags',    action: () => _slashPrepend('/caption') },
+  { cmd: '/case',    icon: '💼',  desc: 'Build a compelling business case for a decision',        action: () => _slashPrepend('/case') },
   // ── Memory ────────────────────────────────────────────────────
   { cmd: '/remember', icon: '📌',  desc: 'Save a fact to semantic memory',             action: () => _slashPrepend('/remember') },
   { cmd: '/forget',   icon: '🗑️',  desc: 'Remove a fact from memory',                 action: () => _slashPrepend('/forget') },
