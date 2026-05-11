@@ -882,7 +882,7 @@ pre.collapsible.expanded code{max-height:none}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.55.0</span>
+      <span class="ver" id="versionPill">v0.56.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -1430,6 +1430,9 @@ pre.collapsible.expanded code{max-height:none}
           <div class="shortcut-row"><span class="s-desc">Write a slide deck outline with speaker notes</span><span class="s-keys"><kbd>/deck</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Create a grading rubric or evaluation criteria</span><span class="s-keys"><kbd>/rubric</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Write a Standard Operating Procedure</span><span class="s-keys"><kbd>/sop</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Write a creative or project brief</span><span class="s-keys"><kbd>/brief</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Write a vision or mission statement</span><span class="s-keys"><kbd>/vision</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Write a one-page executive summary</span><span class="s-keys"><kbd>/onepager</kbd></span></div>
         </div>
       </div>
       <div class="shortcuts-section">
@@ -2640,6 +2643,9 @@ async function sendMessage() {
     '/deck':       'Write a clear, structured slide deck outline for the following topic or presentation. Include: a title slide, an agenda slide, 4–6 content slides each with a bold heading and 3–5 concise bullet points, a summary or key takeaways slide, and a closing Q&A slide. Add brief speaker notes for each content slide:\n\n',
     '/rubric':     'Create a detailed grading rubric or evaluation criteria for the following task, project, or assignment. Include 4–5 key criteria, clear performance level descriptions (Excellent / Proficient / Developing / Beginning), specific observable evidence for each level, and point values or weightings where applicable:\n\n',
     '/sop':        'Write a clear, well-structured Standard Operating Procedure (SOP) for the following process or task. Include: a purpose and scope statement, roles and responsibilities, numbered step-by-step procedure, quality control or approval checkpoints, and a document metadata section (version, date, owner). Use plain, unambiguous language:\n\n',
+    '/brief':      'Write a clear, comprehensive creative or project brief for the following. Include: project overview and objectives, target audience, key messages and tone, deliverables and scope, constraints or requirements, timeline or milestones, and success criteria. Make it actionable and easy to hand off to a team:\n\n',
+    '/vision':     'Write a compelling vision or mission statement for the following organization, product, or initiative. Capture the long-term aspiration, the core purpose, and the values that guide decisions. Offer 2–3 variations ranging from punchy (under 20 words) to narrative (2–3 sentences). Explain the strategic thinking behind each:\n\n',
+    '/onepager':   'Write a polished one-page executive summary for the following topic, project, or proposal. Structure it with: a bold headline, a 2–3 sentence overview, key highlights or bullet points (4–6 items), a brief section on impact or value, and a clear call to action. Keep it scannable and persuasive — everything a decision-maker needs on a single page:\n\n',
   };
   let _slashStripped = text;
   for (const [cmd, instr] of Object.entries(SLASH_PREFIX_MAP)) {
@@ -3094,6 +3100,9 @@ async function sendMessage() {
           { label: 'Build a deck →',          q: '/deck Create a slide deck outline for the key ideas we just discussed.' },
           { label: 'Write a rubric →',        q: '/rubric Create a grading rubric for evaluating what we just discussed.' },
           { label: 'Write an SOP →',          q: '/sop Write a standard operating procedure for the process we just discussed.' },
+          { label: 'Write a brief →',         q: '/brief Write a creative brief for the concept we just discussed.' },
+          { label: 'Write a vision →',        q: '/vision Write a vision statement for what we just discussed.' },
+          { label: 'Make a one-pager →',      q: '/onepager Write a one-page executive summary of the concept we just discussed.' },
         ];
         const _chipOffset = (_chipTurn || 0) % _chipPool.length;
         const chipDefs = [
@@ -3205,6 +3214,9 @@ const SUGGESTION_POOL = [
   { title: '🖥️ Build a deck outline',    sub: 'Slide-by-slide structure with speaker notes',               q: '/deck Write a slide deck outline for a 10-minute presentation on why AI will transform knowledge work.' },
   { title: '📏 Create a rubric',         sub: 'Evaluation criteria with performance levels',               q: '/rubric Create a rubric for evaluating the quality of a blog post: clarity, depth, originality, structure, and engagement.' },
   { title: '📋 Write an SOP',            sub: 'Step-by-step standard operating procedure',                 q: '/sop Write an SOP for onboarding a new software engineer to a remote engineering team.' },
+  { title: '📝 Write a brief',           sub: 'Creative or project brief with objectives and scope',        q: '/brief Write a creative brief for a brand redesign campaign targeting millennial professionals.' },
+  { title: '🔭 Write a vision statement',sub: 'Aspirational mission with 2–3 length variations',            q: '/vision Write a vision statement for an AI startup building tools that make knowledge workers 10x more effective.' },
+  { title: '📄 Write a one-pager',       sub: 'Executive summary on a single scannable page',               q: '/onepager Write a one-page summary for a new internal AI assistant rollout at a 200-person company.' },
 ];
 let _suggOffset = 0;
 function _shuffleSuggestions() {
