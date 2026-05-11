@@ -1,10 +1,21 @@
 # Metis Command — 18-Phase Roadmap
 
-> Updated 2026-05-10 · v0.42.0 · 56 Python modules, 6 HTML pages, 4 JS files, ~4600-line app.html, 11 local Ollama models, 4 persistent agents running.
+> Updated 2026-05-11 · v0.43.0 · 56 Python modules, 6 HTML pages, 4 JS files, ~4700-line app.html, 11 local Ollama models, 4 persistent agents running.
 
 ---
 
-## Current State (v0.42.0)
+## Current State (v0.43.0)
+
+### Completed (v0.43.0)
+- ✅ **Three new slash commands** — `/story` (write a short story or narrative with arc and vivid detail), `/cite` (research a topic with source attribution and references), `/explain` (explain a concept using plain language, analogy, and real-world example); 47 slash commands total; all three wired with prefix injection instructions in `SLASH_PREFIX_MAP`
+- ✅ **`⌘N` / `Ctrl+N` new chat shortcut** — starts a new conversation from anywhere in the app (skips when the composer textarea has focus to avoid intercepting normal typing); documented in the keyboard shortcuts modal; replaces the previously-undocumented `⌘L` binding (⌘L still works for backwards compatibility)
+- ✅ **Follow-up chip pool expanded to 15** — added `Simplify this →`, `List the pros & cons →`, `Give me 3 bullets →` to the 12-chip pool; rotation stride updated from +4 to +5 so all 15 chips appear evenly across a 5-turn cycle
+- ✅ **Four new suggestion cards** — `/story`, `/cite`, `/explain`, and a "Quick translation" card added to the empty-state shuffle pool (now 32 cards total)
+- ✅ Version bumped to 0.43.0
+
+---
+
+## Previous State (v0.42.0)
 
 ### Completed (v0.42.0)
 - ✅ **Scroll-to-top floating button** — mirror of the existing jump-to-bottom button; appears when the user has scrolled down; clicking snaps to the top of the chat with a smooth scroll; positioned at `top: 12px` in the chat area alongside the jump-to-bottom button

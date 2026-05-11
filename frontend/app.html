@@ -882,7 +882,7 @@ pre.collapsible.expanded code{max-height:none}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.42.0</span>
+      <span class="ver" id="versionPill">v0.43.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -1327,7 +1327,7 @@ pre.collapsible.expanded code{max-height:none}
         <div class="shortcuts-section-title">Navigation</div>
         <div class="shortcuts-grid">
           <div class="shortcut-row"><span class="s-desc">Command palette</span><span class="s-keys"><kbd>⌘</kbd><kbd>K</kbd></span></div>
-          <div class="shortcut-row"><span class="s-desc">New conversation</span><span class="s-keys"><kbd>⌘</kbd><kbd>L</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">New conversation</span><span class="s-keys"><kbd>⌘</kbd><kbd>N</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Toggle sidebar</span><span class="s-keys"><kbd>⌘</kbd><kbd>B</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Toggle dark/light theme</span><span class="s-keys"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>T</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Export session as Markdown</span><span class="s-keys"><kbd>⌘</kbd><kbd>E</kbd></span></div>
@@ -2560,6 +2560,9 @@ async function sendMessage() {
     '/timeline':  'Create a clear chronological timeline of the following events or steps. Use dates or ordered markers where applicable:\n\n',
     '/mindmap':   'Generate a text-based mind map / hierarchical tree for the following topic. Use indentation to show relationships:\n\n',
     '/debate':    'Structure both sides of the following topic as a formal debate. Present the strongest arguments for and against, then offer a balanced conclusion:\n\n',
+    '/story':     'Write a short, engaging story or narrative based on the following prompt. Include vivid details, a clear arc, and a satisfying conclusion:\n\n',
+    '/cite':      'Research the following topic and provide key facts with reputable sources, references, or citations. Format clearly with source attribution:\n\n',
+    '/explain':   'Explain the following concept clearly using plain language, a helpful analogy, and a real-world example. Build from basics to nuance:\n\n',
   };
   let _slashStripped = text;
   for (const [cmd, instr] of Object.entries(SLASH_PREFIX_MAP)) {
@@ -2975,12 +2978,15 @@ async function sendMessage() {
           { label: 'Debate this →',       q: '/debate What are the strongest arguments for and against this?' },
           { label: 'Make a timeline →',   q: '/timeline Organize this into a chronological timeline.' },
           { label: 'Turn into a quiz →',  q: '/quiz Create a 5-question quiz based on what you just explained.' },
+          { label: 'Simplify this →',      q: '/eli5 Can you simplify what you just explained?' },
+          { label: 'List the pros & cons →', q: '/pros What are the pros and cons of what you just described?' },
+          { label: 'Give me 3 bullets →',  q: '/summarize Condense your last response into exactly 3 bullet points.' },
         ];
         const _chipOffset = (_chipTurn || 0) % _chipPool.length;
         const chipDefs = [
           _chipPool[_chipOffset % _chipPool.length],
-          _chipPool[(_chipOffset + 4) % _chipPool.length],
-          _chipPool[(_chipOffset + 8) % _chipPool.length],
+          _chipPool[(_chipOffset + 5) % _chipPool.length],
+          _chipPool[(_chipOffset + 10) % _chipPool.length],
         ];
         chips.innerHTML = chipDefs.map(c =>
           `<button class="followup-chip" data-q="${c.q.replace(/"/g,'&quot;')}">${c.label}</button>`
@@ -3046,6 +3052,10 @@ const SUGGESTION_POOL = [
   { title: '🗺️ Mind map a concept',     sub: 'Visual tree of related ideas',                  q: '/mindmap Machine learning — break it into a hierarchical mind map' },
   { title: '🎭 Debate both sides',       sub: 'Steel-man arguments for and against',           q: '/debate Universal Basic Income — strongest case for and against' },
   { title: '🔬 Research deep-dive',     sub: 'Comprehensive multi-angle analysis',             q: 'Give me a thorough overview of CRISPR gene editing: how it works, current uses, and ethical concerns.' },
+  { title: '📖 Tell me a story',         sub: 'Short narrative with arc and vivid detail',       q: '/story A software engineer discovers their AI assistant has been secretly learning to paint.' },
+  { title: '🔗 Find the sources',        sub: 'Facts with citations and references',              q: '/cite What does current research say about the health effects of intermittent fasting?' },
+  { title: '💬 Explain with an example', sub: 'Plain language, analogy, real-world use case',    q: '/explain How does a neural network actually learn? Use an analogy and a real example.' },
+  { title: '🌐 Quick translation',       sub: 'Translate to multiple languages at once',          q: '/translate "Innovation distinguishes between a leader and a follower." — translate to French, German, and Japanese.' },
 ];
 let _suggOffset = 0;
 function _shuffleSuggestions() {
@@ -3821,6 +3831,13 @@ document.addEventListener('keydown', (e) => {
     return;
   }
 
+  // Ctrl+N → new chat (skip if user is typing in an input / textarea)
+  if (meta && e.key === 'n' && document.activeElement !== msgInput) {
+    e.preventDefault();
+    newChat();
+    return;
+  }
+
   // Up arrow in empty input → restore last sent message for editing
   if (e.key === 'ArrowUp' && !msgInput.value.trim() && document.activeElement === msgInput) {
     e.preventDefault();
@@ -4571,6 +4588,9 @@ const SLASH_CMDS = [
   { cmd: '/timeline', icon: '📅',  desc: 'Build a chronological timeline of events',   action: () => _slashPrepend('/timeline') },
   { cmd: '/mindmap',  icon: '🗺️',  desc: 'Generate a text-based mind map / tree',     action: () => _slashPrepend('/mindmap') },
   { cmd: '/debate',   icon: '🎭',  desc: 'Structure both sides as a formal debate',    action: () => _slashPrepend('/debate') },
+  { cmd: '/story',    icon: '📖',  desc: 'Write a short story or narrative',            action: () => _slashPrepend('/story') },
+  { cmd: '/cite',     icon: '🔗',  desc: 'Research topic with sources and citations',   action: () => _slashPrepend('/cite') },
+  { cmd: '/explain',  icon: '💬',  desc: 'Explain with analogy and real-world example', action: () => _slashPrepend('/explain') },
   // ── Memory ────────────────────────────────────────────────────
   { cmd: '/remember', icon: '📌',  desc: 'Save a fact to semantic memory',             action: () => _slashPrepend('/remember') },
   { cmd: '/forget',   icon: '🗑️',  desc: 'Remove a fact from memory',                 action: () => _slashPrepend('/forget') },
