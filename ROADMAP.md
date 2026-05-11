@@ -1,10 +1,21 @@
 # Metis Command — 18-Phase Roadmap
 
-> Updated 2026-05-11 · v0.46.0 · 56 Python modules, 6 HTML pages, 4 JS files, ~4900-line app.html, 11 local Ollama models, 4 persistent agents running.
+> Updated 2026-05-11 · v0.47.0 · 56 Python modules, 6 HTML pages, 4 JS files, ~5000-line app.html, 11 local Ollama models, 4 persistent agents running.
 
 ---
 
-## Current State (v0.46.0)
+## Current State (v0.47.0)
+
+### Completed (v0.47.0)
+- ✅ **Three new slash commands** — `/listicle` (numbered listicle article with bold headlines and scannable format), `/interview` (Q&A interview with 6–8 insightful questions and detailed answers formatted as Q:/A: pairs), `/bio` (professional bio in third person, 80–120 words, closes with a memorable hook); 59 slash commands total; all three wired with prefix injection in `SLASH_PREFIX_MAP`
+- ✅ **Follow-up chip pool expanded to 27** — added `Make it a listicle →`, `Interview format →`, `Write my bio →`; stride updated from +8/+16 to +9/+18 for even 9-turn rotation across all 27 chips
+- ✅ **Three new suggestion cards** — `/listicle`, `/interview`, `/bio` starter cards added to the empty-state shuffle pool (now 44 cards total)
+- ✅ **Shortcuts modal completeness** — added `/listicle`, `/interview`, `/bio` to the Text Transforms section
+- ✅ Version bumped to 0.47.0
+
+---
+
+## Previous State (v0.46.0)
 
 ### Completed (v0.46.0)
 - ✅ **Three new slash commands** — `/thread` (format content as a numbered Twitter/X thread with hook and CTA), `/pitch` (startup/product pitch covering problem, solution, audience, and call to action), `/haiku` (strict 5-7-5 syllable haiku with evocative imagery); 56 slash commands total; all three wired with prefix injection in `SLASH_PREFIX_MAP`
