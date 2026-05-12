@@ -882,7 +882,7 @@ pre.collapsible.expanded code{max-height:none}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.73.0</span>
+      <span class="ver" id="versionPill">v0.74.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -1481,6 +1481,9 @@ pre.collapsible.expanded code{max-height:none}
           <div class="shortcut-row"><span class="s-desc">10-slide investor pitch deck with narrative arc &amp; speaker notes</span><span class="s-keys"><kbd>/pitch-deck</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">User interview guide with screener, question bank &amp; synthesis template</span><span class="s-keys"><kbd>/user-interview</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Job description with leveling criteria and hiring scorecard</span><span class="s-keys"><kbd>/job-description</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Sprint retrospective with wins, deltas, experiments &amp; action items</span><span class="s-keys"><kbd>/retro</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Customer case study with metrics, testimonials &amp; success factors</span><span class="s-keys"><kbd>/case-study</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Business proposal with scope, timeline, budget &amp; risk register</span><span class="s-keys"><kbd>/proposal</kbd></span></div>
         </div>
       </div>
       <div class="shortcuts-section">
@@ -2739,6 +2742,9 @@ async function sendMessage() {
     '/pitch-deck':  'Create a compelling 10-slide investor pitch deck outline for the following startup, product, or initiative. For each slide include: the slide title, a 1–2 sentence "what this slide must prove" statement, the key content and data points to include, and 2–3 speaker-note bullets the presenter should say aloud. Cover the classic narrative arc: (1) Cover / Hook, (2) Problem, (3) Solution, (4) Why Now / Market Timing, (5) Market Size (TAM/SAM/SOM), (6) Product / Demo, (7) Business Model, (8) Traction / Validation, (9) Team, (10) The Ask. End with a "common investor questions" section listing the top 5 likely pushbacks and how to address them:\n\n',
     '/user-interview': 'Design a complete user interview guide for the following research goal, product, or question. Include: a research objective statement (what you are trying to learn and why), a 5-question screener with pass/fail criteria to qualify participants, a warm-up section (2–3 rapport-building questions), a core question bank of 12–15 open-ended questions organized by theme (problem space, current behavior, workarounds, decision-making, emotional drivers), 3–4 concept-testing or prototype-reaction prompts if applicable, a closing section that invites referrals and sets expectations, and a synthesis template the researcher can use after each session to capture: key quotes, observed behaviors, surprise moments, and a top insight. Format it so it can be handed to any interviewer and run immediately:\n\n',
     '/job-description': 'Write a complete, compelling job description for the following role. Structure it with: a punchy 2–3 sentence role overview that sells the opportunity, a "what you\'ll do" section with 6–8 specific responsibilities (use action verbs, be concrete), a "what we\'re looking for" section separating must-have requirements from nice-to-have, a leveling criteria table showing how this role differs from the level below and above (skills, scope, autonomy), a compensation and benefits section with real ranges, a culture and team context paragraph, and a 30/60/90-day onboarding outline so candidates know what success looks like. Close with a candidate scorecard (5–7 evaluation criteria with definitions for "strong yes", "yes", "no"):\n\n',
+    '/retro':       'Facilitate a thorough sprint or project retrospective for the following team or initiative. Structure the output in four sections: (1) What Went Well — list 6–8 specific wins with a one-sentence explanation of why each mattered; (2) What Didn\'t Go Well — list 5–7 honest friction points or failures, each with a root-cause hypothesis; (3) Delta / Experiments — propose 4–6 concrete, time-boxed experiments the team can try next sprint, each framed as "If we do X, we expect Y, and we\'ll know it worked when Z"; (4) Action Items — a numbered table with columns: action, owner role, due date, and success metric. End with a "team health pulse" section assessing psychological safety, communication, and velocity trend based on the context provided:\n\n',
+    '/case-study':  'Write a compelling customer case study for the following product, customer, or outcome. Structure it as: (1) Executive summary — 3 sentences capturing the customer, challenge, and result; (2) Customer background — 1 paragraph on who the customer is, their industry, size, and context; (3) The challenge — 2–3 paragraphs on the specific problem they faced, what they had tried before, and why it wasn\'t working; (4) The solution — 2–3 paragraphs on what was implemented, how it was adopted, and key configuration or customization details; (5) Results — a metrics table with before/after comparisons for 4–6 KPIs, plus 2–3 pull-quote-ready testimonial sentences; (6) Why it worked — a 1-paragraph analysis of the critical success factors; (7) What\'s next — 1 paragraph on how the customer plans to expand. Write in a confident, editorial voice suitable for a sales asset:\n\n',
+    '/proposal':    'Write a persuasive business or project proposal for the following initiative, client, or opportunity. Structure it as: (1) Executive summary — 3–5 sentences capturing the problem, proposed solution, and expected value; (2) Problem statement — 1–2 paragraphs establishing urgency, scope, and cost of inaction; (3) Proposed solution — 2–3 paragraphs describing the approach, methodology, and key deliverables; (4) Scope of work — a bulleted list of concrete workstreams with estimated effort and ownership; (5) Timeline — a milestone table with phases, key deliverables, and target dates; (6) Budget — a line-item cost breakdown with totals and payment terms; (7) Why us / why now — a 1-paragraph differentiation statement addressing credibility, track record, and fit; (8) Next steps — 3 numbered actions the recipient should take to move forward. Close with a risk register (3–5 risks, likelihood, impact, mitigation):\n\n',
   };
   let _slashStripped = text;
   for (const [cmd, instr] of Object.entries(SLASH_PREFIX_MAP)) {
@@ -3391,6 +3397,9 @@ const SUGGESTION_POOL = [
   { title: '🎤 Build a pitch deck',             sub: '10-slide narrative arc with speaker notes and investor Q&A prep',          q: '/pitch-deck Build a pitch deck for an AI productivity tool targeting knowledge workers — Series A raise, $3M ask, 18 months runway.' },
   { title: '🎙️ Write a user interview guide',   sub: 'Screener, question bank, synthesis template, and research objective',      q: '/user-interview Design a user interview guide to understand why knowledge workers abandon productivity tools after the first week of use.' },
   { title: '📝 Write a job description',         sub: 'Role overview, leveling criteria, scorecard, and 30/60/90 onboarding',    q: '/job-description Write a job description for a Senior Product Manager at an early-stage B2B SaaS company building AI-powered analytics tools.' },
+  { title: '🔄 Run a sprint retrospective',      sub: 'Wins, deltas, time-boxed experiments, and action items with owners',       q: '/retro Run a retrospective for a 2-week sprint where we shipped a new onboarding flow but missed performance targets and had unclear ownership on QA.' },
+  { title: '📖 Write a customer case study',     sub: 'Before/after metrics, testimonials, success factors, and next steps',      q: '/case-study Write a case study for a mid-market logistics company that used our platform to reduce manual data entry by 70% and cut onboarding time in half.' },
+  { title: '📋 Write a business proposal',       sub: 'Scope, timeline, budget, risk register, and executive summary',            q: '/proposal Write a proposal for a 3-month engagement to redesign our B2B customer portal — include discovery, design, development phases and a $120K budget.' },
 ];
 let _suggOffset = 0;
 function _shuffleSuggestions() {
@@ -5056,6 +5065,9 @@ const SLASH_CMDS = [
   { cmd: '/pitch-deck',       icon:'🎤',  desc: '10-slide investor pitch deck with narrative arc and speaker notes',        action: () => _slashPrepend('/pitch-deck') },
   { cmd: '/user-interview',   icon:'🎙️',  desc: 'User interview guide with screener, question bank & synthesis template',   action: () => _slashPrepend('/user-interview') },
   { cmd: '/job-description',  icon:'📝',  desc: 'Job description with leveling criteria and hiring scorecard',               action: () => _slashPrepend('/job-description') },
+  { cmd: '/retro',            icon:'🔄',  desc: 'Sprint retrospective with wins, deltas, experiments & action items',         action: () => _slashPrepend('/retro') },
+  { cmd: '/case-study',       icon:'📖',  desc: 'Customer case study with metrics, testimonials & success factors',            action: () => _slashPrepend('/case-study') },
+  { cmd: '/proposal',         icon:'📋',  desc: 'Business proposal with scope, timeline, budget & risk register',              action: () => _slashPrepend('/proposal') },
   { cmd: '/help',   icon: '❓',  desc: 'Open keyboard shortcuts & commands guide',   action: () => openShortcutsModal() },
 ];
 
