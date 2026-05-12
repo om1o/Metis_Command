@@ -882,7 +882,7 @@ pre.collapsible.expanded code{max-height:none}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.62.0</span>
+      <span class="ver" id="versionPill">v0.63.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -1448,6 +1448,12 @@ pre.collapsible.expanded code{max-height:none}
           <div class="shortcut-row"><span class="s-desc">Sprint or project retrospective with action items</span><span class="s-keys"><kbd>/retro</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Product Requirements Document with user stories</span><span class="s-keys"><kbd>/prd</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Metrics &amp; KPI framework with north star metric</span><span class="s-keys"><kbd>/metrics</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Persona map with goals, pains &amp; jobs-to-be-done</span><span class="s-keys"><kbd>/persona-map</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Jobs-to-be-Done framework with job statements</span><span class="s-keys"><kbd>/jtbd</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">North Star metric with leading indicators</span><span class="s-keys"><kbd>/north-star</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Stakeholder map by influence &amp; interest</span><span class="s-keys"><kbd>/stakeholder</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Competitive analysis with differentiators</span><span class="s-keys"><kbd>/competitive</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Product or brand positioning statement</span><span class="s-keys"><kbd>/positioning</kbd></span></div>
         </div>
       </div>
       <div class="shortcuts-section">
@@ -3154,6 +3160,9 @@ async function sendMessage() {
           { label: 'Map the personas →',          q: '/persona-map Create a persona map for the product or users we just discussed — goals, pains, and jobs-to-be-done.' },
           { label: 'Find the JTBD →',             q: '/jtbd Apply the Jobs-to-be-Done framework to what we just discussed — identify the functional, emotional, and social jobs.' },
           { label: 'Define the north star →',     q: '/north-star Define a North Star metric for the product or team we just discussed — how to measure it and what moves it.' },
+          { label: 'Map stakeholders →',           q: '/stakeholder Map the stakeholders for what we just discussed — categorize by influence and interest and suggest engagement strategies.' },
+          { label: 'Run competitive analysis →',   q: '/competitive Run a competitive analysis on the market or product we just discussed — map rivals, gaps, and where to differentiate.' },
+          { label: 'Write a positioning statement →', q: '/positioning Write a positioning statement for the product or brand we just discussed — use the for-who-unlike-we framing.' },
         ];
         const _chipOffset = (_chipTurn || 0) % _chipPool.length;
         const chipDefs = [
@@ -3286,6 +3295,9 @@ const SUGGESTION_POOL = [
   { title: '🧑 Map your personas',         sub: '3–4 distinct users with goals, pains, and jobs',                     q: '/persona-map Create a persona map for a B2B SaaS productivity tool — identify 3 distinct user types with their goals, frustrations, and jobs-to-be-done.' },
   { title: '💼 Find the JTBD',             sub: 'Functional, emotional, and social jobs with job statements',          q: '/jtbd Apply the Jobs-to-be-Done framework to an AI writing assistant — what functional, emotional, and social jobs are users hiring it for?' },
   { title: '⭐ Define the North Star',      sub: 'One metric that captures user value and business health',              q: '/north-star Define the North Star metric for a consumer habit-tracking app — how to measure it, break it into leading indicators, and set milestones.' },
+  { title: '🤝 Map your stakeholders',       sub: 'Influence, interest, and tailored engagement strategy per group',       q: '/stakeholder Map the stakeholders for a major product redesign — categorize by influence and interest, and suggest a tailored engagement strategy for each group.' },
+  { title: '⚔️ Run a competitive analysis', sub: 'Landscape overview, gaps, differentiators, and strategic moves',        q: '/competitive Run a competitive analysis for an AI writing assistant — map the top 5 competitors, their strengths and weaknesses, and where the biggest opportunity to differentiate lies.' },
+  { title: '🎯 Write a positioning statement', sub: 'For-who-unlike-we framing with supporting rationale',                q: '/positioning Write a positioning statement for a B2B SaaS tool that helps remote engineering teams reduce meeting overhead using async AI-powered standups.' },
 ];
 let _suggOffset = 0;
 function _shuffleSuggestions() {
@@ -4878,6 +4890,9 @@ const SLASH_CMDS = [
   { cmd: '/persona-map',icon:'🧑',  desc: 'Create a 3–4 persona map with goals, pains, and jobs',         action: () => _slashPrepend('/persona-map') },
   { cmd: '/jtbd',      icon: '💼',  desc: 'Apply Jobs-to-be-Done framework with job statements',          action: () => _slashPrepend('/jtbd') },
   { cmd: '/north-star',icon: '⭐',  desc: 'Define a North Star metric with leading indicators',            action: () => _slashPrepend('/north-star') },
+  { cmd: '/stakeholder',icon:'🤝', desc: 'Map stakeholders by influence, interest & engagement strategy',   action: () => _slashPrepend('/stakeholder') },
+  { cmd: '/competitive',icon:'⚔️', desc: 'Competitive analysis with positioning and differentiation',       action: () => _slashPrepend('/competitive') },
+  { cmd: '/positioning',icon:'🎯', desc: 'Brand or product positioning statement with rationale',           action: () => _slashPrepend('/positioning') },
   // ── Memory ────────────────────────────────────────────────────
   { cmd: '/remember', icon: '📌',  desc: 'Save a fact to semantic memory',             action: () => _slashPrepend('/remember') },
   { cmd: '/forget',   icon: '🗑️',  desc: 'Remove a fact from memory',                 action: () => _slashPrepend('/forget') },
