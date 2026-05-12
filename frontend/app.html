@@ -1691,6 +1691,19 @@ async function sendMessage() {
         if (agentCards[ev.agent]) {
           finishAgentCard(agentCards[ev.agent], ev.output || '', ev.duration_ms || 0);
         }
+      } else if (ev.type === 'agent_spawned') {
+        if (window.toast) toast('info', `Spawning ${ev.agent}`, ev.model || '', 2000);
+      } else if (ev.type === 'agent_tool') {
+        // Show tool usage in activity area
+      } else if (ev.type === 'task_start') {
+        if (window.toast) toast('info', 'Task started', (ev.roles || []).join(', '), 3000);
+      } else if (ev.type === 'task_complete') {
+        if (window.toast) toast('success', 'Task complete', '', 2000);
+        loadJobs();
+      } else if (ev.type === 'agent_complete') {
+        if (agentCards[ev.agent]) {
+          finishAgentCard(agentCards[ev.agent], ev.output || '', 0);
+        }
       } else if (ev.type === 'job_created') {
         loadJobs();
         if (window.toast) toast('info', 'Job created', ev.title || '', 3000);

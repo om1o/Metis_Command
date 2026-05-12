@@ -27,6 +27,7 @@ import json
 import os
 import re
 import time
+from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Callable, Generator
 
@@ -80,7 +81,12 @@ If you can answer directly without help, return:
 
 Pick the smallest set of agents that covers the question. Most simple
 queries need 0–1 agents. Use at most 2 specialists per turn.
-Don't add agents you don't need."""
+Don't add agents you don't need.
+
+Additionally, include a "spawn_agents" key in your JSON output.
+Set "spawn_agents": true when the task requires tool-equipped sub-agents
+(coding, file manipulation, research with web access, or testing).
+Set "spawn_agents": false for simple questions and conversational responses."""
 
 
 _SYNTHESIS_PROMPT = """You are the Manager. You delegated parts of the
@@ -249,6 +255,20 @@ def orchestrate(
     }
 
     # ── 2. Execute specialists ──────────────────────────────────────────
+    # If the plan requests tool-equipped sub-agents, delegate to agent_spawner.
+    if plan.get("spawn_agents"):
+        from agent_spawner import run_task
+        project_dir = str(Path(__file__).resolve().parent)
+        gen = run_task(
+            task=user_msg,
+            job_id=None,
+            project_dir=project_dir,
+            sandbox_roots=[project_dir],
+        )
+        for ev in gen:
+            yield ev
+        return
+
     # Sequential by default. Local Ollama can only fit so many models in VRAM
     # at once; running 4 specialists in parallel triggers heavy model
     # swapping that produces 60-180s timeouts on a typical 8GB GPU.
