@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -882,7 +882,7 @@ pre.collapsible.expanded code{max-height:none}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.68.0</span>
+      <span class="ver" id="versionPill">v0.69.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -1469,6 +1469,9 @@ pre.collapsible.expanded code{max-height:none}
           <div class="shortcut-row"><span class="s-desc">OKR framework with objectives, key results &amp; cadence</span><span class="s-keys"><kbd>/okrs</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Sprint or project retrospective with action items</span><span class="s-keys"><kbd>/retro</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Product changelog or release notes with impact framing</span><span class="s-keys"><kbd>/changelog</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Performance scorecard with RAG status, metrics &amp; risks</span><span class="s-keys"><kbd>/scorecard</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">KPI framework with targets, owners &amp; leading/lagging labels</span><span class="s-keys"><kbd>/kpi</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Lean Canvas covering all 9 blocks for a product or idea</span><span class="s-keys"><kbd>/lean</kbd></span></div>
         </div>
       </div>
       <div class="shortcuts-section">
@@ -2712,6 +2715,9 @@ async function sendMessage() {
     '/okrs':        'Define a complete OKR (Objectives and Key Results) framework for the following team, product, or initiative. Include: 2–4 Objectives that are inspiring and directional, 3–5 measurable Key Results per Objective with clear targets and a 0–1 scoring scale, a recommended check-in cadence (weekly, monthly, quarterly), signals for on-track vs. at-risk KRs, and a brief notes section on common OKR pitfalls to avoid. Format for use in a planning doc or quarterly review meeting:\n\n',
     '/retro':       'Facilitate a thorough sprint or project retrospective for the following context. Structure it with: a brief summary of the sprint or project scope, a "What went well" section (3–5 items with explanations), a "What could be improved" or Delta section (3–5 items), a root-cause note for the top 2 friction points, a clear Action Items table with owner, action, and due-date columns, and a health temperature-check on team energy, clarity, and collaboration. Use a blameless and constructive tone:\n\n',
     '/changelog':   'Write a polished product changelog or release notes for the following update or version. Structure it with: a version number and release date header, a 1–2 sentence release summary, categorized sections (New Features, Improvements, Bug Fixes, Deprecations — include only non-empty sections), bullet points written from the user\'s perspective ("You can now…", "We fixed…"), a "Why it matters" callout for the top 1–2 highlights, and a migration note if any breaking changes exist. Tone should be clear, friendly, and concise:\n\n',
+    '/scorecard':   'Create a structured performance scorecard for the following project, team, or initiative. Structure it with: a one-line objective, a scoring rubric table (metric, target, current, RAG status), a 3-5 sentence health summary, top 3 risks with mitigation notes, and a recommended next-action list. Format with headers and a clean table. Be direct and honest:\n\n',
+    '/kpi':         'Define a KPI framework for the following product, team, or business goal. Structure it with: a one-line goal statement, a table of 5-8 KPIs (metric name, definition, unit, owner, target, current baseline), a "leading vs lagging" classification for each metric, a data source and measurement cadence note, and a 2-3 sentence framing of what "green" looks like at the end of the quarter. Be specific and avoid vanity metrics:\n\n',
+    '/lean':        'Build a Lean Canvas for the following product or business idea. Cover all 9 blocks in order: Problem (top 3 problems), Customer Segments (target customers and early adopters), Unique Value Proposition (clear, compelling, one-sentence), Solution (top 3 features), Channels (path to customers), Revenue Streams (how you make money), Cost Structure (fixed and variable costs), Key Metrics (key activities you measure), Unfair Advantage (what cannot easily be copied). Keep each block tight - 2-4 bullet points max:\n\n',
   };
   let _slashStripped = text;
   for (const [cmd, instr] of Object.entries(SLASH_PREFIX_MAP)) {
@@ -3346,6 +3352,9 @@ const SUGGESTION_POOL = [
   { title: '🎯 Set team OKRs',                  sub: 'Objectives, key results, scoring scale, and check-in cadence',              q: '/okrs Define OKRs for a product team shipping a new AI feature this quarter — 3 objectives, 3–4 key results each, scoring guidance, and a weekly check-in template.' },
   { title: '🔄 Run a retro',                    sub: 'Went well, delta, root causes, and action items table',                     q: '/retro Run a sprint retrospective for a 2-week sprint where we shipped a new onboarding flow but missed our velocity target — surface root causes and assign action items.' },
   { title: '📝 Write a changelog',              sub: 'Release notes with user-facing framing and impact callouts',                q: '/changelog Write release notes for v2.4.0 of a B2B SaaS app — we added SSO, improved dashboard load time by 40%, and fixed 3 bugs including a critical data export issue.' },
+  { title: '📊 Build a scorecard',              sub: 'RAG-status rubric, health summary, and next-action list',                 q: '/scorecard Build a scorecard for a mobile app growth initiative — target 50k MAU in Q3, currently at 31k.' },
+  { title: '📈 Define your KPIs',               sub: 'Framework with targets, owners, leading vs lagging metrics',              q: '/kpi Define KPIs for a SaaS onboarding team trying to hit 70% Day-7 activation and reduce time-to-value below 5 minutes.' },
+  { title: '🟩 Lean Canvas',                    sub: 'All 9 blocks: problem, UVP, channels, revenue, and more',                 q: '/lean Build a Lean Canvas for an AI-powered personal finance coach targeting millennials with irregular income.' },
 ];
 let _suggOffset = 0;
 function _shuffleSuggestions() {
@@ -4996,6 +5005,9 @@ const SLASH_CMDS = [
     const msgs     = chatInner.querySelectorAll('.msg').length;
     if (window.toast) toast('info', '🔬 Diagnostics', `${msgs} msgs · ${sessions} sessions · ${model} · ${health}`, 6000);
   }},
+  { cmd: '/scorecard', icon: '📊',  desc: 'Build a performance scorecard with RAG status and metrics', action: () => _slashPrepend('/scorecard') },
+  { cmd: '/kpi',       icon: '📈',  desc: 'Define a KPI framework with targets, owners, and baselines', action: () => _slashPrepend('/kpi') },
+  { cmd: '/lean',      icon: '🟩',  desc: 'Build a Lean Canvas covering all 9 blocks',          action: () => _slashPrepend('/lean') },
   { cmd: '/help',   icon: '❓',  desc: 'Open keyboard shortcuts & commands guide',   action: () => openShortcutsModal() },
 ];
 

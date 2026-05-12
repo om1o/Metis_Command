@@ -1,4 +1,4 @@
-"""Single source of truth for the Metis product version and public links.
+﻿"""Single source of truth for the Metis product version and public links.
 
 Keep METIS_VERSION in sync with:
   - site public build (METIS_VERSION / NEXT_PUBLIC_METIS_VERSION)
@@ -8,7 +8,7 @@ Keep METIS_VERSION in sync with:
 
 import os
 
-METIS_VERSION = "0.68.0"
+METIS_VERSION = "0.69.0"
 
 # Match site/lib/brand.ts defaults (override with env in packaged builds if needed)
 METIS_PRODUCT_NAME = "Metis Command"
@@ -22,6 +22,6 @@ METIS_RELEASES_URL = os.getenv(
 )
 METIS_MARKETING_SITE = os.getenv(
     "METIS_MARKETING_SITE",
-    "",  # e.g. https://metis.example.com — empty = show paths only
+    "",  # e.g. https://metis.example.com â€” empty = show paths only
 )
 
