@@ -882,7 +882,7 @@ pre.collapsible.expanded code{max-height:none}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.65.0</span>
+      <span class="ver" id="versionPill">v0.66.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -1460,6 +1460,9 @@ pre.collapsible.expanded code{max-height:none}
           <div class="shortcut-row"><span class="s-desc">Value proposition canvas with pains, gains &amp; fit</span><span class="s-keys"><kbd>/value-prop</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Go-to-market launch plan with phases &amp; channels</span><span class="s-keys"><kbd>/launch-plan</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">User stories with Given/When/Then acceptance criteria</span><span class="s-keys"><kbd>/user-story</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">A/B test design with variants, sample size &amp; metrics</span><span class="s-keys"><kbd>/ab-test</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Decision matrix with criteria, weights &amp; recommendation</span><span class="s-keys"><kbd>/decision</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Write a system prompt or AI instruction set</span><span class="s-keys"><kbd>/prompt</kbd></span></div>
         </div>
       </div>
       <div class="shortcuts-section">
@@ -3322,6 +3325,9 @@ const SUGGESTION_POOL = [
   { title: '🎯 Write a value proposition',     sub: 'Customer jobs, pains, gains, and fit canvas',                         q: '/value-prop Write a value proposition canvas for an AI productivity tool targeting busy knowledge workers — map customer jobs, pains, gains, and how the product addresses each.' },
   { title: '🚀 Write a launch plan',           sub: 'GTM phases, channels, owners, and success metrics',                   q: '/launch-plan Write a go-to-market launch plan for a B2B SaaS tool launching to its first 100 enterprise customers — cover pre-launch, launch day, and post-launch phases with channel strategy and KPIs.' },
   { title: '📋 Write user stories',            sub: 'As-a / I-want / so-that with Gherkin acceptance criteria',            q: '/user-story Write user stories for a real-time collaboration feature in a project management app — include Given/When/Then acceptance criteria, edge cases, and story point estimates.' },
+  { title: '🧪 Design an A/B test',            sub: 'Variants, hypothesis, sample size, and success metrics',               q: '/ab-test Design an A/B test for a checkout flow change to reduce cart abandonment — define the variants, hypothesis, required sample size, and how to measure statistical significance.' },
+  { title: '⚖️ Make a decision',               sub: 'Criteria matrix, options, weights, and scored recommendation',           q: '/decision Help me decide whether to build an in-house AI feature or use a third-party API — list key decision criteria, weight them by importance, score each option, and give a clear recommendation.' },
+  { title: '✍️ Write a system prompt',          sub: 'Role, instructions, tone, constraints, and few-shot examples',            q: '/prompt Write a system prompt for a helpful AI writing coach that gives honest feedback on clarity and structure, avoids flattery, and always ends with exactly 3 specific and actionable suggestions for improvement.' },
 ];
 let _suggOffset = 0;
 function _shuffleSuggestions() {
@@ -4923,6 +4929,9 @@ const SLASH_CMDS = [
   { cmd: '/value-prop',   icon:'🎯', desc: 'Value proposition canvas with customer jobs, pains, gains & fit', action: () => _slashPrepend('/value-prop') },
   { cmd: '/launch-plan',  icon:'🚀', desc: 'Go-to-market launch plan with phases, channels & KPIs',           action: () => _slashPrepend('/launch-plan') },
   { cmd: '/user-story',   icon:'📋', desc: 'User stories with Given/When/Then acceptance criteria',            action: () => _slashPrepend('/user-story') },
+  { cmd: '/ab-test',      icon:'🧪', desc: 'Design an A/B test with variants, hypothesis, sample size & metrics',  action: () => _slashPrepend('/ab-test') },
+  { cmd: '/decision',     icon:'⚖️', desc: 'Decision matrix with criteria, weights, scores & recommendation',      action: () => _slashPrepend('/decision') },
+  { cmd: '/prompt',       icon:'✍️', desc: 'Write a system prompt or AI instruction set with role & examples',     action: () => _slashPrepend('/prompt') },
   // ── Memory ────────────────────────────────────────────────────
   { cmd: '/remember', icon: '📌',  desc: 'Save a fact to semantic memory',             action: () => _slashPrepend('/remember') },
   { cmd: '/forget',   icon: '🗑️',  desc: 'Remove a fact from memory',                 action: () => _slashPrepend('/forget') },
