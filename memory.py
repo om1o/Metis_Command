@@ -25,7 +25,7 @@ from pathlib import Path
 
 _SQLITE_PATH = Path("identity") / "local_chat.db"
 _local_conn: sqlite3.Connection | None = None
-_lock = threading.Lock()
+_lock = threading.RLock()
 
 
 def _get_local_db() -> sqlite3.Connection:

@@ -1,0 +1,307 @@
+/* ============================================================
+   Metis Desktop App — Design Tokens
+   Source: desktop-ui/src/app/globals.css (om1o/Metis_Command)
+   Dark-first. Violet accent. Geist Sans + Geist Mono.
+   ============================================================ */
+
+/* ---- Web fonts (Outfit + JetBrains Mono) ---- */
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap");
+
+/* NOTE: Outfit 800 matches the METIS logo wordmark (geometry + proportions).
+   Color of wordmark: #1B1464 (dark indigo-navy). Letter-spacing: 0.08em. */
+
+:root {
+  --app-font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --app-font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --metis-wordmark-color: #1B1464;
+}
+
+/* ============ Dark theme (default) ============ */
+[data-theme="dark"], .theme-dark {
+  --metis-bg:              #212121;
+  --metis-bg-sidebar:      #171717;
+  --metis-header-bg:       rgba(33, 33, 33, 0.92);
+  --metis-elevated:        #2f2f2f;
+  --metis-elevated-2:      rgba(42, 42, 42, 0.92);
+  --metis-border:          rgba(255, 255, 255, 0.10);
+  --metis-border-strong:   rgba(255, 255, 255, 0.16);
+  --metis-fg:              #ececec;
+  --metis-fg-muted:        #a0a0a0;
+  --metis-fg-dim:          #6e6e6e;
+  --metis-fg-faint:        #4f4f4f;
+  --metis-foreground:      #fafafa;
+  --metis-hero-title:      #f2f2f2;
+  --metis-hero-sub:        #9b9b9b;
+
+  /* Suggestion chips */
+  --metis-sugg-border:     #3e3e3e;
+  --metis-sugg-bg:         #2f2f2f;
+  --metis-sugg-text:       #e3e3e3;
+  --metis-sugg-muted:      #a0a0a0;
+  --metis-sugg-title:      #c4b5fd;
+  --metis-sugg-title-hover:#e9d5ff;
+
+  /* Chat bubbles */
+  --metis-bubble-user:        #2f2f2f;
+  --metis-bubble-user-border: rgba(255, 255, 255, 0.08);
+  --metis-bubble-fg:          #ececec;
+  --metis-name-label:         #6e6e6e;
+
+  /* Composer */
+  --metis-composer-border: #3a3a3a;
+  --metis-composer-bg:     #2f2f2f;
+  --metis-composer-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  --metis-composer-glow:   0 0 0 1px rgba(124, 58, 237, 0.25);
+  --metis-composer-icon:   #666;
+
+  /* Code */
+  --metis-code-bg:         rgba(0, 0, 0, 0.30);
+  --metis-code-fg:         #c4b5fd;
+  --metis-input-bg:        #1e1e1e;
+
+  /* Interactive surfaces */
+  --metis-hover-surface:   rgba(255, 255, 255, 0.05);
+  --metis-continue-bg:     #ffffff;
+  --metis-continue-fg:     #18181b;
+
+  /* Accent */
+  --metis-accent:          #7c3aed;   /* violet-600 */
+  --metis-accent-hover:    #6d28d9;   /* violet-700 */
+  --metis-accent-2:        #22d3ee;   /* cyan-400 */
+  --metis-focus:           rgba(124, 58, 237, 0.40);
+  --metis-focus-ring:      rgba(124, 58, 237, 0.45);
+  --metis-session-line:    #a78bfa;   /* violet-400 */
+
+  /* Ambient FX */
+  --metis-dot:             rgba(255, 255, 255, 0.10);
+  --metis-noise:           rgba(255, 255, 255, 0.04);
+  --metis-sugg-shadow:     0 12px 32px rgba(0, 0, 0, 0.35);
+  --metis-orb-hero: radial-gradient(
+    closest-side at 50% 0%,
+    rgba(124, 58, 237, 0.20) 0%,
+    transparent 70%
+  );
+
+  /* Reasoning */
+  --metis-reasoning-bg:    rgba(0, 0, 0, 0.20);
+  --metis-reasoning-code:  #a0a0a0;
+
+  /* Nav chrome */
+  --metis-chats-label:     #6e6e6e;
+  --metis-chats-item:      #b8b8b8;
+  --metis-header-button-fg:#ececec;
+  --metis-chevron:         #8e8e8e;
+  --metis-chevron-hover:   #b8b8b8;
+  --metis-hint:            #5c5c5c;
+}
+
+/* ============ Light theme ============ */
+[data-theme="light"], .theme-light {
+  --metis-bg:              #f7f7f8;
+  --metis-bg-sidebar:      #ececf1;
+  --metis-header-bg:       rgba(247, 247, 248, 0.90);
+  --metis-elevated:        #ffffff;
+  --metis-elevated-2:      #ffffff;
+  --metis-border:          rgba(0, 0, 0, 0.09);
+  --metis-border-strong:   rgba(0, 0, 0, 0.14);
+  --metis-fg:              #202123;
+  --metis-fg-muted:        #565869;
+  --metis-fg-dim:          #8e8ea0;
+  --metis-fg-faint:        #b7b7c5;
+  --metis-foreground:      #202123;
+  --metis-hero-title:      #0d0d0d;
+  --metis-hero-sub:        #565869;
+  --metis-sugg-border:     #e1e1e5;
+  --metis-sugg-bg:         #ffffff;
+  --metis-sugg-text:       #202123;
+  --metis-sugg-muted:      #6e6e80;
+  --metis-sugg-title:      #5b21b6;
+  --metis-sugg-title-hover:#4c1d95;
+  --metis-bubble-user:        #e9e9eb;
+  --metis-bubble-user-border: rgba(0, 0, 0, 0.06);
+  --metis-bubble-fg:          #202123;
+  --metis-name-label:         #8e8ea0;
+  --metis-composer-border: #d1d1db;
+  --metis-composer-bg:     #ffffff;
+  --metis-composer-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  --metis-composer-glow:   0 0 0 1px rgba(124, 58, 237, 0.20);
+  --metis-composer-icon:   #8e8ea0;
+  --metis-code-bg:         rgba(0, 0, 0, 0.04);
+  --metis-code-fg:         #5b21b6;
+  --metis-input-bg:        #ffffff;
+  --metis-hover-surface:   rgba(0, 0, 0, 0.04);
+  --metis-continue-bg:     #0d0d0d;
+  --metis-continue-fg:     #ffffff;
+  --metis-accent:          #7c3aed;
+  --metis-accent-hover:    #6d28d9;
+  --metis-accent-2:        #0891b2;
+  --metis-focus:           rgba(124, 58, 237, 0.20);
+  --metis-focus-ring:      rgba(124, 58, 237, 0.35);
+  --metis-session-line:    #5b21b6;
+  --metis-dot:             rgba(0, 0, 0, 0.06);
+  --metis-noise:           rgba(0, 0, 0, 0.04);
+  --metis-sugg-shadow:     0 2px 12px rgba(0, 0, 0, 0.04);
+  --metis-orb-hero: radial-gradient(
+    closest-side at 50% 0%,
+    rgba(99, 102, 241, 0.15) 0%,
+    transparent 70%
+  );
+  --metis-reasoning-bg:    #f4f4f6;
+  --metis-reasoning-code:  #565869;
+  --metis-chats-label:     #8e8ea0;
+  --metis-chats-item:      #202123;
+  --metis-header-button-fg:#202123;
+  --metis-chevron:         #6e6e80;
+  --metis-chevron-hover:   #404040;
+  --metis-hint:            #8e8ea0;
+}
+
+/* ============ Base reset ============ */
+.metis-app {
+  font-family: var(--app-font-sans);
+  background-color: var(--metis-bg);
+  color: var(--metis-foreground);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ============ App background (dot grid + ambient glows) ============ */
+.metis-app-bg {
+  position: relative;
+  isolation: isolate;
+  background-color: var(--metis-bg);
+}
+[data-theme="dark"] .metis-app-bg,
+.theme-dark .metis-app-bg {
+  background-image:
+    radial-gradient(100% 70% at 15% 0%, rgba(124, 58, 237, 0.10) 0%, transparent 50%),
+    radial-gradient(80% 60% at 100% 10%, rgba(59, 130, 246, 0.08) 0%, transparent 45%);
+}
+[data-theme="light"] .metis-app-bg,
+.theme-light .metis-app-bg {
+  background-image:
+    radial-gradient(80% 60% at 8% 0%, rgba(99, 102, 241, 0.12) 0%, transparent 45%),
+    radial-gradient(60% 40% at 100% 20%, rgba(6, 182, 212, 0.08) 0%, transparent 50%);
+}
+.metis-app-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-image: radial-gradient(var(--metis-dot) 0.4px, transparent 0.4px);
+  background-size: 22px 22px;
+  pointer-events: none;
+  opacity: 0.45;
+}
+.metis-app-bg > * { position: relative; z-index: 1; }
+
+/* ============ Glow border (gradient mask) ============ */
+.metis-glow-border { position: relative; }
+.metis-glow-border::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--metis-accent) 55%, transparent),
+    color-mix(in srgb, var(--metis-accent-2) 35%, transparent),
+    transparent 70%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+/* ============ Surfaces ============ */
+.glass-panel {
+  background: var(--metis-elevated);
+  border: 1px solid var(--metis-border);
+  border-radius: 0.75rem;
+}
+.metis-surface {
+  background: var(--metis-elevated);
+  border: 1px solid var(--metis-border);
+  border-radius: 1.5rem;
+  box-shadow: 0 18px 70px rgba(0, 0, 0, 0.18);
+}
+[data-theme="light"] .metis-surface,
+.theme-light .metis-surface {
+  box-shadow: 0 14px 50px rgba(0, 0, 0, 0.08);
+}
+
+/* ============ Icon button ============ */
+.metis-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.75rem;
+  padding: 0.5rem;
+  color: var(--metis-fg-muted);
+  transition: background-color 150ms ease, color 150ms ease, transform 150ms ease;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+.metis-icon-btn:hover { background: var(--metis-hover-surface); color: var(--metis-fg); }
+.metis-icon-btn:active { transform: scale(0.98); }
+
+/* ============ Chip ============ */
+.metis-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid var(--metis-border);
+  background: var(--metis-elevated-2);
+  color: var(--metis-fg-muted);
+  transition: background-color 150ms ease, color 150ms ease;
+  cursor: pointer;
+}
+.metis-chip:hover { background: var(--metis-hover-surface); color: var(--metis-fg); }
+.metis-chip:active { transform: scale(0.99); }
+
+/* Status chip variants */
+.metis-chip-violet { border-color: rgba(124,58,237,0.30); background: rgba(124,58,237,0.10); color: #c4b5fd; }
+.metis-chip-emerald { border-color: rgba(16,185,129,0.30); background: rgba(16,185,129,0.10); color: #6ee7b7; }
+.metis-chip-amber { border-color: rgba(245,158,11,0.30); background: rgba(245,158,11,0.10); color: #fcd34d; }
+.metis-chip-rose { border-color: rgba(239,68,68,0.30); background: rgba(239,68,68,0.10); color: #fca5a5; }
+.metis-chip-slate { border-color: rgba(100,116,139,0.30); background: rgba(100,116,139,0.10); color: #94a3b8; }
+
+/* ============ Wordmark ============ */
+.metis-wordmark {
+  font-family: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #1B1464;
+  user-select: none;
+  white-space: nowrap;
+  line-height: 1;
+}
+.metis-wordmark.mw-large { font-size: 1.75rem; letter-spacing: 0.08em; }
+.metis-wordmark.mw-md    { font-size: 0.95rem; }
+.metis-wordmark.mw-sm    { font-size: 0.78rem; letter-spacing: 0.10em; }
+
+/* ============ Scrollbar ============ */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+[data-theme="dark"] ::-webkit-scrollbar-thumb,
+.theme-dark ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); }
+[data-theme="light"] ::-webkit-scrollbar-thumb,
+.theme-light ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); }
+::-webkit-scrollbar-thumb { border-radius: 10px; }
+
+/* ============ Focus ring ============ */
+*:focus { outline: none; }
+button:focus-visible, [role="button"]:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible {
+  box-shadow: 0 0 0 2px var(--metis-focus-ring);
+}
+
+/* ============ Selection ============ */
+::selection { background: color-mix(in srgb, #7c3aed 32%, transparent); color: inherit; }

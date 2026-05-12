@@ -7,20 +7,21 @@
 <link rel="icon" href="/static/assets/favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/polish/global-polish.v2.css">
 <link rel="stylesheet" href="/static/styles/wordmark.css">
 <script src="/static/js/wordmark.js" defer></script>
 <style>
 :root{
   --vi:#7C3AED; --vi2:#A78BFA; --co:#FB7185; --am:#F59E0B; --bl:#3B82F6; --gr:#22C55E;
-  --bg:#07071a; --bg-2:#0d0d24; --panel:rgba(255,255,255,.04); --panel-2:rgba(255,255,255,.06);
-  --text:#F8FAFF; --muted:rgba(248,250,255,.6); --subtle:rgba(248,250,255,.32);
-  --border:rgba(255,255,255,.08); --border-2:rgba(255,255,255,.14);
+  --bg:#212121; --bg-2:#171717; --panel:rgba(255,255,255,.04); --panel-2:rgba(255,255,255,.06);
+  --text:#ECECEC; --muted:#A0A0A0; --subtle:#6E6E6E;
+  --border:rgba(255,255,255,.10); --border-2:rgba(255,255,255,.16);
   --grad:linear-gradient(135deg,var(--vi),var(--co) 55%,var(--am));
-  --accent: #7C3AED;
-  --accent-soft: rgba(124,58,237,.18);
-  --accent-glow: rgba(124,58,237,.35);
+  --accent:#7C3AED;
+  --accent-soft:rgba(124,58,237,.18);
+  --accent-glow:rgba(124,58,237,.35);
+  --accent-2:#22D3EE;
 }
 /* ── Themes ── */
 [data-theme="midnight"]{
@@ -31,10 +32,11 @@
   --grad:linear-gradient(135deg,#3B82F6,#8B5CF6 55%,#06B6D4);
 }
 [data-theme="light"]{
-  --bg:#f4f5f9; --bg-2:#ffffff; --panel:rgba(0,0,0,.04); --panel-2:rgba(0,0,0,.07);
-  --text:#111827; --muted:rgba(17,24,39,.6); --subtle:rgba(17,24,39,.38);
-  --border:rgba(0,0,0,.1); --border-2:rgba(0,0,0,.16);
+  --bg:#F7F7F8; --bg-2:#ECECF1; --panel:rgba(0,0,0,.04); --panel-2:rgba(0,0,0,.07);
+  --text:#202123; --muted:#565869; --subtle:#8E8EA0;
+  --border:rgba(0,0,0,.09); --border-2:rgba(0,0,0,.14);
   --accent:#7C3AED; --accent-soft:rgba(124,58,237,.12); --accent-glow:rgba(124,58,237,.25);
+  --accent-2:#0891B2;
   --grad:linear-gradient(135deg,#7C3AED,#EC4899 55%,#F59E0B);
 }
 /* swatch chips */
@@ -43,19 +45,17 @@
 .theme-chip:hover{border-color:var(--accent);color:var(--text)}
 .theme-chip.active{border-color:var(--accent);background:var(--accent-soft);color:var(--text);font-weight:600}
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Outfit','Inter',sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden}
 body{cursor:auto}
-body::before{content:"";position:fixed;inset:0;background:
-  radial-gradient(circle at 12% 8%,rgba(124,58,237,.18),transparent 50%),
-  radial-gradient(circle at 90% 100%,rgba(251,113,133,.10),transparent 55%);
-  z-index:0;pointer-events:none}
+body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;background-image:radial-gradient(var(--subtle) 0.4px,transparent 0.4px);background-size:22px 22px;opacity:0.12}
+body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(100% 70% at 15% 0%,rgba(124,58,237,.08) 0%,transparent 50%),radial-gradient(80% 60% at 100% 10%,rgba(59,130,246,.06) 0%,transparent 45%)}
 
 #mp-dot, #mp-ring, #mp-grain { display: none !important; }
 
 .layout{position:relative;z-index:1;display:grid;grid-template-columns:280px 1fr;height:100vh}
 
 /* ── Sidebar ── */
-.side{background:rgba(7,7,26,.7);backdrop-filter:blur(20px);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.side{background:var(--bg-2);backdrop-filter:blur(20px);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
 
 /* Sidebar header: stretched clickable wordmark + version pill */
 .side-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;min-height:64px}
@@ -423,6 +423,8 @@ pre:hover .code-copy{opacity:1}
 .prompt-model-dropdown{display:none;position:absolute;bottom:calc(100% + 8px);left:0;width:300px;max-height:360px;overflow-y:auto;background:rgba(13,13,36,.96);backdrop-filter:blur(28px);border:1px solid var(--border-2);border-radius:11px;box-shadow:0 -16px 48px rgba(0,0,0,.55);padding:6px;z-index:60}
 .prompt-model-dropdown.open{display:block;animation:dropUp .18s ease-out}
 @keyframes dropUp{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@keyframes metis-fade-up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes metis-bob{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-2.5px)}}
 .prompt-model-dropdown .group-label{padding:8px 11px 4px;font-family:'Sora',sans-serif;font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--subtle)}
 .prompt-model-dropdown .model-opt{padding:9px 12px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:background .12s}
 .prompt-model-dropdown .model-opt:hover{background:var(--panel-2)}
@@ -493,6 +495,11 @@ pre:hover .code-copy{opacity:1}
   .model-trigger .label{max-width:80px;font-size:11px}
   .manager-badge .name{font-size:12.5px}
 }
+.metis-glow-border{position:relative}
+.metis-glow-border::before{content:"";position:absolute;inset:-1px;border-radius:inherit;padding:1px;background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 55%,transparent),color-mix(in srgb,var(--accent-2) 35%,transparent),transparent 70%);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none;opacity:.8}
+::selection{background:color-mix(in srgb,#7c3aed 32%,transparent);color:inherit}
+::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:10px}
+[data-theme="light"] ::-webkit-scrollbar-thumb{background:rgba(0,0,0,.15)}
 </style>
 </head>
 <body>

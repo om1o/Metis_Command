@@ -272,9 +272,15 @@ def _is_job(msg: str) -> bool:
 
 def _extract_schedule(msg: str) -> str:
     lower = msg.lower()
-    for s in ["daily", "weekly", "monthly", "every morning", "every night"]:
-        if s in lower:
-            return s
+    schedule_map = {
+        "daily": "daily", "every day": "daily",
+        "weekly": "weekly", "every week": "weekly",
+        "monthly": "monthly", "every month": "monthly",
+        "every morning": "every morning", "every night": "every night",
+    }
+    for pattern, result in schedule_map.items():
+        if pattern in lower:
+            return result
     return "custom"
 
 # ── Streaming chat ───────────────────────────────────────────────────────────
