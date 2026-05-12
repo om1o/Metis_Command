@@ -882,7 +882,7 @@ pre.collapsible.expanded code{max-height:none}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.64.0</span>
+      <span class="ver" id="versionPill">v0.65.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -1457,6 +1457,9 @@ pre.collapsible.expanded code{max-height:none}
           <div class="shortcut-row"><span class="s-desc">Scannable digest with key highlights</span><span class="s-keys"><kbd>/digest</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Risk assessment with likelihood &amp; impact matrix</span><span class="s-keys"><kbd>/risk</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Interview prep with questions &amp; model answers</span><span class="s-keys"><kbd>/interview-prep</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Value proposition canvas with pains, gains &amp; fit</span><span class="s-keys"><kbd>/value-prop</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Go-to-market launch plan with phases &amp; channels</span><span class="s-keys"><kbd>/launch-plan</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">User stories with Given/When/Then acceptance criteria</span><span class="s-keys"><kbd>/user-story</kbd></span></div>
         </div>
       </div>
       <div class="shortcuts-section">
@@ -2691,6 +2694,9 @@ async function sendMessage() {
     '/digest':      'Write a concise, scannable digest for the following content, topic, or time period. Structure it with: a short headline and date range, an "At a Glance" summary (3–5 bullet highlights), 3–5 numbered digest items each with a bold title, a one-paragraph summary, and a "Why it matters" note, and a brief closing takeaway or what to watch next. Format it cleanly for email or internal newsletter distribution. Prioritize clarity and scannability over completeness:\n\n',
     '/risk':        'Perform a thorough risk assessment for the following project, decision, or initiative. Structure it with: a scope statement, a risk register table with columns for Risk, Category, Likelihood (High/Med/Low), Impact (High/Med/Low), Risk Score, and Owner, a narrative section with the top 5 risks explained in depth including root causes and early warning signs, a mitigation plan for each high-priority risk, and a residual risk summary. Use a clear, structured format a leadership team can act on:\n\n',
     '/interview-prep': 'Create a comprehensive interview preparation guide for the following role, company, or topic. Include: an overview of what the interview process typically looks like, 8–10 likely interview questions organized by category (behavioral, technical, situational, culture-fit), a model answer or answer framework for each question using STAR or similar structure, key themes and talking points to weave throughout, questions the candidate should ask the interviewer, and a quick-reference cheat sheet of the most important things to remember on the day. Make it practical and confidence-building:\n\n',
+    '/value-prop':  'Write a clear, structured value proposition canvas for the following product, service, or idea. Include: the target customer segment, customer jobs (functional, emotional, social), customer pains (ranked by severity), customer gains (ranked by importance), your products and services, pain relievers (how you address each pain), gain creators (how you deliver each gain), and a fit assessment showing where your offering best matches customer needs. Close with a one-sentence value proposition statement:\n\n',
+    '/launch-plan': 'Write a comprehensive go-to-market launch plan for the following product, feature, or initiative. Include: a launch overview and goals, the target audience and positioning, key messages for each audience segment, launch phases (pre-launch, launch day, post-launch) with specific activities and owners, channel strategy (owned, earned, paid), success metrics and KPIs, a risk register with mitigations, and a timeline. Make it detailed enough for a cross-functional team to execute:\n\n',
+    '/user-story':  'Write a complete set of user stories for the following feature, product, or workflow. For each story: use the "As a [persona], I want [goal], so that [benefit]" format, add acceptance criteria in Given/When/Then (Gherkin) format, include edge cases and negative scenarios, add story point estimates and a priority ranking (Must Have / Should Have / Could Have), and note any dependencies or open questions. Aim for 5–8 stories that fully cover the scope:\n\n',
   };
   let _slashStripped = text;
   for (const [cmd, instr] of Object.entries(SLASH_PREFIX_MAP)) {
@@ -3172,6 +3178,9 @@ async function sendMessage() {
           { label: 'Write a digest →',               q: '/digest Write a digest summarizing the key highlights from what we just discussed.' },
           { label: 'Run a risk assessment →',         q: '/risk Run a risk assessment for what we just discussed — rate by likelihood and impact and suggest mitigations.' },
           { label: 'Prep me for an interview →',      q: '/interview-prep Create an interview prep guide based on what we just discussed.' },
+          { label: 'Build a value prop →',            q: '/value-prop Write a value proposition canvas for the product or idea we just discussed.' },
+          { label: 'Write a launch plan →',           q: '/launch-plan Write a go-to-market launch plan for what we just discussed.' },
+          { label: 'Write user stories →',            q: '/user-story Write user stories with acceptance criteria for the feature we just discussed.' },
         ];
         const _chipOffset = (_chipTurn || 0) % _chipPool.length;
         const chipDefs = [
@@ -3310,6 +3319,9 @@ const SUGGESTION_POOL = [
   { title: '📰 Write a digest',               sub: 'Scannable highlights with "why it matters" for each item',            q: '/digest Write a weekly digest of the most important trends in AI product development — 5 items, each with a summary and why it matters.' },
   { title: '⚠️ Run a risk assessment',         sub: 'Likelihood/impact matrix with mitigations and owners',                q: '/risk Run a risk assessment for a startup launching a consumer AI app — identify the top risks across product, legal, market, and operations with mitigations.' },
   { title: '🎤 Interview prep guide',          sub: 'Likely questions, STAR answers, and day-of cheat sheet',              q: '/interview-prep Create an interview prep guide for a senior product manager role at a fast-growing AI startup — include behavioral, technical, and culture-fit questions with model answers.' },
+  { title: '🎯 Write a value proposition',     sub: 'Customer jobs, pains, gains, and fit canvas',                         q: '/value-prop Write a value proposition canvas for an AI productivity tool targeting busy knowledge workers — map customer jobs, pains, gains, and how the product addresses each.' },
+  { title: '🚀 Write a launch plan',           sub: 'GTM phases, channels, owners, and success metrics',                   q: '/launch-plan Write a go-to-market launch plan for a B2B SaaS tool launching to its first 100 enterprise customers — cover pre-launch, launch day, and post-launch phases with channel strategy and KPIs.' },
+  { title: '📋 Write user stories',            sub: 'As-a / I-want / so-that with Gherkin acceptance criteria',            q: '/user-story Write user stories for a real-time collaboration feature in a project management app — include Given/When/Then acceptance criteria, edge cases, and story point estimates.' },
 ];
 let _suggOffset = 0;
 function _shuffleSuggestions() {
@@ -4908,6 +4920,9 @@ const SLASH_CMDS = [
   { cmd: '/digest',     icon: '📰', desc: 'Curate highlights into a scannable digest with key takeaways',   action: () => _slashPrepend('/digest') },
   { cmd: '/risk',       icon: '⚠️',  desc: 'Risk assessment with likelihood/impact matrix and mitigations',  action: () => _slashPrepend('/risk') },
   { cmd: '/interview-prep',icon:'🎤',desc: 'Interview prep guide with likely questions and model answers',   action: () => _slashPrepend('/interview-prep') },
+  { cmd: '/value-prop',   icon:'🎯', desc: 'Value proposition canvas with customer jobs, pains, gains & fit', action: () => _slashPrepend('/value-prop') },
+  { cmd: '/launch-plan',  icon:'🚀', desc: 'Go-to-market launch plan with phases, channels & KPIs',           action: () => _slashPrepend('/launch-plan') },
+  { cmd: '/user-story',   icon:'📋', desc: 'User stories with Given/When/Then acceptance criteria',            action: () => _slashPrepend('/user-story') },
   // ── Memory ────────────────────────────────────────────────────
   { cmd: '/remember', icon: '📌',  desc: 'Save a fact to semantic memory',             action: () => _slashPrepend('/remember') },
   { cmd: '/forget',   icon: '🗑️',  desc: 'Remove a fact from memory',                 action: () => _slashPrepend('/forget') },
