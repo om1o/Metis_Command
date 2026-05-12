@@ -1,0 +1,74 @@
+# ── Secrets & environment ────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Virtual environments ─────────────────────────────────────────────────────
+metis-env/
+venv/
+.venv/
+env/
+
+# ── Python bytecode & caches ─────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+
+# ── Metis runtime state (user data, not source) ──────────────────────────────
+logs/
+metis_db/
+artifacts/
+generated/
+docs/design-system/
+Metis AI Design System*.zip
+colors_and_type.css
+SKILL - Copy.md
+identity/brains/
+identity/projects/
+identity/backups/
+identity/user_matrix.json
+identity/roster.json
+identity/schedules.json
+identity/wallet.json
+identity/persistent_agents.json
+identity/*.mts
+identity/personas.json
+identity/.active
+identity/local_auth.token
+identity/brains/*/compact_trash.jsonl
+logs/locks/
+
+# ── Website + build artifacts ────────────────────────────────────────────────
+site/node_modules/
+site/.next/
+site/out/
+site/.vercel/
+.metis_setup_done
+
+# ── Build & distribution ─────────────────────────────────────────────────────
+build/
+dist/
+*.egg-info/
+*.spec.tmp
+
+# ── IDE / OS noise ───────────────────────────────────────────────────────────
+.cursor/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# ── ML / model weights (belong on HF/Ollama, not git) ────────────────────────
+*.bin
+*.safetensors
+*.gguf
+*.onnx

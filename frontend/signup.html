@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Create account · Metis</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="/static/assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/polish/global-polish.v2.css">
+<link rel="stylesheet" href="/static/styles/wordmark.css">
+<script src="/static/js/wordmark.js" defer></script>
+<style>
+:root{--vi:#7C3AED;--vi2:#A78BFA;--co:#FB7185;--am:#F59E0B;--bg:#07071a;--text:#F8FAFF;--muted:rgba(248,250,255,.55);--subtle:rgba(248,250,255,.28);--grad:linear-gradient(135deg,var(--vi),var(--co) 55%,var(--am))}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100vh;background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased}
+.mesh{position:fixed;inset:0;z-index:0;overflow:hidden}
+.orb{position:absolute;border-radius:50%;filter:blur(80px);opacity:.55}
+.orb1{width:700px;height:700px;background:radial-gradient(circle,rgba(124,58,237,.7),transparent 70%);animation:drift1 14s ease-in-out infinite}
+.orb2{width:500px;height:500px;background:radial-gradient(circle,rgba(251,113,133,.6),transparent 70%);animation:drift2 18s ease-in-out infinite}
+.orb3{width:600px;height:600px;background:radial-gradient(circle,rgba(245,158,11,.4),transparent 70%);animation:drift3 22s ease-in-out infinite}
+@keyframes drift1{0%{transform:translate(-20%,-30%)}50%{transform:translate(5%,-10%)}100%{transform:translate(-20%,-30%)}}
+@keyframes drift2{0%{transform:translate(70%,60%)}50%{transform:translate(55%,40%)}100%{transform:translate(70%,60%)}}
+@keyframes drift3{0%{transform:translate(80%,-20%)}50%{transform:translate(60%,10%)}100%{transform:translate(80%,-20%)}}
+
+.layout{position:relative;z-index:1;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px}
+.glass-card{width:100%;max-width:480px;background:rgba(255,255,255,.055);backdrop-filter:blur(40px) saturate(180%);border:1px solid rgba(255,255,255,.12);border-radius:24px;padding:40px;box-shadow:0 32px 80px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.12);animation:cardIn .6s .1s cubic-bezier(.22,1,.36,1) both}
+@keyframes cardIn{from{opacity:0;transform:translateY(20px) scale(.97)}to{opacity:1;transform:none}}
+
+.card-head{text-align:center;margin-bottom:28px}
+.card-logo{width:52px;height:52px;margin:0 auto 16px;display:block;filter:drop-shadow(0 0 16px rgba(124,58,237,.55))}
+.card-head h1{font-family:'Sora',sans-serif;font-size:22px;font-weight:800;letter-spacing:-.02em;margin-bottom:6px}
+.card-head p{font-size:13.5px;color:var(--muted)}
+
+.form-field{margin-bottom:14px;position:relative}
+.form-field label{display:block;font-size:12.5px;font-weight:600;color:rgba(248,250,255,.7);margin-bottom:7px}
+.form-field input{width:100%;height:48px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:0 14px;font-family:'Inter',sans-serif;font-size:14.5px;color:var(--text);outline:none;transition:all .2s}
+.form-field input::placeholder{color:var(--subtle)}
+.form-field input:focus{background:rgba(124,58,237,.12);border-color:rgba(124,58,237,.6);box-shadow:0 0 0 4px rgba(124,58,237,.15)}
+
+.submit-btn{width:100%;height:52px;border-radius:13px;border:none;background:var(--grad);color:#fff;font-size:15px;font-weight:700;cursor:pointer;transition:all .2s;margin-top:6px;font-family:inherit}
+.submit-btn:hover{transform:translateY(-2px);box-shadow:0 12px 40px rgba(124,58,237,.5)}
+.submit-btn:disabled{opacity:.6;cursor:wait}
+
+.signin-link{text-align:center;margin-top:20px;font-size:13px;color:var(--muted)}
+.signin-link a{color:var(--vi2);text-decoration:none;font-weight:600}
+.signin-link a:hover{color:#fff;text-decoration:underline}
+
+.banner{display:none;border-radius:12px;padding:11px 14px;font-size:13px;margin-bottom:16px;line-height:1.45}
+.banner.show{display:block}
+.banner.error{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:#FCA5A5}
+.banner.success{background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.3);color:#86EFAC}
+.hint{font-size:12px;color:var(--subtle);margin-top:6px;line-height:1.4}
+</style>
+</head>
+<body>
+
+<div class="mesh">
+  <div class="orb orb1"></div>
+  <div class="orb orb2"></div>
+  <div class="orb orb3"></div>
+</div>
+
+<div style="position:absolute;top:24px;left:24px;z-index:2">
+  <button class="metis-mark size-sm" type="button" title="Refresh">
+    <img class="mm-glyph" src="/static/assets/metis-logomark-transparent.png" alt="">
+    <span class="mm-word">Metis</span>
+  </button>
+</div>
+
+<div class="layout">
+  <div class="glass-card">
+    <div class="card-head">
+      <img class="card-logo" src="/static/assets/metis-logomark-transparent.png" width="52" height="52" alt="">
+      <h1>Create your account</h1>
+      <p>Join Metis — free, no credit card</p>
+    </div>
+
+    <div id="banner" class="banner"></div>
+
+    <form id="signupForm">
+      <div class="form-field">
+        <label>Email address</label>
+        <input type="email" id="email" placeholder="you@domain.com" autocomplete="email" required>
+      </div>
+
+      <div class="form-field">
+        <label>Password</label>
+        <input type="password" id="password" placeholder="Min 8 characters" autocomplete="new-password" required minlength="8">
+        <div class="hint">At least 8 characters. Use a unique password.</div>
+      </div>
+
+      <button type="submit" class="submit-btn" id="submitBtn">Create account</button>
+    </form>
+
+    <div class="signin-link">
+      Already have an account? <a href="/login">Sign in →</a>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { api, setSession, getToken } from '/static/js/api.js';
+
+if (getToken()) window.location.replace('/splash');
+
+const banner = document.getElementById('banner');
+function show(kind, msg) {
+  banner.className = `banner show ${kind}`;
+  banner.textContent = msg;
+}
+
+document.getElementById('signupForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Creating account…';
+  try {
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    const out = await api.signup(email, password);
+    if (out.session?.access_token) {
+      setSession(out.session, out.user);
+      window.location.replace('/splash');
+    } else {
+      show('success', `Account created. Check ${email} to confirm your address, then sign in.`);
+      btn.disabled = false;
+      btn.textContent = 'Create account';
+    }
+  } catch (err) {
+    show('error', err.message || 'Sign-up failed');
+    btn.disabled = false;
+    btn.textContent = 'Create account';
+  }
+});
+</script>
+</body>
+</html>

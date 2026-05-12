@@ -1,0 +1,253 @@
+/* ============================================================
+   Metis AI — Global Polish Layer
+   Drop into any page: <link rel="stylesheet" href="../polish/global-polish.css">
+   ============================================================ */
+
+/* ── Custom cursor ─────────────────────────────────────────── */
+body { cursor: none; }
+#mp-dot {
+  position: fixed; z-index: 99999; pointer-events: none;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #fff; mix-blend-mode: difference;
+  transform: translate(-50%, -50%);
+  transition: width .2s, height .2s, opacity .2s;
+  will-change: transform;
+}
+#mp-ring {
+  position: fixed; z-index: 99998; pointer-events: none;
+  width: 36px; height: 36px; border-radius: 50%;
+  border: 1.5px solid rgba(255,255,255,.7);
+  mix-blend-mode: difference;
+  transform: translate(-50%, -50%);
+  will-change: transform;
+  transition: width .3s cubic-bezier(.22,1,.36,1), height .3s cubic-bezier(.22,1,.36,1), opacity .2s, border-color .2s;
+}
+body.cursor-hover #mp-dot { width: 0; height: 0; opacity: 0; }
+body.cursor-hover #mp-ring { width: 52px; height: 52px; border-color: rgba(167,139,250,.9); }
+body.cursor-click #mp-ring { width: 24px; height: 24px; }
+@media (pointer: coarse) { #mp-dot, #mp-ring { display: none; } body { cursor: auto; } }
+
+/* ── Grain overlay ─────────────────────────────────────────── */
+#mp-grain {
+  position: fixed; inset: 0; z-index: 99997; pointer-events: none;
+  opacity: .04; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 220px;
+  animation: grain-drift 8s steps(10) infinite;
+}
+@keyframes grain-drift {
+  0%  { background-position: 0 0 }
+  10% { background-position: -5% -10% }
+  20% { background-position: -15% 5% }
+  30% { background-position: 7% -25% }
+  40% { background-position: -5% 25% }
+  50% { background-position: -15% 10% }
+  60% { background-position: 15% 0 }
+  70% { background-position: 0 15% }
+  80% { background-position: 3% 35% }
+  90% { background-position: -10% 10% }
+  100%{ background-position: 0 0 }
+}
+
+/* ── Scroll progress bar ───────────────────────────────────── */
+#mp-progress {
+  position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 99996;
+  pointer-events: none;
+  background: linear-gradient(90deg, #7C3AED, #FB7185 50%, #F59E0B);
+  transform-origin: left center; transform: scaleX(0);
+  box-shadow: 0 0 10px rgba(124,58,237,.8), 0 0 20px rgba(124,58,237,.4);
+  transition: transform .1s linear;
+}
+
+/* ── Page transition overlay ───────────────────────────────── */
+#mp-transition {
+  position: fixed; inset: 0; z-index: 99995;
+  pointer-events: none !important;
+  background: var(--bg, #07071a);
+  opacity: 0 !important;
+  visibility: hidden !important;
+  transition: opacity .4s cubic-bezier(.77,0,.18,1), visibility .4s;
+}
+#mp-transition.slide-in {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: all !important;
+}
+
+/* ── Toast system ──────────────────────────────────────────── */
+#mp-toasts {
+  position: fixed; bottom: 24px; right: 24px; z-index: 99994;
+  display: flex; flex-direction: column-reverse; gap: 10px; align-items: flex-end;
+  pointer-events: none;
+}
+.mp-toast {
+  min-width: 300px; max-width: 380px;
+  background: rgba(15,15,30,.92); backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,.1); border-radius: 14px;
+  padding: 14px 16px; pointer-events: all; cursor: pointer;
+  display: flex; align-items: flex-start; gap: 12px; position: relative; overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,.05);
+  animation: toast-in .4s cubic-bezier(.34,1.56,.64,1) forwards;
+  will-change: transform, opacity;
+}
+.mp-toast.dismiss { animation: toast-out .3s cubic-bezier(.4,0,.6,1) forwards; }
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(40px) scale(.92); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes toast-out {
+  to { opacity: 0; transform: translateX(50px) scale(.9); max-height: 0; padding: 0; margin: 0; }
+}
+.mp-toast-icon { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+.mp-toast-icon svg { width: 11px; height: 11px; stroke: #fff; stroke-width: 2.5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.mp-toast-body { flex: 1; min-width: 0; }
+.mp-toast-title { font-size: 13.5px; font-weight: 700; margin-bottom: 2px; color: #F8FAFF; }
+.mp-toast-msg   { font-size: 12.5px; color: rgba(248,250,255,.6); line-height: 1.45; }
+.mp-toast-close { width: 20px; height: 20px; color: rgba(255,255,255,.3); flex-shrink: 0; font-size: 16px; line-height: 1; display: flex; align-items: center; justify-content: center; border-radius: 4px; }
+.mp-toast-close:hover { color: #fff; background: rgba(255,255,255,.08); }
+.mp-toast-progress { position: absolute; bottom: 0; left: 0; height: 2px; border-radius: 0 0 14px 14px; transform-origin: left; animation: toast-prog linear forwards; }
+/* Per-type */
+.mp-toast.success .mp-toast-icon { background: #059669; }
+.mp-toast.success .mp-toast-progress { background: #10B981; }
+.mp-toast.error   .mp-toast-icon { background: #DC2626; }
+.mp-toast.error   .mp-toast-progress { background: #EF4444; }
+.mp-toast.warning .mp-toast-icon { background: #D97706; }
+.mp-toast.warning .mp-toast-progress { background: #F59E0B; }
+.mp-toast.info    .mp-toast-icon { background: #2563EB; }
+.mp-toast.info    .mp-toast-progress { background: #3B82F6; }
+@keyframes toast-prog { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+/* ── Skeleton shimmer ──────────────────────────────────────── */
+.skeleton {
+  background: linear-gradient(90deg, rgba(255,255,255,.04) 25%, rgba(255,255,255,.09) 50%, rgba(255,255,255,.04) 75%);
+  background-size: 400% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+  border-radius: 6px;
+}
+@keyframes shimmer { from { background-position: 100% 0 } to { background-position: -100% 0 } }
+.skeleton-line   { height: 14px; margin-bottom: 8px; border-radius: 4px; }
+.skeleton-line.w60 { width: 60%; }
+.skeleton-line.w80 { width: 80%; }
+.skeleton-line.w40 { width: 40%; }
+.skeleton-block  { border-radius: 10px; }
+.skeleton-avatar { width: 40px; height: 40px; border-radius: 50%; }
+
+/* Skeleton → content fade-in */
+.mp-content-fade { opacity: 0; transition: opacity .5s ease; }
+.mp-content-fade.loaded { opacity: 1; }
+
+/* ── Staggered card reveals ────────────────────────────────── */
+.mp-reveal {
+  opacity: 0; transform: translateY(28px);
+  transition: opacity .6s cubic-bezier(.22,1,.36,1), transform .6s cubic-bezier(.22,1,.36,1);
+}
+.mp-reveal.visible { opacity: 1; transform: none; }
+/* Stagger via CSS custom property set by JS */
+.mp-reveal { transition-delay: var(--reveal-delay, 0ms); }
+
+/* ── 3D card tilt ──────────────────────────────────────────── */
+.mp-tilt { transform-style: preserve-3d; will-change: transform; transition: box-shadow .3s; }
+/* Shine overlay applied by JS as inner element */
+.mp-tilt-shine {
+  position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 1;
+  background: radial-gradient(circle at 50% 50%, rgba(255,255,255,.07), transparent 60%);
+  opacity: 0; transition: opacity .3s;
+}
+.mp-tilt:hover .mp-tilt-shine { opacity: 1; }
+
+/* ── Floating labels ───────────────────────────────────────── */
+.mp-field { position: relative; margin-bottom: 18px; }
+.mp-field input, .mp-field textarea {
+  width: 100%; padding: 22px 14px 8px;
+  background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1);
+  border-radius: 12px; font-family: inherit; font-size: 15px; color: #F8FAFF;
+  outline: none; transition: border-color .2s, background .2s, box-shadow .2s;
+}
+.mp-field label {
+  position: absolute; left: 14px; top: 15px;
+  font-size: 14px; color: rgba(248,250,255,.45); pointer-events: none;
+  transform-origin: left top;
+  transition: transform .25s cubic-bezier(.34,1.56,.64,1), color .2s, font-size .2s;
+}
+.mp-field input:focus ~ label,
+.mp-field input:not(:placeholder-shown) ~ label,
+.mp-field textarea:focus ~ label,
+.mp-field textarea:not(:placeholder-shown) ~ label {
+  transform: translateY(-8px) scale(.75);
+  color: rgba(167,139,250,.9);
+}
+.mp-field input:focus, .mp-field textarea:focus {
+  border-color: rgba(124,58,237,.6);
+  background: rgba(124,58,237,.08);
+  box-shadow: 0 0 0 4px rgba(124,58,237,.14);
+}
+
+/* Focus ripple ring (added by JS) */
+.mp-focus-ring {
+  position: absolute; inset: -4px; border-radius: 16px; pointer-events: none;
+  border: 2px solid rgba(124,58,237,.5);
+  transform: scale(1); opacity: 0;
+  animation: focus-ripple .5s cubic-bezier(.22,1,.36,1) forwards;
+}
+@keyframes focus-ripple {
+  from { transform: scale(.95); opacity: .8; }
+  to   { transform: scale(1.04); opacity: 0; }
+}
+
+/* Shake on error */
+.mp-shake { animation: shake .4s cubic-bezier(.36,.07,.19,.97) forwards; }
+@keyframes shake {
+  0%,100% { transform: none; }
+  10%,50%,90% { transform: translateX(-6px); }
+  30%,70% { transform: translateX(6px); }
+}
+.mp-field.error input { border-color: rgba(239,68,68,.6); background: rgba(239,68,68,.06); box-shadow: 0 0 0 4px rgba(239,68,68,.12); animation: shake .4s forwards; }
+.mp-field.success input { border-color: rgba(16,185,129,.5); background: rgba(16,185,129,.06); }
+
+/* Success bloom */
+.mp-bloom {
+  position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 0;
+  background: radial-gradient(circle, rgba(16,185,129,.18), transparent 70%);
+  animation: bloom .5s ease-out forwards;
+}
+@keyframes bloom { from { opacity: 0; transform: scale(.8); } to { opacity: 0; transform: scale(1.3); } }
+
+/* ── Frosted glass nav on scroll ───────────────────────────── */
+.mp-nav-frost {
+  transition: backdrop-filter .3s, background .3s, box-shadow .3s;
+}
+.mp-nav-frost.scrolled {
+  backdrop-filter: blur(32px) saturate(200%);
+  background: rgba(7,7,26,.75) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,.06);
+}
+
+/* ── Sliding nav pill ──────────────────────────────────────── */
+.mp-nav-pill {
+  position: absolute; background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.1); border-radius: 8px;
+  pointer-events: none; transition: all .3s cubic-bezier(.34,1.2,.64,1);
+}
+
+/* ── Hamburger morph ───────────────────────────────────────── */
+.mp-hamburger { cursor: none; width: 32px; height: 32px; display: flex; flex-direction: column; justify-content: center; gap: 5px; }
+.mp-hamburger span { height: 2px; background: currentColor; border-radius: 2px; transform-origin: center; transition: all .35s cubic-bezier(.22,1,.36,1); }
+.mp-hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.mp-hamburger.open span:nth-child(2) { transform: scaleX(0); opacity: 0; }
+.mp-hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+/* ── Number counter ────────────────────────────────────────── */
+[data-mp-count] { display: inline-block; }
+
+/* ── Reduced motion fallback ───────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  #mp-dot, #mp-ring { display: none; }
+  body { cursor: auto; }
+  #mp-grain { animation: none; }
+  .mp-reveal { opacity: 1; transform: none; transition: none; }
+  #mp-progress { transition: none; }
+  .skeleton { animation: none; background: rgba(255,255,255,.07); }
+  .mp-toast { animation: none; opacity: 1; }
+  .mp-field label { transition: none; }
+}

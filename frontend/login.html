@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sign in · Metis</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="/static/assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/polish/global-polish.v2.css">
+<link rel="stylesheet" href="/static/styles/wordmark.css">
+<script src="/static/js/wordmark.js" defer></script>
+<style>
+:root{--vi:#7C3AED;--vi2:#A78BFA;--co:#FB7185;--am:#F59E0B;--bg:#07071a;--text:#F8FAFF;--muted:rgba(248,250,255,.55);--subtle:rgba(248,250,255,.28);--border:rgba(255,255,255,.1);--grad:linear-gradient(135deg,var(--vi),var(--co) 55%,var(--am))}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100vh;background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased}
+
+/* animated mesh background */
+.mesh{position:fixed;inset:0;z-index:0;overflow:hidden}
+.orb{position:absolute;border-radius:50%;filter:blur(80px);opacity:.55}
+.orb1{width:700px;height:700px;background:radial-gradient(circle,rgba(124,58,237,.7),transparent 70%);animation:drift1 14s ease-in-out infinite}
+.orb2{width:500px;height:500px;background:radial-gradient(circle,rgba(251,113,133,.6),transparent 70%);animation:drift2 18s ease-in-out infinite}
+.orb3{width:600px;height:600px;background:radial-gradient(circle,rgba(245,158,11,.4),transparent 70%);animation:drift3 22s ease-in-out infinite}
+.orb4{width:400px;height:400px;background:radial-gradient(circle,rgba(59,130,246,.45),transparent 70%);animation:drift4 16s ease-in-out infinite}
+@keyframes drift1{0%{transform:translate(-20%,-30%)}50%{transform:translate(5%,-10%)}100%{transform:translate(-20%,-30%)}}
+@keyframes drift2{0%{transform:translate(70%,60%)}50%{transform:translate(55%,40%)}100%{transform:translate(70%,60%)}}
+@keyframes drift3{0%{transform:translate(80%,-20%)}50%{transform:translate(60%,10%)}100%{transform:translate(80%,-20%)}}
+@keyframes drift4{0%{transform:translate(-10%,70%)}50%{transform:translate(10%,50%)}100%{transform:translate(-10%,70%)}}
+.mesh::after{content:"";position:absolute;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");background-size:200px;opacity:.6;pointer-events:none}
+
+.layout{position:relative;z-index:1;min-height:100vh;display:grid;grid-template-columns:1fr 480px 1fr;align-items:center;padding:32px}
+.left-panel{grid-column:1;padding:24px 40px;display:flex;flex-direction:column;gap:40px;opacity:0;animation:fadeIn .8s .3s forwards}
+@keyframes fadeIn{to{opacity:1}}
+
+.brand-mark{display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit}
+.brand-mark img{width:36px;height:36px;filter:drop-shadow(0 0 14px rgba(124,58,237,.6));animation:float 5s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0) rotate(0deg)}50%{transform:translateY(-8px) rotate(3deg)}}
+.brand-mark span{font-family:'Sora',sans-serif;font-size:20px;font-weight:700;color:var(--text)}
+.welcome-text h2{font-family:'Sora',sans-serif;font-size:clamp(28px,3vw,44px);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:14px}
+.welcome-text h2 em{font-family:'Georgia',serif;font-style:italic;font-weight:400;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.welcome-text p{font-size:15px;color:var(--muted);line-height:1.65;max-width:38ch}
+.testimonial{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:20px;backdrop-filter:blur(20px)}
+.testimonial .quote{font-size:14px;color:rgba(248,250,255,.75);line-height:1.65;margin-bottom:14px;font-style:italic}
+.t-author{display:flex;align-items:center;gap:10px}
+.t-avatar{width:32px;height:32px;border-radius:50%;background:var(--grad);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:#fff}
+.t-name{font-size:13px;font-weight:600}
+.t-role{font-size:12px;color:var(--muted)}
+.mini-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.mstat{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:14px}
+.mstat .n{font-family:'Sora',sans-serif;font-size:22px;font-weight:800;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.mstat .l{font-size:11px;color:var(--subtle);margin-top:3px;line-height:1.4}
+
+.card-col{grid-column:2}
+.glass-card{background:rgba(255,255,255,.055);backdrop-filter:blur(40px) saturate(180%);-webkit-backdrop-filter:blur(40px) saturate(180%);border:1px solid rgba(255,255,255,.12);border-radius:24px;padding:40px;box-shadow:0 32px 80px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.12);animation:cardIn .6s .1s cubic-bezier(.22,1,.36,1) both}
+@keyframes cardIn{from{opacity:0;transform:translateY(20px) scale(.97)}to{opacity:1;transform:none}}
+
+.card-head{text-align:center;margin-bottom:30px}
+.card-logo{width:52px;height:52px;margin:0 auto 16px;display:block;filter:drop-shadow(0 0 16px rgba(124,58,237,.55)) drop-shadow(0 0 40px rgba(124,58,237,.2));animation:spin-logo 14s linear infinite}
+@keyframes spin-logo{0%{transform:rotate(0deg) scale(1)}50%{transform:rotate(180deg) scale(1.05)}100%{transform:rotate(360deg) scale(1)}}
+.card-head h1{font-family:'Sora',sans-serif;font-size:22px;font-weight:800;letter-spacing:-.02em;margin-bottom:6px}
+.card-head p{font-size:13.5px;color:var(--muted)}
+
+.sso-row{display:flex;flex-direction:column;gap:8px;margin-bottom:22px}
+.sso-btn{display:flex;align-items:center;justify-content:center;gap:10px;height:46px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:var(--text);font-size:14px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;transition:all .2s;text-decoration:none}
+.sso-btn:hover{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2);transform:translateY(-1px)}
+.sso-btn:disabled{opacity:.5;cursor:wait}
+.sso-btn svg{width:18px;height:18px;flex-shrink:0}
+.divider{display:flex;align-items:center;gap:12px;margin-bottom:20px;font-size:12px;color:var(--subtle);text-transform:uppercase;letter-spacing:.08em}
+.divider::before,.divider::after{content:"";flex:1;height:1px;background:rgba(255,255,255,.08)}
+
+.form-field{margin-bottom:14px;position:relative}
+.form-field label{display:block;font-size:12.5px;font-weight:600;color:rgba(248,250,255,.7);margin-bottom:7px;letter-spacing:.01em}
+.form-field input{width:100%;height:48px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:0 14px;font-family:'Inter',sans-serif;font-size:14.5px;color:var(--text);outline:none;transition:all .2s}
+.form-field input::placeholder{color:var(--subtle)}
+.form-field input:hover{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.18)}
+.form-field input:focus{background:rgba(124,58,237,.12);border-color:rgba(124,58,237,.6);box-shadow:0 0 0 4px rgba(124,58,237,.15)}
+.field-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px}
+.field-row label{margin-bottom:0}
+.field-row a{font-size:12px;color:var(--vi2);text-decoration:none;font-weight:500;cursor:pointer}
+.field-row a:hover{color:#fff}
+.pw-toggle{position:absolute;right:14px;bottom:14px;cursor:pointer;color:var(--subtle);transition:color .15s}
+.pw-toggle:hover{color:var(--text)}
+.pw-toggle svg{width:16px;height:16px;stroke:currentColor;stroke-width:2;fill:none}
+
+.submit-btn{width:100%;height:52px;border-radius:13px;border:none;background:var(--grad);color:#fff;font-family:'Inter',sans-serif;font-size:15px;font-weight:700;cursor:pointer;position:relative;overflow:hidden;transition:all .2s;margin-top:6px;letter-spacing:.01em}
+.submit-btn::before{content:"";position:absolute;inset:-2px;background:var(--grad);filter:blur(12px);opacity:0;transition:opacity .3s;z-index:-1}
+.submit-btn:hover{transform:translateY(-2px);box-shadow:0 12px 40px rgba(124,58,237,.5)}
+.submit-btn:hover::before{opacity:.8}
+.submit-btn:active{transform:translateY(0)}
+.submit-btn:disabled{opacity:.6;cursor:wait}
+.submit-btn .shimmer{position:absolute;inset:0;background:linear-gradient(105deg,transparent 40%,rgba(255,255,255,.25) 50%,transparent 60%);transform:translateX(-100%)}
+.submit-btn:hover .shimmer{animation:shimmer .6s ease}
+@keyframes shimmer{to{transform:translateX(200%)}}
+
+.form-footer{display:flex;align-items:center;justify-content:space-between;margin-top:12px;font-size:12.5px;color:var(--muted)}
+.check-wrap{display:flex;align-items:center;gap:7px;cursor:pointer}
+.check-wrap input[type=checkbox]{accent-color:var(--vi);width:14px;height:14px}
+.signup-link{text-align:center;margin-top:18px;font-size:13px;color:var(--muted)}
+.signup-link a{color:var(--vi2);text-decoration:none;font-weight:600}
+.signup-link a:hover{color:#fff;text-decoration:underline}
+
+.error-banner{display:none;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:#FCA5A5;border-radius:12px;padding:11px 14px;font-size:13px;margin-bottom:16px;line-height:1.45}
+.error-banner.show{display:block}
+
+.right-panel{grid-column:3;padding:24px 40px;opacity:0;animation:fadeIn .8s .5s forwards}
+.feature-list{display:flex;flex-direction:column;gap:12px}
+.feat-item{display:flex;align-items:flex-start;gap:14px;padding:16px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);transition:all .2s}
+.feat-item:hover{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.1);transform:translateX(4px)}
+.feat-icon{width:36px;height:36px;border-radius:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.feat-icon svg{width:17px;height:17px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.feat-body .t{font-size:13.5px;font-weight:600;margin-bottom:3px}
+.feat-body .d{font-size:12px;color:var(--muted);line-height:1.5}
+
+@media(max-width:1100px){.left-panel,.right-panel{display:none}.layout{grid-template-columns:1fr;justify-items:center}.card-col{grid-column:1;width:100%;max-width:480px}}
+</style>
+</head>
+<body>
+
+<div class="mesh">
+  <div class="orb orb1"></div>
+  <div class="orb orb2"></div>
+  <div class="orb orb3"></div>
+  <div class="orb orb4"></div>
+</div>
+
+<div class="layout">
+  <div class="left-panel">
+    <button class="metis-mark" type="button" title="Refresh">
+      <img class="mm-glyph" src="/static/assets/metis-logomark-transparent.png" alt="">
+      <span class="mm-word">Metis</span>
+    </button>
+
+    <div class="welcome-text">
+      <h2>Good to have<br>you <em>back</em>.</h2>
+      <p>Pick up exactly where you left off — your missions, chats, and automations are all waiting.</p>
+    </div>
+
+    <div class="testimonial">
+      <p class="quote">"Metis cut my research time from a full afternoon to 20 minutes. I don't know how I shipped without it."</p>
+      <div class="t-author">
+        <div class="t-avatar">SR</div>
+        <div>
+          <div class="t-name">Sam R.</div>
+          <div class="t-role">Founder, Kira Labs</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mini-stats">
+      <div class="mstat"><div class="n">2.4M+</div><div class="l">Messages daily</div></div>
+      <div class="mstat"><div class="n">94%</div><div class="l">Mission success rate</div></div>
+      <div class="mstat"><div class="n">Free</div><div class="l">No card needed</div></div>
+    </div>
+  </div>
+
+  <div class="card-col">
+    <div class="glass-card">
+      <div class="card-head">
+        <img class="card-logo" src="/static/assets/metis-logomark-transparent.png" width="52" height="52" alt="">
+        <h1>Welcome back</h1>
+        <p>Sign in to your Metis account</p>
+      </div>
+
+      <div id="errBanner" class="error-banner"></div>
+
+      <div class="sso-row">
+        <button id="googleBtn" class="sso-btn" type="button">
+          <svg viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+          Continue with Google
+        </button>
+        <button id="githubBtn" class="sso-btn" type="button">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844a9.59 9.59 0 012.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.203 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.847-2.339 4.695-4.566 4.943.359.31.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+          Continue with GitHub
+        </button>
+      </div>
+
+      <div class="divider">or sign in with email</div>
+
+      <form id="loginForm">
+        <div class="form-field">
+          <label>Email address</label>
+          <input type="email" id="email" placeholder="you@domain.com" autocomplete="email" required>
+        </div>
+
+        <div class="form-field">
+          <div class="field-row"><label>Password</label><a id="forgotLink">Forgot?</a></div>
+          <input type="password" id="password" placeholder="••••••••" autocomplete="current-password" required>
+          <span class="pw-toggle" id="pwToggle"><svg id="pwIcon" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></span>
+        </div>
+
+        <div class="form-footer">
+          <label class="check-wrap"><input type="checkbox" checked> Stay signed in</label>
+          <span>Privacy protected ✓</span>
+        </div>
+
+        <button type="submit" class="submit-btn" id="submitBtn">
+          <div class="shimmer"></div>
+          <span id="submitText">Sign in to Metis →</span>
+        </button>
+      </form>
+
+      <div class="signup-link">
+        Don't have an account? <a href="/signup">Create one free →</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="right-panel">
+    <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--vi2);font-weight:600;margin-bottom:16px">What's waiting for you</div>
+    <div class="feature-list">
+      <div class="feat-item">
+        <div class="feat-icon" style="background:rgba(59,130,246,.12);color:#60A5FA"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+        <div class="feat-body"><div class="t">Saved chats & history</div><div class="d">Every conversation, searchable and in context</div></div>
+      </div>
+      <div class="feat-item">
+        <div class="feat-icon" style="background:rgba(124,58,237,.12);color:var(--vi2)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polygon points="10 8 16 12 10 16 10 8"/></svg></div>
+        <div class="feat-body"><div class="t">Running missions</div><div class="d">Background jobs that finished while you were away</div></div>
+      </div>
+      <div class="feat-item">
+        <div class="feat-icon" style="background:rgba(245,158,11,.1);color:#FCD34D"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+        <div class="feat-body"><div class="t">Scheduled automations</div><div class="d">Your morning brief, weekly digest and triggers</div></div>
+      </div>
+      <div class="feat-item">
+        <div class="feat-icon" style="background:rgba(251,113,133,.1);color:#FDA4AF"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>
+        <div class="feat-body"><div class="t">Your generated library</div><div class="d">Images, audio, docs you've created</div></div>
+      </div>
+      <div class="feat-item">
+        <div class="feat-icon" style="background:rgba(16,185,129,.1);color:#6EE7B7"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
+        <div class="feat-body"><div class="t">Synced across devices</div><div class="d">Pick up on mobile, desktop, anywhere</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { api, setSession, getToken } from '/static/js/api.js';
+
+// If already signed in, hop straight to /app
+if (getToken()) window.location.replace('/splash');
+
+const errBanner = document.getElementById('errBanner');
+const submitBtn = document.getElementById('submitBtn');
+const submitText = document.getElementById('submitText');
+
+function showErr(msg) {
+  errBanner.textContent = msg;
+  errBanner.classList.add('show');
+}
+function clearErr() {
+  errBanner.classList.remove('show');
+}
+
+// Password show/hide
+const pwInput = document.getElementById('password');
+const pwIcon = document.getElementById('pwIcon');
+document.getElementById('pwToggle').addEventListener('click', () => {
+  const show = pwInput.type === 'password';
+  pwInput.type = show ? 'text' : 'password';
+  pwIcon.innerHTML = show
+    ? '<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>'
+    : '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+});
+
+// Email + password sign-in
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  clearErr();
+  submitBtn.disabled = true;
+  submitText.textContent = 'Signing in…';
+  try {
+    const out = await api.signin(
+      document.getElementById('email').value.trim(),
+      document.getElementById('password').value,
+    );
+    setSession(out.session, out.user);
+    window.location.replace('/splash');
+  } catch (err) {
+    showErr(err.message || 'Sign-in failed');
+    submitBtn.disabled = false;
+    submitText.textContent = 'Sign in to Metis →';
+  }
+});
+
+// OAuth buttons
+async function startOAuth(provider, btn) {
+  clearErr();
+  btn.disabled = true;
+  try {
+    const { url } = await api.oauthStart(
+      provider,
+      `${window.location.origin}/oauth/callback`,
+    );
+    window.location.href = url;
+  } catch (err) {
+    showErr(`${provider} sign-in failed: ${err.message}`);
+    btn.disabled = false;
+  }
+}
+document.getElementById('googleBtn').addEventListener('click', (e) => startOAuth('google', e.currentTarget));
+document.getElementById('githubBtn').addEventListener('click', (e) => startOAuth('github', e.currentTarget));
+
+// Forgot password
+document.getElementById('forgotLink').addEventListener('click', async () => {
+  const email = prompt('Enter your email to receive a reset link:');
+  if (!email) return;
+  try {
+    await api.resetPassword(email);
+    showErr(`Reset link sent to ${email} (check your inbox).`);
+    errBanner.style.background = 'rgba(34,197,94,.12)';
+    errBanner.style.borderColor = 'rgba(34,197,94,.3)';
+    errBanner.style.color = '#86EFAC';
+  } catch (err) {
+    showErr(err.message);
+  }
+});
+
+// Subtle mouse parallax on orbs
+document.addEventListener('mousemove', e => {
+  const x = (e.clientX / window.innerWidth - .5) * 20;
+  const y = (e.clientY / window.innerHeight - .5) * 20;
+  document.querySelector('.orb1').style.transform = `translate(calc(-20% + ${x*.8}px),calc(-30% + ${y*.8}px))`;
+  document.querySelector('.orb2').style.transform = `translate(calc(70% + ${-x*.5}px),calc(60% + ${-y*.5}px))`;
+});
+</script>
+<script src="/static/polish/global-polish.v2.js"></script>
+</body>
+</html>
