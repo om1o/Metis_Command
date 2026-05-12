@@ -882,7 +882,7 @@ pre.collapsible.expanded code{max-height:none}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.66.0</span>
+      <span class="ver" id="versionPill">v0.67.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -1463,6 +1463,9 @@ pre.collapsible.expanded code{max-height:none}
           <div class="shortcut-row"><span class="s-desc">A/B test design with variants, sample size &amp; metrics</span><span class="s-keys"><kbd>/ab-test</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Decision matrix with criteria, weights &amp; recommendation</span><span class="s-keys"><kbd>/decision</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Write a system prompt or AI instruction set</span><span class="s-keys"><kbd>/prompt</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Design a research survey with branching logic</span><span class="s-keys"><kbd>/survey</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">5 Whys root cause analysis with corrective actions</span><span class="s-keys"><kbd>/five-whys</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">User story map with epics &amp; release slices</span><span class="s-keys"><kbd>/storymap</kbd></span></div>
         </div>
       </div>
       <div class="shortcuts-section">
@@ -2700,6 +2703,9 @@ async function sendMessage() {
     '/value-prop':  'Write a clear, structured value proposition canvas for the following product, service, or idea. Include: the target customer segment, customer jobs (functional, emotional, social), customer pains (ranked by severity), customer gains (ranked by importance), your products and services, pain relievers (how you address each pain), gain creators (how you deliver each gain), and a fit assessment showing where your offering best matches customer needs. Close with a one-sentence value proposition statement:\n\n',
     '/launch-plan': 'Write a comprehensive go-to-market launch plan for the following product, feature, or initiative. Include: a launch overview and goals, the target audience and positioning, key messages for each audience segment, launch phases (pre-launch, launch day, post-launch) with specific activities and owners, channel strategy (owned, earned, paid), success metrics and KPIs, a risk register with mitigations, and a timeline. Make it detailed enough for a cross-functional team to execute:\n\n',
     '/user-story':  'Write a complete set of user stories for the following feature, product, or workflow. For each story: use the "As a [persona], I want [goal], so that [benefit]" format, add acceptance criteria in Given/When/Then (Gherkin) format, include edge cases and negative scenarios, add story point estimates and a priority ranking (Must Have / Should Have / Could Have), and note any dependencies or open questions. Aim for 5–8 stories that fully cover the scope:\n\n',
+    '/survey':      'Design a complete user or market research survey for the following goal or topic. Include: a survey title and 1–2 sentence intro, a clear research objective, 8–12 questions organized into logical sections, a mix of question types (Likert scale, multiple choice, ranking, open-ended), instructions for each question type, branching logic where needed, and a closing thank-you message. End with a brief analysis plan explaining how to interpret the responses and what insights to look for:\n\n',
+    '/five-whys':   'Perform a thorough 5 Whys root cause analysis for the following problem or failure. Structure it with: a clear problem statement, the iterative 5 Whys chain (Why 1 through Why 5 or until root cause), the identified root cause(s), contributing factors or systemic patterns uncovered, and a set of concrete corrective actions tied directly to the root cause. Use a blameless, learning-focused tone. If multiple causal paths exist, branch the analysis and document each:\n\n',
+    '/storymap':    'Build a user story map for the following product, feature, or workflow. Structure it with: a narrative or backbone row of high-level user activities (epics) in chronological order, a walking skeleton row of the minimum stories to complete each activity end-to-end, additional story rows layered by priority below the skeleton, a release slice recommendation showing which stories form the MVP vs. later releases, and acceptance notes for the top-priority stories. Format it clearly enough that a development team could use it for sprint planning:\n\n',
   };
   let _slashStripped = text;
   for (const [cmd, instr] of Object.entries(SLASH_PREFIX_MAP)) {
@@ -3328,6 +3334,9 @@ const SUGGESTION_POOL = [
   { title: '🧪 Design an A/B test',            sub: 'Variants, hypothesis, sample size, and success metrics',               q: '/ab-test Design an A/B test for a checkout flow change to reduce cart abandonment — define the variants, hypothesis, required sample size, and how to measure statistical significance.' },
   { title: '⚖️ Make a decision',               sub: 'Criteria matrix, options, weights, and scored recommendation',           q: '/decision Help me decide whether to build an in-house AI feature or use a third-party API — list key decision criteria, weight them by importance, score each option, and give a clear recommendation.' },
   { title: '✍️ Write a system prompt',          sub: 'Role, instructions, tone, constraints, and few-shot examples',            q: '/prompt Write a system prompt for a helpful AI writing coach that gives honest feedback on clarity and structure, avoids flattery, and always ends with exactly 3 specific and actionable suggestions for improvement.' },
+  { title: '📋 Design a survey',               sub: 'Question types, branching logic, and analysis plan',                       q: '/survey Design a user research survey to understand why people abandon a SaaS onboarding flow — include Likert scales, multiple choice, and open-ended questions with branching logic.' },
+  { title: '🔍 Run a 5 Whys',                  sub: 'Iterative root cause chain with corrective actions',                        q: '/five-whys A B2B SaaS product saw a 20% spike in churn last month — run a 5 Whys analysis to find the root cause and recommend corrective actions.' },
+  { title: '🗺️ Build a story map',              sub: 'Epics, walking skeleton, and release slices',                              q: '/storymap Build a user story map for a mobile onboarding flow — identify epics, the MVP walking skeleton, and which stories belong in each release slice.' },
 ];
 let _suggOffset = 0;
 function _shuffleSuggestions() {
@@ -4932,6 +4941,9 @@ const SLASH_CMDS = [
   { cmd: '/ab-test',      icon:'🧪', desc: 'Design an A/B test with variants, hypothesis, sample size & metrics',  action: () => _slashPrepend('/ab-test') },
   { cmd: '/decision',     icon:'⚖️', desc: 'Decision matrix with criteria, weights, scores & recommendation',      action: () => _slashPrepend('/decision') },
   { cmd: '/prompt',       icon:'✍️', desc: 'Write a system prompt or AI instruction set with role & examples',     action: () => _slashPrepend('/prompt') },
+  { cmd: '/survey',       icon:'📋', desc: 'Design a user or market research survey with question types and analysis plan', action: () => _slashPrepend('/survey') },
+  { cmd: '/five-whys',    icon:'🔍', desc: '5 Whys root cause analysis with corrective actions',                   action: () => _slashPrepend('/five-whys') },
+  { cmd: '/storymap',     icon:'🗺️', desc: 'User story map with epics, walking skeleton, and release slices',      action: () => _slashPrepend('/storymap') },
   // ── Memory ────────────────────────────────────────────────────
   { cmd: '/remember', icon: '📌',  desc: 'Save a fact to semantic memory',             action: () => _slashPrepend('/remember') },
   { cmd: '/forget',   icon: '🗑️',  desc: 'Remove a fact from memory',                 action: () => _slashPrepend('/forget') },
