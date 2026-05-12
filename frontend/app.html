@@ -882,7 +882,7 @@ pre.collapsible.expanded code{max-height:none}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.71.0</span>
+      <span class="ver" id="versionPill">v0.72.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -1475,6 +1475,9 @@ pre.collapsible.expanded code{max-height:none}
           <div class="shortcut-row"><span class="s-desc">Growth strategy with AARRR framework, loops &amp; 90-day sprint</span><span class="s-keys"><kbd>/growth</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Pricing strategy with tiers, value metric &amp; competitive benchmarks</span><span class="s-keys"><kbd>/pricing</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Team charter with mission, decision rights &amp; working norms</span><span class="s-keys"><kbd>/team-charter</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Competitive landscape with positioning grid, battlecards &amp; whitespace</span><span class="s-keys"><kbd>/competitor-map</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Process map with swimlanes, bottlenecks &amp; optimized to-be flow</span><span class="s-keys"><kbd>/process-map</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Budget plan with line items, burn rate &amp; sensitivity analysis</span><span class="s-keys"><kbd>/budget</kbd></span></div>
         </div>
       </div>
       <div class="shortcuts-section">
@@ -2727,6 +2730,9 @@ async function sendMessage() {
     '/messaging':   'Build a complete brand messaging framework for the following product, company, or campaign. Include: a one-sentence positioning statement, a primary brand promise (what you uniquely deliver), 3–5 messaging pillars each with a headline, 2–3 supporting proof points, and a sample message in context, a voice and tone guide (3–5 adjectives with do/don\'t examples), a tagline or slogan with 3 alternatives and rationale, key audience segments and how the message shifts for each, and a "message hierarchy" showing which claims lead vs. support. Make it ready for a content or marketing team to use immediately:\n\n',
     '/feature-flag':'Write a feature flag rollout plan for the following feature or experiment. Include: a flag name and description, the rollout strategy (percentage-based, user-segment, region, or time-based), a phased rollout schedule (0% → 5% → 25% → 100%) with go/no-go criteria at each gate, the target segments for each phase with inclusion/exclusion logic, metrics to monitor during rollout (success metrics and guardrail metrics), a kill switch runbook (who can flip it, how fast it takes effect, what to communicate), and a deprecation plan for once the flag is fully shipped. Be precise enough for an engineering team to implement:\n\n',
     '/api-design':  'Design a complete REST API specification for the following feature, service, or product. Include: a resource model with entity names and relationships, a base URL and versioning strategy, a full endpoint list organized by resource (method, path, summary, auth requirement), detailed request/response schemas for the 3–5 most important endpoints (with field names, types, required/optional, and example values), standard error response format and common error codes, authentication and authorization approach, rate limiting and pagination strategy, and a changelog section for breaking vs. non-breaking changes. Format it clearly enough for a frontend developer to start integration immediately:\n\n',
+    '/competitor-map': 'Create a comprehensive competitive landscape map for the following market, product, or category. Include: a 2×2 positioning grid (choose the two most strategically meaningful axes and place 5–8 competitors), a competitor profile table (company, target customer, primary differentiator, pricing model, key strengths, key weaknesses), a battlecard for the top 2–3 direct competitors (how to win against each, common objections and counters, when you lose and why), a whitespace analysis identifying underserved segments or uncontested positioning opportunities, and a strategic recommendation for how to sharpen your own positioning. Be specific and name real or representative competitors:\n\n',
+    '/process-map': 'Create a detailed process map for the following workflow, operation, or system. Structure it with: a process title and scope statement (what triggers it, what ends it), a swimlane diagram described in text (list each lane/actor and their steps in sequence), a numbered step-by-step walkthrough with decision points and branching paths clearly labeled, a bottleneck and waste analysis (identify the top 3 steps with highest delay, rework, or handoff friction), an improvement recommendations section with specific changes for each bottleneck, and a revised "to-be" process outline showing the optimized flow. Use clear, unambiguous language a frontline worker could follow:\n\n',
+    '/budget':      'Build a comprehensive budget plan for the following project, team, initiative, or time period. Include: a budget summary table with total headcount costs, non-headcount opex, capex, and contingency reserve, a detailed line-item breakdown organized by category (people, tools/software, infrastructure, marketing, contractors, travel, etc.) with monthly or quarterly phasing, key assumptions underlying each major line item, a burn rate analysis showing monthly spend curve and runway if applicable, a sensitivity analysis showing the impact of ±20% variance in the top 3 cost drivers, and a budget governance note covering approval thresholds, reforecast cadence, and variance escalation triggers. Be specific and quantitative:\n\n',
   };
   let _slashStripped = text;
   for (const [cmd, instr] of Object.entries(SLASH_PREFIX_MAP)) {
@@ -3370,6 +3376,9 @@ const SUGGESTION_POOL = [
   { title: '📣 Build a messaging framework',    sub: 'Pillars, proof points, voice guide, and tagline alternatives',            q: '/messaging Build a brand messaging framework for an AI productivity platform targeting knowledge workers — pillars, proof points, voice guide, and 3 tagline options.' },
   { title: '🚩 Write a feature flag plan',      sub: 'Phased rollout, go/no-go gates, guardrail metrics, kill switch',          q: '/feature-flag Write a feature flag rollout plan for a new AI-generated summary feature — cover rollout phases from 0% to 100%, success metrics, and a kill switch runbook.' },
   { title: '🔌 Design an API',                  sub: 'Endpoints, schemas, auth, versioning, and pagination strategy',           q: '/api-design Design a REST API for a task management service — resource model, full endpoint list, request/response schemas for the top 5 endpoints, and error handling.' },
+  { title: '⚔️ Map the competitive landscape',  sub: 'Positioning grid, battlecards, whitespace, and strategic recommendation', q: '/competitor-map Map the competitive landscape for a B2B AI writing tool — positioning grid with 6 competitors, battlecard for the top 3, whitespace opportunities, and sharpened positioning recommendation.' },
+  { title: '🔄 Map a process end-to-end',       sub: 'Swimlanes, bottlenecks, waste analysis, and optimized to-be flow',        q: '/process-map Map the end-to-end customer onboarding process for a SaaS product — swimlanes by actor, step-by-step walkthrough, top 3 bottlenecks, and a redesigned to-be flow.' },
+  { title: '💵 Build a project budget',         sub: 'Line items, burn rate, sensitivity analysis, and governance notes',       q: '/budget Build a 12-month budget plan for a 5-person product team launching a new SaaS feature — headcount, tooling, infra, marketing spend, burn rate curve, and ±20% sensitivity analysis.' },
 ];
 let _suggOffset = 0;
 function _shuffleSuggestions() {
@@ -5028,7 +5037,10 @@ const SLASH_CMDS = [
   { cmd: '/lean',       icon: '🟩',  desc: 'Build a Lean Canvas covering all 9 blocks',                       action: () => _slashPrepend('/lean') },
   { cmd: '/growth',     icon: '📈',  desc: 'Growth strategy with AARRR, growth loops & 90-day sprint',         action: () => _slashPrepend('/growth') },
   { cmd: '/pricing',    icon: '💰',  desc: 'Pricing strategy with tiers, value metric & competitive benchmarks',action: () => _slashPrepend('/pricing') },
-  { cmd: '/team-charter',icon:'🤝',  desc: 'Team charter with mission, decision rights & working norms',        action: () => _slashPrepend('/team-charter') },
+  { cmd: '/team-charter',   icon:'🤝',  desc: 'Team charter with mission, decision rights & working norms',          action: () => _slashPrepend('/team-charter') },
+  { cmd: '/competitor-map', icon:'⚔️',  desc: 'Competitive landscape with positioning grid, battlecards & whitespace', action: () => _slashPrepend('/competitor-map') },
+  { cmd: '/process-map',    icon:'🔄',  desc: 'Process map with swimlanes, bottlenecks & optimized to-be flow',        action: () => _slashPrepend('/process-map') },
+  { cmd: '/budget',         icon:'💵',  desc: 'Budget plan with line items, burn rate & sensitivity analysis',          action: () => _slashPrepend('/budget') },
   { cmd: '/help',   icon: '❓',  desc: 'Open keyboard shortcuts & commands guide',   action: () => openShortcutsModal() },
 ];
 
