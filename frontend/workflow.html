@@ -1,0 +1,924 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Workflow Builder — Metis</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="/static/assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --vi:#7C3AED;--vi2:#A78BFA;--co:#FB7185;--am:#F59E0B;--bl:#3B82F6;--gr:#22C55E;
+  --bg:#07071a;--bg-2:#0d0d24;--panel:rgba(255,255,255,.04);--panel-2:rgba(255,255,255,.07);
+  --text:#F8FAFF;--muted:rgba(248,250,255,.6);--subtle:rgba(248,250,255,.32);
+  --border:rgba(255,255,255,.08);--border-2:rgba(255,255,255,.14);
+  --grad:linear-gradient(135deg,var(--vi),var(--co) 55%,var(--am));
+  --accent:#7C3AED;--accent-soft:rgba(124,58,237,.18);--accent-glow:rgba(124,58,237,.35);
+  --node-w:180px;--node-h:72px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden}
+body::before{content:"";position:fixed;inset:0;background:
+  radial-gradient(circle at 10% 10%,rgba(124,58,237,.12),transparent 50%),
+  radial-gradient(circle at 90% 90%,rgba(251,113,133,.07),transparent 55%);
+  z-index:0;pointer-events:none}
+
+/* ── Layout ── */
+.layout{position:relative;z-index:1;display:grid;grid-template-rows:56px 1fr;grid-template-columns:220px 1fr 0px;height:100vh;transition:grid-template-columns .25s cubic-bezier(.4,0,.2,1)}
+.layout.props-open{grid-template-columns:220px 1fr 300px}
+
+/* ── Header ── */
+.header{grid-column:1/-1;background:rgba(7,7,26,.85);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:0 20px}
+.header-back{display:flex;align-items:center;gap:7px;color:var(--muted);text-decoration:none;font-size:12.5px;font-weight:500;padding:6px 10px;border-radius:7px;transition:all .15s;border:1px solid transparent}
+.header-back:hover{color:var(--text);border-color:var(--border)}
+.header-back svg{width:13px;height:13px;stroke:currentColor;stroke-width:2.5;fill:none}
+.header-divider{width:1px;height:22px;background:var(--border)}
+.wf-name-wrap{flex:1;min-width:0}
+.wf-name{background:transparent;border:none;border-bottom:1px solid transparent;color:var(--text);font-family:'Sora',sans-serif;font-size:15px;font-weight:700;outline:none;width:100%;max-width:340px;transition:border-color .18s;padding:2px 4px;border-radius:3px}
+.wf-name:focus{border-bottom-color:var(--accent)}
+.wf-name::placeholder{color:var(--subtle)}
+.header-actions{display:flex;align-items:center;gap:8px}
+.btn{height:34px;padding:0 14px;border-radius:8px;border:1px solid var(--border-2);background:var(--panel-2);color:var(--text);font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:7px;transition:all .18s;white-space:nowrap}
+.btn:hover{background:var(--panel);border-color:var(--border-2)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn svg{width:13px;height:13px;stroke:currentColor;stroke-width:2.5;fill:none;flex-shrink:0}
+.btn.primary{background:var(--accent);border-color:transparent;color:#fff}
+.btn.primary:hover:not(:disabled){background:#6D28D9;box-shadow:0 4px 14px var(--accent-glow)}
+.btn.danger{color:var(--co)}
+.btn.danger:hover{background:rgba(251,113,133,.1);border-color:rgba(251,113,133,.3)}
+.wf-status{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--subtle);padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:var(--panel)}
+
+/* ── Node palette ── */
+.palette{background:rgba(7,7,26,.7);backdrop-filter:blur(16px);border-right:1px solid var(--border);overflow-y:auto;padding:12px 10px}
+.palette-section{font-family:'Sora',sans-serif;font-size:9.5px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--subtle);padding:8px 6px 4px}
+.palette-node{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;border:1px solid var(--border);background:var(--panel);cursor:grab;margin-bottom:6px;transition:all .18s;user-select:none}
+.palette-node:hover{background:var(--panel-2);border-color:var(--border-2);transform:translateX(2px)}
+.palette-node:active{cursor:grabbing}
+.palette-node .pn-icon{font-size:17px;flex-shrink:0;width:26px;text-align:center}
+.palette-node .pn-body{flex:1;min-width:0}
+.palette-node .pn-label{font-size:12.5px;font-weight:600;color:var(--text)}
+.palette-node .pn-desc{font-size:10px;color:var(--subtle);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.palette-hint{font-size:10.5px;color:var(--subtle);padding:10px 6px;line-height:1.5;margin-top:4px}
+
+/* ── Canvas ── */
+.canvas-wrap{position:relative;overflow:hidden;background:
+  repeating-linear-gradient(0deg,rgba(255,255,255,.025) 0px,rgba(255,255,255,.025) 1px,transparent 1px,transparent 32px),
+  repeating-linear-gradient(90deg,rgba(255,255,255,.025) 0px,rgba(255,255,255,.025) 1px,transparent 1px,transparent 32px)}
+.canvas-inner{position:absolute;top:0;left:0;transform-origin:0 0;width:4000px;height:3000px}
+.canvas-svg{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+
+/* ── Nodes ── */
+.wf-node{position:absolute;width:var(--node-w);background:rgba(13,13,36,.92);border:1.5px solid var(--border-2);border-radius:12px;cursor:default;user-select:none;transition:border-color .18s,box-shadow .18s;box-shadow:0 4px 20px rgba(0,0,0,.35)}
+.wf-node:hover{border-color:rgba(255,255,255,.22);box-shadow:0 6px 28px rgba(0,0,0,.5)}
+.wf-node.selected{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft),0 6px 28px rgba(0,0,0,.5)}
+.wf-node.running{border-color:var(--am);animation:node-pulse 1.2s ease-in-out infinite}
+.wf-node.done{border-color:var(--gr)}
+.wf-node.error{border-color:var(--co)}
+@keyframes node-pulse{0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,.3)}50%{box-shadow:0 0 0 6px rgba(245,158,11,.0)}}
+
+.node-head{padding:10px 12px 8px;display:flex;align-items:center;gap:9px}
+.node-icon{font-size:16px;flex-shrink:0}
+.node-meta{flex:1;min-width:0}
+.node-label{font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+.node-type-badge{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--subtle);margin-top:1px}
+.node-del{background:transparent;border:none;cursor:pointer;color:var(--subtle);padding:4px;border-radius:5px;display:none;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
+.node-del:hover{color:var(--co);background:rgba(251,113,133,.12)}
+.node-del svg{width:12px;height:12px;stroke:currentColor;stroke-width:2.5;fill:none}
+.wf-node:hover .node-del{display:flex}
+
+/* Ports */
+.port{position:absolute;width:12px;height:12px;border-radius:50%;border:2px solid var(--border-2);background:rgba(13,13,36,.9);cursor:crosshair;transition:all .18s;z-index:2}
+.port:hover,.port.active{border-color:var(--accent);background:var(--accent);transform:scale(1.3);box-shadow:0 0 8px var(--accent-glow)}
+.port.in{left:-6px;top:50%;transform:translateY(-50%)}
+.port.in:hover{transform:translateY(-50%) scale(1.3)}
+.port.out{right:-6px;top:50%;transform:translateY(-50%)}
+.port.out:hover{transform:translateY(-50%) scale(1.3)}
+
+/* Drag handle */
+.node-drag{position:absolute;inset:0;border-radius:12px;cursor:grab}
+.node-drag:active{cursor:grabbing}
+
+/* ── Edge SVG ── */
+.edge-path{fill:none;stroke:rgba(167,139,250,.55);stroke-width:2;stroke-dasharray:none;transition:stroke .18s}
+.edge-path:hover,.edge-path.selected{stroke:var(--vi2);stroke-width:2.5}
+.edge-label{font-family:'JetBrains Mono',monospace;font-size:9px;fill:var(--subtle)}
+.edge-connector{fill:none;stroke:rgba(124,58,237,.7);stroke-width:2;stroke-dasharray:5,4;animation:dash 0.6s linear infinite}
+@keyframes dash{to{stroke-dashoffset:-18}}
+.edge-del{fill:var(--co);cursor:pointer;opacity:0}
+.edge-group:hover .edge-del{opacity:1}
+
+/* ── Properties panel ── */
+.props{background:rgba(7,7,26,.85);backdrop-filter:blur(20px);border-left:1px solid var(--border);overflow-y:auto;padding:0}
+.props-head{padding:16px 18px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.props-head h3{font-family:'Sora',sans-serif;font-size:14px;font-weight:700;color:var(--text)}
+.props-close{background:transparent;border:none;cursor:pointer;color:var(--subtle);padding:5px;border-radius:6px;display:flex;align-items:center;transition:all .15s}
+.props-close:hover{color:var(--text);background:var(--panel)}
+.props-close svg{width:15px;height:15px;stroke:currentColor;stroke-width:2;fill:none}
+.props-body{padding:16px 18px}
+.prop-field{margin-bottom:14px}
+.prop-label{display:block;font-size:11.5px;font-weight:600;color:var(--muted);margin-bottom:5px}
+.prop-input,.prop-select,.prop-textarea{width:100%;background:rgba(255,255,255,.05);border:1px solid var(--border-2);border-radius:8px;padding:8px 11px;color:var(--text);font-family:inherit;font-size:12.5px;outline:none;transition:border-color .18s}
+.prop-input:focus,.prop-select:focus,.prop-textarea:focus{border-color:color-mix(in srgb,var(--accent) 55%,transparent)}
+.prop-textarea{resize:vertical;min-height:72px;line-height:1.5}
+.prop-select option{background:#17161D;color:var(--text)}
+.prop-section{font-family:'Sora',sans-serif;font-size:9.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--subtle);margin-bottom:10px;margin-top:4px}
+.prop-meta{font-size:10.5px;color:var(--subtle);margin-top:2px}
+
+/* ── Run results drawer ── */
+.run-drawer{position:fixed;bottom:0;left:220px;right:0;z-index:200;background:rgba(7,7,26,.97);border-top:1px solid var(--border-2);backdrop-filter:blur(24px);transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);max-height:55vh;overflow:hidden;display:flex;flex-direction:column}
+.run-drawer.open{transform:translateY(0)}
+.run-drawer-head{padding:12px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.run-drawer-head h4{font-family:'Sora',sans-serif;font-size:13px;font-weight:700;color:var(--text);flex:1}
+.run-drawer-body{overflow-y:auto;padding:16px 20px;flex:1}
+.run-step{display:flex;gap:12px;margin-bottom:12px;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--panel);font-size:12.5px}
+.run-step .step-icon{font-size:14px;flex-shrink:0;margin-top:1px}
+.run-step .step-body{flex:1;min-width:0}
+.run-step .step-label{font-weight:600;color:var(--text);margin-bottom:3px}
+.run-step .step-out{color:var(--muted);line-height:1.5;white-space:pre-wrap;word-break:break-word;max-height:100px;overflow:hidden}
+.run-step.error-step{border-color:rgba(251,113,133,.3);background:rgba(251,113,133,.05)}
+.run-output{padding:14px 16px;background:var(--panel-2);border:1px solid var(--border-2);border-radius:10px;font-size:13px;color:var(--text);line-height:1.6;white-space:pre-wrap;word-break:break-word;margin-top:8px}
+
+/* ── Template modal ── */
+.modal-overlay{position:fixed;inset:0;z-index:400;background:rgba(7,7,26,.75);backdrop-filter:blur(10px);display:none;align-items:center;justify-content:center;animation:fadeIn .2s ease}
+.modal-overlay.show{display:flex}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.modal{width:720px;max-width:95vw;max-height:85vh;background:rgba(13,13,36,.98);border:1px solid var(--border-2);border-radius:18px;box-shadow:0 32px 80px rgba(0,0,0,.6);display:flex;flex-direction:column;overflow:hidden}
+.modal-head{padding:22px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.modal-head h3{font-family:'Sora',sans-serif;font-size:18px;font-weight:700;color:var(--text)}
+.modal-body{overflow-y:auto;padding:20px 24px;flex:1}
+.tpl-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.tpl-card{padding:18px;border-radius:12px;border:1.5px solid var(--border);background:var(--panel);cursor:pointer;transition:all .18s}
+.tpl-card:hover{border-color:color-mix(in srgb,var(--accent) 50%,transparent);background:var(--accent-soft);transform:translateY(-2px)}
+.tpl-card .tpl-icon{font-size:24px;margin-bottom:10px}
+.tpl-card .tpl-name{font-family:'Sora',sans-serif;font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px}
+.tpl-card .tpl-desc{font-size:12px;color:var(--muted);line-height:1.5}
+
+/* ── Toast ── */
+.toast-root{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast-item{display:flex;align-items:center;gap:10px;padding:11px 16px;border-radius:10px;background:rgba(13,13,36,.96);border:1px solid var(--border-2);backdrop-filter:blur(20px);font-size:13px;min-width:220px;max-width:360px;box-shadow:0 8px 24px rgba(0,0,0,.4);animation:slideInToast .22s ease-out;pointer-events:auto}
+@keyframes slideInToast{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
+.toast-item.success .ti-dot{color:var(--gr)} .toast-item.error .ti-dot{color:var(--co)} .toast-item.info .ti-dot{color:var(--bl)} .toast-item.warning .ti-dot{color:var(--am)}
+.ti-dot{font-size:16px;flex-shrink:0} .ti-body{flex:1;min-width:0} .ti-title{font-weight:600;color:var(--text)} .ti-msg{font-size:11.5px;color:var(--muted);margin-top:1px}
+
+/* ── Empty state ── */
+.canvas-empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;pointer-events:none;opacity:.45}
+.canvas-empty svg{width:56px;height:56px;stroke:var(--subtle);stroke-width:1;fill:none}
+.canvas-empty p{font-size:14px;color:var(--subtle);text-align:center;max-width:260px;line-height:1.6}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:6px;height:6px} ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:3px} ::-webkit-scrollbar-track{background:transparent}
+</style>
+</head>
+<body>
+<div class="layout" id="layout">
+
+  <!-- Header -->
+  <header class="header">
+    <a class="header-back" href="/app">
+      <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+      Back to Metis
+    </a>
+    <div class="header-divider"></div>
+    <div class="wf-name-wrap">
+      <input class="wf-name" id="wfName" placeholder="Untitled workflow" maxlength="80">
+    </div>
+    <div class="header-actions">
+      <span class="wf-status" id="wfStatus">unsaved</span>
+      <button class="btn" id="templatesBtn">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        Templates
+      </button>
+      <button class="btn" id="clearBtn">
+        <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+        Clear
+      </button>
+      <button class="btn" id="saveBtn">
+        <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Save
+      </button>
+      <button class="btn primary" id="runBtn">
+        <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Run
+      </button>
+    </div>
+  </header>
+
+  <!-- Node palette -->
+  <aside class="palette" id="palette">
+    <div class="palette-section">Nodes</div>
+    <!-- filled by JS -->
+    <p class="palette-hint">Drag a node onto the canvas, then connect ports to build your workflow.</p>
+  </aside>
+
+  <!-- Canvas -->
+  <div class="canvas-wrap" id="canvasWrap">
+    <div class="canvas-inner" id="canvasInner">
+      <svg class="canvas-svg" id="canvasSvg"></svg>
+      <!-- nodes rendered here -->
+    </div>
+    <div class="canvas-empty" id="canvasEmpty">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <p>Drag a node type from the left panel to get started, or pick a template.</p>
+    </div>
+  </div>
+
+  <!-- Properties panel -->
+  <aside class="props" id="propsPanel">
+    <div class="props-head">
+      <h3 id="propsPanelTitle">Properties</h3>
+      <button class="props-close" id="propsClose">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="props-body" id="propsBody"></div>
+  </aside>
+</div>
+
+<!-- Run results drawer -->
+<div class="run-drawer" id="runDrawer">
+  <div class="run-drawer-head">
+    <h4>Run Results</h4>
+    <span id="runTiming" style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--subtle)"></span>
+    <button class="btn" id="runDrawerClose" style="height:28px;padding:0 10px;font-size:11.5px;margin-left:8px">✕ Close</button>
+  </div>
+  <div class="run-drawer-body" id="runDrawerBody"></div>
+</div>
+
+<!-- Template modal -->
+<div class="modal-overlay" id="tplOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Workflow Templates</h3>
+      <button class="btn" id="tplClose">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="tpl-grid" id="tplGrid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast root -->
+<div class="toast-root" id="toastRoot"></div>
+
+<script type="module">
+import { api } from '/static/js/api.js';
+
+// ── State ─────────────────────────────────────────────────────────────────
+const NODE_W = 180, NODE_H = 72;
+let nodes = [];           // [{id,type,label,config,x,y}]
+let edges = [];           // [{id,source,target,label}]
+let selectedNodeId = null;
+let selectedEdgeId = null;
+let currentWfId = null;
+let nodeTypes = {};       // from backend
+
+// Pan / zoom
+let panX = 40, panY = 40, scale = 1;
+let isPanning = false, panStart = {x:0,y:0}, panOrigin = {x:0,y:0};
+
+// Drag-new-node
+let draggingPaletteType = null;
+
+// Move existing node
+let draggingNode = null, dragNodeStart = {mx:0,my:0,nx:0,ny:0};
+
+// Connecting
+let connectingFrom = null; // {nodeId, portType}
+let connectingMouse = {x:0, y:0};
+
+// ── DOM ──────────────────────────────────────────────────────────────────
+const layout       = document.getElementById('layout');
+const canvasWrap   = document.getElementById('canvasWrap');
+const canvasInner  = document.getElementById('canvasInner');
+const canvasSvg    = document.getElementById('canvasSvg');
+const canvasEmpty  = document.getElementById('canvasEmpty');
+const propsPanel   = document.getElementById('propsPanel');
+const propsBody    = document.getElementById('propsBody');
+const propsPanelTitle = document.getElementById('propsPanelTitle');
+const runDrawer    = document.getElementById('runDrawer');
+const runDrawerBody= document.getElementById('runDrawerBody');
+const runTiming    = document.getElementById('runTiming');
+const tplOverlay   = document.getElementById('tplOverlay');
+const tplGrid      = document.getElementById('tplGrid');
+const wfStatus     = document.getElementById('wfStatus');
+const wfName       = document.getElementById('wfName');
+const palette      = document.getElementById('palette');
+
+// ── Toast ──────────────────────────────────────────────────────────────
+function toast(type, title, msg, ms = 3000) {
+  const icons = {success:'✅',error:'❌',info:'💬',warning:'⚠️'};
+  const el = document.createElement('div');
+  el.className = `toast-item ${type}`;
+  el.innerHTML = `<span class="ti-dot">${icons[type]||'💬'}</span><div class="ti-body"><div class="ti-title">${esc(title)}</div>${msg?`<div class="ti-msg">${esc(msg)}</div>`:''}</div>`;
+  document.getElementById('toastRoot').appendChild(el);
+  setTimeout(() => el.remove(), ms + 300);
+  setTimeout(() => el.style.opacity='0', ms);
+}
+
+// ── Utility ────────────────────────────────────────────────────────────
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function uid() { return 'n' + Math.random().toString(36).slice(2,9); }
+function edgeId() { return 'e' + Math.random().toString(36).slice(2,9); }
+
+// ── Canvas transform ──────────────────────────────────────────────────
+function applyTransform() {
+  canvasInner.style.transform = `translate(${panX}px,${panY}px) scale(${scale})`;
+}
+applyTransform();
+
+// ── Pointer coords (canvas space) ─────────────────────────────────────
+function toCanvas(clientX, clientY) {
+  const rect = canvasWrap.getBoundingClientRect();
+  return {
+    x: (clientX - rect.left - panX) / scale,
+    y: (clientY - rect.top  - panY) / scale,
+  };
+}
+
+// ── Render ────────────────────────────────────────────────────────────
+function render() {
+  renderEdges();
+  renderNodes();
+  canvasEmpty.style.display = nodes.length ? 'none' : 'flex';
+}
+
+function portPos(node, side) {
+  // Returns canvas coords of a port centre
+  return {
+    x: side === 'out' ? node.x + NODE_W : node.x,
+    y: node.y + NODE_H / 2,
+  };
+}
+
+function bezier(x1,y1,x2,y2) {
+  const dx = Math.abs(x2-x1) * 0.5;
+  return `M${x1},${y1} C${x1+dx},${y1} ${x2-dx},${y2} ${x2},${y2}`;
+}
+
+function renderEdges() {
+  let svg = '';
+  for (const e of edges) {
+    const src = nodes.find(n => n.id === e.source);
+    const tgt = nodes.find(n => n.id === e.target);
+    if (!src || !tgt) continue;
+    const p1 = portPos(src, 'out');
+    const p2 = portPos(tgt, 'in');
+    const d = bezier(p1.x, p1.y, p2.x, p2.y);
+    const mx = (p1.x + p2.x) / 2;
+    const my = (p1.y + p2.y) / 2;
+    const sel = e.id === selectedEdgeId;
+    svg += `<g class="edge-group" data-eid="${esc(e.id)}">
+      <path class="edge-path${sel?' selected':''}" d="${d}" style="pointer-events:visibleStroke;stroke-width:${sel?3:2}"/>
+      ${e.label?`<text class="edge-label" x="${mx}" y="${my-6}" text-anchor="middle">${esc(e.label)}</text>`:''}
+      <circle class="edge-del" cx="${mx}" cy="${my}" r="7" data-eid="${esc(e.id)}"/>
+      <text x="${mx}" y="${my+4}" text-anchor="middle" style="fill:white;font-size:11px;pointer-events:none" class="edge-del-x">✕</text>
+    </g>`;
+  }
+  // Live connector line
+  if (connectingFrom) {
+    const srcNode = nodes.find(n => n.id === connectingFrom.nodeId);
+    if (srcNode) {
+      const p = portPos(srcNode, 'out');
+      svg += `<path class="edge-connector" d="${bezier(p.x,p.y,connectingMouse.x,connectingMouse.y)}"/>`;
+    }
+  }
+  canvasSvg.innerHTML = svg;
+
+  // Edge delete circles
+  canvasSvg.querySelectorAll('.edge-del').forEach(c => {
+    c.addEventListener('click', e => {
+      e.stopPropagation();
+      const eid = c.dataset.eid;
+      edges = edges.filter(x => x.id !== eid);
+      if (selectedEdgeId === eid) selectedEdgeId = null;
+      markUnsaved(); render();
+    });
+    c.addEventListener('mouseenter', () => { c.style.opacity='1'; c.nextElementSibling.style.opacity='1'; });
+    c.addEventListener('mouseleave', () => { c.style.opacity='0'; c.nextElementSibling.style.opacity='0'; });
+  });
+  canvasSvg.querySelectorAll('.edge-del-x').forEach(t => { t.style.opacity='0'; });
+  canvasSvg.querySelectorAll('.edge-path').forEach(p => {
+    p.addEventListener('click', e => {
+      const eid = p.closest('[data-eid]')?.dataset.eid;
+      if (eid) { selectedEdgeId = eid; selectedNodeId = null; render(); closeProps(); }
+    });
+  });
+}
+
+function renderNodes() {
+  // Remove node els no longer in state
+  canvasInner.querySelectorAll('.wf-node').forEach(el => {
+    if (!nodes.find(n => n.id === el.dataset.nid)) el.remove();
+  });
+  for (const node of nodes) {
+    let el = canvasInner.querySelector(`.wf-node[data-nid="${node.id}"]`);
+    const nt = nodeTypes[node.type] || {icon:'❓',color:'#666',label:node.type};
+    const isSel = node.id === selectedNodeId;
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'wf-node';
+      el.dataset.nid = node.id;
+      el.innerHTML = `
+        <div class="node-drag" data-nid="${esc(node.id)}"></div>
+        <div class="port in" data-nid="${esc(node.id)}" data-side="in"></div>
+        <div class="port out" data-nid="${esc(node.id)}" data-side="out"></div>
+        <div class="node-head">
+          <span class="node-icon">${nt.icon}</span>
+          <div class="node-meta">
+            <div class="node-label">${esc(node.label)}</div>
+            <div class="node-type-badge">${esc(nt.label||node.type)}</div>
+          </div>
+          <button class="node-del" data-nid="${esc(node.id)}" title="Delete node">
+            <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>`;
+      canvasInner.appendChild(el);
+      bindNodeEvents(el, node);
+    }
+    el.style.left = node.x + 'px';
+    el.style.top  = node.y + 'px';
+    el.style.borderColor = isSel ? 'var(--accent)' : '';
+    el.querySelector('.node-label').textContent = node.label;
+    el.querySelector('.node-type-badge').textContent = nt.label || node.type;
+  }
+}
+
+function bindNodeEvents(el, node) {
+  // Drag-move
+  const dragHandle = el.querySelector('.node-drag');
+  dragHandle.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    const cv = toCanvas(e.clientX, e.clientY);
+    draggingNode = node.id;
+    dragNodeStart = {mx:cv.x, my:cv.y, nx:node.x, ny:node.y};
+    selectNode(node.id);
+  });
+
+  // Port click — start/complete connection
+  el.querySelectorAll('.port').forEach(port => {
+    port.addEventListener('mousedown', e => {
+      e.stopPropagation();
+      if (e.button !== 0) return;
+      const side = port.dataset.side;
+      if (!connectingFrom) {
+        if (side === 'out') {
+          connectingFrom = {nodeId: node.id, portType: 'out'};
+        }
+      } else {
+        // Complete connection
+        if (side === 'in' && connectingFrom.nodeId !== node.id) {
+          const exists = edges.find(x => x.source===connectingFrom.nodeId && x.target===node.id);
+          if (!exists) {
+            edges.push({id:edgeId(), source:connectingFrom.nodeId, target:node.id, label:''});
+            markUnsaved();
+          }
+        }
+        connectingFrom = null;
+        render();
+      }
+    });
+  });
+
+  // Delete button
+  el.querySelector('.node-del').addEventListener('click', e => {
+    e.stopPropagation();
+    deleteNode(node.id);
+  });
+
+  // Select on click (not drag)
+  el.addEventListener('click', () => selectNode(node.id));
+}
+
+function selectNode(id) {
+  selectedNodeId = id;
+  selectedEdgeId = null;
+  renderNodes();
+  renderEdges();
+  openProps(id);
+}
+
+function deleteNode(id) {
+  nodes = nodes.filter(n => n.id !== id);
+  edges = edges.filter(e => e.source !== id && e.target !== id);
+  canvasInner.querySelector(`.wf-node[data-nid="${id}"]`)?.remove();
+  if (selectedNodeId === id) { selectedNodeId = null; closeProps(); }
+  markUnsaved(); render();
+}
+
+// ── Properties panel ──────────────────────────────────────────────────
+function openProps(nodeId) {
+  const node = nodes.find(n => n.id === nodeId);
+  if (!node) return;
+  const nt = nodeTypes[node.type] || {};
+  propsPanelTitle.textContent = `${nt.icon||''} ${nt.label||node.type}`;
+  layout.classList.add('props-open');
+
+  let html = `
+    <p class="prop-section">Node</p>
+    <div class="prop-field">
+      <label class="prop-label">Label</label>
+      <input class="prop-input" id="propLabel" value="${esc(node.label)}" maxlength="60">
+    </div>`;
+
+  if (node.type === 'prompt') {
+    html += `<div class="prop-field">
+      <label class="prop-label">Prompt text</label>
+      <textarea class="prop-textarea" id="propPrompt" rows="4">${esc(node.config.prompt||'')}</textarea>
+    </div>`;
+  }
+  if (node.type === 'specialist') {
+    const specs = ['researcher','coder','thinker','scholar'];
+    html += `<div class="prop-field">
+      <label class="prop-label">Specialist</label>
+      <select class="prop-select" id="propSpecialist">
+        ${specs.map(s=>`<option value="${s}" ${node.config.specialist===s?'selected':''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('')}
+      </select>
+    </div>`;
+  }
+  if (node.type === 'condition') {
+    html += `<div class="prop-field">
+      <label class="prop-label">Check (keyword in previous output)</label>
+      <input class="prop-input" id="propCheck" value="${esc(node.config.check||'')}" placeholder="e.g. success">
+    </div>`;
+  }
+  if (node.type === 'loop') {
+    html += `<div class="prop-field">
+      <label class="prop-label">Iterations</label>
+      <input class="prop-input" id="propIter" type="number" min="1" max="10" value="${esc(node.config.iterations||2)}">
+    </div>`;
+  }
+  if (node.type === 'human_review') {
+    html += `<div class="prop-field">
+      <label class="prop-label">Review message</label>
+      <textarea class="prop-textarea" id="propMsg" rows="3">${esc(node.config.message||'Please review before continuing.')}</textarea>
+    </div>`;
+  }
+  if (node.type === 'output') {
+    html += `<div class="prop-field">
+      <label class="prop-label">Format</label>
+      <select class="prop-select" id="propFmt">
+        ${['markdown','plain','json'].map(f=>`<option value="${f}" ${node.config.format===f?'selected':''}>${f}</option>`).join('')}
+      </select>
+    </div>`;
+  }
+
+  html += `<p class="prop-meta">ID: ${esc(node.id)}</p>
+  <button class="btn danger" id="propDel" style="width:100%;margin-top:16px;justify-content:center">
+    <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+    Delete node
+  </button>`;
+
+  propsBody.innerHTML = html;
+
+  // Bind live prop updates
+  function _save() {
+    const n = nodes.find(x => x.id === nodeId);
+    if (!n) return;
+    n.label = document.getElementById('propLabel')?.value || n.label;
+    if (n.type === 'prompt')      n.config.prompt      = document.getElementById('propPrompt')?.value || '';
+    if (n.type === 'specialist')  n.config.specialist  = document.getElementById('propSpecialist')?.value || 'thinker';
+    if (n.type === 'condition')   n.config.check       = document.getElementById('propCheck')?.value || '';
+    if (n.type === 'loop')        n.config.iterations  = parseInt(document.getElementById('propIter')?.value||'2');
+    if (n.type === 'human_review') n.config.message    = document.getElementById('propMsg')?.value || '';
+    if (n.type === 'output')      n.config.format      = document.getElementById('propFmt')?.value || 'markdown';
+    markUnsaved(); renderNodes();
+  }
+  propsBody.querySelectorAll('input,select,textarea').forEach(el => el.addEventListener('input', _save));
+  document.getElementById('propDel')?.addEventListener('click', () => deleteNode(nodeId));
+}
+
+function closeProps() {
+  layout.classList.remove('props-open');
+}
+document.getElementById('propsClose').addEventListener('click', () => {
+  selectedNodeId = null;
+  closeProps();
+  renderNodes();
+});
+
+// ── Canvas events ─────────────────────────────────────────────────────
+// Pan
+canvasWrap.addEventListener('mousedown', e => {
+  if (e.button === 1 || (e.button === 0 && !draggingNode && !connectingFrom)) {
+    if (e.target === canvasWrap || e.target === canvasInner || e.target === canvasSvg) {
+      isPanning = true;
+      panStart = {x: e.clientX - panX, y: e.clientY - panY};
+      e.preventDefault();
+      selectedNodeId = null; selectedEdgeId = null;
+      closeProps(); renderNodes(); renderEdges();
+    }
+  }
+});
+
+window.addEventListener('mousemove', e => {
+  if (isPanning) {
+    panX = e.clientX - panStart.x;
+    panY = e.clientY - panStart.y;
+    applyTransform();
+    return;
+  }
+  if (draggingNode) {
+    const cv = toCanvas(e.clientX, e.clientY);
+    const node = nodes.find(n => n.id === draggingNode);
+    if (node) {
+      node.x = Math.max(0, dragNodeStart.nx + cv.x - dragNodeStart.mx);
+      node.y = Math.max(0, dragNodeStart.ny + cv.y - dragNodeStart.my);
+      const el = canvasInner.querySelector(`.wf-node[data-nid="${draggingNode}"]`);
+      if (el) { el.style.left = node.x + 'px'; el.style.top = node.y + 'px'; }
+      renderEdges();
+    }
+    return;
+  }
+  if (connectingFrom) {
+    const cv = toCanvas(e.clientX, e.clientY);
+    connectingMouse = cv;
+    renderEdges();
+  }
+});
+
+window.addEventListener('mouseup', e => {
+  if (isPanning) { isPanning = false; return; }
+  if (draggingNode) { markUnsaved(); draggingNode = null; return; }
+});
+
+// Cancel connection on Escape
+window.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { connectingFrom = null; renderEdges(); }
+  if ((e.key === 'Delete' || e.key === 'Backspace') && document.activeElement.tagName === 'BODY') {
+    if (selectedNodeId) deleteNode(selectedNodeId);
+    if (selectedEdgeId) { edges = edges.filter(x => x.id !== selectedEdgeId); selectedEdgeId = null; markUnsaved(); render(); }
+  }
+});
+
+// Click canvas background → deselect
+canvasWrap.addEventListener('click', e => {
+  if (e.target === canvasWrap || e.target === canvasInner) {
+    connectingFrom = null; selectedNodeId = null; selectedEdgeId = null;
+    closeProps(); renderNodes(); renderEdges();
+  }
+});
+
+// Zoom with scroll
+canvasWrap.addEventListener('wheel', e => {
+  e.preventDefault();
+  const rect = canvasWrap.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const delta = e.deltaY < 0 ? 1.1 : 0.9;
+  const newScale = Math.min(2, Math.max(0.3, scale * delta));
+  // Keep point under cursor fixed
+  panX = mx - (mx - panX) * (newScale / scale);
+  panY = my - (my - panY) * (newScale / scale);
+  scale = newScale;
+  applyTransform();
+}, { passive: false });
+
+// ── Palette drag-to-canvas ─────────────────────────────────────────────
+function buildPalette() {
+  const section = palette.querySelector('.palette-section');
+  const hint = palette.querySelector('.palette-hint');
+  const frag = document.createDocumentFragment();
+  for (const [type, info] of Object.entries(nodeTypes)) {
+    const el = document.createElement('div');
+    el.className = 'palette-node';
+    el.draggable = true;
+    el.dataset.type = type;
+    el.innerHTML = `<span class="pn-icon">${info.icon}</span>
+      <div class="pn-body">
+        <div class="pn-label">${esc(info.label)}</div>
+        <div class="pn-desc">${esc(info.desc||'')}</div>
+      </div>`;
+    el.addEventListener('dragstart', ev => {
+      draggingPaletteType = type;
+      ev.dataTransfer.effectAllowed = 'copy';
+    });
+    el.addEventListener('dragend', () => { draggingPaletteType = null; });
+    frag.appendChild(el);
+  }
+  palette.insertBefore(frag, hint);
+}
+
+canvasWrap.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+canvasWrap.addEventListener('drop', e => {
+  e.preventDefault();
+  if (!draggingPaletteType) return;
+  const cv = toCanvas(e.clientX, e.clientY);
+  const type = draggingPaletteType;
+  const nt = nodeTypes[type] || {};
+  const node = {
+    id: uid(), type,
+    label: nt.label || type,
+    config: _defaultConfig(type),
+    x: Math.max(0, cv.x - NODE_W/2),
+    y: Math.max(0, cv.y - NODE_H/2),
+  };
+  nodes.push(node);
+  draggingPaletteType = null;
+  markUnsaved(); render();
+  selectNode(node.id);
+});
+
+function _defaultConfig(type) {
+  if (type === 'prompt')      return {prompt: ''};
+  if (type === 'specialist')  return {specialist: 'researcher'};
+  if (type === 'condition')   return {check: ''};
+  if (type === 'loop')        return {iterations: 2};
+  if (type === 'human_review')return {message: 'Please review before continuing.'};
+  if (type === 'output')      return {format: 'markdown'};
+  return {};
+}
+
+// ── Status ────────────────────────────────────────────────────────────
+function markUnsaved() {
+  wfStatus.textContent = 'unsaved';
+  wfStatus.style.color = 'var(--am)';
+}
+function markSaved() {
+  wfStatus.textContent = 'saved';
+  wfStatus.style.color = 'var(--gr)';
+}
+
+// ── Save ──────────────────────────────────────────────────────────────
+document.getElementById('saveBtn').addEventListener('click', saveWorkflow);
+
+async function saveWorkflow() {
+  const name = wfName.value.trim() || 'Untitled workflow';
+  wfName.value = name;
+  const payload = {
+    id: currentWfId || undefined,
+    name,
+    description: '',
+    nodes: nodes.map(n => ({id:n.id, type:n.type, label:n.label, config:n.config, x:n.x, y:n.y})),
+    edges: edges.map(e => ({id:e.id, source:e.source, target:e.target, label:e.label||''})),
+  };
+  try {
+    const { workflow } = await api.saveWorkflow(payload);
+    currentWfId = workflow.id;
+    markSaved();
+    toast('success', 'Saved', name);
+  } catch(err) {
+    toast('error', 'Save failed', err.message);
+  }
+}
+
+// ── Run ───────────────────────────────────────────────────────────────
+document.getElementById('runBtn').addEventListener('click', async () => {
+  if (!currentWfId) {
+    toast('warning', 'Save first', 'Please save the workflow before running.');
+    return;
+  }
+  const runBtn = document.getElementById('runBtn');
+  runBtn.disabled = true;
+  runBtn.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2.5" fill="none"><circle cx="12" cy="12" r="10"/></svg> Running…';
+  // Mark nodes running
+  nodes.forEach(n => canvasInner.querySelector(`.wf-node[data-nid="${n.id}"]`)?.classList.add('running'));
+
+  try {
+    const result = await api.runWorkflow(currentWfId, {});
+    showRunResults(result);
+    // Mark done
+    nodes.forEach(n => {
+      const el = canvasInner.querySelector(`.wf-node[data-nid="${n.id}"]`);
+      if (el) { el.classList.remove('running'); el.classList.add('done'); }
+    });
+    setTimeout(() => nodes.forEach(n => canvasInner.querySelector(`.wf-node[data-nid="${n.id}"]`)?.classList.remove('done')), 3000);
+  } catch(err) {
+    toast('error', 'Run failed', err.message);
+    nodes.forEach(n => canvasInner.querySelector(`.wf-node[data-nid="${n.id}"]`)?.classList.remove('running'));
+  } finally {
+    runBtn.disabled = false;
+    runBtn.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2.5" fill="none"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run';
+  }
+});
+
+function showRunResults(result) {
+  const icons = {prompt:'💬',specialist:'🤖',condition:'❓',loop:'🔁',human_review:'👤',output:'📤'};
+  runDrawerBody.innerHTML = '';
+  if (result.error) {
+    runDrawerBody.innerHTML = `<div class="run-step error-step"><span class="step-icon">❌</span><div class="step-body"><div class="step-label">Error</div><div class="step-out">${esc(result.error)}</div></div></div>`;
+  }
+  for (const step of (result.steps||[])) {
+    const div = document.createElement('div');
+    div.className = 'run-step';
+    div.innerHTML = `<span class="step-icon">${icons[step.node_type]||'▸'}</span>
+      <div class="step-body">
+        <div class="step-label">${esc(step.label)} <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--subtle);margin-left:6px">${esc(step.node_type)}</span></div>
+        <div class="step-out">${esc(step.output||'(no output)')}</div>
+      </div>`;
+    runDrawerBody.appendChild(div);
+  }
+  if (result.output) {
+    const out = document.createElement('div');
+    out.innerHTML = `<p style="font-family:'Sora',sans-serif;font-size:10.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--subtle);margin-bottom:8px">Final Output</p>`;
+    const pre = document.createElement('div');
+    pre.className = 'run-output';
+    pre.textContent = result.output;
+    out.appendChild(pre);
+    runDrawerBody.appendChild(out);
+  }
+  runTiming.textContent = result.duration_ms ? `${(result.duration_ms/1000).toFixed(2)}s` : '';
+  runDrawer.classList.add('open');
+}
+
+document.getElementById('runDrawerClose').addEventListener('click', () => runDrawer.classList.remove('open'));
+
+// ── Templates ─────────────────────────────────────────────────────────
+document.getElementById('templatesBtn').addEventListener('click', () => {
+  tplOverlay.classList.add('show');
+  loadTemplates();
+});
+document.getElementById('tplClose').addEventListener('click', () => tplOverlay.classList.remove('show'));
+tplOverlay.addEventListener('click', e => { if (e.target === tplOverlay) tplOverlay.classList.remove('show'); });
+
+async function loadTemplates() {
+  tplGrid.innerHTML = '<p style="color:var(--subtle);font-size:13px">Loading…</p>';
+  try {
+    const { templates } = await api.workflowTemplates();
+    tplGrid.innerHTML = templates.map(t => `
+      <div class="tpl-card" data-tid="${esc(t.id)}">
+        <div class="tpl-icon">${esc(t.icon||'📋')}</div>
+        <div class="tpl-name">${esc(t.name)}</div>
+        <div class="tpl-desc">${esc(t.description||'')}</div>
+      </div>`).join('');
+    tplGrid.querySelectorAll('.tpl-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const tpl = templates.find(t => t.id === card.dataset.tid);
+        if (!tpl) return;
+        if (nodes.length && !confirm('Load template? This will replace your current canvas.')) return;
+        loadTemplate(tpl);
+        tplOverlay.classList.remove('show');
+      });
+    });
+  } catch(err) {
+    tplGrid.innerHTML = `<p style="color:var(--co);font-size:13px">Could not load templates: ${esc(err.message)}</p>`;
+  }
+}
+
+function loadTemplate(tpl) {
+  nodes = tpl.nodes.map(n => ({...n}));
+  edges = tpl.edges.map(e => ({...e}));
+  wfName.value = tpl.name;
+  currentWfId = null;
+  markUnsaved();
+  // Remove existing node elements
+  canvasInner.querySelectorAll('.wf-node').forEach(el => el.remove());
+  render();
+  toast('success', 'Template loaded', tpl.name);
+}
+
+// ── Clear ────────────────────────────────────────────────────────────
+document.getElementById('clearBtn').addEventListener('click', () => {
+  if (!nodes.length || confirm('Clear the canvas?')) {
+    nodes = []; edges = [];
+    currentWfId = null;
+    canvasInner.querySelectorAll('.wf-node').forEach(el => el.remove());
+    closeProps(); markUnsaved(); render();
+  }
+});
+
+// ── URL: load existing workflow ───────────────────────────────────────
+async function init() {
+  try {
+    const { node_types } = await api.workflowTemplates();
+    nodeTypes = node_types || {};
+    buildPalette();
+  } catch(e) {
+    console.warn('Could not fetch node types:', e);
+    // Fallback
+    nodeTypes = {
+      prompt:       {label:'Prompt',       icon:'💬', color:'#7C3AED', desc:'Send a prompt'},
+      specialist:   {label:'Specialist',   icon:'🤖', color:'#3B82F6', desc:'Delegate to a specialist'},
+      condition:    {label:'Condition',    icon:'❓', color:'#F59E0B', desc:'Branch yes/no'},
+      loop:         {label:'Loop',         icon:'🔁', color:'#22C55E', desc:'Repeat N times'},
+      human_review: {label:'Human Review', icon:'👤', color:'#FB7185', desc:'Wait for approval'},
+      output:       {label:'Output',       icon:'📤', color:'#A78BFA', desc:'Final result'},
+    };
+    buildPalette();
+  }
+
+  const params = new URLSearchParams(location.search);
+  const wid = params.get('id');
+  if (wid) {
+    try {
+      const { workflow: wf } = await api.getWorkflow(wid);
+      nodes = wf.nodes || [];
+      edges = wf.edges || [];
+      wfName.value = wf.name || '';
+      currentWfId = wf.id;
+      markSaved();
+      render();
+    } catch(e) {
+      toast('error', 'Could not load workflow', e.message);
+    }
+  } else {
+    render();
+  }
+}
+
+init();
+</script>
+</body>
+</html>

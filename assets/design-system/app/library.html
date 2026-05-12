@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Library · Metis</title>
+<link rel="icon" href="../assets/favicon.svg">
+<link rel="stylesheet" href="../colors_and_type.css">
+<link rel="stylesheet" href="settings.css">
+<style>
+.lib-main { padding: 40px 56px 80px; max-width: 1100px; }
+.lib-search { display: flex; gap: 10px; margin-bottom: 22px; align-items: center; }
+.lib-search-input { flex: 1; position: relative; }
+.lib-search-input svg { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; stroke: var(--text-subtle); stroke-width: 2; fill: none; }
+.lib-search-input input { width: 100%; height: 44px; padding: 0 16px 0 40px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface); font-size: 14.5px; font-family: var(--font-body); color: var(--text); }
+.lib-search-input input:focus { outline: none; border-color: var(--heritage-violet); box-shadow: 0 0 0 3px rgba(124,58,237,.15); }
+.lib-tabs { display: flex; gap: 4px; padding: 4px; background: var(--surface-alt); border-radius: 10px; margin-bottom: 22px; width: fit-content; }
+.lib-tab { padding: 7px 14px; border-radius: 7px; font-size: 13px; font-weight: 600; color: var(--text-muted); cursor: pointer; transition: all .15s; background: none; border: none; font-family: inherit; display: inline-flex; align-items: center; gap: 6px; }
+.lib-tab:hover { color: var(--text); }
+.lib-tab.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-xs); }
+.lib-tab .count { font-family: var(--font-mono); font-size: 10.5px; padding: 1px 6px; border-radius: 999px; background: var(--surface-alt); color: var(--text-subtle); }
+.lib-tab.active .count { background: var(--primary-soft); color: var(--primary); }
+.lib-filters { display: flex; gap: 8px; margin-bottom: 18px; align-items: center; flex-wrap: wrap; }
+.lib-filter { font-family: var(--font-mono); font-size: 11px; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); cursor: pointer; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; }
+.lib-filter:hover { border-color: var(--border-strong); color: var(--text); }
+.lib-filter.active { background: var(--text); color: #fff; border-color: var(--text); }
+.lib-divider { font-family: var(--font-mono); font-size: 11px; color: var(--text-subtle); letter-spacing: 0.06em; text-transform: uppercase; margin: 22px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); font-weight: 600; }
+.lib-list { display: flex; flex-direction: column; }
+.lib-item { display: flex; align-items: center; gap: 14px; padding: 14px 12px; border-radius: 10px; cursor: pointer; transition: all .12s; border: 1px solid transparent; }
+.lib-item:hover { background: var(--surface); border-color: var(--border); }
+.lib-item .icn { width: 36px; height: 36px; border-radius: 9px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.lib-item .icn svg { width: 18px; height: 18px; stroke: currentColor; stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.lib-item.chat .icn { background: var(--primary-soft-2); color: var(--primary); }
+.lib-item.mission .icn { background: rgba(124,58,237,.12); color: var(--heritage-violet); }
+.lib-item.artifact .icn { background: var(--energy-soft); color: var(--energy); }
+.lib-item.automation .icn { background: var(--warning-soft); color: var(--warning); }
+.lib-item .body { flex: 1; min-width: 0; }
+.lib-item .title { font-size: 14.5px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lib-item .preview { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lib-item .meta { display: flex; gap: 10px; align-items: center; flex-shrink: 0; font-family: var(--font-mono); font-size: 11px; color: var(--text-subtle); }
+.lib-item .tag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; background: var(--surface-alt); }
+.lib-item.chat .tag { background: var(--primary-soft); color: var(--primary); }
+.lib-item.mission .tag { background: rgba(124,58,237,.1); color: var(--heritage-violet); }
+.lib-item.artifact .tag { background: var(--energy-soft); color: var(--energy); }
+.lib-item.automation .tag { background: var(--warning-soft); color: var(--warning); }
+.lib-item .star { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0; transition: opacity .15s; }
+.lib-item:hover .star { opacity: 1; }
+.lib-item .star svg { width: 14px; height: 14px; stroke: var(--text-subtle); stroke-width: 1.8; fill: none; }
+.lib-item .star.starred svg { fill: var(--warning); stroke: var(--warning); opacity: 1 !important; }
+.lib-item .star.starred { opacity: 1; }
+.empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); font-size: 14px; }
+.empty-state .icn { width: 64px; height: 64px; margin: 0 auto 16px; border-radius: 16px; background: var(--surface-alt); display: flex; align-items: center; justify-content: center; }
+.empty-state .icn svg { width: 28px; height: 28px; stroke: var(--text-subtle); stroke-width: 1.6; fill: none; }
+.empty-state .ti { font-family: var(--font-display); font-size: 18px; font-weight: 650; color: var(--text); margin-bottom: 6px; }
+</style>
+</head>
+<body>
+
+<div class="titlebar"><div class="traffic"><span class="r"></span><span class="y"></span><span class="g"></span></div><div class="title">metis · library</div><div style="width:56px"></div></div>
+
+<div class="s-shell">
+  <aside class="s-side">
+    <a class="brand" href="../onboarding/index.html"><img src="../assets/metis-mark-starburst.svg" alt=""><span class="wm">Met<em>i</em>s</span></a>
+    <a class="back" href="../ui_kits/metis-app/index.html"><svg viewBox="0 0 24 24"><path d="M19 12H5M11 19l-7-7 7-7"/></svg> Back to Metis</a>
+
+    <h2>Browse</h2>
+    <a class="nav active"><svg viewBox="0 0 24 24"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg> All library</a>
+    <a class="nav"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></svg> Starred</a>
+    <a class="nav"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg> Trash</a>
+
+    <h2>Filter by date</h2>
+    <a class="nav"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> Today</a>
+    <a class="nav"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> This week</a>
+    <a class="nav"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> This month</a>
+    <a class="nav"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> Older</a>
+  </aside>
+
+  <main class="lib-main">
+    <header class="s-page-head"><h1>Library</h1><p>Every chat, mission, automation, and artifact in one searchable place.</p></header>
+
+    <div class="lib-search">
+      <div class="lib-search-input">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3" stroke-linecap="round"/></svg>
+        <input id="searchInput" type="text" placeholder="Search across chats, missions, artifacts, automations…">
+      </div>
+    </div>
+
+    <div class="lib-tabs">
+      <button class="lib-tab active" data-tab="all">All <span class="count">142</span></button>
+      <button class="lib-tab" data-tab="chat">Chats <span class="count">98</span></button>
+      <button class="lib-tab" data-tab="mission">Missions <span class="count">24</span></button>
+      <button class="lib-tab" data-tab="artifact">Artifacts <span class="count">16</span></button>
+      <button class="lib-tab" data-tab="automation">Automations <span class="count">4</span></button>
+    </div>
+
+    <div class="lib-filters">
+      <button class="lib-filter active">All time</button>
+      <button class="lib-filter">Last 7 days</button>
+      <button class="lib-filter">Last 30 days</button>
+      <button class="lib-filter">Starred only</button>
+      <span style="margin-left: auto; font-family: var(--font-mono); font-size: 11px; color: var(--text-subtle); letter-spacing: 0.04em;">SORT · MOST RECENT</span>
+    </div>
+
+    <div id="resultsArea">
+      <div class="lib-divider">Today</div>
+      <div class="lib-list" data-group="today">
+        <div class="lib-item chat" data-type="chat"><div class="icn"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div class="body"><div class="title">Pricing model for self-serve tier</div><div class="preview">You: walk me through three options for our pricing… · Smart · 28 messages</div></div><div class="meta"><span class="tag">Chat</span><span>2:14 PM</span></div><div class="star"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></svg></div></div>
+        <div class="lib-item mission" data-type="mission"><div class="icn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg></div><div class="body"><div class="title">Map top 5 competitors</div><div class="preview">8 of 8 steps complete · 6 sources · 1 artifact generated</div></div><div class="meta"><span class="tag">Mission</span><span>1:42 PM</span></div><div class="star starred"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></svg></div></div>
+        <div class="lib-item artifact" data-type="artifact"><div class="icn"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg></div><div class="body"><div class="title">competitor-map.md</div><div class="preview">Generated by mission "Map top 5 competitors" · 2,400 words</div></div><div class="meta"><span class="tag">Artifact</span><span>1:48 PM</span></div><div class="star"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></svg></div></div>
+        <div class="lib-item chat" data-type="chat"><div class="icn"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div class="body"><div class="title">Quick: refactor this React component</div><div class="preview">You: this is getting messy, can you split it into… · Fast · 6 messages</div></div><div class="meta"><span class="tag">Chat</span><span>11:08 AM</span></div><div class="star"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></svg></div></div>
+        <div class="lib-item automation" data-type="automation"><div class="icn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div><div class="body"><div class="title">Morning brief · Daily at 7:30 AM</div><div class="preview">Pulls calendar, top emails, yesterday's tasks · last run today</div></div><div class="meta"><span class="tag">Automation</span><span>7:30 AM</span></div><div class="star starred"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></svg></div></div>
+      </div>
+
+      <div class="lib-divider">Yesterday</div>
+      <div class="lib-list" data-group="yesterday">
+        <div class="lib-item chat" data-type="chat"><div class="icn"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div class="body"><div class="title">Drafting a board update email</div><div class="preview">You: help me write the November update for investors… · Smart · 14 messages</div></div><div class="meta"><span class="tag">Chat</span><span>5:21 PM</span></div><div class="star"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></svg></div></div>
+        <div class="lib-item mission" data-type="mission"><div class="icn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg></div><div class="body"><div class="title">Recap last week's all-hands</div><div class="preview">4 of 4 steps complete · transcript ingested · summary generated</div></div><div class="meta"><span class="tag">Mission</span><span>4:02 PM</span></div><div class="star"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></svg></div></div>
+        <div class="lib-item artifact" data-type="artifact"><div class="icn"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></div><div class="body"><div class="title">all-hands-recap.md</div><div class="preview">8 decisions, 12 owners, 6 next steps · 920 words</div></div><div class="meta"><span class="tag">Artifact</span><span>4:08 PM</span></div><div class="star starred"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></svg></div></div>
+        <div class="lib-item chat" data-type="chat"><div class="icn"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div class="body"><div class="title">SQL: aggregate daily active users by cohort</div><div class="preview">You: I have a users table with signup_date, write me a query… · Smart · 11 messages</div></div><div class="meta"><span class="tag">Chat</span><span>2:14 PM</span></div><div class="star"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></svg></div></div>
+      </div>
+
+      <div class="lib-divider">Earlier this week</div>
+      <div class="lib-list" data-group="earlier">
+        <div class="lib-item chat" data-type="chat"><div class="icn"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div class="body"><div class="title">Brainstorming names for the launch event</div><div class="preview">You: we need something punchy that doesn't sound like a webinar… · Fast · 22 messages</div></div><div class="meta"><span class="tag">Chat</span><span>Mon, 4:48 PM</span></div><div class="star"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></svg></div></div>
+        <div class="lib-item mission" data-type="mission"><div class="icn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg></div><div class="body"><div class="title">Generate project README from repo</div><div class="preview">6 of 6 steps complete · operator/metis-cli · README.md updated</div></div><div class="meta"><span class="tag">Mission</span><span>Mon, 11:22 AM</span></div><div class="star"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></svg></div></div>
+        <div class="lib-item automation" data-type="automation"><div class="icn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div><div class="body"><div class="title">Friday wrap · Weekly on Fri 5 PM</div><div class="preview">Recaps shipped work, metrics, blockers · last run 3 days ago</div></div><div class="meta"><span class="tag">Automation</span><span>Fri, 5:00 PM</span></div><div class="star"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></svg></div></div>
+        <div class="lib-item artifact" data-type="artifact"><div class="icn"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></div><div class="body"><div class="title">launch-checklist.csv</div><div class="preview">42 rows · owner, status, due — generated from chat thread</div></div><div class="meta"><span class="tag">Artifact</span><span>Sun, 8:14 PM</span></div><div class="star"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></svg></div></div>
+      </div>
+
+      <div class="empty-state" id="emptyState" style="display:none;">
+        <div class="icn"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></div>
+        <div class="ti">No matches</div>
+        <div>Try a different search term, or clear filters to browse everything.</div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+// Tab filter
+const tabs = document.querySelectorAll('.lib-tab');
+const items = document.querySelectorAll('.lib-item');
+const groups = document.querySelectorAll('.lib-list');
+const dividers = document.querySelectorAll('.lib-divider');
+const emptyState = document.getElementById('emptyState');
+const search = document.getElementById('searchInput');
+let activeTab = 'all';
+let activeQuery = '';
+function applyFilters() {
+  let total = 0;
+  groups.forEach((g, idx) => {
+    let visibleInGroup = 0;
+    g.querySelectorAll('.lib-item').forEach(it => {
+      const type = it.dataset.type;
+      const text = (it.querySelector('.title').textContent + ' ' + it.querySelector('.preview').textContent).toLowerCase();
+      const matchTab = activeTab === 'all' || type === activeTab;
+      const matchQuery = !activeQuery || text.includes(activeQuery.toLowerCase());
+      const visible = matchTab && matchQuery;
+      it.style.display = visible ? 'flex' : 'none';
+      if (visible) { visibleInGroup++; total++; }
+    });
+    g.style.display = visibleInGroup ? 'flex' : 'none';
+    if (dividers[idx]) dividers[idx].style.display = visibleInGroup ? 'block' : 'none';
+  });
+  emptyState.style.display = total ? 'none' : 'block';
+}
+tabs.forEach(t => t.addEventListener('click', () => {
+  tabs.forEach(x => x.classList.remove('active'));
+  t.classList.add('active');
+  activeTab = t.dataset.tab;
+  applyFilters();
+}));
+search.addEventListener('input', () => { activeQuery = search.value.trim(); applyFilters(); });
+
+// Star toggle
+document.querySelectorAll('.lib-item .star').forEach(s => {
+  s.addEventListener('click', (e) => { e.stopPropagation(); s.classList.toggle('starred'); });
+});
+
+// Filter pills
+document.querySelectorAll('.lib-filter').forEach(f => f.addEventListener('click', () => {
+  document.querySelectorAll('.lib-filter').forEach(x => x.classList.remove('active'));
+  f.classList.add('active');
+}));
+</script>
+
+</body>
+</html>

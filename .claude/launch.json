@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "metis-ui",
+      "runtimeExecutable": "C:\\Users\\omiol\\OneDrive\\Desktop\\Metis_Command\\metis-env\\Scripts\\python.exe",
+      "runtimeArgs": ["-m", "uvicorn", "api_bridge:app", "--host", "127.0.0.1", "--port", "7331"],
+      "port": 7331
+    },
+    {
+      "name": "logo-test",
+      "runtimeExecutable": "C:\\Users\\omiol\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+      "runtimeArgs": ["-m", "http.server", "7339", "-d", "C:\\Users\\omiol\\OneDrive\\Desktop\\Metis_Command\\frontend"],
+      "port": 7339
+    },
+    {
+      "name": "calm-gem",
+      "runtimeExecutable": "C:\\Users\\omiol\\OneDrive\\Desktop\\calm-gem\\.venv\\Scripts\\python.exe",
+      "runtimeArgs": ["-m", "uvicorn", "main:app", "--host", "127.0.0.1", "--port", "8400"],
+      "port": 8400
+    }
+  ]
+}

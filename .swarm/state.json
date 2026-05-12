@@ -1,0 +1,41 @@
+{
+  "swarmId": "swarm-mp1xj1ij",
+  "objective": "Phase 14 for Metis Command MVP: 1) Swap brain_engine.py to use OpenRouter API (model: nvidia/nemotron-3-super-120b-a12b:free, base: https://openrouter.ai/api/v1, key from .env OPENROUTER_API_KEY). Remove all other paid model providers (OpenAI, Groq, GLM). 2) Add job/task classifier to manager_orchestrator.py - Manager reads user message and determines if it's a recurring job or one-time task. 3) Add jobs SQLite table to memory.py (id, title, schedule, status, created_at). 4) Add /jobs API routes to api_bridge.py. 5) Add jobs sidebar panel to frontend/app.html. 6) Auto-delete completed tasks. Working dir: C:/Users/omiol/Desktop/Metis_Command/",
+  "strategy": "development",
+  "status": "initialized",
+  "agents": 8,
+  "agentPlan": [
+    {
+      "role": "Coordinator",
+      "type": "coordinator",
+      "count": 1,
+      "purpose": "Orchestrate workflow"
+    },
+    {
+      "role": "Architect",
+      "type": "architect",
+      "count": 1,
+      "purpose": "System design"
+    },
+    {
+      "role": "Coder",
+      "type": "coder",
+      "count": 3,
+      "purpose": "Implementation"
+    },
+    {
+      "role": "Tester",
+      "type": "tester",
+      "count": 2,
+      "purpose": "Quality assurance"
+    },
+    {
+      "role": "Reviewer",
+      "type": "reviewer",
+      "count": 1,
+      "purpose": "Code review"
+    }
+  ],
+  "startedAt": "2026-05-12T01:05:50.455Z",
+  "parallel": true
+}

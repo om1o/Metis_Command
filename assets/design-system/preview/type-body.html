@@ -1,0 +1,125 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css"><style>
+body { padding: 22px 26px; width: 700px; }
+.head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; }
+.head .ttl { font-family: var(--font-display); font-size: 15px; font-weight: 700; color: var(--text); }
+.head .stack { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
+.head .stack b { color: var(--text); font-weight: 600; }
+
+.tbl { width: 100%; border-collapse: collapse; font-family: var(--font-body); }
+.tbl th { text-align: left; font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-subtle); padding: 6px 10px 6px 0; border-bottom: 1px solid var(--border); }
+.tbl td { padding: 8px 10px 8px 0; border-bottom: 1px dashed var(--border); vertical-align: baseline; }
+.tbl tr:last-child td { border-bottom: none; }
+.tbl .role { width: 130px; }
+.tbl .role .lab { font-size: 13px; font-weight: 600; color: var(--text); letter-spacing: 0.01em; }
+.tbl .role .var { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-subtle); margin-top: 1px; }
+.tbl .sample { color: var(--text); }
+.tbl .spec { width: 150px; text-align: right; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); font-feature-settings: "tnum" 1, "lnum" 1; }
+.tbl .where { width: 200px; font-size: 11.5px; color: var(--text-muted); }
+
+/* sample variants */
+.s-body  { font-family: var(--font-body); font-size: 16px; line-height: 1.6;  font-weight: 450; letter-spacing: 0; }
+.s-body2 { font-family: var(--font-body); font-size: 15px; line-height: 1.6;  font-weight: 450; letter-spacing: 0; color: var(--text-muted); }
+.s-small { font-family: var(--font-body); font-size: 14px; line-height: 1.55; font-weight: 450; color: var(--text-muted); }
+.s-micro { font-family: var(--font-body); font-size: 13px; line-height: 1.4;  font-weight: 500; color: var(--text); }
+.s-btn   { font-family: var(--font-body); font-size: 15px; line-height: 1.2;  font-weight: 650; letter-spacing: 0.01em; color: var(--text); }
+.s-input { font-family: var(--font-body); font-size: 15px; line-height: 1.3;  font-weight: 450; color: var(--text); }
+.s-tbl   { font-family: var(--font-body); font-size: 14px; line-height: 1.4;  font-weight: 450; color: var(--text); font-feature-settings: "tnum" 1, "lnum" 1; }
+.s-eye   { font-family: var(--font-body); font-size: 11px; line-height: 1.2;  font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-subtle); }
+
+.foot { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.col h4 { font-size: 10.5px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-subtle); margin: 0 0 6px; }
+.col ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.col li { font-size: 11.5px; color: var(--text-muted); line-height: 1.45; }
+.col li b { color: var(--text); font-weight: 600; }
+.col li code { font-family: var(--font-mono); font-size: 10.5px; color: var(--text); background: var(--surface-alt); padding: 1px 5px; border-radius: 4px; }
+
+.tnum-demo { font-family: var(--font-mono); font-size: 11.5px; color: var(--text); background: var(--surface-alt); padding: 2px 7px; border-radius: 5px; font-feature-settings: "tnum" 1, "lnum" 1; }
+</style></head><body>
+
+<div class="head">
+  <div class="ttl">Body &amp; UI typography</div>
+  <div class="stack"><b>Inter</b> 450 / 500 / 650 &nbsp;·&nbsp; <b>JetBrains Mono</b> 500 (metrics)</div>
+</div>
+
+<table class="tbl">
+  <thead>
+    <tr><th>Role</th><th>Specimen</th><th>Where</th><th class="spec">Spec</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="role"><div class="lab">Body</div><div class="var">--text-body</div></td>
+      <td><span class="sample s-body">Saved to ~/metis/runs/2026-04-25/notes.md.</span></td>
+      <td class="where">Chat, prose, settings descriptions</td>
+      <td class="spec">16 / 1.6 / 450</td>
+    </tr>
+    <tr>
+      <td class="role"><div class="lab">Body secondary</div><div class="var">--text-body-2</div></td>
+      <td><span class="sample s-body2">Mirrored to cloud · 12 minutes ago.</span></td>
+      <td class="where">Captions under titles, meta rows</td>
+      <td class="spec">15 / 1.6 / 450</td>
+    </tr>
+    <tr>
+      <td class="role"><div class="lab">Small / help</div><div class="var">--text-small</div></td>
+      <td><span class="sample s-small">Encrypted at rest. We never read your artifacts.</span></td>
+      <td class="where">Form helpers, footnotes, toasts</td>
+      <td class="spec">14 / 1.55 / 450</td>
+    </tr>
+    <tr>
+      <td class="role"><div class="lab">Micro / label</div><div class="var">--text-micro</div></td>
+      <td><span class="sample s-micro">Mission name</span></td>
+      <td class="where">Field labels, table cells (dense)</td>
+      <td class="spec">13 / 1.4 / 500</td>
+    </tr>
+    <tr>
+      <td class="role"><div class="lab">Button</div><div class="var">--text-button</div></td>
+      <td><span class="sample s-btn">Start mission</span></td>
+      <td class="where">All buttons; +0.01em tracking</td>
+      <td class="spec">15 / 1.2 / 650</td>
+    </tr>
+    <tr>
+      <td class="role"><div class="lab">Input</div><div class="var">--text-input</div></td>
+      <td><span class="sample s-input">find 30 fintech leads, draft outreach</span></td>
+      <td class="where">Text inputs, textareas, selects</td>
+      <td class="spec">15 / 1.3 / 450</td>
+    </tr>
+    <tr>
+      <td class="role"><div class="lab">Table</div><div class="var">--text-table</div></td>
+      <td><span class="sample s-tbl">run_a91f4c &nbsp; <span class="tnum-demo">12,840 tok · $0.142</span></span></td>
+      <td class="where">Cells; tabular-nums on numerics</td>
+      <td class="spec">14 / 1.4 / 450</td>
+    </tr>
+    <tr>
+      <td class="role"><div class="lab">Eyebrow</div><div class="var">--text-eyebrow</div></td>
+      <td><span class="sample s-eye">Recent missions</span></td>
+      <td class="where">Tiny section labels (only place CAPS)</td>
+      <td class="spec">11 / 1.2 / 600</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="foot">
+  <div class="col">
+    <h4>Component rules</h4>
+    <ul>
+      <li><b>Sidebar nav:</b> 14/1.2/500. Active 650.</li>
+      <li><b>Chat — user:</b> 15/1.55/500 · <b>assistant:</b> 15/1.6/450.</li>
+      <li><b>Toasts:</b> 14/1.45/500. Title 650 inline.</li>
+      <li><b>Chips/badges:</b> 12/1.4/600. Sentence case.</li>
+      <li><b>Code block:</b> Mono 13/1.55/500. Inline code Mono 13/450.</li>
+      <li><b>Numerics anywhere:</b> Mono + <code>tnum + lnum</code>.</li>
+    </ul>
+  </div>
+  <div class="col">
+    <h4>Accessibility</h4>
+    <ul>
+      <li><b>AA contrast</b> on all text: body ≥4.5:1, large ≥3:1.</li>
+      <li><b>Min size</b> 13px. No 11–12px outside eyebrows/dot-labels.</li>
+      <li><b>No thin weights</b> (≤300) anywhere — light bg burns them out.</li>
+      <li><b>Focus:</b> 3px <code>--shadow-focus</code> ring on all controls.</li>
+      <li><b>Tracking:</b> body 0em · labels/buttons +0.01em only.</li>
+    </ul>
+  </div>
+</div>
+
+</body></html>

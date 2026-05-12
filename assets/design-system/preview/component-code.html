@@ -1,0 +1,211 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css"><style>
+body { padding: 24px 28px; background: var(--bg); width: 640px; }
+
+/* ── Code block container ─────────────────── */
+.code-block {
+  --cb-surface:    #FFFFFF;
+  --cb-head-bg:    #FAFBFC;
+  --cb-border:     #E2E8F0;
+  --cb-text:       #1F2937;
+  --cb-muted:      #475569;
+  --cb-subtle:     #94A3B8;
+  --cb-line-num:   #CBD5E1;
+  --cb-hover:      #F1F5F9;
+  --cb-shadow:     0 1px 2px rgba(15, 23, 42, .04);
+
+  --tk-k:  #7C3AED;   /* keyword */
+  --tk-fn: #2563EB;   /* function */
+  --tk-cl: #0891B2;   /* class */
+  --tk-s:  #16A34A;   /* string */
+  --tk-n:  #C2410C;   /* number */
+  --tk-c:  #94A3B8;   /* comment */
+  --tk-p:  #475569;   /* punct */
+  --tk-pr: #DB2777;   /* prop */
+  --tk-b:  #0F172A;   /* default */
+
+  border: 1px solid var(--cb-border);
+  border-radius: 12px;
+  background: var(--cb-surface);
+  overflow: hidden;
+  box-shadow: var(--cb-shadow);
+  font-family: var(--font-mono);
+  transition: background .2s ease, border-color .2s ease;
+}
+
+/* Dark mode swap */
+.code-block.dark {
+  --cb-surface:    #0F172A;
+  --cb-head-bg:    #0B1322;
+  --cb-border:     #1E293B;
+  --cb-text:       #E2E8F0;
+  --cb-muted:      #94A3B8;
+  --cb-subtle:     #64748B;
+  --cb-line-num:   #334155;
+  --cb-hover:      rgba(255, 255, 255, .06);
+  --cb-shadow:     0 1px 3px rgba(0, 0, 0, .3);
+
+  --tk-k:  #C4B5FD;
+  --tk-fn: #93C5FD;
+  --tk-cl: #67E8F9;
+  --tk-s:  #86EFAC;
+  --tk-n:  #FDBA74;
+  --tk-c:  #64748B;
+  --tk-p:  #94A3B8;
+  --tk-pr: #F0ABFC;
+  --tk-b:  #E2E8F0;
+}
+
+/* Header */
+.code-block .head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px 8px 14px;
+  background: var(--cb-head-bg);
+  border-bottom: 1px solid var(--cb-border);
+  font-family: var(--font-body);
+  transition: background .2s ease, border-color .2s ease;
+}
+.code-block .lang-dot { width: 8px; height: 8px; border-radius: 50%; background: #FFD43B; box-shadow: 0 0 0 2px rgba(255, 212, 59, .25); flex-shrink: 0; }
+.code-block .lang { font-size: 11.5px; font-weight: 600; color: var(--cb-muted); font-family: var(--font-mono); letter-spacing: 0.01em; }
+.code-block .file { font-size: 11px; color: var(--cb-subtle); font-family: var(--font-mono); }
+.code-block .file::before { content: "·"; margin: 0 6px; color: var(--cb-subtle); }
+
+.code-block .actions { margin-left: auto; display: flex; gap: 2px; align-items: center; }
+
+/* Theme toggle (segmented) */
+.theme-seg {
+  display: inline-flex;
+  background: var(--cb-hover);
+  border-radius: 7px;
+  padding: 2px;
+  margin-right: 6px;
+}
+.theme-seg button {
+  border: none;
+  background: transparent;
+  width: 24px; height: 22px;
+  border-radius: 5px;
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  color: var(--cb-subtle);
+  transition: background .15s ease, color .15s ease;
+}
+.theme-seg button:hover { color: var(--cb-text); }
+.theme-seg button.active {
+  background: var(--cb-surface);
+  color: var(--cb-text);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .08);
+}
+.code-block.dark .theme-seg button.active { box-shadow: 0 1px 2px rgba(0, 0, 0, .3); }
+.theme-seg svg { width: 12px; height: 12px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+
+.code-block .iconbtn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 9px; height: 26px;
+  border-radius: 7px; border: none;
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: 12px; font-weight: 550;
+  color: var(--cb-muted);
+  cursor: pointer;
+  transition: background .12s ease, color .12s ease;
+}
+.code-block .iconbtn:hover { background: var(--cb-hover); color: var(--cb-text); }
+.code-block .iconbtn svg { width: 13px; height: 13px; stroke-width: 2; stroke: currentColor; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.code-block .iconbtn.copied { color: var(--energy); }
+.code-block.dark .iconbtn.copied { color: #4ADE80; }
+
+/* Code body */
+.code-block pre {
+  margin: 0;
+  padding: 14px 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--cb-text);
+  background: var(--cb-surface);
+  overflow-x: auto;
+  font-feature-settings: "calt" 0;
+  counter-reset: ln;
+  transition: background .2s ease, color .2s ease;
+}
+.code-block .ln { display: grid; grid-template-columns: 38px 1fr; align-items: baseline; }
+.code-block .ln::before {
+  counter-increment: ln; content: counter(ln);
+  text-align: right; padding-right: 14px;
+  color: var(--cb-line-num);
+  user-select: none;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  transition: color .2s ease;
+}
+
+.tok-k  { color: var(--tk-k); }
+.tok-fn { color: var(--tk-fn); }
+.tok-cl { color: var(--tk-cl); }
+.tok-s  { color: var(--tk-s); }
+.tok-n  { color: var(--tk-n); }
+.tok-c  { color: var(--tk-c); font-style: italic; }
+.tok-p  { color: var(--tk-p); }
+.tok-pr { color: var(--tk-pr); }
+.tok-b  { color: var(--tk-b); }
+</style></head><body>
+
+<div class="code-block" id="block">
+
+  <div class="head">
+    <span class="lang-dot"></span>
+    <span class="lang">python</span>
+    <span class="file">mission.py</span>
+
+    <div class="actions">
+      <div class="theme-seg" role="tablist" aria-label="Theme">
+        <button id="themeLight" class="active" title="Light theme" aria-label="Light theme">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+        </button>
+        <button id="themeDark" title="Dark theme" aria-label="Dark theme">
+          <svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+      </div>
+
+      <button class="iconbtn" title="Wrap lines">
+        <svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h13a4 4 0 1 1 0 8h-3l3-3m0 3-3-3M3 18h6"/></svg>
+        Wrap
+      </button>
+      <button class="iconbtn" id="copyBtn" title="Copy code">
+        <svg id="copyIcon" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+        <span id="copyLabel">Copy</span>
+      </button>
+    </div>
+  </div>
+
+  <pre><code id="codeBody"><span class="ln"><span><span class="tok-c"># Run a Metis mission</span></span></span><span class="ln"><span><span class="tok-k">from</span> <span class="tok-b">metis</span> <span class="tok-k">import</span> <span class="tok-cl">Mission</span></span></span><span class="ln"><span></span></span><span class="ln"><span><span class="tok-b">m</span> <span class="tok-p">=</span> <span class="tok-cl">Mission</span><span class="tok-p">(</span></span></span><span class="ln"><span>  <span class="tok-pr">goal</span><span class="tok-p">=</span><span class="tok-s">"Find 30 fintech ICP leads, draft first-touch emails."</span><span class="tok-p">,</span></span></span><span class="ln"><span>  <span class="tok-pr">model</span><span class="tok-p">=</span><span class="tok-s">"claude-sonnet-4.5"</span><span class="tok-p">,</span></span></span><span class="ln"><span>  <span class="tok-pr">artifacts_dir</span><span class="tok-p">=</span><span class="tok-s">"~/metis/runs"</span><span class="tok-p">,</span></span></span><span class="ln"><span>  <span class="tok-pr">timeout</span><span class="tok-p">=</span><span class="tok-n">600</span><span class="tok-p">,</span></span></span><span class="ln"><span><span class="tok-p">)</span></span></span><span class="ln"><span><span class="tok-b">m</span><span class="tok-p">.</span><span class="tok-fn">run</span><span class="tok-p">()</span>  <span class="tok-c"># shipped 4 artifacts in 1m 42s</span></span></span></code></pre>
+
+</div>
+
+<script>
+const block = document.getElementById('block');
+const tL = document.getElementById('themeLight');
+const tD = document.getElementById('themeDark');
+tL.addEventListener('click', () => { block.classList.remove('dark'); tL.classList.add('active'); tD.classList.remove('active'); });
+tD.addEventListener('click', () => { block.classList.add('dark');    tD.classList.add('active'); tL.classList.remove('active'); });
+
+const btn = document.getElementById('copyBtn');
+const lbl = document.getElementById('copyLabel');
+const ico = document.getElementById('copyIcon');
+const body = document.getElementById('codeBody');
+btn.addEventListener('click', () => {
+  const text = body.innerText.replace(/^\s*\d+\s/gm, '');
+  navigator.clipboard?.writeText(text).catch(()=>{});
+  btn.classList.add('copied');
+  lbl.textContent = 'Copied';
+  ico.innerHTML = '<polyline points="5 12 10 17 19 7"/>';
+  setTimeout(() => {
+    btn.classList.remove('copied');
+    lbl.textContent = 'Copy';
+    ico.innerHTML = '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>';
+  }, 1600);
+});
+</script>
+
+</body></html>

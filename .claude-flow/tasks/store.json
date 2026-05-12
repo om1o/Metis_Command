@@ -1,0 +1,31 @@
+{
+  "tasks": {
+    "task-1778540080467-ytckqm": {
+      "taskId": "task-1778540080467-ytckqm",
+      "type": "research",
+      "description": "Find main-head HTML, chat container layout, and model selector in C:/Users/omiol/Desktop/Metis_Command/frontend/app.html",
+      "priority": "high",
+      "status": "pending",
+      "progress": 0,
+      "assignedTo": [],
+      "tags": [],
+      "createdAt": "2026-05-11T22:54:40.467Z",
+      "startedAt": null,
+      "completedAt": null
+    },
+    "task-1778540081707-pbxycj": {
+      "taskId": "task-1778540081707-pbxycj",
+      "type": "implementation",
+      "description": "Add Compare toggle to main-head and split-panel view in app.html streaming two models in parallel",
+      "priority": "high",
+      "status": "pending",
+      "progress": 0,
+      "assignedTo": [],
+      "tags": [],
+      "createdAt": "2026-05-11T22:54:41.707Z",
+      "startedAt": null,
+      "completedAt": null
+    }
+  },
+  "version": "3.0.0"
+}

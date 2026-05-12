@@ -1,0 +1,31 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css"><style>
+body { padding: 22px 28px; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.row + .row { margin-top: 12px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; line-height: 1.4; }
+.dot { width: 6px; height: 6px; border-radius: 50%; }
+.c-saved   { background: #DBEAFE; color: #1D4ED8; } .c-saved .dot   { background: #2563EB; }
+.c-synced  { background: #DCFCE7; color: #15803D; } .c-synced .dot  { background: #22C55E; }
+.c-ready   { background: #F1F5F9; color: #0F172A; } .c-ready .dot   { background: #475569; }
+.c-running { background: #FEF3C7; color: #B45309; } .c-running .dot { background: #F59E0B; animation: pulse 1.4s ease-in-out infinite; }
+.c-failed  { background: #FEE2E2; color: #B91C1C; } .c-failed .dot  { background: #EF4444; }
+.c-queued  { background: #E0F2FE; color: #0369A1; } .c-queued .dot  { background: #0EA5E9; }
+@keyframes pulse { 50% { opacity: .35; } }
+.lbl { font-family: var(--font-mono); font-size: 10px; color: var(--text-subtle); width: 80px; }
+</style></head><body>
+<div class="row"><span class="lbl">status</span>
+  <span class="chip c-saved"><span class="dot"></span>Saved</span>
+  <span class="chip c-synced"><span class="dot"></span>Synced</span>
+  <span class="chip c-ready"><span class="dot"></span>Ready</span>
+  <span class="chip c-running"><span class="dot"></span>Running</span>
+  <span class="chip c-queued"><span class="dot"></span>Queued</span>
+  <span class="chip c-failed"><span class="dot"></span>Failed</span>
+</div>
+<div class="row"><span class="lbl">tag</span>
+  <span class="chip" style="background:var(--surface-alt);color:var(--text);border:1px solid var(--border)">research</span>
+  <span class="chip" style="background:var(--surface-alt);color:var(--text);border:1px solid var(--border)">code</span>
+  <span class="chip" style="background:var(--surface-alt);color:var(--text);border:1px solid var(--border)">outreach</span>
+  <span class="chip" style="background:var(--primary-soft);color:var(--primary-press)">pinned</span>
+</div>
+</body></html>

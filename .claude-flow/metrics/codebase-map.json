@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-05-11T22:36:02.699Z",
+  "projectRoot": "C:\\Users\\omiol\\Desktop\\Metis_Command",
+  "structure": {
+    "hasPackageJson": false,
+    "hasTsConfig": false,
+    "hasClaudeConfig": true,
+    "hasClaudeFlow": true
+  },
+  "scannedAt": 1778538962700
+}

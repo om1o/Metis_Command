@@ -1,0 +1,53 @@
+{
+  "agents": {
+    "agent-1778547641830-hrwh9n": {
+      "agentId": "agent-1778547641830-hrwh9n",
+      "agentType": "architect",
+      "status": "idle",
+      "health": 1,
+      "taskCount": 0,
+      "config": {
+        "provider": "openrouter",
+        "model": "arcee-ai/trinity-large-thinking:free",
+        "task": "Plan Phase 14 for Metis Command: Manager Brain Swap + Job/Task Engine. Manager uses free OpenRouter models only (nvidia/nemotron-3-super-120b-a12b:free). Classify messages as jobs (recurring) vs tasks (one-time). Jobs persist in SQLite with sidebar UI. Tasks auto-delete. Remove all paid model references. List exact files and changes needed in C:/Users/omiol/Desktop/Metis_Command/.",
+        "timeout": 180
+      },
+      "createdAt": "2026-05-12T01:00:41.854Z",
+      "model": "sonnet",
+      "modelRoutedBy": "router"
+    },
+    "agent-1778547655892-2rgcwj": {
+      "agentId": "agent-1778547655892-2rgcwj",
+      "agentType": "coder",
+      "status": "idle",
+      "health": 1,
+      "taskCount": 0,
+      "config": {
+        "provider": "openrouter",
+        "model": "qwen/qwen3-coder:free",
+        "task": "Build Phase 14 for Metis Command. Wait for planner to finish. Implement: 1) Swap brain_engine.py to use OpenRouter API (nvidia/nemotron-3-super-120b-a12b:free) for Manager. 2) Add jobs table to SQLite. 3) Add job/task classifier to manager_orchestrator.py. 4) Add jobs sidebar panel to frontend/app.html. 5) Task auto-cleanup. Working dir: C:/Users/omiol/Desktop/Metis_Command/",
+        "timeout": 300
+      },
+      "createdAt": "2026-05-12T01:00:55.921Z",
+      "model": "opus",
+      "modelRoutedBy": "router"
+    },
+    "agent-1778547664786-cqcpbd": {
+      "agentId": "agent-1778547664786-cqcpbd",
+      "agentType": "tester",
+      "status": "idle",
+      "health": 1,
+      "taskCount": 0,
+      "config": {
+        "provider": "openrouter",
+        "model": "nvidia/nemotron-3-nano-30b-a3b:free",
+        "task": "Test Phase 14 implementation for Metis Command. Wait for coder. Verify: 1) OpenRouter API connection works. 2) Job/task classification correct. 3) Jobs persist in SQLite. 4) Sidebar shows jobs. 5) Tasks auto-delete. Run tests, report issues back.",
+        "timeout": 180
+      },
+      "createdAt": "2026-05-12T01:01:04.800Z",
+      "model": "sonnet",
+      "modelRoutedBy": "router"
+    }
+  },
+  "version": "3.0.0"
+}

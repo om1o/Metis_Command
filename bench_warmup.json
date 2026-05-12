@@ -1,0 +1,130 @@
+[
+  {
+    "i": 1,
+    "category": "greet",
+    "prompt": "Hey, how are you?",
+    "expected_delegation": false,
+    "answer_preview": "Hello! I'm just a computer program created by Anthropic, so I don't feel tired or bored. What's up?",
+    "delegated_to": [],
+    "duration_ms": 19352,
+    "score": 5,
+    "issues": [],
+    "word_count": 18
+  },
+  {
+    "i": 0,
+    "category": "greet",
+    "prompt": "Hi.",
+    "expected_delegation": false,
+    "answer_preview": "Hello! How can I assist you today?",
+    "delegated_to": [],
+    "duration_ms": 20283,
+    "score": 5,
+    "issues": [],
+    "word_count": 7
+  },
+  {
+    "i": 2,
+    "category": "greet",
+    "prompt": "Good morning! What can you do for me today?",
+    "expected_delegation": false,
+    "answer_preview": "Good morning! I'm here to help you ship faster, write better, and decide smarter. How can I assist you today?",
+    "delegated_to": [],
+    "duration_ms": 21749,
+    "score": 5,
+    "issues": [],
+    "word_count": 20
+  },
+  {
+    "i": 3,
+    "category": "greet",
+    "prompt": "Thanks, that's helpful.",
+    "expected_delegation": false,
+    "answer_preview": "You're welcome! If you have any more questions or need further assistance, feel free to ask.",
+    "delegated_to": [],
+    "duration_ms": 22661,
+    "score": 5,
+    "issues": [],
+    "word_count": 16
+  },
+  {
+    "i": 4,
+    "category": "greet",
+    "prompt": "Bye for now.",
+    "expected_delegation": false,
+    "answer_preview": "Okay, have a great day! Remember, staying organized and focused will help you ship faster, write better code, and make smarter decisions. Good luck with your project!",
+    "delegated_to": [],
+    "duration_ms": 21789,
+    "score": 5,
+    "issues": [],
+    "word_count": 27
+  },
+  {
+    "i": 5,
+    "category": "knowledge",
+    "prompt": "What's the capital of Australia?",
+    "expected_delegation": false,
+    "answer_preview": "The capital city of Australia is Canberra.",
+    "delegated_to": [],
+    "duration_ms": 20953,
+    "score": 4,
+    "issues": [
+      "too short (7<8)"
+    ],
+    "word_count": 7
+  },
+  {
+    "i": 6,
+    "category": "knowledge",
+    "prompt": "Who wrote 'The Brothers Karamazov'?",
+    "expected_delegation": false,
+    "answer_preview": "Fyodor Dostoevsky was the author of 'The Brothers Karamazov'.",
+    "delegated_to": [],
+    "duration_ms": 24780,
+    "score": 4,
+    "issues": [
+      "too short (9<10)"
+    ],
+    "word_count": 9
+  },
+  {
+    "i": 7,
+    "category": "knowledge",
+    "prompt": "What year did the Berlin Wall fall?",
+    "expected_delegation": false,
+    "answer_preview": "1989",
+    "delegated_to": [],
+    "duration_ms": 24462,
+    "score": 4,
+    "issues": [
+      "too short (1<10)"
+    ],
+    "word_count": 1
+  },
+  {
+    "i": 8,
+    "category": "knowledge",
+    "prompt": "What's the boiling point of water in Fahrenheit?",
+    "expected_delegation": false,
+    "answer_preview": "100\u00b0F",
+    "delegated_to": [],
+    "duration_ms": 23045,
+    "score": 4,
+    "issues": [
+      "too short (1<10)"
+    ],
+    "word_count": 1
+  },
+  {
+    "i": 9,
+    "category": "knowledge",
+    "prompt": "Define photosynthesis in one sentence.",
+    "expected_delegation": false,
+    "answer_preview": "Photosynthesis is the process by which plants convert light energy into chemical energy stored in glucose, releasing oxygen as a waste product.",
+    "delegated_to": [],
+    "duration_ms": 24671,
+    "score": 5,
+    "issues": [],
+    "word_count": 22
+  }
+]

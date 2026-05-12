@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Settings · Metis</title>
+<link rel="icon" href="../assets/favicon.svg">
+<link rel="stylesheet" href="../colors_and_type.css">
+<link rel="stylesheet" href="settings.css">
+</head>
+<body>
+
+<div class="titlebar"><div class="traffic"><span class="r"></span><span class="y"></span><span class="g"></span></div><div class="title">metis · settings</div><div style="width:56px"></div></div>
+
+<div class="s-shell">
+  <!-- ============== Sidebar ============== -->
+  <aside class="s-side">
+    <a class="brand" href="../onboarding/index.html"><img src="../assets/metis-mark-starburst.svg" alt=""><span class="wm">Met<em>i</em>s</span></a>
+    <a class="back" href="../ui_kits/metis-app/index.html"><svg viewBox="0 0 24 24"><path d="M19 12H5M11 19l-7-7 7-7"/></svg> Back to Metis</a>
+
+    <h2>Account</h2>
+    <a class="nav active" data-section="profile"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></svg> Profile</a>
+    <a class="nav" data-section="account"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Account & security</a>
+    <a class="nav" data-section="billing"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg> Billing</a>
+
+    <h2>Workspace</h2>
+    <a class="nav" data-section="appearance"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg> Appearance</a>
+    <a class="nav" data-section="models"><svg viewBox="0 0 24 24"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg> Models</a>
+    <a class="nav" data-section="connections"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg> Connected apps</a>
+    <a class="nav" data-section="notifications"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg> Notifications</a>
+    <a class="nav" data-section="shortcuts"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h12"/></svg> Keyboard shortcuts</a>
+
+    <h2>Privacy</h2>
+    <a class="nav" data-section="privacy"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Data & privacy</a>
+    <a class="nav nav-danger" data-section="danger"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg> Danger zone</a>
+  </aside>
+
+  <!-- ============== Main ============== -->
+  <main class="s-main">
+
+    <!-- Profile -->
+    <section data-pane="profile">
+      <header class="s-page-head"><h1>Profile</h1><p>Tell Metis a little about you. This shows up in greetings and shared work.</p></header>
+
+      <div class="s-section">
+        <div class="s-card">
+          <div class="profile-row">
+            <div class="avatar">AC<div class="upload-overlay">Change</div></div>
+            <div class="who">
+              <div class="name">Alex Chen</div>
+              <div class="email">alex.chen@operator.dev</div>
+              <span class="plan-badge"><span class="dot"></span>Pro plan</span>
+            </div>
+            <button class="btn">Edit avatar</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="s-section">
+        <div class="s-section-head"><h3>Display details</h3><p>How your name appears across the app.</p></div>
+        <div class="s-card" style="padding: 22px;">
+          <div class="fld-grid">
+            <div class="fld"><label>First name</label><input type="text" value="Alex"></div>
+            <div class="fld"><label>Last name</label><input type="text" value="Chen"></div>
+          </div>
+          <div class="fld"><label>Display name</label><input type="text" value="Alex"><div class="help">This is what Metis calls you in chat ("Hey Alex…").</div></div>
+          <div class="fld"><label>About you</label><textarea placeholder="I'm a founder building tools for…">Founder at Operator. Building developer tools. Lives in Brooklyn.</textarea><div class="help">Optional. Metis uses this as light context when you ask for personalized help.</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Account & security -->
+    <section data-pane="account" hidden>
+      <header class="s-page-head"><h1>Account &amp; security</h1><p>Email, password, and two-factor authentication.</p></header>
+
+      <div class="s-section">
+        <div class="s-section-head"><h3>Email address</h3></div>
+        <div class="s-card" style="padding: 22px;">
+          <div class="fld"><label>Primary email</label><input type="email" value="alex.chen@operator.dev"><div class="help">Used for sign-in and important account notifications.</div></div>
+        </div>
+      </div>
+
+      <div class="s-section">
+        <div class="s-section-head"><h3>Password</h3></div>
+        <div class="s-card">
+          <div class="s-row"><div class="info"><div class="name">Password</div><div class="desc">Last changed 4 months ago</div></div><div class="control"><button class="btn">Change password</button></div></div>
+          <div class="s-row"><div class="info"><div class="name">Two-factor authentication</div><div class="desc">Protect your account with an authenticator app or security key</div></div><div class="control"><button class="btn btn-primary">Enable 2FA</button></div></div>
+        </div>
+      </div>
+
+      <div class="s-section">
+        <div class="s-section-head"><h3>Active sessions</h3><p>Devices currently signed into your account.</p></div>
+        <div class="s-card">
+          <div class="s-row"><div class="info"><div class="name">MacBook Pro · Brooklyn, NY</div><div class="desc">Chrome 121 · This device — last active just now</div></div><div class="control"><span class="conn-status live">Active</span></div></div>
+          <div class="s-row"><div class="info"><div class="name">iPhone 15 · Brooklyn, NY</div><div class="desc">Safari · Last active 2 hours ago</div></div><div class="control"><button class="btn">Sign out</button></div></div>
+          <div class="s-row"><div class="info"><div class="name">Linux desktop · Brooklyn, NY</div><div class="desc">Firefox · Last active 3 days ago</div></div><div class="control"><button class="btn">Sign out</button></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Billing -->
+    <section data-pane="billing" hidden>
+      <header class="s-page-head"><h1>Billing</h1><p>Manage your subscription, payment method, and invoices.</p></header>
+
+      <div class="s-section">
+        <div class="s-card" style="padding: 22px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap;">
+            <div>
+              <div style="font-family: var(--font-display); font-size: 20px; font-weight: 700; margin-bottom: 4px;">Pro plan</div>
+              <div style="font-size: 13px; color: var(--text-muted);">$20/month · Renews on Dec 14, 2025</div>
+            </div>
+            <div style="display: flex; gap: 8px;"><button class="btn">Change plan</button><button class="btn btn-ghost-danger">Cancel</button></div>
+          </div>
+          <div style="margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--border); display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px;">
+            <div><div style="font-family: var(--font-mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-subtle); margin-bottom: 4px;">Mission minutes</div><div style="font-family: var(--font-display); font-size: 22px; font-weight: 650;">142 / 500</div></div>
+            <div><div style="font-family: var(--font-mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-subtle); margin-bottom: 4px;">Model credits</div><div style="font-family: var(--font-display); font-size: 22px; font-weight: 650;">38,400</div></div>
+            <div><div style="font-family: var(--font-mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-subtle); margin-bottom: 4px;">Storage</div><div style="font-family: var(--font-display); font-size: 22px; font-weight: 650;">3.2 / 50 GB</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="s-section">
+        <div class="s-section-head"><h3>Payment method</h3></div>
+        <div class="s-card">
+          <div class="s-row">
+            <div class="conn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></div>
+            <div class="info"><div class="name">Visa ending in 4242</div><div class="desc">Expires 09/2027</div></div>
+            <div class="control"><button class="btn">Update</button></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="s-section">
+        <div class="s-section-head"><h3>Recent invoices</h3></div>
+        <div class="s-card">
+          <div class="s-row"><div class="info"><div class="name">November 2025 · $20.00</div><div class="desc">Paid Nov 14, 2025</div></div><div class="control"><button class="btn">Download</button></div></div>
+          <div class="s-row"><div class="info"><div class="name">October 2025 · $20.00</div><div class="desc">Paid Oct 14, 2025</div></div><div class="control"><button class="btn">Download</button></div></div>
+          <div class="s-row"><div class="info"><div class="name">September 2025 · $20.00</div><div class="desc">Paid Sep 14, 2025</div></div><div class="control"><button class="btn">Download</button></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Appearance -->
+    <section data-pane="appearance" hidden>
+      <header class="s-page-head"><h1>Appearance</h1><p>How Metis looks on your screen.</p></header>
+
+      <div class="s-section">
+        <div class="s-section-head"><h3>Theme</h3></div>
+        <div class="theme-grid">
+          <div class="theme-pick light selected" data-theme="light"><div class="pv"><i></i><i></i><i></i><i></i></div><div class="lbl">Light</div></div>
+          <div class="theme-pick dark" data-theme="dark"><div class="pv"><i></i><i></i><i></i><i></i></div><div class="lbl">Dark</div></div>
+          <div class="theme-pick system" data-theme="system"><div class="pv"><i></i><i></i><i></i><i></i></div><div class="lbl">System</div></div>
+        </div>
+      </div>
+
+      <div class="s-section">
+        <div class="s-section-head"><h3>Layout</h3></div>
+        <div class="s-card">
+          <div class="s-row"><div class="info"><div class="name">Compact mode</div><div class="desc">Reduce padding throughout the app for denser screens</div></div><div class="control"><label class="toggle-sw"><input type="checkbox"><span class="slider"></span></label></div></div>
+          <div class="s-row"><div class="info"><div class="name">Show sidebar by default</div><div class="desc">Collapsed sidebars open on hover</div></div><div class="control"><label class="toggle-sw"><input type="checkbox" checked><span class="slider"></span></label></div></div>
+          <div class="s-row"><div class="info"><div class="name">Reduce motion</div><div class="desc">Minimize transitions and animated elements</div></div><div class="control"><label class="toggle-sw"><input type="checkbox"><span class="slider"></span></label></div></div>
+        </div>
+      </div>
+
+      <div class="s-section">
+        <div class="s-section-head"><h3>Text size</h3></div>
+        <div class="s-card" style="padding: 22px;">
+          <input type="range" min="12" max="18" value="15" style="width: 100%;">
+          <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 11px; color: var(--text-subtle); margin-top: 6px;"><span>Compact</span><span>Comfortable</span><span>Large</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Models -->
+    <section data-pane="models" hidden>
+      <header class="s-page-head"><h1>Models</h1><p>Pick your default and configure model preferences per task type.</p></header>
+
+      <div class="s-section">
+        <div class="s-section-head"><h3>Default model</h3><p>Used unless you override per chat.</p></div>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <div class="model-pick" data-m="fast"><div class="radio"></div><div class="info"><div class="nm">Fast</div><div class="ds">Snappy answers · lowest latency</div></div><div class="speed-bars"><i class="on"></i><i></i><i></i></div></div>
+          <div class="model-pick selected" data-m="smart"><div class="radio"></div><div class="info"><div class="nm">Smart <span style="font-family: var(--font-mono); font-size: 10px; padding: 2px 6px; border-radius: 4px; background: var(--primary-soft); color: var(--primary); margin-left: 4px;">Recommended</span></div><div class="ds">Balanced · handles missions, code, long docs</div></div><div class="speed-bars"><i class="on"></i><i class="on"></i><i></i></div></div>
+          <div class="model-pick" data-m="local"><div class="radio"></div><div class="info"><div class="nm">Local</div><div class="ds">Runs on your machine · air-gapped, slower</div></div><div class="speed-bars"><i class="on"></i><i class="on"></i><i class="on"></i></div></div>
+        </div>
+      </div>
+
+      <div class="s-section">
+        <div class="s-section-head"><h3>Per-task overrides</h3><p>Use a different model when Metis detects these task types.</p></div>
+        <div class="s-card">
+          <div class="s-row"><div class="info"><div class="name">Coding tasks</div><div class="desc">Code review, debugging, refactor</div></div><div class="control"><select class="btn" style="height: 36px; padding: 0 12px;"><option>Smart (default)</option><option>Fast</option><option>Local</option></select></div></div>
+          <div class="s-row"><div class="info"><div class="name">Long-running missions</div><div class="desc">Multi-step research, automation runs</div></div><div class="control"><select class="btn" style="height: 36px; padding: 0 12px;"><option selected>Smart (default)</option><option>Fast</option><option>Local</option></select></div></div>
+          <div class="s-row"><div class="info"><div class="name">Quick chat</div><div class="desc">One-off questions, lookups</div></div><div class="control"><select class="btn" style="height: 36px; padding: 0 12px;"><option>Smart (default)</option><option selected>Fast</option><option>Local</option></select></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Connections -->
+    <section data-pane="connections" hidden>
+      <header class="s-page-head"><h1>Connected apps</h1><p>Apps Metis can read context from. Disconnect anytime.</p></header>
+
+      <div class="s-section">
+        <div class="s-card">
+          <div class="s-row">
+            <div class="conn-icon"><svg viewBox="0 0 24 24"><path d="M7.71 3.5L1.15 15l3.4 5.5h6.8L7.7 15l-3.4-5.5z" fill="#0066DA"/><path d="M14.5 3.5h-6.8L11.1 9l3.4 5.5h6.8L17.9 9z" fill="#00AC47"/><path d="M11.1 14.5L7.7 20h13.6L17.9 14.5z" fill="#EA4335"/></svg></div>
+            <div class="info"><div class="name">Google Drive</div><div class="desc">Connected as alex.chen@operator.dev · 142 docs indexed</div></div>
+            <div class="control"><span class="conn-status live">Connected</span> &nbsp; <button class="btn btn-ghost-danger">Disconnect</button></div>
+          </div>
+          <div class="s-row">
+            <div class="conn-icon"><svg viewBox="0 0 24 24" fill="#0F172A"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.203 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.847-2.339 4.695-4.566 4.943.359.31.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg></div>
+            <div class="info"><div class="name">GitHub</div><div class="desc">Connected as @alexchen · 8 repos accessible</div></div>
+            <div class="control"><span class="conn-status live">Connected</span> &nbsp; <button class="btn btn-ghost-danger">Disconnect</button></div>
+          </div>
+          <div class="s-row">
+            <div class="conn-icon"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="16" rx="2" stroke="#7C3AED" stroke-width="1.8"/><path d="M3 9h18M8 3v4M16 3v4" stroke="#7C3AED" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+            <div class="info"><div class="name">Calendar</div><div class="desc">Not connected</div></div>
+            <div class="control"><button class="btn btn-primary">Connect</button></div>
+          </div>
+          <div class="s-row">
+            <div class="conn-icon"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="2" stroke="#0EA5E9" stroke-width="1.8"/><path d="M3 7l9 7 9-7" stroke="#0EA5E9" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+            <div class="info"><div class="name">Email</div><div class="desc">Not connected</div></div>
+            <div class="control"><button class="btn btn-primary">Connect</button></div>
+          </div>
+          <div class="s-row">
+            <div class="conn-icon"><svg viewBox="0 0 24 24" fill="#4A154B"><path d="M5.5 15.5a2 2 0 1 1-2-2h2v2zm1 0a2 2 0 0 1 4 0v5a2 2 0 0 1-4 0v-5zM8.5 5.5a2 2 0 1 1 2-2v2h-2zm0 1a2 2 0 0 1 0 4h-5a2 2 0 0 1 0-4h5zM18.5 8.5a2 2 0 1 1 2 2h-2v-2zm-1 0a2 2 0 0 1-4 0v-5a2 2 0 0 1 4 0v5zM15.5 18.5a2 2 0 1 1-2 2v-2h2zm0-1a2 2 0 0 1 0-4h5a2 2 0 0 1 0 4h-5z"/></svg></div>
+            <div class="info"><div class="name">Slack</div><div class="desc">Not connected</div></div>
+            <div class="control"><button class="btn btn-primary">Connect</button></div>
+          </div>
+          <div class="s-row">
+            <div class="conn-icon"><svg viewBox="0 0 24 24" fill="#000"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.46 9.42c.04.073.04.146.04.22 0 2.276-1.732 4.91-4.91 4.91-.97 0-1.876-.286-2.633-.78.137.014.27.018.41.018.81 0 1.554-.273 2.144-.73a1.733 1.733 0 0 1-1.617-1.2c.107.018.213.027.323.027.157 0 .31-.018.456-.063a1.73 1.73 0 0 1-1.388-1.696v-.022c.234.13.5.207.78.215a1.73 1.73 0 0 1-.535-2.31 4.91 4.91 0 0 0 3.567 1.81 1.73 1.73 0 0 1 2.945-1.578 3.45 3.45 0 0 0 1.097-.42 1.74 1.74 0 0 1-.76.957 3.45 3.45 0 0 0 .992-.272 3.5 3.5 0 0 1-.86.892z"/></svg></div>
+            <div class="info"><div class="name">Notion</div><div class="desc">Not connected</div></div>
+            <div class="control"><button class="btn btn-primary">Connect</button></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Notifications -->
+    <section data-pane="notifications" hidden>
+      <header class="s-page-head"><h1>Notifications</h1><p>Choose what gets through, and where.</p></header>
+
+      <div class="s-section">
+        <div class="s-section-head"><h3>Mission & automation</h3></div>
+        <div class="s-card">
+          <div class="s-row"><div class="info"><div class="name">Mission complete</div><div class="desc">When a long-running mission finishes</div></div><div class="control"><label class="toggle-sw"><input type="checkbox" checked><span class="slider"></span></label></div></div>
+          <div class="s-row"><div class="info"><div class="name">Mission needs attention</div><div class="desc">Metis is blocked and asking you a question</div></div><div class="control"><label class="toggle-sw"><input type="checkbox" checked><span class="slider"></span></label></div></div>
+          <div class="s-row"><div class="info"><div class="name">Automation alerts</div><div class="desc">Heads-up when scheduled automations need attention</div></div><div class="control"><label class="toggle-sw"><input type="checkbox"><span class="slider"></span></label></div></div>
+        </div>
+      </div>
+
+      <div class="s-section">
+        <div class="s-section-head"><h3>Daily &amp; product</h3></div>
+        <div class="s-card">
+          <div class="s-row"><div class="info"><div class="name">Daily brief</div><div class="desc">Morning summary of calendar, tasks, and inbox</div></div><div class="control"><label class="toggle-sw"><input type="checkbox" checked><span class="slider"></span></label></div></div>
+          <div class="s-row"><div class="info"><div class="name">Weekly digest</div><div class="desc">Recap of last week's missions and wins</div></div><div class="control"><label class="toggle-sw"><input type="checkbox" checked><span class="slider"></span></label></div></div>
+          <div class="s-row"><div class="info"><div class="name">Product updates</div><div class="desc">New Metis features and improvements</div></div><div class="control"><label class="toggle-sw"><input type="checkbox"><span class="slider"></span></label></div></div>
+        </div>
+      </div>
+
+      <div class="s-section">
+        <div class="s-section-head"><h3>Channels</h3><p>Where notifications are delivered.</p></div>
+        <div class="s-card">
+          <div class="s-row"><div class="info"><div class="name">In-app</div><div class="desc">Always on</div></div><div class="control"><label class="toggle-sw"><input type="checkbox" checked disabled><span class="slider"></span></label></div></div>
+          <div class="s-row"><div class="info"><div class="name">Desktop push</div><div class="desc">Native macOS / Windows notifications</div></div><div class="control"><label class="toggle-sw"><input type="checkbox" checked><span class="slider"></span></label></div></div>
+          <div class="s-row"><div class="info"><div class="name">Email</div><div class="desc">Sent to alex.chen@operator.dev</div></div><div class="control"><label class="toggle-sw"><input type="checkbox" checked><span class="slider"></span></label></div></div>
+          <div class="s-row"><div class="info"><div class="name">Mobile push</div><div class="desc">iOS &amp; Android apps</div></div><div class="control"><label class="toggle-sw"><input type="checkbox"><span class="slider"></span></label></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Shortcuts -->
+    <section data-pane="shortcuts" hidden>
+      <header class="s-page-head"><h1>Keyboard shortcuts</h1><p>Move faster. Press <kbd>⌘</kbd><kbd>/</kbd> in the app to see this list anytime.</p></header>
+      <div class="s-section">
+        <div class="s-section-head"><h3>Navigation</h3></div>
+        <div class="s-card">
+          <div class="kbd-list">
+            <div class="kbd-line"><span class="lbl">New chat</span><span class="kbd-keys"><kbd>⌘</kbd><kbd>N</kbd></span></div>
+            <div class="kbd-line"><span class="lbl">Quick search</span><span class="kbd-keys"><kbd>⌘</kbd><kbd>K</kbd></span></div>
+            <div class="kbd-line"><span class="lbl">Command bar</span><span class="kbd-keys"><kbd>⌘</kbd><kbd>P</kbd></span></div>
+            <div class="kbd-line"><span class="lbl">Toggle sidebar</span><span class="kbd-keys"><kbd>⌘</kbd><kbd>B</kbd></span></div>
+            <div class="kbd-line"><span class="lbl">Settings</span><span class="kbd-keys"><kbd>⌘</kbd><kbd>,</kbd></span></div>
+          </div>
+        </div>
+      </div>
+      <div class="s-section">
+        <div class="s-section-head"><h3>Composition</h3></div>
+        <div class="s-card">
+          <div class="kbd-list">
+            <div class="kbd-line"><span class="lbl">Send message</span><span class="kbd-keys"><kbd>⌘</kbd><kbd>↵</kbd></span></div>
+            <div class="kbd-line"><span class="lbl">New line</span><span class="kbd-keys"><kbd>⇧</kbd><kbd>↵</kbd></span></div>
+            <div class="kbd-line"><span class="lbl">Stop generating</span><span class="kbd-keys"><kbd>Esc</kbd></span></div>
+            <div class="kbd-line"><span class="lbl">Switch model</span><span class="kbd-keys"><kbd>⌘</kbd><kbd>M</kbd></span></div>
+            <div class="kbd-line"><span class="lbl">New mission</span><span class="kbd-keys"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>M</kbd></span></div>
+            <div class="kbd-line"><span class="lbl">Attach file</span><span class="kbd-keys"><kbd>⌘</kbd><kbd>U</kbd></span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Privacy -->
+    <section data-pane="privacy" hidden>
+      <header class="s-page-head"><h1>Data &amp; privacy</h1><p>What Metis stores, how it's used, and your data exports.</p></header>
+      <div class="s-section">
+        <div class="s-section-head"><h3>Training &amp; usage</h3></div>
+        <div class="s-card">
+          <div class="s-row"><div class="info"><div class="name">Use my chats to improve Metis</div><div class="desc">Anonymized excerpts may be used to refine model behavior. Off by default for Pro.</div></div><div class="control"><label class="toggle-sw"><input type="checkbox"><span class="slider"></span></label></div></div>
+          <div class="s-row"><div class="info"><div class="name">Memory</div><div class="desc">Metis remembers things you tell it across chats</div></div><div class="control"><label class="toggle-sw"><input type="checkbox" checked><span class="slider"></span></label></div></div>
+          <div class="s-row"><div class="info"><div class="name">Show what Metis remembers</div><div class="desc">Review and clear stored facts about you</div></div><div class="control"><button class="btn">View memory</button></div></div>
+        </div>
+      </div>
+      <div class="s-section">
+        <div class="s-section-head"><h3>Your data</h3></div>
+        <div class="s-card">
+          <div class="s-row"><div class="info"><div class="name">Export all data</div><div class="desc">JSON of all chats, missions, files, and settings — emailed to you</div></div><div class="control"><button class="btn">Request export</button></div></div>
+          <div class="s-row"><div class="info"><div class="name">Clear all chat history</div><div class="desc">Permanently deletes every chat. Cannot be undone.</div></div><div class="control"><button class="btn btn-ghost-danger">Clear history</button></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Danger zone -->
+    <section data-pane="danger" hidden>
+      <header class="s-page-head"><h1 style="color: var(--error);">Danger zone</h1><p>Irreversible actions. Read carefully.</p></header>
+      <div class="s-section">
+        <div class="danger-card" style="margin-bottom: 14px;">
+          <h4>Transfer ownership</h4>
+          <p>Move your workspace and all its data to another team member. You'll become a regular member.</p>
+          <button class="btn btn-ghost-danger">Transfer workspace…</button>
+        </div>
+        <div class="danger-card" style="margin-bottom: 14px;">
+          <h4>Delete workspace</h4>
+          <p>Permanently delete this workspace, including all chats, missions, automations, and connected data. This cannot be undone.</p>
+          <button class="btn btn-ghost-danger">Delete workspace…</button>
+        </div>
+        <div class="danger-card">
+          <h4>Delete account</h4>
+          <p>Permanently delete your Metis account. Your data will be removed within 30 days.</p>
+          <button class="btn btn-danger">Delete my account</button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- Sticky save bar -->
+<div class="save-bar" id="saveBar">
+  <span class="msg">You have unsaved changes</span>
+  <button class="btn btn-ghost" id="discardBtn">Discard</button>
+  <button class="btn btn-primary" id="saveBtn">Save changes</button>
+</div>
+
+<script>
+// Section nav
+const navs = document.querySelectorAll('.s-side .nav');
+const panes = document.querySelectorAll('section[data-pane]');
+function showSection(name) {
+  navs.forEach(n => n.classList.toggle('active', n.dataset.section === name));
+  panes.forEach(p => p.hidden = p.dataset.pane !== name);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  history.replaceState(null, '', '#' + name);
+}
+navs.forEach(n => n.addEventListener('click', () => showSection(n.dataset.section)));
+const initial = location.hash.slice(1);
+if (initial) showSection(initial);
+
+// Theme picker
+document.querySelectorAll('.theme-pick').forEach(p => {
+  p.addEventListener('click', () => {
+    document.querySelectorAll('.theme-pick').forEach(x => x.classList.remove('selected'));
+    p.classList.add('selected');
+    showSaveBar();
+  });
+});
+
+// Model picker
+document.querySelectorAll('.model-pick').forEach(p => {
+  p.addEventListener('click', () => {
+    document.querySelectorAll('.model-pick').forEach(x => x.classList.remove('selected'));
+    p.classList.add('selected');
+    showSaveBar();
+  });
+});
+
+// Save bar
+const saveBar = document.getElementById('saveBar');
+function showSaveBar() { saveBar.classList.add('show'); }
+document.querySelectorAll('input, textarea, select').forEach(el => {
+  el.addEventListener('change', showSaveBar);
+  if (el.tagName === 'INPUT' && (el.type === 'text' || el.type === 'email')) el.addEventListener('input', showSaveBar);
+  if (el.tagName === 'TEXTAREA') el.addEventListener('input', showSaveBar);
+});
+document.getElementById('saveBtn').addEventListener('click', () => {
+  saveBar.querySelector('.msg').textContent = 'Saved ✓';
+  setTimeout(() => { saveBar.classList.remove('show'); setTimeout(() => saveBar.querySelector('.msg').textContent = 'You have unsaved changes', 350); }, 1200);
+});
+document.getElementById('discardBtn').addEventListener('click', () => saveBar.classList.remove('show'));
+</script>
+
+</body>
+</html>

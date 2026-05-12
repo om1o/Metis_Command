@@ -1,0 +1,35 @@
+/* Preview card base — used by every card in preview/ */
+@import url("../colors_and_type.css");
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--surface);
+}
+body {
+  padding: 20px 24px;
+  box-sizing: border-box;
+  width: 700px;
+  min-height: 150px;
+}
+.eyebrow {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-subtle);
+  margin-bottom: 14px;
+}
+.row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.stack { display: flex; flex-direction: column; gap: 12px; }
+.swatch {
+  width: 56px; height: 56px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.swatch-info { display: flex; flex-direction: column; gap: 2px; }
+.swatch-info .name { font-size: 13px; font-weight: 600; color: var(--text); }
+.swatch-info .hex { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
+.swatch-info .role { font-size: 11px; color: var(--text-subtle); }
