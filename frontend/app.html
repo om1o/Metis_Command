@@ -882,7 +882,7 @@ pre.collapsible.expanded code{max-height:none}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.63.0</span>
+      <span class="ver" id="versionPill">v0.64.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -1454,6 +1454,9 @@ pre.collapsible.expanded code{max-height:none}
           <div class="shortcut-row"><span class="s-desc">Stakeholder map by influence &amp; interest</span><span class="s-keys"><kbd>/stakeholder</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Competitive analysis with differentiators</span><span class="s-keys"><kbd>/competitive</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Product or brand positioning statement</span><span class="s-keys"><kbd>/positioning</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Scannable digest with key highlights</span><span class="s-keys"><kbd>/digest</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Risk assessment with likelihood &amp; impact matrix</span><span class="s-keys"><kbd>/risk</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Interview prep with questions &amp; model answers</span><span class="s-keys"><kbd>/interview-prep</kbd></span></div>
         </div>
       </div>
       <div class="shortcuts-section">
@@ -2685,6 +2688,9 @@ async function sendMessage() {
     '/persona-map': 'Create a detailed persona map for the following product, service, or domain. Identify 3–4 distinct user personas with: a name and demographic snapshot, their primary goals and motivations, key frustrations and pain points, the jobs they are trying to get done, their current workarounds, and a one-sentence summary of what they need most. Include a brief section on which persona is the primary focus and why:\n\n',
     '/jtbd':        'Apply the Jobs-to-be-Done (JTBD) framework to the following product, feature, or problem. Identify: the functional job (what the user is trying to accomplish), the emotional job (how they want to feel), the social job (how they want to be perceived), the forces driving them to seek a new solution (push and pull), the forces creating inertia (habits and anxieties), and 3–5 specific job statements in the format "When [situation], I want to [motivation], so I can [outcome]." Make it specific and actionable for product decisions:\n\n',
     '/north-star':  'Define a clear North Star metric for the following product, team, or business. Explain: what the metric is and how it is precisely measured, why it best captures the value delivered to users, how it connects to long-term business health, what behaviors or actions move it up (and what could game it), how to break it into leading indicators teams can act on week-to-week, and what the target or benchmark should be at key milestones. Make it concrete enough that any team member could explain it in one sentence:\n\n',
+    '/digest':      'Write a concise, scannable digest for the following content, topic, or time period. Structure it with: a short headline and date range, an "At a Glance" summary (3–5 bullet highlights), 3–5 numbered digest items each with a bold title, a one-paragraph summary, and a "Why it matters" note, and a brief closing takeaway or what to watch next. Format it cleanly for email or internal newsletter distribution. Prioritize clarity and scannability over completeness:\n\n',
+    '/risk':        'Perform a thorough risk assessment for the following project, decision, or initiative. Structure it with: a scope statement, a risk register table with columns for Risk, Category, Likelihood (High/Med/Low), Impact (High/Med/Low), Risk Score, and Owner, a narrative section with the top 5 risks explained in depth including root causes and early warning signs, a mitigation plan for each high-priority risk, and a residual risk summary. Use a clear, structured format a leadership team can act on:\n\n',
+    '/interview-prep': 'Create a comprehensive interview preparation guide for the following role, company, or topic. Include: an overview of what the interview process typically looks like, 8–10 likely interview questions organized by category (behavioral, technical, situational, culture-fit), a model answer or answer framework for each question using STAR or similar structure, key themes and talking points to weave throughout, questions the candidate should ask the interviewer, and a quick-reference cheat sheet of the most important things to remember on the day. Make it practical and confidence-building:\n\n',
   };
   let _slashStripped = text;
   for (const [cmd, instr] of Object.entries(SLASH_PREFIX_MAP)) {
@@ -3163,6 +3169,9 @@ async function sendMessage() {
           { label: 'Map stakeholders →',           q: '/stakeholder Map the stakeholders for what we just discussed — categorize by influence and interest and suggest engagement strategies.' },
           { label: 'Run competitive analysis →',   q: '/competitive Run a competitive analysis on the market or product we just discussed — map rivals, gaps, and where to differentiate.' },
           { label: 'Write a positioning statement →', q: '/positioning Write a positioning statement for the product or brand we just discussed — use the for-who-unlike-we framing.' },
+          { label: 'Write a digest →',               q: '/digest Write a digest summarizing the key highlights from what we just discussed.' },
+          { label: 'Run a risk assessment →',         q: '/risk Run a risk assessment for what we just discussed — rate by likelihood and impact and suggest mitigations.' },
+          { label: 'Prep me for an interview →',      q: '/interview-prep Create an interview prep guide based on what we just discussed.' },
         ];
         const _chipOffset = (_chipTurn || 0) % _chipPool.length;
         const chipDefs = [
@@ -3298,6 +3307,9 @@ const SUGGESTION_POOL = [
   { title: '🤝 Map your stakeholders',       sub: 'Influence, interest, and tailored engagement strategy per group',       q: '/stakeholder Map the stakeholders for a major product redesign — categorize by influence and interest, and suggest a tailored engagement strategy for each group.' },
   { title: '⚔️ Run a competitive analysis', sub: 'Landscape overview, gaps, differentiators, and strategic moves',        q: '/competitive Run a competitive analysis for an AI writing assistant — map the top 5 competitors, their strengths and weaknesses, and where the biggest opportunity to differentiate lies.' },
   { title: '🎯 Write a positioning statement', sub: 'For-who-unlike-we framing with supporting rationale',                q: '/positioning Write a positioning statement for a B2B SaaS tool that helps remote engineering teams reduce meeting overhead using async AI-powered standups.' },
+  { title: '📰 Write a digest',               sub: 'Scannable highlights with "why it matters" for each item',            q: '/digest Write a weekly digest of the most important trends in AI product development — 5 items, each with a summary and why it matters.' },
+  { title: '⚠️ Run a risk assessment',         sub: 'Likelihood/impact matrix with mitigations and owners',                q: '/risk Run a risk assessment for a startup launching a consumer AI app — identify the top risks across product, legal, market, and operations with mitigations.' },
+  { title: '🎤 Interview prep guide',          sub: 'Likely questions, STAR answers, and day-of cheat sheet',              q: '/interview-prep Create an interview prep guide for a senior product manager role at a fast-growing AI startup — include behavioral, technical, and culture-fit questions with model answers.' },
 ];
 let _suggOffset = 0;
 function _shuffleSuggestions() {
@@ -4893,6 +4905,9 @@ const SLASH_CMDS = [
   { cmd: '/stakeholder',icon:'🤝', desc: 'Map stakeholders by influence, interest & engagement strategy',   action: () => _slashPrepend('/stakeholder') },
   { cmd: '/competitive',icon:'⚔️', desc: 'Competitive analysis with positioning and differentiation',       action: () => _slashPrepend('/competitive') },
   { cmd: '/positioning',icon:'🎯', desc: 'Brand or product positioning statement with rationale',           action: () => _slashPrepend('/positioning') },
+  { cmd: '/digest',     icon: '📰', desc: 'Curate highlights into a scannable digest with key takeaways',   action: () => _slashPrepend('/digest') },
+  { cmd: '/risk',       icon: '⚠️',  desc: 'Risk assessment with likelihood/impact matrix and mitigations',  action: () => _slashPrepend('/risk') },
+  { cmd: '/interview-prep',icon:'🎤',desc: 'Interview prep guide with likely questions and model answers',   action: () => _slashPrepend('/interview-prep') },
   // ── Memory ────────────────────────────────────────────────────
   { cmd: '/remember', icon: '📌',  desc: 'Save a fact to semantic memory',             action: () => _slashPrepend('/remember') },
   { cmd: '/forget',   icon: '🗑️',  desc: 'Remove a fact from memory',                 action: () => _slashPrepend('/forget') },
