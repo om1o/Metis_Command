@@ -882,7 +882,7 @@ pre.collapsible.expanded code{max-height:none}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.72.0</span>
+      <span class="ver" id="versionPill">v0.73.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -1478,6 +1478,9 @@ pre.collapsible.expanded code{max-height:none}
           <div class="shortcut-row"><span class="s-desc">Competitive landscape with positioning grid, battlecards &amp; whitespace</span><span class="s-keys"><kbd>/competitor-map</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Process map with swimlanes, bottlenecks &amp; optimized to-be flow</span><span class="s-keys"><kbd>/process-map</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Budget plan with line items, burn rate &amp; sensitivity analysis</span><span class="s-keys"><kbd>/budget</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">10-slide investor pitch deck with narrative arc &amp; speaker notes</span><span class="s-keys"><kbd>/pitch-deck</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">User interview guide with screener, question bank &amp; synthesis template</span><span class="s-keys"><kbd>/user-interview</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Job description with leveling criteria and hiring scorecard</span><span class="s-keys"><kbd>/job-description</kbd></span></div>
         </div>
       </div>
       <div class="shortcuts-section">
@@ -2733,6 +2736,9 @@ async function sendMessage() {
     '/competitor-map': 'Create a comprehensive competitive landscape map for the following market, product, or category. Include: a 2×2 positioning grid (choose the two most strategically meaningful axes and place 5–8 competitors), a competitor profile table (company, target customer, primary differentiator, pricing model, key strengths, key weaknesses), a battlecard for the top 2–3 direct competitors (how to win against each, common objections and counters, when you lose and why), a whitespace analysis identifying underserved segments or uncontested positioning opportunities, and a strategic recommendation for how to sharpen your own positioning. Be specific and name real or representative competitors:\n\n',
     '/process-map': 'Create a detailed process map for the following workflow, operation, or system. Structure it with: a process title and scope statement (what triggers it, what ends it), a swimlane diagram described in text (list each lane/actor and their steps in sequence), a numbered step-by-step walkthrough with decision points and branching paths clearly labeled, a bottleneck and waste analysis (identify the top 3 steps with highest delay, rework, or handoff friction), an improvement recommendations section with specific changes for each bottleneck, and a revised "to-be" process outline showing the optimized flow. Use clear, unambiguous language a frontline worker could follow:\n\n',
     '/budget':      'Build a comprehensive budget plan for the following project, team, initiative, or time period. Include: a budget summary table with total headcount costs, non-headcount opex, capex, and contingency reserve, a detailed line-item breakdown organized by category (people, tools/software, infrastructure, marketing, contractors, travel, etc.) with monthly or quarterly phasing, key assumptions underlying each major line item, a burn rate analysis showing monthly spend curve and runway if applicable, a sensitivity analysis showing the impact of ±20% variance in the top 3 cost drivers, and a budget governance note covering approval thresholds, reforecast cadence, and variance escalation triggers. Be specific and quantitative:\n\n',
+    '/pitch-deck':  'Create a compelling 10-slide investor pitch deck outline for the following startup, product, or initiative. For each slide include: the slide title, a 1–2 sentence "what this slide must prove" statement, the key content and data points to include, and 2–3 speaker-note bullets the presenter should say aloud. Cover the classic narrative arc: (1) Cover / Hook, (2) Problem, (3) Solution, (4) Why Now / Market Timing, (5) Market Size (TAM/SAM/SOM), (6) Product / Demo, (7) Business Model, (8) Traction / Validation, (9) Team, (10) The Ask. End with a "common investor questions" section listing the top 5 likely pushbacks and how to address them:\n\n',
+    '/user-interview': 'Design a complete user interview guide for the following research goal, product, or question. Include: a research objective statement (what you are trying to learn and why), a 5-question screener with pass/fail criteria to qualify participants, a warm-up section (2–3 rapport-building questions), a core question bank of 12–15 open-ended questions organized by theme (problem space, current behavior, workarounds, decision-making, emotional drivers), 3–4 concept-testing or prototype-reaction prompts if applicable, a closing section that invites referrals and sets expectations, and a synthesis template the researcher can use after each session to capture: key quotes, observed behaviors, surprise moments, and a top insight. Format it so it can be handed to any interviewer and run immediately:\n\n',
+    '/job-description': 'Write a complete, compelling job description for the following role. Structure it with: a punchy 2–3 sentence role overview that sells the opportunity, a "what you\'ll do" section with 6–8 specific responsibilities (use action verbs, be concrete), a "what we\'re looking for" section separating must-have requirements from nice-to-have, a leveling criteria table showing how this role differs from the level below and above (skills, scope, autonomy), a compensation and benefits section with real ranges, a culture and team context paragraph, and a 30/60/90-day onboarding outline so candidates know what success looks like. Close with a candidate scorecard (5–7 evaluation criteria with definitions for "strong yes", "yes", "no"):\n\n',
   };
   let _slashStripped = text;
   for (const [cmd, instr] of Object.entries(SLASH_PREFIX_MAP)) {
@@ -3217,6 +3223,9 @@ async function sendMessage() {
           { label: 'Build a value prop →',            q: '/value-prop Write a value proposition canvas for the product or idea we just discussed.' },
           { label: 'Write a launch plan →',           q: '/launch-plan Write a go-to-market launch plan for what we just discussed.' },
           { label: 'Write user stories →',            q: '/user-story Write user stories with acceptance criteria for the feature we just discussed.' },
+          { label: 'Build a pitch deck →',            q: '/pitch-deck Build a pitch deck for what we just discussed — include all 10 slides with narrative arc and speaker notes.' },
+          { label: 'Write an interview guide →',      q: '/user-interview Design a user interview guide to validate the problem and solution we just discussed.' },
+          { label: 'Write the job description →',     q: '/job-description Write a job description for the key role we just discussed — include leveling criteria and a hiring scorecard.' },
         ];
         const _chipOffset = (_chipTurn || 0) % _chipPool.length;
         const chipDefs = [
@@ -3379,6 +3388,9 @@ const SUGGESTION_POOL = [
   { title: '⚔️ Map the competitive landscape',  sub: 'Positioning grid, battlecards, whitespace, and strategic recommendation', q: '/competitor-map Map the competitive landscape for a B2B AI writing tool — positioning grid with 6 competitors, battlecard for the top 3, whitespace opportunities, and sharpened positioning recommendation.' },
   { title: '🔄 Map a process end-to-end',       sub: 'Swimlanes, bottlenecks, waste analysis, and optimized to-be flow',        q: '/process-map Map the end-to-end customer onboarding process for a SaaS product — swimlanes by actor, step-by-step walkthrough, top 3 bottlenecks, and a redesigned to-be flow.' },
   { title: '💵 Build a project budget',         sub: 'Line items, burn rate, sensitivity analysis, and governance notes',       q: '/budget Build a 12-month budget plan for a 5-person product team launching a new SaaS feature — headcount, tooling, infra, marketing spend, burn rate curve, and ±20% sensitivity analysis.' },
+  { title: '🎤 Build a pitch deck',             sub: '10-slide narrative arc with speaker notes and investor Q&A prep',          q: '/pitch-deck Build a pitch deck for an AI productivity tool targeting knowledge workers — Series A raise, $3M ask, 18 months runway.' },
+  { title: '🎙️ Write a user interview guide',   sub: 'Screener, question bank, synthesis template, and research objective',      q: '/user-interview Design a user interview guide to understand why knowledge workers abandon productivity tools after the first week of use.' },
+  { title: '📝 Write a job description',         sub: 'Role overview, leveling criteria, scorecard, and 30/60/90 onboarding',    q: '/job-description Write a job description for a Senior Product Manager at an early-stage B2B SaaS company building AI-powered analytics tools.' },
 ];
 let _suggOffset = 0;
 function _shuffleSuggestions() {
@@ -5041,6 +5053,9 @@ const SLASH_CMDS = [
   { cmd: '/competitor-map', icon:'⚔️',  desc: 'Competitive landscape with positioning grid, battlecards & whitespace', action: () => _slashPrepend('/competitor-map') },
   { cmd: '/process-map',    icon:'🔄',  desc: 'Process map with swimlanes, bottlenecks & optimized to-be flow',        action: () => _slashPrepend('/process-map') },
   { cmd: '/budget',         icon:'💵',  desc: 'Budget plan with line items, burn rate & sensitivity analysis',          action: () => _slashPrepend('/budget') },
+  { cmd: '/pitch-deck',       icon:'🎤',  desc: '10-slide investor pitch deck with narrative arc and speaker notes',        action: () => _slashPrepend('/pitch-deck') },
+  { cmd: '/user-interview',   icon:'🎙️',  desc: 'User interview guide with screener, question bank & synthesis template',   action: () => _slashPrepend('/user-interview') },
+  { cmd: '/job-description',  icon:'📝',  desc: 'Job description with leveling criteria and hiring scorecard',               action: () => _slashPrepend('/job-description') },
   { cmd: '/help',   icon: '❓',  desc: 'Open keyboard shortcuts & commands guide',   action: () => openShortcutsModal() },
 ];
 
