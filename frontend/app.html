@@ -882,7 +882,7 @@ pre.collapsible.expanded code{max-height:none}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.69.0</span>
+      <span class="ver" id="versionPill">v0.70.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -1472,6 +1472,9 @@ pre.collapsible.expanded code{max-height:none}
           <div class="shortcut-row"><span class="s-desc">Performance scorecard with RAG status, metrics &amp; risks</span><span class="s-keys"><kbd>/scorecard</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">KPI framework with targets, owners &amp; leading/lagging labels</span><span class="s-keys"><kbd>/kpi</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">Lean Canvas covering all 9 blocks for a product or idea</span><span class="s-keys"><kbd>/lean</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Growth strategy with AARRR framework, loops &amp; 90-day sprint</span><span class="s-keys"><kbd>/growth</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Pricing strategy with tiers, value metric &amp; competitive benchmarks</span><span class="s-keys"><kbd>/pricing</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Team charter with mission, decision rights &amp; working norms</span><span class="s-keys"><kbd>/team-charter</kbd></span></div>
         </div>
       </div>
       <div class="shortcuts-section">
@@ -2718,6 +2721,9 @@ async function sendMessage() {
     '/scorecard':   'Create a structured performance scorecard for the following project, team, or initiative. Structure it with: a one-line objective, a scoring rubric table (metric, target, current, RAG status), a 3-5 sentence health summary, top 3 risks with mitigation notes, and a recommended next-action list. Format with headers and a clean table. Be direct and honest:\n\n',
     '/kpi':         'Define a KPI framework for the following product, team, or business goal. Structure it with: a one-line goal statement, a table of 5-8 KPIs (metric name, definition, unit, owner, target, current baseline), a "leading vs lagging" classification for each metric, a data source and measurement cadence note, and a 2-3 sentence framing of what "green" looks like at the end of the quarter. Be specific and avoid vanity metrics:\n\n',
     '/lean':        'Build a Lean Canvas for the following product or business idea. Cover all 9 blocks in order: Problem (top 3 problems), Customer Segments (target customers and early adopters), Unique Value Proposition (clear, compelling, one-sentence), Solution (top 3 features), Channels (path to customers), Revenue Streams (how you make money), Cost Structure (fixed and variable costs), Key Metrics (key activities you measure), Unfair Advantage (what cannot easily be copied). Keep each block tight - 2-4 bullet points max:\n\n',
+    '/growth':      'Design a comprehensive growth strategy for the following product, company, or initiative. Use the AARRR (Pirate Metrics) framework: Acquisition (top 3 channels, CAC estimate, channel-market fit rationale), Activation (definition of activated user, current vs. target rate, key friction points), Retention (D1/D7/D30 benchmarks, churn drivers, retention levers), Revenue (primary monetization model, ARPU, expansion opportunities), Referral (viral coefficient, referral triggers, program mechanics). Add a Growth Loops section identifying 1–2 compounding loops. Close with a 90-day growth sprint plan with prioritized experiments and success metrics:\n\n',
+    '/pricing':     'Design a pricing strategy for the following product, service, or business. Include: a pricing model recommendation (e.g. usage-based, seat-based, freemium, tiered subscription) with rationale, a 3-tier pricing table (tier name, price, target segment, included features, key limits), a value-metric analysis (what the customer is actually paying for and why), competitive pricing benchmarks with positioning notes, a revenue sensitivity analysis (impact of ±10% price change on conversion and LTV), willingness-to-pay signals and how to test them, and packaging recommendations for the most common buyer personas. Be specific and quantitative where possible:\n\n',
+    '/team-charter':'Write a comprehensive team charter for the following team, project, or initiative. Structure it with: a team mission statement (one sentence), a scope definition (what is in and out of scope), team composition with roles and primary responsibilities, a RACI or decision rights table for key decision types (who decides, who advises, who is informed), team norms and working agreements (communication cadence, response time expectations, meeting hygiene), an escalation path for conflicts or blockers, success metrics and how the team will measure health, and a 30/60/90-day onboarding checklist for new members. Make it practical enough to be used from day one:\n\n',
   };
   let _slashStripped = text;
   for (const [cmd, instr] of Object.entries(SLASH_PREFIX_MAP)) {
@@ -3355,6 +3361,9 @@ const SUGGESTION_POOL = [
   { title: '📊 Build a scorecard',              sub: 'RAG-status rubric, health summary, and next-action list',                 q: '/scorecard Build a scorecard for a mobile app growth initiative — target 50k MAU in Q3, currently at 31k.' },
   { title: '📈 Define your KPIs',               sub: 'Framework with targets, owners, leading vs lagging metrics',              q: '/kpi Define KPIs for a SaaS onboarding team trying to hit 70% Day-7 activation and reduce time-to-value below 5 minutes.' },
   { title: '🟩 Lean Canvas',                    sub: 'All 9 blocks: problem, UVP, channels, revenue, and more',                 q: '/lean Build a Lean Canvas for an AI-powered personal finance coach targeting millennials with irregular income.' },
+  { title: '📈 Build a growth strategy',        sub: 'AARRR funnel, growth loops, and 90-day sprint plan',                      q: '/growth Design a growth strategy for a B2B SaaS product-analytics tool targeting early-stage startups — cover all AARRR stages, identify 2 growth loops, and outline a 90-day experiment sprint.' },
+  { title: '💰 Design your pricing',            sub: '3-tier table, value metric, and competitive benchmarks',                  q: '/pricing Design a pricing strategy for a B2B AI writing tool — recommend a model, build a 3-tier table, benchmark against competitors, and suggest how to test willingness to pay.' },
+  { title: '🤝 Write a team charter',           sub: 'Mission, decision rights, norms, and 30/60/90 onboarding',               q: '/team-charter Write a team charter for a newly formed 6-person AI product team — define scope, roles, decision rights, working norms, and a 30/60/90-day onboarding checklist.' },
 ];
 let _suggOffset = 0;
 function _shuffleSuggestions() {
@@ -5007,7 +5016,10 @@ const SLASH_CMDS = [
   }},
   { cmd: '/scorecard', icon: '📊',  desc: 'Build a performance scorecard with RAG status and metrics', action: () => _slashPrepend('/scorecard') },
   { cmd: '/kpi',       icon: '📈',  desc: 'Define a KPI framework with targets, owners, and baselines', action: () => _slashPrepend('/kpi') },
-  { cmd: '/lean',      icon: '🟩',  desc: 'Build a Lean Canvas covering all 9 blocks',          action: () => _slashPrepend('/lean') },
+  { cmd: '/lean',       icon: '🟩',  desc: 'Build a Lean Canvas covering all 9 blocks',                       action: () => _slashPrepend('/lean') },
+  { cmd: '/growth',     icon: '📈',  desc: 'Growth strategy with AARRR, growth loops & 90-day sprint',         action: () => _slashPrepend('/growth') },
+  { cmd: '/pricing',    icon: '💰',  desc: 'Pricing strategy with tiers, value metric & competitive benchmarks',action: () => _slashPrepend('/pricing') },
+  { cmd: '/team-charter',icon:'🤝',  desc: 'Team charter with mission, decision rights & working norms',        action: () => _slashPrepend('/team-charter') },
   { cmd: '/help',   icon: '❓',  desc: 'Open keyboard shortcuts & commands guide',   action: () => openShortcutsModal() },
 ];
 
