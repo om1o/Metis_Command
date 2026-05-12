@@ -882,7 +882,7 @@ pre.collapsible.expanded code{max-height:none}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.67.0</span>
+      <span class="ver" id="versionPill">v0.68.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -1466,6 +1466,9 @@ pre.collapsible.expanded code{max-height:none}
           <div class="shortcut-row"><span class="s-desc">Design a research survey with branching logic</span><span class="s-keys"><kbd>/survey</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">5 Whys root cause analysis with corrective actions</span><span class="s-keys"><kbd>/five-whys</kbd></span></div>
           <div class="shortcut-row"><span class="s-desc">User story map with epics &amp; release slices</span><span class="s-keys"><kbd>/storymap</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">OKR framework with objectives, key results &amp; cadence</span><span class="s-keys"><kbd>/okrs</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Sprint or project retrospective with action items</span><span class="s-keys"><kbd>/retro</kbd></span></div>
+          <div class="shortcut-row"><span class="s-desc">Product changelog or release notes with impact framing</span><span class="s-keys"><kbd>/changelog</kbd></span></div>
         </div>
       </div>
       <div class="shortcuts-section">
@@ -2706,6 +2709,9 @@ async function sendMessage() {
     '/survey':      'Design a complete user or market research survey for the following goal or topic. Include: a survey title and 1–2 sentence intro, a clear research objective, 8–12 questions organized into logical sections, a mix of question types (Likert scale, multiple choice, ranking, open-ended), instructions for each question type, branching logic where needed, and a closing thank-you message. End with a brief analysis plan explaining how to interpret the responses and what insights to look for:\n\n',
     '/five-whys':   'Perform a thorough 5 Whys root cause analysis for the following problem or failure. Structure it with: a clear problem statement, the iterative 5 Whys chain (Why 1 through Why 5 or until root cause), the identified root cause(s), contributing factors or systemic patterns uncovered, and a set of concrete corrective actions tied directly to the root cause. Use a blameless, learning-focused tone. If multiple causal paths exist, branch the analysis and document each:\n\n',
     '/storymap':    'Build a user story map for the following product, feature, or workflow. Structure it with: a narrative or backbone row of high-level user activities (epics) in chronological order, a walking skeleton row of the minimum stories to complete each activity end-to-end, additional story rows layered by priority below the skeleton, a release slice recommendation showing which stories form the MVP vs. later releases, and acceptance notes for the top-priority stories. Format it clearly enough that a development team could use it for sprint planning:\n\n',
+    '/okrs':        'Define a complete OKR (Objectives and Key Results) framework for the following team, product, or initiative. Include: 2–4 Objectives that are inspiring and directional, 3–5 measurable Key Results per Objective with clear targets and a 0–1 scoring scale, a recommended check-in cadence (weekly, monthly, quarterly), signals for on-track vs. at-risk KRs, and a brief notes section on common OKR pitfalls to avoid. Format for use in a planning doc or quarterly review meeting:\n\n',
+    '/retro':       'Facilitate a thorough sprint or project retrospective for the following context. Structure it with: a brief summary of the sprint or project scope, a "What went well" section (3–5 items with explanations), a "What could be improved" or Delta section (3–5 items), a root-cause note for the top 2 friction points, a clear Action Items table with owner, action, and due-date columns, and a health temperature-check on team energy, clarity, and collaboration. Use a blameless and constructive tone:\n\n',
+    '/changelog':   'Write a polished product changelog or release notes for the following update or version. Structure it with: a version number and release date header, a 1–2 sentence release summary, categorized sections (New Features, Improvements, Bug Fixes, Deprecations — include only non-empty sections), bullet points written from the user\'s perspective ("You can now…", "We fixed…"), a "Why it matters" callout for the top 1–2 highlights, and a migration note if any breaking changes exist. Tone should be clear, friendly, and concise:\n\n',
   };
   let _slashStripped = text;
   for (const [cmd, instr] of Object.entries(SLASH_PREFIX_MAP)) {
@@ -3337,6 +3343,9 @@ const SUGGESTION_POOL = [
   { title: '📋 Design a survey',               sub: 'Question types, branching logic, and analysis plan',                       q: '/survey Design a user research survey to understand why people abandon a SaaS onboarding flow — include Likert scales, multiple choice, and open-ended questions with branching logic.' },
   { title: '🔍 Run a 5 Whys',                  sub: 'Iterative root cause chain with corrective actions',                        q: '/five-whys A B2B SaaS product saw a 20% spike in churn last month — run a 5 Whys analysis to find the root cause and recommend corrective actions.' },
   { title: '🗺️ Build a story map',              sub: 'Epics, walking skeleton, and release slices',                              q: '/storymap Build a user story map for a mobile onboarding flow — identify epics, the MVP walking skeleton, and which stories belong in each release slice.' },
+  { title: '🎯 Set team OKRs',                  sub: 'Objectives, key results, scoring scale, and check-in cadence',              q: '/okrs Define OKRs for a product team shipping a new AI feature this quarter — 3 objectives, 3–4 key results each, scoring guidance, and a weekly check-in template.' },
+  { title: '🔄 Run a retro',                    sub: 'Went well, delta, root causes, and action items table',                     q: '/retro Run a sprint retrospective for a 2-week sprint where we shipped a new onboarding flow but missed our velocity target — surface root causes and assign action items.' },
+  { title: '📝 Write a changelog',              sub: 'Release notes with user-facing framing and impact callouts',                q: '/changelog Write release notes for v2.4.0 of a B2B SaaS app — we added SSO, improved dashboard load time by 40%, and fixed 3 bugs including a critical data export issue.' },
 ];
 let _suggOffset = 0;
 function _shuffleSuggestions() {
@@ -4944,6 +4953,9 @@ const SLASH_CMDS = [
   { cmd: '/survey',       icon:'📋', desc: 'Design a user or market research survey with question types and analysis plan', action: () => _slashPrepend('/survey') },
   { cmd: '/five-whys',    icon:'🔍', desc: '5 Whys root cause analysis with corrective actions',                   action: () => _slashPrepend('/five-whys') },
   { cmd: '/storymap',     icon:'🗺️', desc: 'User story map with epics, walking skeleton, and release slices',      action: () => _slashPrepend('/storymap') },
+  { cmd: '/okrs',         icon:'🎯', desc: 'OKR framework with objectives, key results, scoring & check-in cadence', action: () => _slashPrepend('/okrs') },
+  { cmd: '/retro',        icon:'🔄', desc: 'Sprint or project retrospective with root causes and action items',     action: () => _slashPrepend('/retro') },
+  { cmd: '/changelog',    icon:'📝', desc: 'Product changelog or release notes with user-facing impact framing',   action: () => _slashPrepend('/changelog') },
   // ── Memory ────────────────────────────────────────────────────
   { cmd: '/remember', icon: '📌',  desc: 'Save a fact to semantic memory',             action: () => _slashPrepend('/remember') },
   { cmd: '/forget',   icon: '🗑️',  desc: 'Remove a fact from memory',                 action: () => _slashPrepend('/forget') },
