@@ -882,7 +882,7 @@ pre.collapsible.expanded code{max-height:none}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.85.0</span>
+      <span class="ver" id="versionPill">v0.86.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -3468,6 +3468,9 @@ const SUGGESTION_POOL = [
   { title: '🏛️ Write a culture doc',              sub: 'Values, behaviors, rituals, and hiring bar',                                               q: '/culture-doc Write a culture doc for a 30-person B2B SaaS startup — define the top 5 values with behavioral examples, key rituals, decision-making norms, and the hiring bar we use to evaluate culture fit.' },
   { title: '🧭 Write a product strategy',          sub: 'Vision, strategic bets, pillars & 12-month roadmap themes',                                q: '/product-strategy Write a product strategy for a B2B AI analytics tool entering the enterprise market — define the 3-year vision, 3 strategic bets, product pillars, and 12-month roadmap themes with success metrics.' },
   { title: '🔎 Architecture review',               sub: 'Current state, gaps, ADRs & phased migration path',                                        q: '/architecture-review Run an architecture review for a monolithic SaaS app planning to introduce microservices — assess current state, identify top architectural risks, write 3 ADRs, and propose a phased migration path.' },
+  { title: '💹 Build a financial model',           sub: 'Revenue projections, unit economics & scenario analysis',                                   q: '/financial-model Build a 3-year financial model for a B2B SaaS startup with $500K ARR — project revenue, model cost structure, calculate unit economics, and run optimistic/base/pessimistic scenarios.' },
+  { title: '🗺️ Map a service blueprint',           sub: 'Frontstage, backstage, support processes & failure points',                                  q: '/service-blueprint Map a service blueprint for the onboarding experience of a B2B SaaS product — cover frontstage customer actions, backstage staff actions, support processes, and top failure points.' },
+  { title: '📊 Analyze your NPS',                  sub: 'Segment breakdown, driver analysis & prioritized action plan',                               q: '/nps-analysis Run an NPS analysis for a B2B SaaS product with a score of 34 — break down by segment, identify the top drivers of detractors and promoters, extract verbatim themes, and produce a prioritized action plan.' },
 ];
 let _suggOffset = 0;
 function _shuffleSuggestions() {
@@ -5160,6 +5163,9 @@ const SLASH_CMDS = [
   { cmd: '/hiring-plan',   icon: '👥',  desc: 'Hiring plan with role prioritization, scorecards & interview process',      action: () => _slashPrepend('/hiring-plan') },
   { cmd: '/post-mortem',   icon: '🔍',  desc: 'Incident post-mortem with timeline, root cause & prevention playbook',      action: () => _slashPrepend('/post-mortem') },
   { cmd: '/help',   icon: '❓',  desc: 'Open keyboard shortcuts & commands guide',   action: () => openShortcutsModal() },
+  { cmd: '/financial-model',  icon:'💹', desc: '3-statement financial model with projections, unit economics & scenario analysis',       action: () => _slashPrepend('/financial-model') },
+  { cmd: '/service-blueprint',icon:'🗺️', desc: 'Service blueprint with frontstage, backstage, support processes & failure points',       action: () => _slashPrepend('/service-blueprint') },
+  { cmd: '/nps-analysis',     icon:'📊', desc: 'NPS analysis with segment breakdown, driver identification, verbatim themes & action plan', action: () => _slashPrepend('/nps-analysis') },
 ];
 
 let _slashActive = false;
