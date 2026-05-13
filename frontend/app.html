@@ -882,7 +882,7 @@ pre.collapsible.expanded code{max-height:none}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.84.0</span>
+      <span class="ver" id="versionPill">v0.85.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -3465,6 +3465,9 @@ const SUGGESTION_POOL = [
   { title: '🏢 Run a vendor review',               sub: 'Scoring matrix, risk flags, total cost of ownership & recommendation',                  q: '/vendor-review Run a vendor review for selecting a new data warehouse solution — evaluate 4 vendors across performance, cost, security, support, and integration; build a scoring matrix and produce a final recommendation.' },
   { title: '👥 Build a hiring plan',               sub: 'Role prioritization, headcount model, JD templates & interview process',                q: '/hiring-plan Build a hiring plan for scaling an engineering team from 8 to 15 people over 6 months — prioritize roles, model headcount by quarter, draft JD outlines, and define a structured interview process.' },
   { title: '🔍 Write an incident post-mortem',     sub: 'Timeline, root cause, contributing factors, action items & prevention playbook',        q: '/post-mortem Write a post-mortem for a 3-hour production outage that caused 15% of users to experience failed logins — include a timeline, root cause analysis, contributing factors, and a prevention playbook with 5 action items.' },
+  { title: '🏛️ Write a culture doc',              sub: 'Values, behaviors, rituals, and hiring bar',                                               q: '/culture-doc Write a culture doc for a 30-person B2B SaaS startup — define the top 5 values with behavioral examples, key rituals, decision-making norms, and the hiring bar we use to evaluate culture fit.' },
+  { title: '🧭 Write a product strategy',          sub: 'Vision, strategic bets, pillars & 12-month roadmap themes',                                q: '/product-strategy Write a product strategy for a B2B AI analytics tool entering the enterprise market — define the 3-year vision, 3 strategic bets, product pillars, and 12-month roadmap themes with success metrics.' },
+  { title: '🔎 Architecture review',               sub: 'Current state, gaps, ADRs & phased migration path',                                        q: '/architecture-review Run an architecture review for a monolithic SaaS app planning to introduce microservices — assess current state, identify top architectural risks, write 3 ADRs, and propose a phased migration path.' },
 ];
 let _suggOffset = 0;
 function _shuffleSuggestions() {
@@ -5087,7 +5090,6 @@ const SLASH_CMDS = [
   { cmd: '/change-management', icon:'🔄', desc: 'Change management plan with ADKAR, resistance map, comms plan & adoption metrics',      action: () => _slashPrepend('/change-management') },
   { cmd: '/customer-journey',  icon:'🗺️', desc: 'Customer journey map with stages, touchpoints, emotions & opportunities',              action: () => _slashPrepend('/customer-journey') },
   { cmd: '/exec-summary',      icon:'📄', desc: 'Executive summary with situation, resolution, asks & decision timeline',               action: () => _slashPrepend('/exec-summary') },
-  { cmd: '/ab-test',           icon:'🧪', desc: 'A/B test design with hypothesis, sample size, analysis plan & rollout decision tree',    action: () => _slashPrepend('/ab-test') },
   { cmd: '/investor-update',   icon:'📈', desc: 'Investor update with KPI dashboard, highlights, financials & asks',                      action: () => _slashPrepend('/investor-update') },
   { cmd: '/demo-script',       icon:'🎬', desc: 'Product demo script with scenes, talk tracks, wow moment & closing sequence',            action: () => _slashPrepend('/demo-script') },
   { cmd: '/sales-playbook',    icon:'🎯', desc: 'Sales playbook with ICP, personas, discovery, objection handling & battlecards',           action: () => _slashPrepend('/sales-playbook') },
@@ -5095,9 +5097,10 @@ const SLASH_CMDS = [
   { cmd: '/meeting-notes',     icon:'📝', desc: 'Structured meeting notes with decisions, action items & open questions',                   action: () => _slashPrepend('/meeting-notes') },
   { cmd: '/onboarding-plan',   icon:'🚀', desc: 'Employee onboarding plan with pre-boarding, 30/60/90-day milestones & curriculum',         action: () => _slashPrepend('/onboarding-plan') },
   { cmd: '/sow',               icon:'📋', desc: 'Statement of Work with scope, deliverables, timeline & payment schedule',                  action: () => _slashPrepend('/sow') },
-  { cmd: '/risk-register',    icon:'⚠️',  desc: 'Risk register with probability/impact matrix, mitigation strategies & escalation plan',    action: () => _slashPrepend('/risk-register') },
   { cmd: '/competitive-analysis', icon:'🔍', desc: 'Competitive analysis with feature matrix, positioning map & response playbook',        action: () => _slashPrepend('/competitive-analysis') },
-  { cmd: '/okr',              icon:'🎯', desc: 'OKR plan with objectives, key results, confidence scores & check-in cadence',               action: () => _slashPrepend('/okr') },
+  { cmd: '/culture-doc',       icon:'🏛️', desc: 'Culture document with values, behaviors, rituals, and hiring bar',                        action: () => _slashPrepend('/culture-doc') },
+  { cmd: '/product-strategy',  icon:'🧭', desc: 'Product strategy with vision, strategic bets, pillars & 12-month roadmap themes',          action: () => _slashPrepend('/product-strategy') },
+  { cmd: '/architecture-review',icon:'🔎', desc: 'Architecture review with current-state analysis, gaps, ADRs & migration path',            action: () => _slashPrepend('/architecture-review') },
   // ── Memory ────────────────────────────────────────────────────
   { cmd: '/remember', icon: '📌',  desc: 'Save a fact to semantic memory',             action: () => _slashPrepend('/remember') },
   { cmd: '/forget',   icon: '🗑️',  desc: 'Remove a fact from memory',                 action: () => _slashPrepend('/forget') },
@@ -5209,7 +5212,7 @@ function hideSlashMenu() {
 const _origInputHandler = msgInput.oninput;
 msgInput.addEventListener('input', () => {
   const val = msgInput.value;
-  if (val.startsWith('/') && !val.includes(' ') && val.length <= 12) {
+  if (val.startsWith('/') && !val.includes(' ') && val.length <= 30) {
     showSlashMenu(val);
   } else {
     hideSlashMenu();
