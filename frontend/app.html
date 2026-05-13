@@ -882,7 +882,7 @@ pre.collapsible.expanded code{max-height:none}
           <span class="mm-sub" id="brandSub">Director's Console</span>
         </span>
       </button>
-      <span class="ver" id="versionPill">v0.83.0</span>
+      <span class="ver" id="versionPill">v0.84.0</span>
     </div>
 
     <button class="new-btn" id="newChatBtn">
@@ -3462,6 +3462,9 @@ const SUGGESTION_POOL = [
   { title: '⚠️ Build a risk register',             sub: 'Probability/impact matrix, mitigation strategies & escalation plan',                  q: '/risk-register Build a risk register for a 6-month enterprise software migration project — identify 10+ risks across technical, people, and timeline categories, score by probability and impact, and provide mitigation plans for the top 5.' },
   { title: '🔍 Run a competitive analysis',        sub: 'Feature matrix, positioning map, win/loss patterns & playbook',                       q: '/competitive-analysis Run a competitive analysis for a B2B project management SaaS targeting mid-market ops teams — profile the top 4 competitors, build a feature comparison matrix, map positioning, and produce a competitive response playbook.' },
   { title: '🎯 Build an OKR plan',                 sub: 'Objectives, key results, confidence scores, initiatives & check-in cadence',          q: '/okr Build a Q3 OKR plan for a 12-person product team at a B2B SaaS company — 3 objectives with 3 key results each, confidence scores, linked initiatives, and a bi-weekly check-in format.' },
+  { title: '🏢 Run a vendor review',               sub: 'Scoring matrix, risk flags, total cost of ownership & recommendation',                  q: '/vendor-review Run a vendor review for selecting a new data warehouse solution — evaluate 4 vendors across performance, cost, security, support, and integration; build a scoring matrix and produce a final recommendation.' },
+  { title: '👥 Build a hiring plan',               sub: 'Role prioritization, headcount model, JD templates & interview process',                q: '/hiring-plan Build a hiring plan for scaling an engineering team from 8 to 15 people over 6 months — prioritize roles, model headcount by quarter, draft JD outlines, and define a structured interview process.' },
+  { title: '🔍 Write an incident post-mortem',     sub: 'Timeline, root cause, contributing factors, action items & prevention playbook',        q: '/post-mortem Write a post-mortem for a 3-hour production outage that caused 15% of users to experience failed logins — include a timeline, root cause analysis, contributing factors, and a prevention playbook with 5 action items.' },
 ];
 let _suggOffset = 0;
 function _shuffleSuggestions() {
@@ -5150,6 +5153,9 @@ const SLASH_CMDS = [
   { cmd: '/retro',            icon:'🔄',  desc: 'Sprint retrospective with wins, deltas, experiments & action items',         action: () => _slashPrepend('/retro') },
   { cmd: '/case-study',       icon:'📖',  desc: 'Customer case study with metrics, testimonials & success factors',            action: () => _slashPrepend('/case-study') },
   { cmd: '/proposal',         icon:'📋',  desc: 'Business proposal with scope, timeline, budget & risk register',              action: () => _slashPrepend('/proposal') },
+  { cmd: '/vendor-review',  icon: '🏢',  desc: 'Vendor evaluation with scoring matrix, risk assessment & recommendation', action: () => _slashPrepend('/vendor-review') },
+  { cmd: '/hiring-plan',   icon: '👥',  desc: 'Hiring plan with role prioritization, scorecards & interview process',      action: () => _slashPrepend('/hiring-plan') },
+  { cmd: '/post-mortem',   icon: '🔍',  desc: 'Incident post-mortem with timeline, root cause & prevention playbook',      action: () => _slashPrepend('/post-mortem') },
   { cmd: '/help',   icon: '❓',  desc: 'Open keyboard shortcuts & commands guide',   action: () => openShortcutsModal() },
 ];
 
