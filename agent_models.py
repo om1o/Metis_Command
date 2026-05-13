@@ -9,7 +9,11 @@ import os
 import time
 
 OPENROUTER_BASE = os.getenv("OPENROUTER_BASE", "https://openrouter.ai/api/v1")
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
+
+
+def _get_api_key():
+    """Read the API key lazily so .env has time to load."""
+    return os.getenv("OPENROUTER_API_KEY", "")
 
 ROLE_MODELS: dict[str, str] = {
     "planner":    "arcee-ai/trinity-large-thinking:free",
@@ -32,7 +36,7 @@ OLLAMA_FALLBACK: dict[str, str] = {
 
 def pick_model(role: str) -> tuple[str, str]:
     """Return (model_name, provider) for a given agent role."""
-    if OPENROUTER_API_KEY:
+    if _get_api_key():
         model = ROLE_MODELS.get(role, ROLE_MODELS["default"])
         return model, "openrouter"
     model = OLLAMA_FALLBACK.get(role, OLLAMA_FALLBACK["default"])
@@ -63,7 +67,7 @@ def chat_openrouter(
 
     from openai import OpenAI
 
-    client = OpenAI(base_url=OPENROUTER_BASE, api_key=OPENROUTER_API_KEY)
+    client = OpenAI(base_url=OPENROUTER_BASE, api_key=_get_api_key())
     kwargs: dict = dict(model=model, messages=messages, temperature=temperature)
     if tools:
         kwargs["tools"] = tools

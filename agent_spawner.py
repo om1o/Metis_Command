@@ -2,7 +2,7 @@
 Agent spawner — creates ephemeral tool-equipped agents for tasks.
 
 The Manager calls run_task() which:
-1. Analyzes the task to decide which roles are needed
+1. Asks the Manager LLM to plan custom agents for the task
 2. Spawns agents sequentially (to respect rate limits)
 3. Each agent runs a tool-calling loop (max 10 iterations)
 4. Agents communicate via a shared thread
@@ -11,13 +11,14 @@ The Manager calls run_task() which:
 from __future__ import annotations
 
 import json
+import re
 import time
 import uuid
 from dataclasses import dataclass, field
 from typing import Callable, Generator
 
 from agent_models import chat, pick_model
-from agent_prompts import get_prompt
+from agent_prompts import get_prompt, generate_agent_prompt
 from agent_tools import TOOL_SCHEMAS, execute_tool
 
 
@@ -42,17 +43,37 @@ class AgentThread:
 
 
 def _run_agent(
-    role: str,
+    agent_spec: dict,
     task: str,
     thread: AgentThread,
     sandbox_roots: list[str],
     project_dir: str | None = None,
 ) -> Generator[dict, None, str]:
-    """Run one agent through its tool-calling loop. Yields SSE events. Returns final output."""
-    model, provider = pick_model(role)
-    system_prompt = get_prompt(role, task, project_dir)
+    """Run one agent through its tool-calling loop. Yields SSE events. Returns final output.
 
-    yield {"type": "agent_spawned", "agent": role, "model": model, "provider": provider}
+    agent_spec is a dict with keys: name, role, tools (list of tool names).
+    """
+    agent_name = agent_spec["name"]
+    agent_role_desc = agent_spec.get("role", "")
+    agent_tools = agent_spec.get("tools", [])
+
+    model, provider = pick_model("default")
+
+    # Filter TOOL_SCHEMAS to only the tools this agent is allowed to use
+    if agent_tools:
+        filtered_schemas = [s for s in TOOL_SCHEMAS if s["function"]["name"] in agent_tools]
+    else:
+        filtered_schemas = TOOL_SCHEMAS
+
+    system_prompt = generate_agent_prompt(
+        role_name=agent_name,
+        role_description=agent_role_desc,
+        task=task,
+        tools_available=agent_tools,
+        project_dir=project_dir,
+    )
+
+    yield {"type": "agent_spawned", "agent": agent_name, "model": model, "provider": provider}
 
     messages = [{"role": "system", "content": system_prompt}]
 
@@ -64,17 +85,17 @@ def _run_agent(
     messages.append({"role": "user", "content": task})
 
     # Determine if this model supports tool calling
-    # Not all free models do — fallback to prompt-based tools
-    use_tools = provider == "openrouter" and ":free" in model
+    use_tools = provider == "openrouter" and ":free" in model and filtered_schemas
 
     final_output = ""
+    content = ""
 
     for iteration in range(thread.max_rounds):
         try:
-            resp = chat(role, messages, tools=TOOL_SCHEMAS if use_tools else None)
+            resp = chat("default", messages, tools=filtered_schemas if use_tools else None)
         except Exception as e:
-            yield {"type": "agent_error", "agent": role, "error": str(e)}
-            final_output = f"[Agent {role} crashed: {e}]"
+            yield {"type": "agent_error", "agent": agent_name, "error": str(e)}
+            final_output = f"[Agent {agent_name} crashed: {e}]"
             break
         content = resp.get("content", "")
         tool_calls = resp.get("tool_calls", [])
@@ -93,7 +114,7 @@ def _run_agent(
                 except json.JSONDecodeError:
                     fn_args = {}
 
-                yield {"type": "agent_tool", "agent": role, "tool": fn_name, "args": fn_args}
+                yield {"type": "agent_tool", "agent": agent_name, "tool": fn_name, "args": fn_args}
 
                 result = execute_tool(fn_name, fn_args, sandbox_roots)
                 messages.append({"role": "tool", "tool_call_id": tc["id"], "content": result})
@@ -105,38 +126,66 @@ def _run_agent(
     if not final_output:
         final_output = content or "[Agent produced no output]"
 
-    thread.post(role, final_output)
-    yield {"type": "agent_complete", "agent": role, "output": final_output[:500], "model": model}
+    thread.post(agent_name, final_output)
+    yield {"type": "agent_complete", "agent": agent_name, "output": final_output[:500], "model": model}
 
     return final_output
 
 
+def _plan_agents(task: str) -> list[dict]:
+    """Ask the Manager to plan which custom agents to create.
+
+    Returns list of dicts: [{"name": "Email Fetcher", "role": "fetch emails from Gmail", "tools": ["read_emails"]}, ...]
+    """
+    available_tools = [t["function"]["name"] for t in TOOL_SCHEMAS]
+
+    plan_prompt = f"""You are the Metis Manager. A user wants: "{task}"
+
+Decide what specialized agents to create for this task. Each agent should have:
+- name: a short descriptive name (e.g. "API Builder", "Email Fetcher")
+- role: what this agent does (one sentence)
+- tools: which tools it needs from: {available_tools}
+
+Return ONLY a JSON array. Example:
+[{{"name": "Code Writer", "role": "Write the implementation code", "tools": ["file_read", "file_write", "file_edit"]}},
+ {{"name": "Tester", "role": "Test the code works", "tools": ["terminal_exec", "file_read"]}}]
+
+Rules:
+- Create 1-4 agents (no more)
+- Each agent should have a clear, distinct purpose
+- Don't create agents for things you can answer directly
+- For simple questions, return an empty array []
+"""
+
+    resp = chat("default", [{"role": "user", "content": plan_prompt}])
+    content = resp.get("content", "")
+
+    # Parse JSON from response
+    match = re.search(r'\[.*\]', content, re.DOTALL)
+    if match:
+        try:
+            agents = json.loads(match.group())
+            return [a for a in agents if isinstance(a, dict) and "name" in a and "role" in a]
+        except json.JSONDecodeError:
+            pass
+    return []
+
+
 def _decide_roles(task: str) -> list[str]:
-    """Simple heuristic to decide which agent roles are needed."""
+    """Legacy heuristic to decide which agent roles are needed (kept for backward compat)."""
     lower = task.lower()
     roles = []
 
-    # Always plan first for complex tasks
     if any(w in lower for w in ["build", "create", "implement", "design", "make", "add"]):
         roles.append("planner")
-
-    # Code-related
     if any(w in lower for w in ["code", "write", "build", "implement", "create", "function", "class", "api", "fix"]):
         roles.append("coder")
-
-    # Debug-related
     if any(w in lower for w in ["debug", "fix", "error", "bug", "crash", "broken"]):
         roles.append("debugger")
-
-    # Test-related
     if any(w in lower for w in ["test", "verify", "check", "validate", "benchmark"]):
         roles.append("tester")
-
-    # Research-related
     if any(w in lower for w in ["research", "find", "search", "look up", "what is", "how to", "explain"]):
         roles.append("researcher")
-
-    # Default: at least use a coder
     if not roles:
         roles = ["coder"]
 
@@ -152,15 +201,21 @@ def run_task(
     """
     Main entry point — Manager calls this to spawn agents for a task.
 
+    Uses _plan_agents to dynamically create custom agents via the Manager LLM.
     Yields SSE events. Returns final summary dict.
     """
     if sandbox_roots is None:
         sandbox_roots = [project_dir] if project_dir else ["."]
 
-    roles = _decide_roles(task)
+    # Ask the Manager LLM to plan agents dynamically
+    agent_specs = _plan_agents(task)
+
+    # Extract agent names for the task_start event
+    agent_names = [a["name"] for a in agent_specs] if agent_specs else []
+
     thread = AgentThread()
 
-    yield {"type": "task_start", "task": task[:100], "roles": roles, "job_id": job_id}
+    yield {"type": "task_start", "task": task[:100], "roles": agent_names, "job_id": job_id}
 
     # Update job status if applicable
     if job_id:
@@ -173,8 +228,8 @@ def run_task(
     agents_used = []
     all_outputs = {}
 
-    for role in roles:
-        agent_gen = _run_agent(role, task, thread, sandbox_roots, project_dir)
+    for spec in agent_specs:
+        agent_gen = _run_agent(spec, task, thread, sandbox_roots, project_dir)
         output = ""
         # Consume generator, forwarding events
         try:
@@ -184,13 +239,13 @@ def run_task(
         except StopIteration as e:
             output = e.value or ""
 
-        agents_used.append(role)
-        all_outputs[role] = output
+        agents_used.append(spec["name"])
+        all_outputs[spec["name"]] = output
 
     # Synthesize summary
     summary_parts = []
-    for role, output in all_outputs.items():
-        summary_parts.append(f"**{role.title()}:** {output[:300]}")
+    for name, output in all_outputs.items():
+        summary_parts.append(f"**{name}:** {output[:300]}")
     summary = "\n\n".join(summary_parts)
 
     # Update job status: clean up one-time tasks, reset recurring ones
@@ -200,8 +255,10 @@ def run_task(
             jobs = list_jobs()
             job = next((j for j in jobs if j.get("id") == job_id), None)
             if job and job.get("schedule"):
+                # Recurring job — keep alive, reset to pending
                 update_job_status(job_id, "pending")
             else:
+                # One-time task — clean up
                 delete_job(job_id)
         except Exception:
             pass

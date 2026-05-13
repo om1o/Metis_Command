@@ -29,8 +29,12 @@ from hardware_scanner import get_hardware_tier
 
 OLLAMA_BASE = os.getenv("OLLAMA_BASE", "http://localhost:11434")
 OPENROUTER_BASE = os.getenv("OPENROUTER_BASE", "https://openrouter.ai/api/v1")
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 OPENROUTER_MANAGER_MODEL = os.getenv("OPENROUTER_MANAGER_MODEL", "nvidia/nemotron-3-super-120b-a12b:free")
+
+
+def _get_api_key():
+    """Read the API key lazily so .env has time to load."""
+    return os.getenv("OPENROUTER_API_KEY", "")
 
 # ── Role -> model mapping (tuned to the models the user already pulled) ──────
 #
@@ -90,7 +94,7 @@ def get_active_model(role: str = "default") -> str:
         3. Local glm4:9b via Ollama
         4. Local qwen2.5-coder:7b fallback
     """
-    if role == "manager" and OPENROUTER_API_KEY:
+    if role == "manager" and _get_api_key():
         return OPENROUTER_MANAGER_MODEL
     primary = ROLE_MODELS.get(role, ROLE_MODELS["default"])
     if role == "genius":
@@ -122,7 +126,7 @@ def get_active_model(role: str = "default") -> str:
 
 def _is_cloud_model(name: str) -> bool:
     """True when the model should be routed to a cloud provider, not Ollama."""
-    if name and OPENROUTER_API_KEY and name == OPENROUTER_MANAGER_MODEL:
+    if name and _get_api_key() and name == OPENROUTER_MANAGER_MODEL:
         return True
     try:
         from providers import glm as _glm
@@ -197,10 +201,10 @@ def chat_by_role(
     # Cloud-routed models — try OpenRouter first, then Groq, then GLM.
     if _is_cloud_model(model):
         # Route: OpenRouter (manager)
-        if OPENROUTER_API_KEY and model == OPENROUTER_MANAGER_MODEL:
+        if _get_api_key() and model == OPENROUTER_MANAGER_MODEL:
             try:
                 from openai import OpenAI
-                client = OpenAI(base_url=OPENROUTER_BASE, api_key=OPENROUTER_API_KEY)
+                client = OpenAI(base_url=OPENROUTER_BASE, api_key=_get_api_key())
                 resp = client.chat.completions.create(model=model, messages=messages, temperature=temperature)
                 reply = resp.choices[0].message.content or ""
                 _record_usage(role, model, messages, reply, started=time.time())
@@ -306,10 +310,10 @@ def stream_chat(
 
     if _is_cloud_model(model):
         # OpenRouter streaming (manager)
-        if OPENROUTER_API_KEY and model == OPENROUTER_MANAGER_MODEL:
+        if _get_api_key() and model == OPENROUTER_MANAGER_MODEL:
             try:
                 from openai import OpenAI
-                client = OpenAI(base_url=OPENROUTER_BASE, api_key=OPENROUTER_API_KEY)
+                client = OpenAI(base_url=OPENROUTER_BASE, api_key=_get_api_key())
                 resp = client.chat.completions.create(model=model, messages=messages, temperature=temperature, stream=True)
                 started = time.time()
                 for chunk in resp:

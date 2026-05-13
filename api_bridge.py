@@ -25,13 +25,11 @@ from fastapi.responses import StreamingResponse, FileResponse, RedirectResponse 
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
-from brain_engine import ROLE_MODELS, list_local_models, stream_chat  # noqa: E402
 from artifacts import list_artifacts, get_artifact  # noqa: E402
 from metis_version import METIS_VERSION  # noqa: E402
 
 
 import auth_local  # noqa: E402
-import auth_engine  # noqa: E402
 
 app = FastAPI(title="Metis API Bridge", version="16.4.0")
 
@@ -188,6 +186,7 @@ def root(request: Request) -> Any:
     accept = request.headers.get("accept", "")
     if "text/html" in accept:
         return RedirectResponse(url="/splash", status_code=302)
+    from brain_engine import ROLE_MODELS, list_local_models
     return {
         "name": "Metis API Bridge",
         "version": METIS_VERSION,
@@ -223,6 +222,7 @@ def status() -> dict:
         except Exception as e:
             return {"error": str(e)[:120]} if default is None else default
 
+    from brain_engine import list_local_models
     ollama_models = _safe(list_local_models, default=[])
     wallet_summary = None
     try:
@@ -273,9 +273,9 @@ def _is_job(msg: str) -> bool:
 def _extract_schedule(msg: str) -> str:
     lower = msg.lower()
     schedule_map = {
-        "daily": "daily", "every day": "daily",
-        "weekly": "weekly", "every week": "weekly",
-        "monthly": "monthly", "every month": "monthly",
+        "daily": "daily", "every day": "daily", "each day": "daily",
+        "weekly": "weekly", "every week": "weekly", "each week": "weekly",
+        "monthly": "monthly", "every month": "monthly", "each month": "monthly",
         "every morning": "every morning", "every night": "every night",
     }
     for pattern, result in schedule_map.items():
@@ -323,6 +323,7 @@ async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
             history = load_session(req.session_id, limit=10)
             messages = [{"role": m["role"], "content": m["content"]} for m in history]
             messages.append({"role": "user", "content": req.message})
+            from brain_engine import stream_chat
             for ev in stream_chat(req.role, messages):
                 if ev.get("type") == "token":
                     full_answer += ev.get("delta", "")
@@ -992,6 +993,7 @@ def _user_payload(user: Any) -> dict:
 
 @app.post("/auth/signup")
 def auth_signup(req: SignUpRequest) -> dict:
+    import auth_engine
     try:
         out = auth_engine.sign_up(req.email, req.password)
     except Exception as e:
@@ -1004,6 +1006,7 @@ def auth_signup(req: SignUpRequest) -> dict:
 
 @app.post("/auth/signin")
 def auth_signin(req: SignInRequest) -> dict:
+    import auth_engine
     try:
         out = auth_engine.sign_in(req.email, req.password)
     except Exception as e:
@@ -1019,6 +1022,7 @@ def auth_signin(req: SignInRequest) -> dict:
 
 @app.post("/auth/signout")
 def auth_signout() -> dict:
+    import auth_engine
     try:
         auth_engine.sign_out()
     except Exception:
@@ -1066,6 +1070,7 @@ def auth_oauth_start(req: OAuthStartRequest) -> dict:
     if req.provider not in ("google", "github"):
         raise HTTPException(status_code=400, detail="unsupported provider")
     redirect_to = req.redirect_to or f"http://127.0.0.1:{os.getenv('METIS_API_PORT', '7331')}/oauth/callback"
+    import auth_engine
     try:
         url, _verifier = auth_engine.start_oauth(provider=req.provider, redirect_to=redirect_to)
     except Exception as e:
@@ -1075,6 +1080,7 @@ def auth_oauth_start(req: OAuthStartRequest) -> dict:
 
 @app.post("/auth/oauth/complete")
 def auth_oauth_complete(req: OAuthCompleteRequest) -> dict:
+    import auth_engine
     try:
         out = auth_engine.complete_oauth(code=req.code)
     except Exception as e:
@@ -1087,6 +1093,7 @@ def auth_oauth_complete(req: OAuthCompleteRequest) -> dict:
 
 @app.post("/auth/reset_password")
 def auth_reset_password(req: ResetPasswordRequest) -> dict:
+    import auth_engine
     try:
         auth_engine.reset_password(req.email)
     except Exception as e:

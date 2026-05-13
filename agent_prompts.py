@@ -2,6 +2,23 @@
 from __future__ import annotations
 
 
+def generate_agent_prompt(role_name: str, role_description: str, task: str, tools_available: list[str], project_dir: str | None = None) -> str:
+    """Generate a custom system prompt for a dynamically created agent."""
+    tool_list = ", ".join(tools_available) if tools_available else "none"
+    ctx = f"\nProject directory: {project_dir}" if project_dir else ""
+    return (
+        f"You are {role_name} — a specialized AI agent created by the Metis Manager for this specific task.\n"
+        f"Your role: {role_description}\n"
+        f"Available tools: {tool_list}\n"
+        f"Rules:\n"
+        f"- Stay focused on your assigned task\n"
+        f"- Use only the tools available to you\n"
+        f"- Be concise and precise in your output\n"
+        f"- Report completion clearly\n"
+        f"{ctx}\n\nYour task:\n{task}"
+    )
+
+
 def get_prompt(role: str, task: str, project_dir: str | None = None) -> str:
     """Return a system prompt for the given agent role."""
     base = ROLE_PROMPTS.get(role, ROLE_PROMPTS["default"])
