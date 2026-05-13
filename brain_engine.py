@@ -23,7 +23,6 @@ import threading
 import time
 from typing import Generator, Iterable
 
-import ollama
 import requests
 
 from hardware_scanner import get_hardware_tier
@@ -145,6 +144,7 @@ def _is_cloud_model(name: str) -> bool:
 
 def list_local_models() -> list[str]:
     try:
+        import ollama
         client = ollama.Client(host=OLLAMA_BASE)
         response = client.list()
         models = getattr(response, "models", None)
@@ -167,6 +167,7 @@ def ensure_model(name: str, on_progress=None) -> bool:
     if name in list_local_models():
         return True
     try:
+        import ollama
         client = ollama.Client(host=OLLAMA_BASE)
         for progress in client.pull(name, stream=True):
             # Ensure we cast the ProgressResponse back to dict if needed by UI

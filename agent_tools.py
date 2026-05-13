@@ -7,6 +7,7 @@ Terminal commands have timeouts and a denylist.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import re
 from pathlib import Path
@@ -115,6 +116,69 @@ def browser_fetch(url: str) -> dict:
         return {"text": f"[Error] {e}", "status": 0, "url": url}
 
 
+# ── Email ───────────────────────────────────────────────────────────────
+
+def send_email(to: str, subject: str, body: str) -> str:
+    """Send an email via SMTP."""
+    import smtplib
+    from email.mime.text import MIMEText
+    user = os.environ.get("EMAIL_USER", "")
+    pwd = os.environ.get("EMAIL_PASS", "")
+    host = os.environ.get("SMTP_HOST", "smtp.gmail.com")
+    port = int(os.environ.get("SMTP_PORT", "465"))
+    if not user or not pwd:
+        return "[Error] EMAIL_USER and EMAIL_PASS not configured in .env"
+    try:
+        msg = MIMEText(body)
+        msg["Subject"] = subject
+        msg["From"] = user
+        msg["To"] = to
+        with smtplib.SMTP_SSL(host, port) as s:
+            s.login(user, pwd)
+            s.send_message(msg)
+        return f"[OK] Email sent to {to}"
+    except Exception as e:
+        return f"[Error] Send failed: {e}"
+
+
+def read_emails(limit: int = 5) -> str:
+    """Read recent emails via IMAP."""
+    import imaplib
+    import email
+    from email.header import decode_header
+    user = os.environ.get("EMAIL_USER", "")
+    pwd = os.environ.get("EMAIL_PASS", "")
+    host = os.environ.get("IMAP_HOST", "imap.gmail.com")
+    port = int(os.environ.get("IMAP_PORT", "993"))
+    if not user or not pwd:
+        return "[Error] EMAIL_USER and EMAIL_PASS not configured"
+    try:
+        mail = imaplib.IMAP4_SSL(host, port)
+        mail.login(user, pwd)
+        mail.select("INBOX")
+        _, data = mail.search(None, "ALL")
+        ids = data[0].split()
+        results = []
+        for eid in ids[-limit:]:
+            _, msg_data = mail.fetch(eid, "(RFC822)")
+            msg = email.message_from_bytes(msg_data[0][1])
+            subj = decode_header(msg["Subject"] or "")[0]
+            subj_text = subj[0].decode(subj[1] or "utf-8") if isinstance(subj[0], bytes) else str(subj[0])
+            body_text = ""
+            if msg.is_multipart():
+                for part in msg.walk():
+                    if part.get_content_type() == "text/plain":
+                        body_text = part.get_payload(decode=True).decode("utf-8", errors="replace")[:500]
+                        break
+            else:
+                body_text = msg.get_payload(decode=True).decode("utf-8", errors="replace")[:500]
+            results.append({"from": msg["From"], "subject": subj_text, "date": msg["Date"], "preview": body_text})
+        mail.logout()
+        return json.dumps(results)
+    except Exception as e:
+        return f"[Error] Read failed: {e}"
+
+
 # ── Tool schemas (OpenAI function-calling format) ────────────────────────
 
 TOOL_SCHEMAS = [
@@ -188,6 +252,35 @@ TOOL_SCHEMAS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "send_email",
+            "description": "Send an email",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "to": {"type": "string", "description": "Recipient email"},
+                    "subject": {"type": "string", "description": "Email subject"},
+                    "body": {"type": "string", "description": "Email body"},
+                },
+                "required": ["to", "subject", "body"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "read_emails",
+            "description": "Read recent emails from inbox",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "limit": {"type": "integer", "description": "Number of emails to read (default 5)"},
+                },
+            },
+        },
+    },
 ]
 
 
@@ -205,4 +298,8 @@ def execute_tool(name: str, args: dict, sandbox_roots: list[str]) -> str:
     elif name == "browser_fetch":
         result = browser_fetch(args["url"])
         return json.dumps(result)
+    elif name == "send_email":
+        return send_email(args["to"], args["subject"], args["body"])
+    elif name == "read_emails":
+        return read_emails(args.get("limit", 5))
     return f"[Error] Unknown tool: {name}"

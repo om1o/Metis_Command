@@ -256,6 +256,7 @@ pre:hover .code-copy{opacity:1}
 .agent-card.open .chevron{transform:rotate(90deg)}
 .agent-card-body{display:none;font-size:12.5px;color:var(--muted);line-height:1.55;padding-top:6px;border-top:1px dashed var(--border);white-space:pre-wrap}
 .agent-card.open .agent-card-body{display:block}
+.agent-tool-line{font-size:11px;color:var(--subtle);padding:2px 8px;font-family:'JetBrains Mono',monospace}
 .agent-spin{width:11px;height:11px;border:1.5px solid rgba(255,255,255,.15);border-top-color:var(--am);border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .agent-check{width:13px;height:13px;color:var(--gr);stroke:currentColor;stroke-width:3;fill:none}
@@ -1692,17 +1693,35 @@ async function sendMessage() {
           finishAgentCard(agentCards[ev.agent], ev.output || '', ev.duration_ms || 0);
         }
       } else if (ev.type === 'agent_spawned') {
+        const ROLE_ICONS = {planner:'📋', coder:'💻', debugger:'🔧', tester:'✅', researcher:'🔍'};
+        const icon = ROLE_ICONS[(ev.role || '').toLowerCase()] || '🤖';
+        agentCards[ev.agent] = makeAgentCard(activity, `${icon} ${ev.agent}`, ev.model || '');
+        agentCards[ev.agent].classList.add('open');
         if (window.toast) toast('info', `Spawning ${ev.agent}`, ev.model || '', 2000);
       } else if (ev.type === 'agent_tool') {
-        // Show tool usage in activity area
+        if (agentCards[ev.agent]) {
+          const toolLine = document.createElement('div');
+          toolLine.className = 'agent-tool-line';
+          toolLine.textContent = `Using ${ev.tool}...`;
+          agentCards[ev.agent].appendChild(toolLine);
+        }
       } else if (ev.type === 'task_start') {
-        if (window.toast) toast('info', 'Task started', (ev.roles || []).join(', '), 3000);
+        const roles = (ev.roles || []).join(', ');
+        if (window.toast) toast('info', 'Task started', roles, 3000);
+        const banner = document.createElement('div');
+        banner.className = 'plan-banner';
+        banner.innerHTML = `<span>Task started with: ${roles || 'agents'}</span>`;
+        activity.appendChild(banner);
       } else if (ev.type === 'task_complete') {
+        const summary = ev.summary || 'Task complete';
+        appendChat('assistant', summary);
         if (window.toast) toast('success', 'Task complete', '', 2000);
         loadJobs();
+      } else if (ev.type === 'agent_error') {
+        if (window.toast) toast('error', `${ev.agent} error`, ev.error || '', 4000);
       } else if (ev.type === 'agent_complete') {
         if (agentCards[ev.agent]) {
-          finishAgentCard(agentCards[ev.agent], ev.output || '', 0);
+          finishAgentCard(agentCards[ev.agent], ev.output || '', ev.duration_ms || 0);
         }
       } else if (ev.type === 'job_created') {
         loadJobs();

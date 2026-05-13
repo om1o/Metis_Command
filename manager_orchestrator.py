@@ -46,6 +46,7 @@ DELEGATABLE: dict[str, str] = {
 }
 
 
+# spawn_agents path uses stream_chat for synthesis after agent completion
 _PLAN_PROMPT = """You are the Manager — the orchestrator of a small AI crew.
 
 The user will ask you something. Decide whether you can answer it yourself
@@ -265,8 +266,39 @@ def orchestrate(
             project_dir=project_dir,
             sandbox_roots=[project_dir],
         )
+        spawn_summary = ""
         for ev in gen:
             yield ev
+            if ev.get("type") == "task_complete":
+                spawn_summary = ev.get("summary", "")
+                agents_used = ev.get("agents_used", [])
+
+        # Synthesize the spawned-agent output through the Manager
+        synth_prompt = (
+            f"The agents completed the task. Here's what they did:\n\n"
+            f"{spawn_summary}\n\n"
+            f"Synthesize this into a clear response for the user."
+        )
+        synth_messages = [
+            {"role": "system", "content": persona_prompt},
+        ]
+        if context_msgs:
+            synth_messages.extend(context_msgs)
+        synth_messages.append({"role": "user", "content": synth_prompt})
+
+        yield {"type": "manager_synthesis", "role": "manager"}
+        try:
+            for ev in stream_chat("manager", synth_messages, model=manager_model):
+                if ev.get("type") in ("token", "reasoning"):
+                    yield ev
+        except Exception as e:
+            yield {"type": "error", "message": f"Synthesis failed: {e}"}
+        finally:
+            yield {
+                "type": "done",
+                "duration_ms": int((time.time() - started) * 1000),
+                "agents_used": agents_used,
+            }
         return
 
     # Sequential by default. Local Ollama can only fit so many models in VRAM

@@ -70,7 +70,12 @@ def _run_agent(
     final_output = ""
 
     for iteration in range(thread.max_rounds):
-        resp = chat(role, messages, tools=TOOL_SCHEMAS if use_tools else None)
+        try:
+            resp = chat(role, messages, tools=TOOL_SCHEMAS if use_tools else None)
+        except Exception as e:
+            yield {"type": "agent_error", "agent": role, "error": str(e)}
+            final_output = f"[Agent {role} crashed: {e}]"
+            break
         content = resp.get("content", "")
         tool_calls = resp.get("tool_calls", [])
 
@@ -188,11 +193,16 @@ def run_task(
         summary_parts.append(f"**{role.title()}:** {output[:300]}")
     summary = "\n\n".join(summary_parts)
 
-    # Update job status
+    # Update job status: clean up one-time tasks, reset recurring ones
     if job_id:
         try:
-            from memory import update_job_status
-            update_job_status(job_id, "completed")
+            from memory import update_job_status, list_jobs, delete_job
+            jobs = list_jobs()
+            job = next((j for j in jobs if j.get("id") == job_id), None)
+            if job and job.get("schedule"):
+                update_job_status(job_id, "pending")
+            else:
+                delete_job(job_id)
         except Exception:
             pass
 

@@ -50,6 +50,17 @@ def chat_openrouter(
 
     Retries once on 429 with 5s backoff.
     """
+    # Wallet check (skip for :free models — they cost nothing)
+    if ":free" not in model:
+        try:
+            from wallet import can_spend, try_charge
+            allowed, reason = can_spend("cloud_api", 1)
+            if not allowed:
+                return {"content": f"[Budget exceeded: {reason}]", "tool_calls": [], "model": model, "provider": "openrouter"}
+            try_charge("cloud_api", 1, memo=f"agent:{model}", subject=model)
+        except ImportError:
+            pass  # wallet module optional
+
     from openai import OpenAI
 
     client = OpenAI(base_url=OPENROUTER_BASE, api_key=OPENROUTER_API_KEY)
@@ -108,8 +119,14 @@ def chat_ollama(
 
 
 def chat(role: str, messages: list[dict], temperature: float = 0.7, tools: list[dict] | None = None) -> dict:
-    """Unified chat — picks model by role, routes to provider."""
+    """Unified chat — picks model by role, routes to provider. Falls back to Ollama on error."""
     model, provider = pick_model(role)
     if provider == "openrouter":
-        return chat_openrouter(model, messages, temperature, tools)
+        result = chat_openrouter(model, messages, temperature, tools)
+        # Fallback to Ollama if OpenRouter failed
+        if result["content"].startswith("[OpenRouter error:"):
+            fallback_model = OLLAMA_FALLBACK.get(role, OLLAMA_FALLBACK["default"])
+            result = chat_ollama(fallback_model, messages, temperature)
+            result["fallback"] = True
+        return result
     return chat_ollama(model, messages, temperature)
