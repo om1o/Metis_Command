@@ -77,6 +77,43 @@ def brains_module(_sandbox_paths):
     import importlib
     import brains as _b
     importlib.reload(_b)
+
+    class _MemoryCollection:
+        def __init__(self) -> None:
+            self.rows: dict[str, tuple[str, dict]] = {}
+
+        def upsert(self, *, ids, documents, metadatas):  # noqa: ANN001
+            for row_id, document, metadata in zip(ids, documents, metadatas):
+                self.rows[row_id] = (document, metadata)
+
+        def get(self):  # noqa: ANN201
+            ids = list(self.rows)
+            return {
+                "ids": ids,
+                "documents": [self.rows[row_id][0] for row_id in ids],
+                "metadatas": [self.rows[row_id][1] for row_id in ids],
+            }
+
+        def query(self, *, query_texts, n_results):  # noqa: ANN001, ARG002, ANN201
+            data = self.get()
+            return {
+                "ids": [data["ids"][:n_results]],
+                "documents": [data["documents"][:n_results]],
+                "metadatas": [data["metadatas"][:n_results]],
+                "distances": [[0.0] * min(n_results, len(data["ids"]))],
+            }
+
+        def delete(self, *, ids):  # noqa: ANN001
+            for row_id in ids:
+                self.rows.pop(row_id, None)
+
+    collections: dict[str, _MemoryCollection] = {}
+
+    def _fake_collection(slug: str) -> _MemoryCollection:
+        return collections.setdefault(slug, _MemoryCollection())
+
+    _b._COLLECTIONS.clear()
+    _b._collection = _fake_collection
     return _b
 
 

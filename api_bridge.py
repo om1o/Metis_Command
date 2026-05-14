@@ -8,8 +8,11 @@ Ports: defaults to 7331 but respects METIS_API_PORT from .env.
 from __future__ import annotations
 
 import asyncio
+import base64
+import binascii
 import json
 import os
+import time
 from typing import Any
 from urllib.parse import urlparse
 
@@ -70,6 +73,8 @@ def _verify_token(token: str | None) -> bool:
         return False
     if auth_local.verify(token):
         return True
+    if not _looks_like_supabase_access_token(token):
+        return False
     # Try as Supabase access token
     try:
         from supabase_client import get_client
@@ -78,6 +83,32 @@ def _verify_token(token: str | None) -> bool:
         return bool(getattr(resp, "user", None))
     except Exception:
         return False
+
+
+def _decode_jwt_payload(token: str) -> dict[str, Any] | None:
+    parts = token.split(".")
+    if len(parts) != 3 or not all(parts):
+        return None
+    payload = parts[1] + ("=" * (-len(parts[1]) % 4))
+    try:
+        raw = base64.urlsafe_b64decode(payload.encode("ascii"))
+        decoded = json.loads(raw.decode("utf-8"))
+    except (binascii.Error, UnicodeDecodeError, json.JSONDecodeError, ValueError):
+        return None
+    return decoded if isinstance(decoded, dict) else None
+
+
+def _looks_like_supabase_access_token(token: str) -> bool:
+    """Reject local/API-key/malformed values before calling Supabase Auth."""
+    payload = _decode_jwt_payload(token)
+    if not payload:
+        return False
+    if not payload.get("sub"):
+        return False
+    exp = payload.get("exp")
+    if isinstance(exp, (int, float)) and exp <= time.time():
+        return False
+    return True
 
 
 @app.middleware("http")
@@ -1402,6 +1433,8 @@ def auth_me(request: Request) -> dict:
                 "user_metadata": {"local_install": True},
             }
         }
+    if not _looks_like_supabase_access_token(token):
+        raise HTTPException(status_code=401, detail="malformed or expired token")
     # Otherwise try as a Supabase JWT.
     try:
         from supabase_client import get_client
@@ -2666,6 +2699,8 @@ def _user_id_from_request(request: Request) -> str:
         return "default"
     if auth_local.verify(token):
         return "local-install"
+    if not _looks_like_supabase_access_token(token):
+        return "default"
     try:
         from supabase_client import get_client
         resp = get_client().auth.get_user(token)

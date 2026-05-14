@@ -22,7 +22,7 @@ import {
   Square,
 } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { createLocalClient } from '@/lib/metis-client';
+import { createLocalClient, shouldReplaceStoredToken } from '@/lib/metis-client';
 
 const SUGGESTIONS: { t: string; s: string }[] = [
   { t: 'Get started', s: 'What can the manager agent do on my machine?' },
@@ -58,6 +58,8 @@ export default function App() {
   const [thinking, setThinking] = useState(false);
   const [client, setClient] = useState<ReturnType<typeof createLocalClient> | null>(null);
   const [tokenInput, setTokenInput] = useState('');
+  const [authBooting, setAuthBooting] = useState(true);
+  const [authError, setAuthError] = useState('');
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const areaRef = useRef<HTMLTextAreaElement>(null);
@@ -131,9 +133,73 @@ export default function App() {
     }
   };
 
-  const handleConnect = () => {
+  useEffect(() => {
+    let cancelled = false;
+
+    const connectLocalInstall = async () => {
+      const bootstrap = createLocalClient('');
+      const local = await bootstrap.getLocalToken();
+      const next = createLocalClient(local.token);
+      const me = await next.getMe();
+      if (cancelled) return;
+      localStorage.setItem('metis-token', local.token);
+      localStorage.setItem('metis-auth-mode', 'local-install');
+      localStorage.setItem('metis-user', JSON.stringify(me.user));
+      setClient(next);
+      setAuthError('');
+    };
+
+    (async () => {
+      try {
+        const saved = localStorage.getItem('metis-token');
+        const mode = localStorage.getItem('metis-auth-mode');
+        if (shouldReplaceStoredToken(saved, mode)) {
+          localStorage.removeItem('metis-token');
+          localStorage.removeItem('metis-user');
+          localStorage.removeItem('metis-auth-mode');
+          await connectLocalInstall();
+          return;
+        }
+        const next = createLocalClient(saved || '');
+        const me = await next.getMe();
+        if (cancelled) return;
+        localStorage.setItem('metis-user', JSON.stringify(me.user));
+        setClient(next);
+        setAuthError('');
+      } catch {
+        try {
+          localStorage.removeItem('metis-token');
+          localStorage.removeItem('metis-user');
+          localStorage.removeItem('metis-auth-mode');
+          await connectLocalInstall();
+        } catch (fallbackErr) {
+          if (!cancelled) {
+            setAuthError(fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr));
+          }
+        }
+      } finally {
+        if (!cancelled) setAuthBooting(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleConnect = async () => {
     if (tokenInput.trim()) {
-      setClient(createLocalClient(tokenInput.trim()));
+      try {
+        const next = createLocalClient(tokenInput.trim());
+        const me = await next.getMe();
+        localStorage.setItem('metis-token', tokenInput.trim());
+        localStorage.setItem('metis-auth-mode', 'local-install');
+        localStorage.setItem('metis-user', JSON.stringify(me.user));
+        setClient(next);
+        setAuthError('');
+      } catch (err) {
+        setAuthError(err instanceof Error ? err.message : String(err));
+      }
     }
   };
 
@@ -145,13 +211,16 @@ export default function App() {
   };
 
   const handleDisconnect = () => {
+    localStorage.removeItem('metis-token');
+    localStorage.removeItem('metis-user');
+    localStorage.removeItem('metis-auth-mode');
     setClient(null);
     setMessages([]);
     setInput('');
   };
 
   const onConnectKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') handleConnect();
+    if (e.key === 'Enter') void handleConnect();
   };
 
   const runSend = () => {
@@ -240,6 +309,25 @@ export default function App() {
     return 'lg:grid-cols-[1fr_380px]';
   }, [chatPanelOpen]);
 
+  if (authBooting) {
+    return (
+      <div className="metis-app-bg metis-hero-ambient flex min-h-full flex-col items-center justify-center px-4 py-12 text-[var(--metis-fg)]">
+        <div className="rounded-2xl border border-[var(--metis-border)] bg-[var(--metis-elevated-2)] px-6 py-5 text-center shadow-2xl backdrop-blur-sm">
+          <Image
+            src="/metis-mark.png"
+            width={44}
+            height={44}
+            alt="Metis Command"
+            className="mx-auto mb-4 h-11 w-11 rounded-xl object-contain"
+            unoptimized
+          />
+          <div className="text-sm font-medium text-[var(--metis-foreground)]">Connecting to local Metis</div>
+          <div className="mt-1 text-xs text-[var(--metis-fg-dim)]">Checking the install token</div>
+        </div>
+      </div>
+    );
+  }
+
   if (!client) {
     return (
       <div className="metis-app-bg metis-hero-ambient flex min-h-full flex-col items-center justify-center px-4 py-12 text-[var(--metis-fg)]">
@@ -247,10 +335,15 @@ export default function App() {
           className="w-full max-w-[400px] rounded-2xl border border-[var(--metis-border)] bg-[var(--metis-elevated-2)] p-8 shadow-2xl backdrop-blur-sm"
           onSubmit={(e) => {
             e.preventDefault();
-            handleConnect();
+            void handleConnect();
           }}
           aria-label="Connect to Metis"
         >
+          {authError && (
+            <p className="mb-4 rounded-lg border border-rose-500/25 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+              {authError}
+            </p>
+          )}
           <div className="mb-2 flex justify-end">
             <button
               type="button"

@@ -8,6 +8,8 @@ from typing import Any, Literal
 
 from supabase_client import get_client
 
+OAuthProvider = Literal["google", "github"]
+
 # ── PKCE verifier disk cache ─────────────────────────────────────────────────
 # st.session_state is per-WebSocket session and is wiped when the browser
 # navigates to the OAuth provider and back.  We persist the PKCE code_verifier
@@ -31,8 +33,10 @@ def _load_verifier(state: str | None = None) -> str | None:
         if p.exists():
             v = p.read_text(encoding="utf-8").strip()
             # Cleanup after use
-            try: p.unlink()
-            except Exception: pass
+            try:
+                p.unlink()
+            except Exception:
+                pass
             return v or None
     # Fallback: return the most-recently-modified verifier file
     files = list(_PKCE_DIR.glob("*.txt"))

@@ -91,6 +91,42 @@ export interface StreamEvent {
   tokens?: number;
 }
 
+export interface AuthUser {
+  id: string;
+  email: string;
+  created_at?: string;
+  user_metadata?: Record<string, unknown>;
+}
+
+export interface LocalTokenResult {
+  token: string;
+  type: 'local-install' | string;
+}
+
+function jwtPayload(token: string): Record<string, unknown> | null {
+  const parts = token.split('.');
+  if (parts.length !== 3 || parts.some((part) => !part)) return null;
+  try {
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return payload && typeof payload === 'object' ? payload as Record<string, unknown> : null;
+  } catch {
+    return null;
+  }
+}
+
+function isUsableSupabaseAccessToken(token: string): boolean {
+  const payload = jwtPayload(token);
+  if (typeof payload?.sub !== 'string' || !payload.sub) return false;
+  if (typeof payload.exp === 'number' && payload.exp <= Math.floor(Date.now() / 1000)) return false;
+  return true;
+}
+
+export function shouldReplaceStoredToken(token: string | null, mode: string | null): boolean {
+  if (!token) return true;
+  if (mode === 'local-install') return false;
+  return !isUsableSupabaseAccessToken(token);
+}
+
 // ── Client ──────────────────────────────────────────────────────────────────
 
 export class MetisClient {
@@ -136,6 +172,16 @@ export class MetisClient {
 
   async getStatus(): Promise<MetisStatus> {
     return this.get('/status');
+  }
+
+  async getLocalToken(): Promise<LocalTokenResult> {
+    const res = await fetch(`${this.baseUrl}/auth/local-token`, { headers: { Accept: 'application/json' } });
+    if (!res.ok) throw new Error(`Metis API /auth/local-token: ${res.status} ${res.statusText}`);
+    return res.json();
+  }
+
+  async getMe(): Promise<{ user: AuthUser }> {
+    return this.get('/auth/me');
   }
 
   // ── Streaming chat (SSE) ────────────────────────────────────────────────

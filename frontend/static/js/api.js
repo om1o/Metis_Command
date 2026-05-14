@@ -7,6 +7,7 @@
 const TOKEN_KEY = 'metis.access_token';
 const REFRESH_KEY = 'metis.refresh_token';
 const USER_KEY = 'metis.user';
+const MODE_KEY = 'metis.auth_mode';
 
 export function getToken() {
   return localStorage.getItem(TOKEN_KEY);
@@ -26,12 +27,57 @@ export function setSession(session, user) {
   if (session?.access_token) localStorage.setItem(TOKEN_KEY, session.access_token);
   if (session?.refresh_token) localStorage.setItem(REFRESH_KEY, session.refresh_token);
   if (user) localStorage.setItem(USER_KEY, JSON.stringify(user));
+  if (session?.token_type === 'local-install') localStorage.setItem(MODE_KEY, 'local-install');
+  else if (session?.access_token) localStorage.setItem(MODE_KEY, 'supabase');
 }
 
 export function clearSession() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(REFRESH_KEY);
   localStorage.removeItem(USER_KEY);
+  localStorage.removeItem(MODE_KEY);
+}
+
+function jwtPayload(token) {
+  const parts = String(token || '').split('.');
+  if (parts.length !== 3 || parts.some((p) => !p)) return null;
+  try {
+    const json = atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'));
+    const payload = JSON.parse(json);
+    return payload && typeof payload === 'object' ? payload : null;
+  } catch {
+    return null;
+  }
+}
+
+function isUsableSupabaseToken(token) {
+  const payload = jwtPayload(token);
+  if (!payload?.sub) return false;
+  if (typeof payload.exp === 'number' && payload.exp <= Math.floor(Date.now() / 1000)) return false;
+  return true;
+}
+
+export function shouldReplaceStoredToken(token = getToken()) {
+  if (!token) return true;
+  if (localStorage.getItem(MODE_KEY) === 'local-install') return false;
+  return !isUsableSupabaseToken(token);
+}
+
+export async function bootstrapLocalSession() {
+  const res = await fetch('/auth/local-token', { headers: { Accept: 'application/json' } });
+  if (!res.ok) throw new Error(`local-token: ${res.status}`);
+  const data = await res.json();
+  if (!data?.token) throw new Error('local-token: missing token');
+  const user = {
+    id: 'local-install',
+    email: 'operator@local',
+    user_metadata: { local_install: true },
+  };
+  localStorage.setItem(TOKEN_KEY, data.token);
+  localStorage.removeItem(REFRESH_KEY);
+  localStorage.setItem(MODE_KEY, 'local-install');
+  localStorage.setItem(USER_KEY, JSON.stringify(user));
+  return user;
 }
 
 async function _fetch(path, opts = {}) {
@@ -244,21 +290,14 @@ export const api = {
 };
 
 export async function ensureAuthed() {
-  // Local installs: same-origin /auth/local-token works before any cloud session.
-  if (!getToken()) {
+  if (shouldReplaceStoredToken()) {
+    clearSession();
     try {
-      const res = await fetch('/auth/local-token');
-      if (res.ok) {
-        const data = await res.json();
-        if (data?.token) localStorage.setItem(TOKEN_KEY, data.token);
-      }
+      await bootstrapLocalSession();
     } catch {
-      /* ignore */
+      window.location.href = '/login';
+      return null;
     }
-  }
-  if (!getToken()) {
-    window.location.href = '/login';
-    return null;
   }
   try {
     const { user } = await api.me();
@@ -266,7 +305,14 @@ export async function ensureAuthed() {
     return user;
   } catch {
     clearSession();
-    window.location.href = '/login';
-    return null;
+    try {
+      await bootstrapLocalSession();
+      const { user } = await api.me();
+      if (user) localStorage.setItem(USER_KEY, JSON.stringify(user));
+      return user;
+    } catch {
+      window.location.href = '/login';
+      return null;
+    }
   }
 }
