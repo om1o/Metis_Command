@@ -137,11 +137,11 @@ export default function HostAutomationMvp({ client }: { client: MetisClient }) {
         <div className="flex flex-wrap gap-1.5">
           {(
             [
-              { label: 'Start', action: 'start' as const },
-              { label: 'Goto + wait', action: 'goto' as const },
+              { label: 'Start', action: 'start' as const, accent: false },
+              { label: 'Goto + wait', action: 'goto' as const, accent: false },
               { label: 'Snapshot', action: 'snapshot' as const, accent: true },
-              { label: 'Screenshot', action: 'screenshot' as const },
-              { label: 'Close', action: 'close' as const },
+              { label: 'Screenshot', action: 'screenshot' as const, accent: false },
+              { label: 'Close', action: 'close' as const, accent: false },
             ] as const
           ).map(({ label, action, accent }) => (
             <button

@@ -305,15 +305,16 @@ def test_doctor_cli_returns_failure_when_requirement_missing(monkeypatch: pytest
     assert "- npm: missing (missing)" in capsys.readouterr().out
 
 
-def test_tests_backend_includes_user_facing_api_contracts() -> None:
+def test_tests_backend_includes_active_reliability_contracts() -> None:
     checks = qql.parse_query("tests.backend")
 
     assert len(checks) == 1
-    assert any("test_setup_code_auth.py" in arg for arg in checks[0].command)
-    assert any("test_search_notifications.py" in arg for arg in checks[0].command)
-    assert any("test_manager_config_models.py" in arg for arg in checks[0].command)
-    assert any("test_memory_loop.py" in arg for arg in checks[0].command)
+    assert any("test_agent_bus.py" in arg for arg in checks[0].command)
+    assert any("test_auth_local.py" in arg for arg in checks[0].command)
+    assert any("test_concurrency.py" in arg for arg in checks[0].command)
+    assert any("test_safety.py" in arg for arg in checks[0].command)
     assert any("test_mts_format.py" in arg for arg in checks[0].command)
+    assert any("test_wallet.py" in arg for arg in checks[0].command)
 
 
 def test_parallel_dry_run_preserves_input_order_and_all_ok() -> None:

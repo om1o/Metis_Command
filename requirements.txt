@@ -360,7 +360,7 @@ propcache==0.4.1
     # via
     #   aiohttp
     #   yarl
-pytest==9.0.3
+pytest==8.4.2
     # via -r requirements.in
 protobuf==5.29.6
     # via
@@ -435,7 +435,7 @@ pyperclip==1.11.0
     #   mouseinfo
 pypika==0.51.1
     # via chromadb
-pypiwin32==223
+pypiwin32==223 ; sys_platform == "win32"
     # via pyttsx3
 pyproject-hooks==1.2.0
     # via build
@@ -465,13 +465,13 @@ python-multipart==0.0.26
     # via mcp
 pythonnet==3.0.5
     # via pywebview
-pyttsx3==2.99
+pyttsx3==2.99 ; sys_platform == "win32"
     # via -r requirements.in
 pytweening==1.2.0
     # via pyautogui
 pywebview==5.4 ; sys_platform == "win32"
     # via -r requirements.in
-pywin32==311
+pywin32==311 ; sys_platform == "win32"
     # via
     #   docker
     #   mcp
@@ -522,7 +522,7 @@ rich==13.9.4
     #   instructor
     #   pyiceberg
     #   typer
-ruff==0.15.12
+ruff==0.15.11
     # via -r requirements.in
 rpds-py==0.30.0
     # via
