@@ -164,7 +164,7 @@ pyproject-hooks==1.2.0
     #   -c requirements.txt
     #   build
     #   pip-tools
-pytest==8.4.2
+pytest==9.0.3
     # via
     #   -r requirements-dev.in
     #   pytest-asyncio
@@ -198,7 +198,7 @@ rich==13.9.4
     # via
     #   -c requirements.txt
     #   pip-audit
-ruff==0.15.11
+ruff==0.15.12
     # via -r requirements-dev.in
 sortedcontainers==2.4.0
     # via cyclonedx-python-lib
