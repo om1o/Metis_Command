@@ -54,6 +54,7 @@ def test_memory_and_sync_log_policies_cache_auth_uid_per_statement() -> None:
         assert sync_log_policies
 
         for statement in [*memory_policies, *sync_log_policies]:
+            assert " to authenticated " in f" {statement} "
             assert "using ((select auth.uid()) = user_id)" in statement
             assert "with check ((select auth.uid()) = user_id)" in statement
             assert "using (auth.uid() = user_id)" not in statement

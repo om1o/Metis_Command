@@ -10,10 +10,12 @@ create index if not exists sync_log_user_created_at_idx
 
 alter policy "Users can manage their own memory"
   on public.memory
+  to authenticated
   using ((select auth.uid()) = user_id)
   with check ((select auth.uid()) = user_id);
 
 alter policy "Users can view their own sync log"
   on public.sync_log
+  to authenticated
   using ((select auth.uid()) = user_id)
   with check ((select auth.uid()) = user_id);

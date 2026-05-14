@@ -22,6 +22,7 @@ alter table public.memory enable row level security;
 create policy "Users can manage their own memory"
   on public.memory
   for all
+  to authenticated
   using ((select auth.uid()) = user_id)
   with check ((select auth.uid()) = user_id);
 
@@ -45,6 +46,7 @@ create index if not exists sync_log_user_created_at_idx
 create policy "Users can view their own sync log"
   on public.sync_log
   for all
+  to authenticated
   using ((select auth.uid()) = user_id)
   with check ((select auth.uid()) = user_id);
 
