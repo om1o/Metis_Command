@@ -84,9 +84,10 @@ async function loadStore() {
       <div class="plugin-meta">
         <span class="pill ${cents(p.price_cents) <= 0 ? 'free' : ''}">${esc(priceLabel(p.price_cents))}</span>
         <span class="pill">${esc(p.tier_required || 'Free')}</span>
+        ${p.installed ? '<span class="pill free">Installed</span>' : ''}
       </div>
-      <div class="status" data-status="${esc(p.slug || '')}"></div>
-      <button class="btn primary" data-install="${esc(p.slug || '')}">${cents(p.price_cents) <= 0 ? 'Install' : 'Install / buy'}</button>
+      <div class="status" data-status="${esc(p.slug || '')}">${p.installed ? 'Ready in local plugins folder.' : ''}</div>
+      <button class="btn primary" data-install="${esc(p.slug || '')}">${p.installed ? 'Reinstall' : (cents(p.price_cents) <= 0 ? 'Install' : 'Install / buy')}</button>
     </article>
   `).join('');
   grid.querySelectorAll('[data-install]').forEach(btn => {

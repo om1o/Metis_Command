@@ -982,7 +982,12 @@ def automation_events_list(
 @app.get("/marketplace")
 def marketplace_list() -> list[dict]:
     from marketplace import list_plugins
-    return list_plugins() or []
+    plugins_dir = Path("plugins")
+    plugins = list(list_plugins() or [])
+    for plugin in plugins:
+        slug = plugin.get("slug") or ""
+        plugin["installed"] = bool(slug) and (plugins_dir / f"{slug}.py").exists()
+    return plugins
 
 
 class MarketplaceInstallRequest(BaseModel):

@@ -1,8 +1,9 @@
 """
 Marketplace — Metis plugin store UI and Stripe checkout flow.
 
-Plugins live as rows in Supabase `plugins_store` with fields:
-    slug, name, description, price_cents, tier_required, icon, download_url
+The desktop store uses the built-in launch catalog by default. A Supabase
+`plugins_store` catalog can be enabled explicitly with
+`METIS_PLUGIN_CATALOG_SOURCE=supabase` after the project schema has that table.
 
 Free plugins download immediately into plugins/<slug>.py.  Paid plugins
 kick off a Stripe Checkout session; on success the webhook flips the
@@ -26,6 +27,23 @@ PLUGINS_DIR = Path("plugins")
 # ── Data access ──────────────────────────────────────────────────────────────
 
 def list_plugins() -> list[dict]:
+    if _catalog_source() != "supabase":
+        return _builtin_catalog()
+
+    return _supabase_catalog()
+
+
+def _catalog_source() -> str:
+    raw = (
+        os.getenv("METIS_PLUGIN_CATALOG_SOURCE")
+        or os.getenv("METIS_PLUGIN_STORE_SOURCE")
+        or "builtin"
+    )
+    source = raw.strip().lower()
+    return source if source in {"builtin", "supabase"} else "builtin"
+
+
+def _supabase_catalog() -> list[dict]:
     try:
         from supabase_client import get_client
         response = (
@@ -37,7 +55,8 @@ def list_plugins() -> list[dict]:
             .execute()
         )
         return response.data or []
-    except Exception:
+    except Exception as e:
+        print(f"[Marketplace] Supabase catalog unavailable; using built-in catalog: {e}")
         return _builtin_catalog()
 
 
@@ -51,6 +70,7 @@ def _builtin_catalog() -> list[dict]:
             "price_cents": 0,
             "tier_required": "Free",
             "icon": "📈",
+            "enabled": True,
         },
         {
             "slug": "stealth_scraper",
@@ -59,6 +79,7 @@ def _builtin_catalog() -> list[dict]:
             "price_cents": 0,
             "tier_required": "Pro",
             "icon": "🕵️",
+            "enabled": True,
         },
         {
             "slug": "discord_automator",
@@ -67,6 +88,7 @@ def _builtin_catalog() -> list[dict]:
             "price_cents": 999,
             "tier_required": "Free",
             "icon": "💬",
+            "enabled": True,
         },
         {
             "slug": "crypto_analyst",
@@ -75,6 +97,7 @@ def _builtin_catalog() -> list[dict]:
             "price_cents": 0,
             "tier_required": "Free",
             "icon": "🪙",
+            "enabled": True,
         },
         {
             "slug": "spotify_controller",
@@ -83,6 +106,7 @@ def _builtin_catalog() -> list[dict]:
             "price_cents": 499,
             "tier_required": "Free",
             "icon": "🎵",
+            "enabled": True,
         },
     ]
 
@@ -102,7 +126,11 @@ def install_plugin(plugin: dict) -> bool:
             r = requests.get(url, timeout=30)
             r.raise_for_status()
             dest.write_text(r.text, encoding="utf-8")
-        # If no URL, we assume the plugin was already seeded locally.
+        if not url and not dest.exists():
+            print(f"[Marketplace] install({slug}) missing bundled plugin file: {dest}")
+            return False
+
+        # If no URL, the bundled plugin is already installed locally.
         try:
             from skill_forge import save_skill_to_db
             if dest.exists():
