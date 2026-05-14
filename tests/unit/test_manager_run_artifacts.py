@@ -21,7 +21,7 @@ def test_chat_saves_manager_run_artifact(_sandbox_paths, monkeypatch):
     import manager_orchestrator
     from artifacts import get_artifact
 
-    def fake_orchestrate(_message: str, *, user_id: str, session_id: str):
+    def fake_orchestrate(_message: str, *, user_id: str, session_id: str, **_kwargs):
         assert user_id == "local-install"
         assert session_id == "artifact-smoke"
         yield {
@@ -80,7 +80,7 @@ def test_chat_relationship_save_creates_desktop_notification(_sandbox_paths, mon
 
     notifications = importlib.reload(notifications)
 
-    def fake_orchestrate(_message: str, *, user_id: str, session_id: str):
+    def fake_orchestrate(_message: str, *, user_id: str, session_id: str, **_kwargs):
         assert user_id == "local-install"
         assert session_id == "relationship-notify"
         yield {
