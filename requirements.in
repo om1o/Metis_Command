@@ -46,7 +46,7 @@ croniter>=2.0,<7                # full cron syntax (steps, ranges, named days)
 
 # ── Dev / quality gate (used by scripts/release_gate.py) ─────────────────────
 ruff>=0.1,<1
-pytest>=8,<10
+pytest>=8,<9
 
 # ── Outbound comms (SMS / voice via Twilio) ────────────────────────────────
 twilio>=9.0,<10

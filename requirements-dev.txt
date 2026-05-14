@@ -164,7 +164,7 @@ pyproject-hooks==1.2.0
     #   -c requirements.txt
     #   build
     #   pip-tools
-pytest==9.0.3
+pytest==8.4.2
     # via
     #   -r requirements-dev.in
     #   pytest-asyncio

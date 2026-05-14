@@ -360,7 +360,7 @@ propcache==0.4.1
     # via
     #   aiohttp
     #   yarl
-pytest==9.0.3
+pytest==8.4.2
     # via -r requirements.in
 protobuf==5.29.6
     # via
