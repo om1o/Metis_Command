@@ -12,7 +12,7 @@ from __future__ import annotations
 import os
 import shutil
 import sys
-import tempfile
+import uuid
 from pathlib import Path
 
 import pytest
@@ -28,7 +28,10 @@ def _sandbox_paths(monkeypatch):
     Redirect every state-path reference through an isolated temp directory
     before any production module uses it.  Each test gets its own sandbox.
     """
-    tmp = Path(tempfile.mkdtemp(prefix="metis-test-"))
+    base_tmp = ROOT / "artifacts" / "test-tmp"
+    base_tmp.mkdir(parents=True, exist_ok=True)
+    tmp = base_tmp / f"metis-test-{uuid.uuid4().hex[:12]}"
+    tmp.mkdir()
     (tmp / "logs").mkdir()
     (tmp / "identity").mkdir()
     (tmp / "artifacts").mkdir()
