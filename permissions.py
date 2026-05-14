@@ -163,6 +163,18 @@ def decide(action_id: str, choice: str) -> bool:
     return True
 
 
+def pending_approvals() -> list[dict[str, Any]]:
+    """Return pending human approvals for API/UI inspection."""
+    with _LOCK:
+        return [
+            {"id": action_id, **meta}
+            for action_id, meta in sorted(
+                _PENDING.items(),
+                key=lambda item: float(item[1].get("ts", 0) or 0),
+            )
+        ]
+
+
 # ── Tool wrapper helper ──────────────────────────────────────────────
 # Used by autonomous_loop to gate state-changing tools. Read-only tools
 # (read_file, grep, web_search, screenshot, ...) skip the gate entirely.

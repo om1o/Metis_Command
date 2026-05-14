@@ -294,6 +294,25 @@ class AutomationBrowserRequest(BaseModel):
     headless: bool = True
 
 
+class BrowserUrlRequest(BaseModel):
+    url: str
+    headless: bool = True
+
+
+class BrowserClickRequest(BaseModel):
+    target: str
+    by_text: bool = False
+
+
+class BrowserFillRequest(BaseModel):
+    selector: str
+    value: str
+
+
+class BrowserWaitRequest(BaseModel):
+    ms: int = Field(1000, ge=0, le=60000)
+
+
 class AutomationShellRequest(BaseModel):
     """Allow-listed shell commands with human confirm (first call → 428 + token)."""
 
@@ -554,7 +573,7 @@ _AUTOMATION_BROWSER_ACTIONS = frozenset({"start", "goto", "snapshot", "click", "
 
 
 @app.post("/automation/browser")
-def automation_browser(req: AutomationBrowserRequest) -> dict[str, Any]:
+def automation_browser(req: AutomationBrowserRequest, request: Request) -> dict[str, Any]:
     """Operate the bundled Playwright driver (see ``tools/browser_agent.py``).
 
     Localhost URLs are blocked unless METIS_BROWSER_ALLOW_LOCALHOST=1 — same rule as agents.
@@ -572,6 +591,7 @@ def automation_browser(req: AutomationBrowserRequest) -> dict[str, Any]:
             url = req.url.strip()
             if not url:
                 raise HTTPException(status_code=400, detail="url is required for goto")
+            _enforce_browser_policy(url, request)
             return ba.goto(url)
         if act == "snapshot":
             cap = min(32000, max(512, int(os.getenv("METIS_BROWSER_SNAPSHOT_CHARS", "6000"))))
@@ -599,6 +619,124 @@ def automation_browser(req: AutomationBrowserRequest) -> dict[str, Any]:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+def _browser_status() -> dict[str, Any]:
+    import tools.browser_agent as ba
+    browser = ba.browser
+    page = getattr(browser, "_page", None)
+    if page is None:
+        return {"ok": True, "running": False}
+    try:
+        return {
+            "ok": True,
+            "running": True,
+            "url": page.url,
+            "title": page.title(),
+        }
+    except Exception as e:
+        return {"ok": True, "running": True, "error": str(e)}
+
+
+def _disabled_browser_domains(user_id: str = "local-install") -> set[str]:
+    import manager_config as _mc
+    cfg = _mc.get_config(user_id)
+    domains: set[str] = set()
+    for service, enabled in (cfg.allowed_services or {}).items():
+        if enabled:
+            continue
+        name = str(service or "").strip().lower()
+        if not name:
+            continue
+        domains.add(name)
+        if "." not in name:
+            domains.add(f"{name}.com")
+    return domains
+
+
+def _enforce_browser_policy(url: str, request: Request | None = None) -> None:
+    from urllib.parse import urlparse
+    host = (urlparse(url).hostname or "").lower()
+    if not host:
+        raise HTTPException(status_code=400, detail="url must include a hostname")
+    user_id = _user_id_from_request(request) if request is not None else "local-install"
+    for domain in _disabled_browser_domains(user_id):
+        if host == domain or host.endswith(f".{domain}"):
+            raise HTTPException(status_code=403, detail=f"browser navigation disabled for {domain}")
+
+
+@app.get("/browser/status")
+def browser_status() -> dict[str, Any]:
+    return _browser_status()
+
+
+@app.post("/browser/open")
+def browser_open(req: BrowserUrlRequest, request: Request) -> dict[str, Any]:
+    _enforce_browser_policy(req.url, request)
+    import tools.browser_agent as ba
+    started = ba.start(headless=req.headless)
+    if not started.get("ok"):
+        return started
+    return ba.goto(req.url)
+
+
+@app.post("/browser/navigate")
+def browser_navigate(req: BrowserUrlRequest, request: Request) -> dict[str, Any]:
+    _enforce_browser_policy(req.url, request)
+    import tools.browser_agent as ba
+    return ba.goto(req.url)
+
+
+@app.post("/browser/fill")
+def browser_fill(req: BrowserFillRequest) -> dict[str, Any]:
+    if not req.selector.strip():
+        raise HTTPException(status_code=400, detail="selector is required")
+    import tools.browser_agent as ba
+    return ba.fill(req.selector, req.value)
+
+
+@app.post("/browser/click")
+def browser_click(req: BrowserClickRequest) -> dict[str, Any]:
+    if not req.target.strip():
+        raise HTTPException(status_code=400, detail="target is required")
+    import tools.browser_agent as ba
+    return ba.click(req.target, by_text=req.by_text)
+
+
+@app.post("/browser/wait")
+def browser_wait(req: BrowserWaitRequest) -> dict[str, Any]:
+    import tools.browser_agent as ba
+    return ba.browser.wait(req.ms)
+
+
+@app.get("/browser/approvals")
+def browser_approvals() -> dict[str, Any]:
+    import permissions as _perm
+    approvals = [
+        item for item in _perm.pending_approvals()
+        if str(item.get("tool", "")).startswith("browser")
+    ]
+    return {"ok": True, "approvals": approvals}
+
+
+@app.post("/browser/approvals/{approval_id}/approve")
+def browser_approval_approve(approval_id: str) -> dict[str, Any]:
+    import permissions as _perm
+    if not _perm.decide(approval_id, "approve"):
+        raise HTTPException(status_code=404, detail="no pending browser approval with that id")
+    return {"ok": True, "id": approval_id, "decision": "approve"}
+
+
+@app.get("/browser/audit")
+def browser_audit(limit: int = Query(50, ge=1, le=500)) -> dict[str, Any]:
+    from safety import tail_audit
+    rows = tail_audit(limit * 4)
+    browser_rows = [
+        row for row in rows
+        if str(row.get("event", "")).startswith("browser")
+        or str(row.get("action", "")).startswith("browser")
+    ]
+    return {"ok": True, "events": browser_rows[-limit:]}
 
 
 @app.post("/automation/shell")
@@ -1804,6 +1942,12 @@ def schedules_run_now(schedule_id: str) -> dict:
     return {"ok": result.get("status") != "failed", **result}
 
 
+@app.get("/automation-events")
+def automation_events(limit: int = Query(100, ge=1, le=1000)) -> dict[str, Any]:
+    from scheduler import list_events
+    return {"ok": True, "events": list_events(limit=limit)}
+
+
 @app.get("/missions")
 def missions_list(limit: int = 50) -> list[dict]:
     from concurrency import list_missions, load_persisted_history
@@ -2935,6 +3079,7 @@ class ManagerConfigUpdate(BaseModel):
     director_about: str | None = None
     accent_color: str | None = None
     specialists: list[str] | None = None
+    allowed_services: dict[str, bool] | None = None
 
 
 @app.post("/manager/config")

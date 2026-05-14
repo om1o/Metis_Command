@@ -104,8 +104,8 @@ If stuck after a few attempts: document **observed vs expected**, **minimal repr
 
 ### Current focus & gaps (edit per sprint)
 
-- **Current focus:** *(e.g. UI theme polish, wallet edge cases, roster reliability)*  
-- **Known gaps / next:** *(e.g. tests for X, docs for Y)*  
+- **Current focus:** *(e.g. UI theme polish, wallet edge cases, roster reliability)*
+- **Known gaps / next:** *(e.g. tests for X, docs for Y)*
 - **Out of scope unless asked:** *(e.g. licensing changes, removing local-first guarantees)*
 
 ### Short recap (one block to paste at top of a chat)

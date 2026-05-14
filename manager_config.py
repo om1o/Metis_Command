@@ -142,6 +142,7 @@ class ManagerConfig:
     director_about: str = ""
     accent_color: str = "#7C3AED"
     specialists: list[str] = field(default_factory=lambda: ["Researcher", "Coder", "Thinker", "Scholar"])
+    allowed_services: dict[str, bool] = field(default_factory=dict)
     configured_at: str = ""
     schema_version: int = 1
 

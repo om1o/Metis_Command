@@ -36,7 +36,50 @@ from run_contracts import build_run_contract, normalize_mode, normalize_permissi
 from safety import PATHS, file_lock  # noqa: E402
 
 SCHEDULES_FILE = PATHS.identity / "schedules.json"
+AUTOMATION_EVENTS_FILE = PATHS.identity / "automation_events.jsonl"
 _CHECK_INTERVAL = 30.0
+
+
+def _events_file() -> Path:
+    return PATHS.identity / "automation_events.jsonl"
+
+
+def append_event(schedule: "Schedule", *, trigger: str, status: str, details: dict[str, Any] | None = None) -> dict[str, Any]:
+    event = {
+        "id": uuid.uuid4().hex[:12],
+        "schedule_id": schedule.id,
+        "trigger": trigger,
+        "status": status,
+        "goal": schedule.goal,
+        "action": schedule.action,
+        "created_at": time.time(),
+        "details": details or {},
+    }
+    path = _events_file()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with file_lock("automation_events"):
+        with path.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(event, ensure_ascii=False, default=str) + "\n")
+    return event
+
+
+def list_events(limit: int = 100) -> list[dict[str, Any]]:
+    path = _events_file()
+    if not path.exists():
+        return []
+    rows: list[dict[str, Any]] = []
+    for line in path.read_text(encoding="utf-8").splitlines()[-max(1, limit):]:
+        try:
+            rows.append(json.loads(line))
+        except Exception:
+            continue
+    return list(reversed(rows))
+
+
+def _attach_run_event(schedule: "Schedule", result: dict[str, Any], *, trigger: str = "manual") -> dict[str, Any]:
+    details = dict(result)
+    result["event"] = append_event(schedule, trigger=trigger, status=str(result.get("status", "")), details=details)
+    return result
 
 
 def _notify_inbox_fired(s: "Schedule", *, body: str) -> None:
@@ -238,12 +281,12 @@ def run_now(schedule_id: str) -> dict | None:
             if handler:
                 handler()
                 _notify_inbox_fired(target, body=f"Action `{target.action}` ran on demand.")
-                return {"id": schedule_id, "status": "action_ran", "action": target.action}
+                return _attach_run_event(target, {"id": schedule_id, "status": "action_ran", "action": target.action})
             _notify_inbox_fired(target, body=f"Action `{target.action}` is not registered.")
-            return {"id": schedule_id, "status": "action_missing", "action": target.action}
+            return _attach_run_event(target, {"id": schedule_id, "status": "action_missing", "action": target.action})
         except Exception as e:
             _notify_inbox_fired(target, body=f"Action `{target.action}` failed: {e}")
-            return {"id": schedule_id, "status": "failed", "action": target.action, "error": str(e)}
+            return _attach_run_event(target, {"id": schedule_id, "status": "failed", "action": target.action, "error": str(e)})
     else:
         try:
             from concurrency import submit_mission  # type: ignore
@@ -255,10 +298,10 @@ def run_now(schedule_id: str) -> dict | None:
                 project_slug=target.project_slug,
             )
             _notify_inbox_fired(target, body="Triggered manually. Check the chat or workspace for the result.")
-            return {"id": schedule_id, "status": mission.status, "mission_id": mission.id}
+            return _attach_run_event(target, {"id": schedule_id, "status": mission.status, "mission_id": mission.id})
         except Exception as e:
             _notify_inbox_fired(target, body=f"Could not trigger: {e}")
-            return {"id": schedule_id, "status": "failed", "error": str(e)}
+            return _attach_run_event(target, {"id": schedule_id, "status": "failed", "error": str(e)})
 
 
 def list_schedules() -> list[Schedule]:
@@ -402,24 +445,33 @@ def start_scheduler(runner: Callable[[Schedule], None] | None = None) -> None:
                     status = handler()
                     audit({"event": "scheduler_action_ran",
                            "action": s.action, "schedule_id": s.id, "status": status})
+                    append_event(s, trigger="schedule", status="action_ran", details={"handler_status": status})
                     _notify_inbox_fired(s, body=f"Action `{s.action}` finished with status: {status}.")
                 except Exception as e:
                     audit({"event": "scheduler_action_failed",
                            "action": s.action, "schedule_id": s.id, "error": str(e)})
+                    append_event(s, trigger="schedule", status="failed", details={"error": str(e)})
                     _notify_inbox_fired(s, body=f"Action `{s.action}` failed: {e}")
                 return
 
             try:
                 from concurrency import submit_mission
-                submit_mission(
+                mission = submit_mission(
                     goal=build_run_contract(s.goal, mode=s.mode, permission=s.permission),
                     tag=f"scheduled:{s.id}",
                     auto_approve=s.auto_approve,
                     project_slug=s.project_slug,
                 )
+                append_event(
+                    s,
+                    trigger="schedule",
+                    status=getattr(mission, "status", "queued"),
+                    details={"mission_id": getattr(mission, "id", None)},
+                )
                 _notify_inbox_fired(s, body="Mission queued. Check the chat or workspace for the result.")
             except Exception as e:
                 audit({"event": "scheduler_submit_failed", "schedule_id": s.id, "error": str(e)})
+                append_event(s, trigger="schedule", status="failed", details={"error": str(e)})
                 _notify_inbox_fired(s, body=f"Could not queue mission: {e}")
 
     _running.set()

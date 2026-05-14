@@ -17,6 +17,7 @@ import atexit
 import json
 import os
 import re
+import shutil
 import time
 from pathlib import Path
 from typing import Any
@@ -80,6 +81,26 @@ def _check_url(url: str) -> None:
     blocked = _block_hosts_active()
     if any(host == b or host.endswith(f".{b}") for b in blocked):
         raise PermissionError(f"Host blocked: {host}")
+    try:
+        import manager_config
+        cfg = manager_config.get_config("local-install")
+        disabled: set[str] = set()
+        for service, enabled in (cfg.allowed_services or {}).items():
+            if enabled:
+                continue
+            name = str(service or "").strip().lower()
+            if not name:
+                continue
+            disabled.add(name)
+            if "." not in name:
+                disabled.add(f"{name}.com")
+        for domain in disabled:
+            if host == domain or host.endswith(f".{domain}"):
+                raise PermissionError(f"Browser navigation disabled for {domain}")
+    except PermissionError:
+        raise
+    except Exception:
+        pass
 
 
 # ── Session singleton ────────────────────────────────────────────────────────
@@ -128,25 +149,32 @@ class Browser:
                 "user_agent": ua,
             }
             try:
-                self._ctx = self._pw.chromium.launch_persistent_context(
-                    user_data_dir=str(BROWSER_PROFILE_DIR),
-                    channel="chrome",
-                    **launch_kwargs,
-                )
-            except Exception:
-                self._ctx = self._pw.chromium.launch_persistent_context(
-                    user_data_dir=str(BROWSER_PROFILE_DIR),
-                    **launch_kwargs,
-                )
-            self._browser = None  # persistent_context doesn't expose .browser cleanly
-            self._page = self._ctx.pages[0] if self._ctx.pages else self._ctx.new_page()
-            audit({
-                "event": "browser_started",
-                "headless": headless,
-                "mode": "persistent_profile",
-                "profile_dir": str(BROWSER_PROFILE_DIR),
-            })
-            return {"ok": True, "mode": "persistent_profile"}
+                try:
+                    self._ctx = self._pw.chromium.launch_persistent_context(
+                        user_data_dir=str(BROWSER_PROFILE_DIR),
+                        channel="chrome",
+                        **launch_kwargs,
+                    )
+                except Exception:
+                    self._ctx = self._pw.chromium.launch_persistent_context(
+                        user_data_dir=str(BROWSER_PROFILE_DIR),
+                        **launch_kwargs,
+                    )
+                self._browser = None  # persistent_context doesn't expose .browser cleanly
+                self._page = self._ctx.pages[0] if self._ctx.pages else self._ctx.new_page()
+                audit({
+                    "event": "browser_started",
+                    "headless": headless,
+                    "mode": "persistent_profile",
+                    "profile_dir": str(BROWSER_PROFILE_DIR),
+                })
+                return {"ok": True, "mode": "persistent_profile"}
+            except Exception as e:
+                audit({
+                    "event": "browser_profile_fallback",
+                    "profile_dir": str(BROWSER_PROFILE_DIR),
+                    "error": str(e),
+                })
         # Legacy path — ephemeral context loading storage_state if present.
         self._browser = self._pw.chromium.launch(headless=headless)
         ctx_kwargs: dict[str, Any] = {
@@ -163,7 +191,11 @@ class Browser:
             "mode": "ephemeral",
             "loaded_state": BROWSER_STATE_FILE.exists(),
         })
-        return {"ok": True, "mode": "ephemeral", "loaded_state": BROWSER_STATE_FILE.exists()}
+        return {
+            "ok": True,
+            "mode": "ephemeral",
+            "loaded_state": BROWSER_STATE_FILE.exists(),
+        }
 
     def save_state(self) -> dict[str, Any]:
         """Snapshot cookies + localStorage to disk so the next session
@@ -179,12 +211,22 @@ class Browser:
             return {"ok": False, "error": str(e)}
 
     def clear_state(self) -> dict[str, Any]:
-        """Delete the persisted state file. Useful for sign-out."""
+        """Delete persisted session state and the Chrome profile directory."""
         try:
+            self.close()
             if BROWSER_STATE_FILE.exists():
                 BROWSER_STATE_FILE.unlink()
-            audit({"event": "browser_state_cleared"})
-            return {"ok": True}
+            profile_cleared = False
+            if BROWSER_PROFILE_DIR.exists():
+                shutil.rmtree(BROWSER_PROFILE_DIR)
+                profile_cleared = True
+            audit({"event": "browser_state_cleared", "profile_cleared": profile_cleared})
+            return {
+                "ok": True,
+                "state_file": str(BROWSER_STATE_FILE),
+                "profile_dir": str(BROWSER_PROFILE_DIR),
+                "profile_cleared": profile_cleared,
+            }
         except Exception as e:
             return {"ok": False, "error": str(e)}
 
@@ -772,6 +814,16 @@ def _launch_chrome_with_debug_port(
     return {"ok": False, "error": "Chrome started but debug port never opened"}
 
 
+def _cdp_ready(port: int) -> bool:
+    import urllib.request
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/json/version", timeout=1.0) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        return bool(data.get("webSocketDebuggerUrl") or data.get("Browser"))
+    except Exception:
+        return False
+
+
 def login_helper(
     start_url: str = "about:blank",
     *,
@@ -813,7 +865,7 @@ def login_helper(
             launch_res = _launch_chrome_with_debug_port(
                 port, str(BROWSER_PROFILE_DIR), start_url=start_url,
             )
-            if not launch_res.get("ok"):
+            if not launch_res.get("ok") or not _cdp_ready(port):
                 # CDP route failed; fall through to launch_persistent_context.
                 use_cdp = False
             else:
