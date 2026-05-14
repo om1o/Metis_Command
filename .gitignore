@@ -51,6 +51,7 @@ site/.next/
 site/out/
 site/.vercel/
 .metis_setup_done
+supabase/.temp/
 
 # ── Build & distribution ─────────────────────────────────────────────────────
 build/
