@@ -14,14 +14,17 @@ create table if not exists public.memory (
 );
 
 create index if not exists memory_session_idx on public.memory (session_id, created_at);
+create index if not exists memory_user_session_created_at_idx
+  on public.memory (user_id, session_id, created_at);
 
 alter table public.memory enable row level security;
 
 create policy "Users can manage their own memory"
   on public.memory
   for all
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
 
 
 -- ── sync_log ──────────────────────────────────────────────────
@@ -37,11 +40,15 @@ create table if not exists public.sync_log (
 
 alter table public.sync_log enable row level security;
 
+create index if not exists sync_log_user_created_at_idx
+  on public.sync_log (user_id, created_at desc);
+
 create policy "Users can view their own sync log"
   on public.sync_log
   for all
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
 
 
 -- ── leads (swarm mission output) ─────────────────────────────
