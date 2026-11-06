@@ -31,7 +31,8 @@ def _llm_for(role: str) -> LLM | None:
             base = (os.getenv("GLM_BASE") or "https://open.bigmodel.cn/api/paas/v4").rstrip("/")
             try:
                 return LLM(
-                    model=f"openai/{model}",
+                    model=model,
+                    provider="openai",
                     base_url=base,
                     api_key=os.getenv("GLM_API_KEY"),
                 )
@@ -43,7 +44,8 @@ def _llm_for(role: str) -> LLM | None:
             groq_base = (os.getenv("GROQ_BASE") or "https://api.groq.com/openai/v1").rstrip("/")
             try:
                 return LLM(
-                    model=f"openai/{groq_model}",
+                    model=groq_model,
+                    provider="openai",
                     base_url=groq_base,
                     api_key=os.getenv("GROQ_API_KEY"),
                 )
@@ -53,7 +55,14 @@ def _llm_for(role: str) -> LLM | None:
     if os.getenv("OPENAI_API_KEY"):
         return None
     model = ROLE_MODELS.get(role, ROLE_MODELS["default"])
-    return LLM(model=f"ollama/{model}", base_url=OLLAMA_BASE)
+    # Ollama accepts the OpenAI chat API; explicit provider routes through
+    # CrewAI's native client even for local model names outside its catalog.
+    return LLM(
+        model=model,
+        provider="openai",
+        base_url=f"{OLLAMA_BASE.rstrip('/')}/v1",
+        api_key="ollama",  # required by the client, ignored by local Ollama
+    )
 
 
 def _genius_available() -> bool:
