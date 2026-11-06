@@ -6,6 +6,7 @@ import json
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+import brain_engine
 import swarm_agents
 
 
@@ -76,3 +77,12 @@ def test_lite_tier_uses_model_in_lite_manifest(monkeypatch, tmp_path) -> None:
     assert swarm_agents._local_model_for("coder") == "qwen2.5-coder:1.5b"
     assert swarm_agents._local_model_for("thinker") == "deepseek-r1:1.5b"
     assert swarm_agents._local_model_for("genius") == "glm4:9b"
+
+
+def test_genius_roster_requires_the_model_it_will_call(monkeypatch) -> None:
+    monkeypatch.delenv("GLM_API_KEY", raising=False)
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    monkeypatch.setattr(brain_engine, "list_local_models", lambda: ["glm4:latest"])
+    assert swarm_agents._genius_available() is False
+    monkeypatch.setattr(brain_engine, "list_local_models", lambda: ["glm4:9b"])
+    assert swarm_agents._genius_available() is True

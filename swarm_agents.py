@@ -89,15 +89,14 @@ def _llm_for(role: str) -> LLM | None:
 
 
 def _genius_available() -> bool:
-    """True when Z.ai GLM, Groq, or local glm4 via Ollama is reachable."""
+    """True when a cloud Genius key or its exact local model is available."""
     if os.getenv("GLM_API_KEY"):
         return True
     if os.getenv("GROQ_API_KEY"):
         return True
     try:
         from brain_engine import list_local_models
-        names = list_local_models()
-        return any(n.startswith("glm4") or n.startswith("glm-") for n in names)
+        return ROLE_LOCAL_FALLBACK["genius"] in list_local_models()
     except Exception:
         return False
 
