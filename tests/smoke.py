@@ -333,8 +333,10 @@ def main() -> int:
     def t_bootstrap() -> None:
         from scripts import bootstrap
         assert bootstrap.venv_python().name.startswith("python")
-        # MODELS_BY_TIER has the expected tiers
-        assert set(bootstrap.MODELS_BY_TIER) == {"Lite", "Pro", "Sovereign"}
+        # Launcher tiers map to the model manager's actual manifest names.
+        assert bootstrap.MODEL_TIER_ALIASES == {
+            "Lite": "Lite", "Pro": "Standard", "Sovereign": "Sovereign"
+        }
     failed += 0 if _step("launch bootstrap importable", t_bootstrap) else 1
 
     # 15 — Scheduler seeding (idempotent)
