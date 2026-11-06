@@ -102,6 +102,7 @@ CHECKS: dict[str, Check] = {
             "tests/unit/test_qql.py",
             "tests/unit/test_release_gate.py",
             "tests/unit/test_ai_smoke_gate.py",
+            "tests/unit/test_bootstrap.py",
             "-q",
         ),
     ),

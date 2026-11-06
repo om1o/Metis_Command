@@ -11,6 +11,7 @@ def test_parse_quality_alias_expands_in_order() -> None:
     checks = qql.parse_query("quality")
 
     assert [check.key for check in checks] == ["quality.diff", "tests.qql", "tests.backend"]
+    assert "tests/unit/test_bootstrap.py" in checks[1].command
 
 
 def test_parse_query_accepts_spaces_commas_and_plus_signs() -> None:
