@@ -13,12 +13,32 @@ Exports:
 
 from __future__ import annotations
 
+import json
 import os
 
 from crewai import Agent, LLM
 
 from brain_engine import OLLAMA_BASE, ROLE_MODELS
 from custom_tools import internet_search
+from module_manager import TIER_MANIFEST
+from scripts.bootstrap import MODEL_TIER_ALIASES, STAMP_FILE
+
+
+def _local_model_for(role: str) -> str:
+    """Choose a model included in the launcher's selected local tier."""
+    try:
+        tier = json.loads(STAMP_FILE.read_text(encoding="utf-8")).get("tier", "Pro")
+    except (OSError, ValueError, TypeError):
+        tier = "Pro"
+    manifest = TIER_MANIFEST[MODEL_TIER_ALIASES.get(tier, "Standard")]
+    included = {name for name, _ in manifest}
+    # These roles have cloud primary names in brain_engine, not Ollama names.
+    preferred = (
+        "qwen2.5-coder:7b"
+        if role in {"manager", "genius"}
+        else ROLE_MODELS.get(role, ROLE_MODELS["default"])
+    )
+    return preferred if preferred in included else "qwen2.5-coder:1.5b"
 
 
 def _llm_for(role: str) -> LLM | None:
@@ -54,7 +74,7 @@ def _llm_for(role: str) -> LLM | None:
 
     if os.getenv("OPENAI_API_KEY"):
         return None
-    model = ROLE_MODELS.get(role, ROLE_MODELS["default"])
+    model = _local_model_for(role)
     # Ollama accepts the OpenAI chat API; explicit provider routes through
     # CrewAI's native client even for local model names outside its catalog.
     return LLM(
