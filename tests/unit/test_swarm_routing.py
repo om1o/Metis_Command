@@ -75,3 +75,4 @@ def test_lite_tier_uses_model_in_lite_manifest(monkeypatch, tmp_path) -> None:
     assert swarm_agents._local_model_for("manager") == "qwen2.5-coder:1.5b"
     assert swarm_agents._local_model_for("coder") == "qwen2.5-coder:1.5b"
     assert swarm_agents._local_model_for("thinker") == "deepseek-r1:1.5b"
+    assert swarm_agents._local_model_for("genius") == "glm4:9b"

@@ -18,24 +18,27 @@ import os
 
 from crewai import Agent, LLM
 
-from brain_engine import OLLAMA_BASE, ROLE_MODELS
+from brain_engine import OLLAMA_BASE, ROLE_LOCAL_FALLBACK, ROLE_MODELS
 from custom_tools import internet_search
 from module_manager import TIER_MANIFEST
 from scripts.bootstrap import MODEL_TIER_ALIASES, STAMP_FILE
 
 
 def _local_model_for(role: str) -> str:
-    """Choose a model included in the launcher's selected local tier."""
+    """Choose a tier model, or the separately installed Genius fallback."""
+    # Genius is offered only when its separately installed local model exists.
+    if role == "genius":
+        return ROLE_LOCAL_FALLBACK["genius"]
     try:
         tier = json.loads(STAMP_FILE.read_text(encoding="utf-8")).get("tier", "Pro")
     except (OSError, ValueError, TypeError):
         tier = "Pro"
     manifest = TIER_MANIFEST[MODEL_TIER_ALIASES.get(tier, "Standard")]
     included = {name for name, _ in manifest}
-    # These roles have cloud primary names in brain_engine, not Ollama names.
+    # Manager's primary name in brain_engine is a cloud model.
     preferred = (
         "qwen2.5-coder:7b"
-        if role in {"manager", "genius"}
+        if role == "manager"
         else ROLE_MODELS.get(role, ROLE_MODELS["default"])
     )
     return preferred if preferred in included else "qwen2.5-coder:1.5b"
