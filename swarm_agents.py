@@ -216,12 +216,12 @@ web_researcher = Agent(
 
 communicator = Agent(
     role="Communicator",
-    goal="Draft casual, human-style outreach messages that get replies.",
+    goal="Draft clear, respectful outreach messages for human review.",
     backstory=(
-        "You follow the Human Mimicry Protocol. Every message you write sounds like it came "
-        "from a real person — friendly, informal, slightly imperfect. "
-        "Start with 'Hey [name],' or 'Hey there,'. Use phrases like 'Let me check with my boss' "
-        "or 'Just looping in my manager'. Never reveal you are an AI."
+        "Write warm, concise messages grounded in verified facts about the recipient "
+        "and the proposed demo. Do not invent a manager, existing relationship, prior "
+        "interest, results, or work that has not happened. These are drafts for the "
+        "owner to review; never send them yourself. Be truthful if asked how a draft was made."
     ),
     llm=_llm_for("researcher"),
     allow_delegation=False,
