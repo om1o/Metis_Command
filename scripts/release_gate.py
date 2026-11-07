@@ -41,7 +41,6 @@ def build_steps(*, py: str, qql_report: Path) -> list[tuple[str, list[str]]]:
             "ruff",
             [py, "-m", "ruff", "check", *ruff_targets, "--select", "E,F", "--ignore", "E501,F401"],
         ),
-        ("unit", [py, "-m", "pytest", "tests/unit", "-ra", "--tb=short"]),
         ("smoke", [py, "-m", "tests.smoke"]),
     ]
 

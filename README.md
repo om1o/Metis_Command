@@ -1,10 +1,10 @@
 # Metis Command
 
-**Local-first autonomous AI desktop. Five-agent swarm, persistent memory, policy-gated autonomy — every byte on your hardware.**
+**Local-first autonomous AI desktop. Five-agent swarm, persistent memory, policy-gated autonomy.**
 
 [![ci](https://github.com/om1o/Metis_Command/actions/workflows/ci.yml/badge.svg)](https://github.com/om1o/Metis_Command/actions/workflows/ci.yml)
 
-Metis is a Claude.ai / Codex-style desktop AI that orchestrates a swarm of specialists on top of local Ollama models — with an optional GLM-4.6 "Genius" brain over the Z.ai API. Memory persists across sessions via ChromaDB + Supabase. Skills are forged on demand and executed inside a Docker sandbox. Voice and computer-use tools let Metis hear you and drive your desktop.
+Metis is a Claude.ai / Codex-style desktop AI that orchestrates a swarm of specialists on top of local Ollama models — with an optional GLM-4.6 "Genius" brain over the Z.ai API. Local-install chat history uses SQLite; cloud-user memory uses Supabase when configured. Other long-term memory features use local ChromaDB. Skills are forged on demand and executed inside a Docker sandbox. Voice and computer-use tools let Metis hear you and drive your desktop.
 
 ---
 
@@ -18,26 +18,28 @@ Metis is a Claude.ai / Codex-style desktop AI that orchestrates a swarm of speci
 python launch.py
 ```
 
-First run takes 5–15 minutes (venv, pinned deps, Ollama models, opens the desktop window). Subsequent runs start in ~3 seconds.
+First run creates a venv, installs pinned dependencies, pulls the selected Ollama models when available, and opens the desktop window. The time depends on the selected models and download speed.
 
 Flags:
 
 | Flag              | Effect                                           |
 |-------------------|--------------------------------------------------|
-| `--tier Lite`     | Tiny models only (~4 GB). Good for laptops.      |
-| `--tier Pro`      | Default. Balanced daily driver (~12 GB).         |
-| `--tier Sovereign`| Everything, including GLM + vision (~35 GB).     |
+| `--tier Lite`     | Four smaller local models. Good for laptops.      |
+| `--tier Pro`      | Default; six local models, including 7B coding and vision. |
+| `--tier Sovereign`| Eight local models, adding larger reasoning and coding models. |
 | `--skip-models`   | Don't pull any Ollama models this run.           |
 | `--no-window`     | Headless — UI served at http://127.0.0.1:8501.   |
 | `--reset`         | Nuke the venv + setup stamp and start over.      |
 
-If you don't have Ollama yet, `launch.py` detects it, prints the download link, and opens Metis anyway in cloud-only mode (GLM / OpenAI). Install Ollama from https://ollama.com/download and re-run to enable local brains.
+If you don't have Ollama yet, `launch.py` detects it, prints the download link, and opens the UI. Agent requests then need a configured cloud provider until you install Ollama from https://ollama.com/download and re-run to enable local brains.
+
+The local-install chat store can save and reload messages without Supabase credentials. Cloud sign-in, cloud-user memory, and sync need a configured and reachable Supabase project. The tier downloads do not include a local `glm4` model; the Genius fallback needs one installed separately or a configured cloud provider.
 
 ## Architecture
 
 ```mermaid
 flowchart TD
-    User --> Genius["Genius<br/>GLM-4.6 or local glm4"]
+    User --> Genius["Genius<br/>configured GLM-4.6 or separately installed local glm4"]
     Genius --> Manager
     Manager --> Coder
     Manager --> Thinker
@@ -50,7 +52,7 @@ flowchart TD
 
     Brains["Brains<br/>episodic / semantic / procedural<br/>auto-compacted"] --> Chroma[(ChromaDB)]
     Manager --> Brains
-    Brains --> Supabase[(Supabase)]
+    Brains --> Supabase[(Supabase, optional cloud path)]
     Brains --> MTS[".mts AES-GCM backup"]
 
     Wallet["Orchestrator Wallet<br/>policies + monthly cap"] --> Manager
@@ -62,7 +64,7 @@ flowchart TD
 ## Features
 
 ### Genius brain
-GLM-4.6 via Z.ai (set `GLM_API_KEY` in `.env`) with automatic fallback to local `glm4:9b` through Ollama. Cloud calls auto-bill through the Wallet so spend is always capped.
+GLM-4.6 via Z.ai (set `GLM_API_KEY` in `.env`) with fallback to local `glm4:9b` through Ollama only when that model is installed separately. Cloud calls auto-bill through the Wallet so spend is always capped.
 
 ### Brains — memory that never forgets
 Swappable long-term memory profiles, each with three tiers:

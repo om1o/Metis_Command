@@ -34,7 +34,7 @@ def create_tasks(
             "  - Contact info or profile URL\n"
             "  - One-line reason they are a strong target\n\n"
             "Use the internet_search tool. Verify each lead is current (active in the last 12 months). "
-            "Do NOT fabricate contacts. If fewer than {lead_count} verified leads exist, return what you find."
+            f"Do NOT fabricate contacts. If fewer than {lead_count} verified leads exist, return what you find."
         ),
         agent=researcher_agent,
         tools=[internet_search],
@@ -51,10 +51,11 @@ def create_tasks(
             "  - Tone: casual, warm, human. Never robotic.\n"
             "  - Open with 'Hey [name],' or 'Hey there,'\n"
             "  - Reference something specific about them (from the research)\n"
-            "  - Include one of: 'Let me check with my boss', 'Just looping in my manager', "
-            "    or 'We've been keeping an eye on your work'\n"
+            "  - State the real reason for contacting them; do not invent a boss, prior interest, "
+            "    a relationship, or work that has not happened.\n"
             "  - Max 5 sentences. No hard sell.\n"
             "  - End with a soft CTA: 'Would love to connect — worth a quick chat?'\n\n"
+            "These are drafts for human review, not messages to send.\n"
             "After all drafts, output a SUMMARY TABLE with columns: "
             "Name | Email/URL | Subject Line | First 20 words of message"
         ),

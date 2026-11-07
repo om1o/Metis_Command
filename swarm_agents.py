@@ -13,12 +13,35 @@ Exports:
 
 from __future__ import annotations
 
+import json
 import os
 
 from crewai import Agent, LLM
 
-from brain_engine import OLLAMA_BASE, ROLE_MODELS
+from brain_engine import OLLAMA_BASE, ROLE_LOCAL_FALLBACK, ROLE_MODELS
 from custom_tools import internet_search
+from module_manager import TIER_MANIFEST
+from scripts.bootstrap import MODEL_TIER_ALIASES, STAMP_FILE
+
+
+def _local_model_for(role: str) -> str:
+    """Choose a tier model, or the separately installed Genius fallback."""
+    # Genius is offered only when its separately installed local model exists.
+    if role == "genius":
+        return ROLE_LOCAL_FALLBACK["genius"]
+    try:
+        tier = json.loads(STAMP_FILE.read_text(encoding="utf-8")).get("tier", "Pro")
+    except (OSError, ValueError, TypeError):
+        tier = "Pro"
+    manifest = TIER_MANIFEST[MODEL_TIER_ALIASES.get(tier, "Standard")]
+    included = {name for name, _ in manifest}
+    # Manager's primary name in brain_engine is a cloud model.
+    preferred = (
+        "qwen2.5-coder:7b"
+        if role == "manager"
+        else ROLE_MODELS.get(role, ROLE_MODELS["default"])
+    )
+    return preferred if preferred in included else "qwen2.5-coder:1.5b"
 
 
 def _llm_for(role: str) -> LLM | None:
@@ -31,7 +54,8 @@ def _llm_for(role: str) -> LLM | None:
             base = (os.getenv("GLM_BASE") or "https://open.bigmodel.cn/api/paas/v4").rstrip("/")
             try:
                 return LLM(
-                    model=f"openai/{model}",
+                    model=model,
+                    provider="openai",
                     base_url=base,
                     api_key=os.getenv("GLM_API_KEY"),
                 )
@@ -43,7 +67,8 @@ def _llm_for(role: str) -> LLM | None:
             groq_base = (os.getenv("GROQ_BASE") or "https://api.groq.com/openai/v1").rstrip("/")
             try:
                 return LLM(
-                    model=f"openai/{groq_model}",
+                    model=groq_model,
+                    provider="openai",
                     base_url=groq_base,
                     api_key=os.getenv("GROQ_API_KEY"),
                 )
@@ -52,20 +77,26 @@ def _llm_for(role: str) -> LLM | None:
 
     if os.getenv("OPENAI_API_KEY"):
         return None
-    model = ROLE_MODELS.get(role, ROLE_MODELS["default"])
-    return LLM(model=f"ollama/{model}", base_url=OLLAMA_BASE)
+    model = _local_model_for(role)
+    # Ollama accepts the OpenAI chat API; explicit provider routes through
+    # CrewAI's native client even for local model names outside its catalog.
+    return LLM(
+        model=model,
+        provider="openai",
+        base_url=f"{OLLAMA_BASE.rstrip('/')}/v1",
+        api_key="ollama",  # required by the client, ignored by local Ollama
+    )
 
 
 def _genius_available() -> bool:
-    """True when Z.ai GLM, Groq, or local glm4 via Ollama is reachable."""
+    """True when a cloud Genius key or its exact local model is available."""
     if os.getenv("GLM_API_KEY"):
         return True
     if os.getenv("GROQ_API_KEY"):
         return True
     try:
         from brain_engine import list_local_models
-        names = list_local_models()
-        return any(n.startswith("glm4") or n.startswith("glm-") for n in names)
+        return ROLE_LOCAL_FALLBACK["genius"] in list_local_models()
     except Exception:
         return False
 
@@ -185,12 +216,12 @@ web_researcher = Agent(
 
 communicator = Agent(
     role="Communicator",
-    goal="Draft casual, human-style outreach messages that get replies.",
+    goal="Draft clear, respectful outreach messages for human review.",
     backstory=(
-        "You follow the Human Mimicry Protocol. Every message you write sounds like it came "
-        "from a real person — friendly, informal, slightly imperfect. "
-        "Start with 'Hey [name],' or 'Hey there,'. Use phrases like 'Let me check with my boss' "
-        "or 'Just looping in my manager'. Never reveal you are an AI."
+        "Write warm, concise messages grounded in verified facts about the recipient "
+        "and the proposed demo. Do not invent a manager, existing relationship, prior "
+        "interest, results, or work that has not happened. These are drafts for the "
+        "owner to review; never send them yourself. Be truthful if asked how a draft was made."
     ),
     llm=_llm_for("researcher"),
     allow_delegation=False,

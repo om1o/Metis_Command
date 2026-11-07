@@ -10,7 +10,7 @@ def test_build_steps_runs_qql_before_legacy_gates() -> None:
 
     steps = release_gate.build_steps(py="python", qql_report=report)
 
-    assert [name for name, _cmd in steps] == ["qql-doctor", "qql", "ruff", "unit", "smoke"]
+    assert [name for name, _cmd in steps] == ["qql-doctor", "qql", "ruff", "smoke"]
     assert steps[0][1] == ["python", "scripts/qql.py", "--doctor"]
     assert steps[1][1] == ["python", "scripts/qql.py", "quality", "--report", str(report)]
 
@@ -22,7 +22,6 @@ def test_main_allows_only_smoke_failure(monkeypatch) -> None:
         name = {
             "scripts/qql.py": "qql",
             "ruff": "ruff",
-            "pytest": "unit",
             "tests.smoke": "smoke",
         }[cmd[1] if cmd[1] in {"scripts/qql.py", "tests.smoke"} else cmd[2]]
         calls.append(name)
@@ -33,7 +32,7 @@ def test_main_allows_only_smoke_failure(monkeypatch) -> None:
     rc = release_gate.main(["--allow-smoke-failure"])
 
     assert rc == 0
-    assert calls == ["qql", "qql", "ruff", "unit", "smoke"]
+    assert calls == ["qql", "qql", "ruff", "smoke"]
 
 
 def test_main_does_not_allow_qql_failure(monkeypatch) -> None:

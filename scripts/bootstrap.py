@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parent.parent
 VENV_DIR = ROOT / ".venv"
 STAMP_FILE = ROOT / ".metis_setup_done"
 REQS_FILE = ROOT / "requirements.txt"
+MODEL_TIER_ALIASES = {"Lite": "Lite", "Pro": "Standard", "Sovereign": "Sovereign"}
 
 
 def venv_python() -> Path:
@@ -63,9 +64,11 @@ def _pull_models(tier: str) -> None:
     """Pull Ollama models for the selected tier — best-effort."""
     try:
         py = venv_python()
+        model_tier = MODEL_TIER_ALIASES[tier]
         subprocess.check_call(
             [str(py), "-c",
-             f"from module_manager import pull_tier; pull_tier('{tier}')"],
+             "from module_manager import download_tier_silent; "
+             f"download_tier_silent({model_tier!r}).join()"],
             cwd=str(ROOT),
         )
     except Exception as e:

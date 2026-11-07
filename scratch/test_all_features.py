@@ -8,7 +8,12 @@ import swarm_agents
 from crewai import LLM
 from brain_engine import OLLAMA_BASE
 def fast_llm(role):
-    return LLM(model="ollama/qwen2.5-coder:1.5b", base_url=OLLAMA_BASE)
+    return LLM(
+        model="qwen2.5-coder:1.5b",
+        provider="openai",
+        base_url=f"{OLLAMA_BASE.rstrip('/')}/v1",
+        api_key="ollama",
+    )
 swarm_agents._llm_for = fast_llm
 
 from crew_engine import run_agentic_mission
